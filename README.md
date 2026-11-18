@@ -36,7 +36,7 @@ go tool mygo build      # 打包，产物在 build/
 
 开发规则见 `AGENTS.md`，质量门槛见 `CONSTRAINTS.md`，提交规范见 `docs/commits.md`，发布流程见 `docs/release.md`。
 
-功能分支从 `test` 切出，合并回 `test` 后只运行质量检查；从 `test` 向 `main` 开 PR，合并后自动发布正式版本。
+功能分支从 `test` 切出，合并回 `test` 后只运行质量检查；文档和小修复可以直接推送 `test`。从 `test` 向 `main` 开 PR，合并后自动发布正式版本。
 
 ## 许可证
 

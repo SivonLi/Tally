@@ -24,7 +24,7 @@ latest=$(
   gh release list --repo "$repo" --exclude-drafts --limit 100 --json tagName \
     --jq '.[].tagName' |
     sed -n 's/^v\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$/\1/p' |
-    sort -V |
+    sort -t. -k1,1n -k2,2n -k3,3n |
     tail -n 1
 )
 
@@ -33,7 +33,7 @@ if [ -n "$latest" ]; then
     echo "版本 $version 已发布"
     exit 1
   fi
-  highest=$(printf '%s\n%s\n' "$latest" "$version" | sort -V | tail -n 1)
+  highest=$(printf '%s\n%s\n' "$latest" "$version" | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1)
   if [ "$highest" != "$version" ]; then
     echo "版本 $version 不高于已发布版本 v$latest"
     exit 1

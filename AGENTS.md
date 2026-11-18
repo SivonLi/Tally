@@ -76,9 +76,10 @@ MYGO=$(go list -m -f '{{.Dir}}' github.com/egoist/mygo)
 - `test`：日常开发分支，也是默认分支。功能分支从 `test` 切出，通过 PR 合回；文档和小修复允许直接推送 `test`，推送后仍会运行质量检查。
 - `main`：正式版本分支。每次从 `test` 向 `main` 开 PR，PR 内更新 `mygo.json` 的版本与 `CHANGELOG.md`，合并后自动发布正式版本。
 - 不直接向 `main` 提交；发布标签由 `release.yml` 在发布时创建，指向 `main` 上的提交。
-- 首次正式发布前，通过 GitHub API 或网页从初始提交创建 `main`，不要直接推送该分支。
+- `main` 已从初始提交创建并受分支保护；第一次正式发布时从 `test` 向 `main` 开 PR。
 - `test` 与 `main` 都启用分支保护：禁止强制推送与删除；合并前必须通过 `gates` 与 `windows-build` 检查。
-- `test` 上 Dependabot 的 `patch` 更新与 GitHub Actions 的 `minor` 更新在检查通过后自动合并；`major` 更新保持人工处理，`main` 不使用自动合并。
+- `test` 上 Dependabot 的 `patch` 更新与 GitHub Actions 的 `minor` 更新在检查通过后自动合并；`major` 更新保持人工处理，PR 会自动请求 `SivonLi` 审核，合并使用 squash 与中文标题，`main` 不使用自动合并。
+- `main` 的必需批准数为 0，`.github/CODEOWNERS` 只声明归属，不强制审核，避免单人开发被自审规则阻塞。
 - 提交信息按 `docs/commits.md` 的规范写，正文使用简体中文。一次提交只做一件事。
 - 版本号只改 `mygo.json` 的 `version`，同时补 `CHANGELOG.md` 的小节；新版本必须高于最近一次正式发布版本，不手动打标签。
 

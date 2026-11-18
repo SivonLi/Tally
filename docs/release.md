@@ -7,7 +7,7 @@
 已安装的应用只接受用同一把私钥签名的更新，私钥丢失会让所有已安装的应用无法更新。
 
 ```sh
-mygo keygen
+go tool mygo keygen
 ```
 
 密钥写在 `~/Library/Application Support/mygo/update-keys/`：
@@ -59,7 +59,7 @@ mygo keygen
 - macOS：用户从 dmg 安装后首次启动会被 Gatekeeper 拦截，需要在「系统设置 → 隐私与安全性」里选择「仍要打开」，或右键选择「打开」
 - Windows：未签名的安装包会触发 SmartScreen 提示，用户需要点「更多信息」再点「仍要运行」
 
-自动更新不受影响。更新包用 `mygo keygen` 生成的 Ed25519 密钥签名，与操作系统的代码签名无关，校验失败会拒绝安装。
+自动更新不受影响。更新包用 `go tool mygo keygen` 生成的 Ed25519 密钥签名，与操作系统的代码签名无关，校验失败会拒绝安装。
 
 之后取得证书时补上 `macos.signingIdentity` 与公证凭据（`APPLE_ID`、`APPLE_TEAM_ID`、`APPLE_APP_PASSWORD`），Windows 补上安装包签名配置。
 
@@ -84,13 +84,16 @@ mygo keygen
 
 `test` 分支只运行质量检查，不发布测试版本。
 
-首次发布前，通过 GitHub API 或网页从初始提交创建 `main`。直接推送 `main` 会触发发布工作流，这一步应在 PR 之前完成。
+`main` 已从初始提交创建并受分支保护，必需检查为 `gates` 与 `windows-build`，必需批准数为 0。第一次正式发布时，从 `test` 向 `main` 开 PR，PR 会带入完整项目文件。
 
-1. 功能分支合并进 `test`，通过 `gates` 与 `windows-build` 检查
+1. 改动合并进 `test`，通过 `gates` 与 `windows-build` 检查
 2. 从 `test` 向 `main` 开 PR，在 PR 内修改 `mygo.json` 的 `version` 与 `CHANGELOG.md` 的对应小节
 3. PR 检查通过后合并；`release.yml` 在 `main` 的推送提交上重新运行全部门槛
 4. 工作流校验版本号与变更记录，构建 macOS 与 Windows 包，创建指向 `main` 提交的 `vX.Y.Z` 标签与 Release
 5. Release 先以草稿创建，附件全部上传后再发布，应用不会读到缺少清单或缺少文件的版本
+6. 发布说明取自 `CHANGELOG.md` 对应版本的小节
+
+Dependabot 的 major 依赖 PR 会自动请求 `SivonLi` 审核，合并时使用 squash，提交标题用中文。Dependabot 生成的原始提交标题可能包含英文，squash 后不会进入 `test` 的提交历史。
 
 如果草稿创建后上传失败，下一次发布会先删除同名草稿与标签，再重新创建。已经正式发布的版本不会被覆盖。
 

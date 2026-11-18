@@ -62,4 +62,4 @@
 - `test` 分支只运行质量检查，不创建测试版本
 - 合并到 `main` 的 PR 必须同时更新 `mygo.json` 的 `version` 与 `CHANGELOG.md` 的对应小节
 - 合并到 `main` 的版本号必须严格高于最近一次正式发布版本；重复或更低的版本会让发布工作流终止
-- Dependabot 的 `patch` 更新与 GitHub Actions 的 `minor` 更新必须通过 `gates` 与 `windows-build` 后才能自动合并，`major` 更新必须人工处理
+- Dependabot 的 `patch` 更新与 GitHub Actions 的 `minor` 更新必须通过 `gates` 与 `windows-build` 后才能自动合并，`major` 更新必须人工处理，PR 会自动请求审核人，合并使用 squash 与中文标题
