@@ -3,6 +3,7 @@ package main
 import (
 	"testing"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -17,6 +18,12 @@ func TestView(t *testing.T) {
 	}
 	if a.count != 1 || !tt.HasText("1") {
 		t.Errorf("count %d after a click, texts %q", a.count, tt.Texts())
+	}
+	if err := tt.Click("−"); err != nil {
+		t.Fatal(err)
+	}
+	if a.count != 0 || !tt.HasText("0") {
+		t.Errorf("count %d after a second click, texts %q", a.count, tt.Texts())
 	}
 	if err := tt.Click("Name"); err != nil {
 		t.Fatal(err)
@@ -41,5 +48,31 @@ func TestViewChinese(t *testing.T) {
 	tt.Type("Ada")
 	if !tt.HasText("你好，Ada！") {
 		t.Errorf("texts %q after typing a name", tt.Texts())
+	}
+}
+
+func TestLanguageSwitch(t *testing.T) {
+	a := &app{language: "en"}
+	// 目录访问器通过 i18n.SetLocaleFunc 读取界面语言，测试把它接到 app 状态。
+	i18n.SetLocaleFunc(func() string { return a.language })
+	t.Cleanup(func() { i18n.SetLocaleFunc(nil) })
+	tt := ui.NewTester(a.view, 480, 360)
+	if err := tt.Click(i18n.Autonym("zh-Hans")); err != nil {
+		t.Fatal(err)
+	}
+	if a.language != "zh-Hans" {
+		t.Errorf("language %q after switching to Chinese", a.language)
+	}
+	if !tt.HasText("你好！") {
+		t.Errorf("texts %q after switching to Chinese", tt.Texts())
+	}
+	if err := tt.Click(i18n.Autonym("en")); err != nil {
+		t.Fatal(err)
+	}
+	if a.language != "en" {
+		t.Errorf("language %q after switching to English", a.language)
+	}
+	if !tt.HasText("Hello!") {
+		t.Errorf("texts %q after switching to English", tt.Texts())
 	}
 }

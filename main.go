@@ -37,11 +37,11 @@ func (a *app) view(c *ui.Context) {
 		}
 		ui.Text(c, greeting).TextColor(t.TextMuted)
 		ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
-			if ui.Button(c, "−").Width(44).Clicked() {
+			if ui.Button(c, "−").Label(locales.Decrement()).Width(44).Clicked() {
 				a.count--
 			}
 			ui.Textf(c, "%d", a.count).FontSize(20).Width(48).TextAlign(ui.Center)
-			if ui.PrimaryButton(c, "+").Width(44).Clicked() {
+			if ui.PrimaryButton(c, "+").Label(locales.Increment()).Width(44).Clicked() {
 				a.count++
 			}
 		})

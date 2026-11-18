@@ -117,3 +117,23 @@ func LanguageChinese() string { return In(i18n.Locale()).LanguageChinese() }
 func (msgs Messages) LanguageChinese() string {
 	return Catalog.Format(msgs.locale, "languageChinese", nil)
 }
+
+// Increment says "Increase"
+// in the language the app shows.
+func Increment() string { return In(i18n.Locale()).Increment() }
+
+// Increment says "Increase"
+// in the language of msgs.
+func (msgs Messages) Increment() string {
+	return Catalog.Format(msgs.locale, "increment", nil)
+}
+
+// Decrement says "Decrease"
+// in the language the app shows.
+func Decrement() string { return In(i18n.Locale()).Decrement() }
+
+// Decrement says "Decrease"
+// in the language of msgs.
+func (msgs Messages) Decrement() string {
+	return Catalog.Format(msgs.locale, "decrement", nil)
+}

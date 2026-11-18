@@ -13,5 +13,7 @@
   },
   "languageLabel": "Language",
   "languageEnglish": "English",
-  "languageChinese": "中文"
+  "languageChinese": "中文",
+  "increment": "Increase",
+  "decrement": "Decrease"
 }

@@ -7,5 +7,7 @@
   "greetingName": "你好，{name}！",
   "languageLabel": "语言",
   "languageEnglish": "English",
-  "languageChinese": "中文"
+  "languageChinese": "中文",
+  "increment": "增加",
+  "decrement": "减少"
 }
