@@ -4,13 +4,20 @@ on:
   pull_request:
     branches: [test, main]
   push:
-    branches: [main]
+    branches: [test]
   workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   gates:
-    runs-on: macos-15
-    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -65,30 +72,24 @@ jobs:
           fi
           echo "语句覆盖率 ${total}%"
 
-      - name: 打包
-        run: go tool mygo build
-
-      - name: 体积门槛
+      - name: 正式版本检查
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          app=build/darwin-arm64/Tally.app
-          size=$(du -sm "$app" | cut -f1)
-          if [ "$size" -gt 12 ]; then
-            echo "应用包 ${size} MB 超过 12 MB"
+          version=$(jq -r .version mygo.json)
+          if ! awk -v version="$version" '$0 == "## " version { found = 1 } END { exit found ? 0 : 1 }' CHANGELOG.md; then
+            echo "CHANGELOG.md 缺少 $version 的小节"
             exit 1
           fi
-          echo "应用包 ${size} MB"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: tally-build
-          path: |
-            build/darwin-arm64/Tally.app
-            build/darwin-arm64/*.dmg
-          if-no-files-found: error
+          if gh release view "v$version" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "版本 $version 已发布，请更新 mygo.json 与 CHANGELOG.md"
+            exit 1
+          fi
 
   windows-build:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     defaults:
       run:
         shell: bash
@@ -102,14 +103,3 @@ jobs:
 
       - name: 测试
         run: go test ./...
-
-      - name: 打包
-        run: go tool mygo build -platform windows/amd64
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: tally-windows
-          path: |
-            build/windows-amd64/Tally.exe
-            build/windows-amd64/*setup*.exe
-          if-no-files-found: error
