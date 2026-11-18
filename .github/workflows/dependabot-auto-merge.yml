@@ -1,0 +1,48 @@
+name: Dependabot 自动合并
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  auto-merge:
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.base.ref == 'test'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 读取依赖更新信息
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 开启自动合并
+        if: >-
+          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+          (steps.metadata.outputs.package-ecosystem == 'github-actions' &&
+          steps.metadata.outputs.update-type == 'version-update:semver-minor')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          DEPENDENCIES: ${{ steps.metadata.outputs.dependency-names }}
+          ECOSYSTEM: ${{ steps.metadata.outputs.package-ecosystem }}
+        run: |
+          if [ "$ECOSYSTEM" = "github-actions" ]; then
+            subject="chore(deps): 更新 GitHub Actions 依赖"
+          else
+            subject="chore(deps): 更新 Go 模块依赖"
+          fi
+          gh pr merge --auto --squash \
+            --subject "$subject" \
+            --body "由 Dependabot 自动合并，质量检查已通过。依赖：${DEPENDENCIES}" \
+            "$PR_URL"

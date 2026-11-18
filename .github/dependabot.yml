@@ -7,9 +7,12 @@ updates:
       interval: weekly
     open-pull-requests-limit: 2
     groups:
-      go-modules:
+      go-modules-patch:
         patterns: ["*"]
-        update-types: ["minor", "patch"]
+        update-types: ["patch"]
+      go-modules-manual:
+        patterns: ["*"]
+        update-types: ["minor", "major"]
   - package-ecosystem: github-actions
     directory: /
     target-branch: test
@@ -17,5 +20,9 @@ updates:
       interval: weekly
     open-pull-requests-limit: 2
     groups:
-      github-actions:
+      github-actions-auto:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
+      github-actions-major:
+        patterns: ["*"]
+        update-types: ["major"]
