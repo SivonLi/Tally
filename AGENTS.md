@@ -66,18 +66,19 @@ MYGO=$(go list -m -f '{{.Dir}}' github.com/egoist/mygo)
 - `mygo.json` 的 `updates.github` 指向主渠道，`updates.publicKey` 是签名公钥，私钥只放在 CI 的 `MYGO_UPDATER_PRIVATE_KEY` 和密码管理器里。
 - 中国镜像是 `gh-proxy.com` 对 GitHub Release 的实时代理，不单独存放文件。镜像地址是 GitHub 地址加 `https://gh-proxy.com/` 前缀，例如 `https://gh-proxy.com/github.com/<owner>/<repo>/releases/latest/download/update-<target>.json`。
 - 镜像通过 `mygo.Updater.SetSource` 接入：清单从镜像地址读取，清单里以 `https://github.com/` 开头的文件地址改写为 `https://gh-proxy.com/github.com/` 开头；版本、大小、签名保持原样。签名校验不允许关闭或跳过。
-- 测试版本的版本号是 `<基础版本>-test.<运行号>`，标签是 `test-<运行号>`；正式版本标签是 `vX.Y.Z`。测试版本通过 `releases.atom` 找到运行号最大的标签，再读取该标签的清单。
+- 正式版本标签是 `vX.Y.Z`，由发布工作流创建。当前不发布测试版本。
 - 渠道默认自动：先请求 GitHub，网络失败或超时后切镜像。设置里允许固定使用某一个渠道。
 - 更新说明取自 `CHANGELOG.md` 对应版本的小节。
 - 发布流程见 `docs/release.md`。
 
 ## 分支与提交
 
-- `test`：测试版本发布分支。功能分支从 `test` 切出，合回 `test` 后由 CI 发布预发布版本。
-- `main`：正式版本发布分支。只在发布时从 `test` 合并，推送 `vX.Y.Z` 标签触发正式发布。
-- 不直接向 `main` 提交；发布标签必须指向 `main` 上的提交。
+- `test`：日常开发分支，也是默认分支。功能分支从 `test` 切出，通过 PR 合回；合并后只运行质量检查，不创建发布。
+- `main`：正式版本分支。每次从 `test` 向 `main` 开 PR，PR 内更新 `mygo.json` 的版本与 `CHANGELOG.md`，合并后自动发布正式版本。
+- 不直接向 `main` 提交；发布标签由 `release.yml` 在发布时创建，指向 `main` 上的提交。
+- `test` 与 `main` 都启用分支保护：禁止强制推送与删除；合并前必须通过 `gates` 与 `windows-build` 检查。
 - 提交信息按 `docs/commits.md` 的规范写，正文使用简体中文。一次提交只做一件事。
-- 版本号只改 `mygo.json` 的 `version`，同时补 `CHANGELOG.md` 的小节，最后才打标签。
+- 版本号只改 `mygo.json` 的 `version`，同时补 `CHANGELOG.md` 的小节；不手动打标签。
 
 ## 命令
 

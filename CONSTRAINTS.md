@@ -56,3 +56,9 @@
 - 发布构建必须带 `MYGO_UPDATER_PRIVATE_KEY`，产出 `update-<target>.json`、归档与 `SHA256SUMS`
 - 更新签名校验不允许关闭
 - 发布前用上一版的应用实际完成一次更新，确认两个渠道都能取到新版
+
+## 发布
+
+- `test` 分支只运行质量检查，不创建测试版本
+- 合并到 `main` 的 PR 必须同时更新 `mygo.json` 的 `version` 与 `CHANGELOG.md` 的对应小节
+- 合并到 `main` 的版本号必须尚未发布；重复的版本号会让发布工作流终止

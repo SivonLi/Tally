@@ -22,4 +22,5 @@ go tool mygo build
 - [ ] 界面代码里没有用户可见的字面量
 - [ ] 没有删除、跳过或弱化测试
 - [ ] `CONSTRAINTS.md` 的条目全部满足
-- [ ] 涉及发布时，`mygo.json` 的版本与 `CHANGELOG.md` 已更新
+- [ ] 目标为 `main` 时，`mygo.json` 的版本与 `CHANGELOG.md` 的对应小节已更新，且该版本尚未发布
+- [ ] 目标为 `test` 时不修改版本号，本轮不发布测试版本

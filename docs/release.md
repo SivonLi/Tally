@@ -43,8 +43,6 @@ mygo keygen
 
 应用读取镜像上的清单，把清单里以 `https://github.com/` 开头的文件地址改写为 `https://gh-proxy.com/github.com/` 开头。版本、大小、签名原样保留，签名校验由 `mygo.Updater` 完成。
 
-测试版本使用 `test-<运行号>` 标签，预发布清单的地址为 `https://gh-proxy.com/github.com/<owner>/<repo>/releases/download/test-<运行号>/update-<target>.json`。应用从同一仓库的 `releases.atom` 读取标签列表，使用运行号最大的 `test-*` 标签。
-
 镜像不可用时，自动渠道回到 GitHub 直连。GitHub Release 是发布文件的唯一来源，镜像不改变发布内容。
 
 ### GitHub Actions 密钥
@@ -80,28 +78,17 @@ mygo keygen
 - `mygo.json` 的 `version`
 - `CHANGELOG.md` 里 `## <版本>` 开头的小节（MyGo 用它生成更新说明）
 
-## 测试版本
-
-1. 功能分支合并进 `test`
-2. CI 跑完 `ci.yml` 的全部门槛，然后构建 macOS 与 Windows 包
-3. 发布标签 `test-<运行号>` 的预发布版本，产物包含 dmg、exe、安装包与更新文件
-
-打包前 CI 把 `mygo.json` 的版本改成 `<基础版本>-test.<运行号>`，并在 `CHANGELOG.md` 顶部写入对应小节。每个测试版本号都高于上一个，已安装的测试版本才会接受更新；`-test.<运行号>` 低于同基础版本的正式版本，正式版本发布后测试版本会升级到正式版本。
-
-预发布版本先以草稿创建，附件全部上传后再发布，应用不会读到缺少清单或缺少文件的版本。
-
 ## 正式版本
 
-1. 从 `test` 向 `main` 开 PR，评审通过后合并
-2. 在 `main` 上改 `mygo.json` 的 `version` 与 `CHANGELOG.md`，提交
-3. 打标签并推送
+`test` 分支只运行质量检查，不发布测试版本。
 
-```sh
-git tag v0.2.0
-git push origin v0.2.0
-```
+1. 功能分支合并进 `test`，通过 `gates` 与 `windows-build` 检查
+2. 从 `test` 向 `main` 开 PR，在 PR 内修改 `mygo.json` 的 `version` 与 `CHANGELOG.md` 的对应小节
+3. PR 检查通过后合并；`release.yml` 在 `main` 的推送提交上重新运行全部门槛
+4. 工作流校验版本号与变更记录，构建 macOS 与 Windows 包，创建 `vX.Y.Z` 标签与 Release
+5. Release 先以草稿创建，附件全部上传后再发布，应用不会读到缺少清单或缺少文件的版本
 
-CI 会检查标签指向 `main` 上的提交，且与 `mygo.json` 的版本一致，然后构建、以草稿创建发布、上传全部附件，最后发布正式版本。
+发布前必须保证 `mygo.json` 的版本尚未发布。版本号重复时工作流会终止。标签由工作流创建，不需要手动推送。
 
 ## 回退
 
