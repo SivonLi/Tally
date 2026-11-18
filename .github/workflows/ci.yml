@@ -1,0 +1,115 @@
+name: 质量检查
+
+on:
+  pull_request:
+    branches: [test, main]
+  push:
+    branches: [main]
+  workflow_call:
+
+jobs:
+  gates:
+    runs-on: macos-14
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 格式检查
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "以下文件未格式化："
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: 静态检查
+        run: go vet ./...
+
+      - name: 原生 UI 生命周期检查
+        run: go tool mygo vet
+
+      - name: 依赖整洁
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: 语言目录
+        run: |
+          go tool mygo i18n check
+          go tool mygo generate
+          git diff --exit-code locales/
+
+      - name: 交叉编译
+        run: |
+          GOOS=linux GOARCH=amd64 go build -o /dev/null .
+          GOOS=windows GOARCH=amd64 go build -o /dev/null .
+
+      - name: 测试
+        run: go test -race ./...
+
+      - name: 覆盖率
+        run: go test -race -coverprofile=coverage.out .
+
+      - name: 覆盖率门槛
+        run: |
+          total=$(go tool cover -func=coverage.out | awk '/^total:/ { gsub("%", "", $3); print $3 }')
+          if ! awk -v t="$total" 'BEGIN { exit (t + 0 >= 65) ? 0 : 1 }'; then
+            echo "语句覆盖率 ${total}% 低于 65%"
+            exit 1
+          fi
+          echo "语句覆盖率 ${total}%"
+
+      - name: 打包
+        run: go tool mygo build
+
+      - name: 体积门槛
+        run: |
+          app=build/darwin-arm64/Tally.app
+          size=$(du -sm "$app" | cut -f1)
+          if [ "$size" -gt 12 ]; then
+            echo "应用包 ${size} MB 超过 12 MB"
+            exit 1
+          fi
+          echo "应用包 ${size} MB"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tally-build
+          path: |
+            build/darwin-arm64/Tally.app
+            build/darwin-arm64/*.dmg
+          if-no-files-found: error
+
+  windows-build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 测试
+        run: go test ./...
+
+      - name: 打包
+        run: go tool mygo build -platform windows/amd64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tally-windows
+          path: |
+            build/windows-amd64/Tally.exe
+            build/windows-amd64/*setup*.exe
+          if-no-files-found: error

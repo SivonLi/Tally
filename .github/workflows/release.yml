@@ -1,0 +1,249 @@
+name: 发布
+
+on:
+  push:
+    branches: [test]
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  gates:
+    uses: ./.github/workflows/ci.yml
+
+  prepare:
+    needs: gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 计算版本号
+        id: version
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            echo "value=$(jq -r .version mygo.json)" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=$(jq -r .version mygo.json)-test.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
+  macos-build:
+    needs: prepare
+    runs-on: macos-14
+    timeout-minutes: 25
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 写入版本号
+        run: |
+          jq --arg version "$VERSION" '.version = $version' mygo.json > mygo.json.tmp
+          mv mygo.json.tmp mygo.json
+          if ! grep -q "^## $VERSION\$" CHANGELOG.md; then
+            {
+              echo "# 变更记录"
+              echo
+              echo "## $VERSION"
+              echo
+              echo "来自提交 ${GITHUB_SHA} 的构建。"
+              echo
+              tail -n +2 CHANGELOG.md
+            } > CHANGELOG.md.tmp
+            mv CHANGELOG.md.tmp CHANGELOG.md
+          fi
+
+      - name: 检查更新配置
+        env:
+          MYGO_UPDATER_PRIVATE_KEY: ${{ secrets.MYGO_UPDATER_PRIVATE_KEY }}
+        run: |
+          jq -e '.updates.publicKey and .updates.github' mygo.json > /dev/null
+          if [ -z "$MYGO_UPDATER_PRIVATE_KEY" ]; then
+            echo "缺少 MYGO_UPDATER_PRIVATE_KEY"
+            exit 1
+          fi
+
+      - name: 打包
+        env:
+          MYGO_UPDATER_PRIVATE_KEY: ${{ secrets.MYGO_UPDATER_PRIVATE_KEY }}
+        run: go tool mygo build
+
+      - name: 收集产物
+        run: |
+          mkdir -p dist
+          find build/darwin-arm64 -maxdepth 1 -type f -exec cp {} dist/ \;
+          ditto -c -k --keepParent build/darwin-arm64/Tally.app "dist/Tally-${VERSION}-arm64.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tally-release-macos
+          path: dist/
+          if-no-files-found: error
+
+  windows-build:
+    needs: prepare
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 写入版本号
+        run: |
+          jq --arg version "$VERSION" '.version = $version' mygo.json > mygo.json.tmp
+          mv mygo.json.tmp mygo.json
+          if ! grep -q "^## $VERSION\$" CHANGELOG.md; then
+            {
+              echo "# 变更记录"
+              echo
+              echo "## $VERSION"
+              echo
+              echo "来自提交 ${GITHUB_SHA} 的构建。"
+              echo
+              tail -n +2 CHANGELOG.md
+            } > CHANGELOG.md.tmp
+            mv CHANGELOG.md.tmp CHANGELOG.md
+          fi
+
+      - name: 检查更新配置
+        env:
+          MYGO_UPDATER_PRIVATE_KEY: ${{ secrets.MYGO_UPDATER_PRIVATE_KEY }}
+        run: |
+          jq -e '.updates.publicKey and .updates.github' mygo.json > /dev/null
+          if [ -z "$MYGO_UPDATER_PRIVATE_KEY" ]; then
+            echo "缺少 MYGO_UPDATER_PRIVATE_KEY"
+            exit 1
+          fi
+
+      - name: 打包
+        env:
+          MYGO_UPDATER_PRIVATE_KEY: ${{ secrets.MYGO_UPDATER_PRIVATE_KEY }}
+        run: go tool mygo build
+
+      - name: 收集产物
+        run: |
+          mkdir -p dist
+          find build/windows-amd64 -maxdepth 1 -type f -exec cp {} dist/ \;
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tally-release-windows
+          path: dist/
+          if-no-files-found: error
+
+  test-release:
+    if: github.ref_type == 'branch'
+    needs: [prepare, macos-build, windows-build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: tally-release-macos
+          path: dist/macos
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: tally-release-windows
+          path: dist/windows
+
+      - name: 归并产物
+        run: |
+          cat dist/macos/SHA256SUMS dist/windows/SHA256SUMS | sort -k2 > dist/SHA256SUMS
+          rm dist/macos/SHA256SUMS dist/windows/SHA256SUMS
+          cp dist/macos/* dist/windows/* dist/
+          rm -rf dist/macos dist/windows
+
+      - name: 发布预发布版本
+        env:
+          TAG: test-${{ github.run_number }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          gh release create "$TAG" \
+            --draft \
+            --title "测试版本 $VERSION" \
+            --notes "来自 test 分支的提交 ${GITHUB_SHA}" \
+            dist/*
+          gh release edit "$TAG" --draft=false --prerelease
+
+  official-release:
+    if: github.ref_type == 'tag'
+    needs: [prepare, macos-build, windows-build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 确认标签指向 main
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "标签 $GITHUB_REF_NAME 指向的提交不在 main 上"
+            exit 1
+          fi
+
+      - name: 确认标签与版本一致
+        run: |
+          version=$(jq -r .version mygo.json)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "标签 $GITHUB_REF_NAME 与 mygo.json 的版本 $version 不一致"
+            exit 1
+          fi
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: tally-release-macos
+          path: dist/macos
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: tally-release-windows
+          path: dist/windows
+
+      - name: 归并产物
+        run: |
+          cat dist/macos/SHA256SUMS dist/windows/SHA256SUMS | sort -k2 > dist/SHA256SUMS
+          rm dist/macos/SHA256SUMS dist/windows/SHA256SUMS
+          cp dist/macos/* dist/windows/* dist/
+          rm -rf dist/macos dist/windows
+
+      - name: 发布正式版本
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" \
+            --draft \
+            --title "Tally $TAG" \
+            --generate-notes \
+            dist/*
+          gh release edit "$TAG" --draft=false

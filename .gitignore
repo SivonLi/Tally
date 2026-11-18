@@ -1,0 +1,10 @@
+/build/
+dist/
+/.mygo/
+mygo_windows_*.syso
+coverage.out
+coverage.html
+*.test
+.DS_Store
+.scratch/
+/private-data/

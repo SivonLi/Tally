@@ -1,0 +1,17 @@
+{
+  "@@locale": "en",
+  "appTitle": "Tally",
+  "nameLabel": "Name",
+  "namePlaceholder": "Your name",
+  "greeting": "Hello!",
+  "greetingName": "Hello, {name}!",
+  "@greetingName": {
+    "description": "The greeting after the user types a name.",
+    "placeholders": {
+      "name": { "type": "String", "example": "Ada" }
+    }
+  },
+  "languageLabel": "Language",
+  "languageEnglish": "English",
+  "languageChinese": "中文"
+}

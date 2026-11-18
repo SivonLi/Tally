@@ -1,0 +1,14 @@
+{
+  "name": "Tally",
+  "identifier": "cn.ac.yo.tally",
+  "version": "0.1.0",
+  "updates": {
+    "publicKey": "4QgwM0rR246MT+OK+5giE/r/9JIyirLVbLCCOHzBUK4=",
+    "github": "SivonLi/Tally",
+    "changelog": "CHANGELOG.md"
+  },
+  "out": "build",
+  "i18n": { "dir": "locales", "source": "en" },
+  "ios": { "minimumSystemVersion": "17.0" },
+  "android": { "minSdk": 26 }
+}

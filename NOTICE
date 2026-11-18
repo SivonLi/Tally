@@ -1,0 +1,29 @@
+Third-party components
+
+The following files come from MyGo's project template and are used under the
+MIT License:
+
+- main.go
+- main_test.go
+- mygo.json
+- resources/icon.png
+- .agents/skills/mygo-maintenance
+- .agents/skills/mygo-native-modules
+
+  Copyright (c) 2026 MyGo contributors
+  MIT License: https://github.com/egoist/mygo/blob/main/LICENSE
+
+The following skills come from mygo-skills and are used under the MIT License:
+
+- .agents/skills/mygo-components
+- .agents/skills/mygo-desktop
+- .agents/skills/mygo-drawing
+- .agents/skills/mygo-motion
+- .agents/skills/mygo-usage
+- .agents/skills/mygo-web
+
+  Copyright (c) 2026 zhangzhichao
+  MIT License: https://github.com/transmit-bug/mygo-skills/blob/main/LICENSE
+
+Agent Skills by Addy Osmani is installed as a Codex plugin outside this
+repository and is not part of it.

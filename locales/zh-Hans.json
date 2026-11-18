@@ -1,0 +1,11 @@
+{
+  "@@locale": "zh-Hans",
+  "appTitle": "Tally",
+  "nameLabel": "姓名",
+  "namePlaceholder": "你的名字",
+  "greeting": "你好！",
+  "greetingName": "你好，{name}！",
+  "languageLabel": "语言",
+  "languageEnglish": "English",
+  "languageChinese": "中文"
+}
