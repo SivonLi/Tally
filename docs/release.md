@@ -78,15 +78,21 @@ mygo keygen
 - `mygo.json` 的 `version`
 - `CHANGELOG.md` 里 `## <版本>` 开头的小节（MyGo 用它生成更新说明）
 
+新版本必须严格高于最近一次正式发布版本。工作流会拒绝重复版本和更低的版本。
+
 ## 正式版本
 
 `test` 分支只运行质量检查，不发布测试版本。
 
+首次发布前，通过 GitHub API 或网页从初始提交创建 `main`。直接推送 `main` 会触发发布工作流，这一步应在 PR 之前完成。
+
 1. 功能分支合并进 `test`，通过 `gates` 与 `windows-build` 检查
 2. 从 `test` 向 `main` 开 PR，在 PR 内修改 `mygo.json` 的 `version` 与 `CHANGELOG.md` 的对应小节
 3. PR 检查通过后合并；`release.yml` 在 `main` 的推送提交上重新运行全部门槛
-4. 工作流校验版本号与变更记录，构建 macOS 与 Windows 包，创建 `vX.Y.Z` 标签与 Release
+4. 工作流校验版本号与变更记录，构建 macOS 与 Windows 包，创建指向 `main` 提交的 `vX.Y.Z` 标签与 Release
 5. Release 先以草稿创建，附件全部上传后再发布，应用不会读到缺少清单或缺少文件的版本
+
+如果草稿创建后上传失败，下一次发布会先删除同名草稿与标签，再重新创建。已经正式发布的版本不会被覆盖。
 
 发布前必须保证 `mygo.json` 的版本尚未发布。版本号重复时工作流会终止。标签由工作流创建，不需要手动推送。
 
