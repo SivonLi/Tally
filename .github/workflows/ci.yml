@@ -76,16 +76,7 @@ jobs:
         if: github.event_name == 'pull_request' && github.base_ref == 'main'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          version=$(jq -r .version mygo.json)
-          if ! awk -v version="$version" '$0 == "## " version { found = 1 } END { exit found ? 0 : 1 }' CHANGELOG.md; then
-            echo "CHANGELOG.md 缺少 $version 的小节"
-            exit 1
-          fi
-          if gh release view "v$version" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            echo "版本 $version 已发布，请更新 mygo.json 与 CHANGELOG.md"
-            exit 1
-          fi
+        run: bash scripts/check-release.sh
 
   windows-build:
     runs-on: windows-latest

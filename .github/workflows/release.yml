@@ -40,20 +40,7 @@ jobs:
             echo "缺少 MYGO_UPDATER_PRIVATE_KEY"
             exit 1
           fi
-          version=$(jq -r .version mygo.json)
-          tag="v$version"
-          if ! awk -v version="$version" '$0 == "## " version { found = 1 } END { exit found ? 0 : 1 }' CHANGELOG.md; then
-            echo "CHANGELOG.md 缺少 $version 的小节"
-            exit 1
-          fi
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            echo "版本 $version 已发布，请先更新 mygo.json 与 CHANGELOG.md"
-            exit 1
-          fi
-          {
-            echo "version=$version"
-            echo "tag=$tag"
-          } >> "$GITHUB_OUTPUT"
+          bash scripts/check-release.sh --github-output
 
   macos-build:
     needs: prepare
@@ -159,9 +146,27 @@ jobs:
           cp dist/macos/* dist/windows/* dist/
           rm -rf dist/macos dist/windows
 
+      - name: 清理遗留草稿
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            draft=$(gh release view "$TAG" --json isDraft --jq .isDraft)
+            if [ "$draft" != "true" ]; then
+              echo "版本 $TAG 已正式发布"
+              exit 1
+            fi
+            gh release delete "$TAG" --yes --cleanup-tag
+          elif gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" > /dev/null 2>&1; then
+            tag_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq '.object.sha')
+            if [ "$tag_sha" != "$GITHUB_SHA" ]; then
+              echo "标签 $TAG 已存在并指向 $tag_sha，当前提交是 $GITHUB_SHA"
+              exit 1
+            fi
+          fi
+
       - name: 发布正式版本
         run: |
           gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
             --draft \
             --title "Tally $TAG" \
             --generate-notes \
