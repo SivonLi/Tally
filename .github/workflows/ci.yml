@@ -6,11 +6,6 @@ on:
   push:
     branches: [test]
   workflow_call:
-    inputs:
-      skip_windows:
-        description: 跳过 Windows 测试
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -61,6 +56,7 @@ jobs:
         run: |
           GOOS=linux GOARCH=amd64 go build -o /dev/null .
           GOOS=windows GOARCH=amd64 go build -o /dev/null .
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o /dev/null .
 
       - name: 测试
         run: go test -race ./...
@@ -84,7 +80,7 @@ jobs:
         run: bash scripts/check-release.sh
 
   windows-build:
-    if: ${{ inputs.skip_windows != true }}
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
     runs-on: windows-latest
     timeout-minutes: 15
     defaults:

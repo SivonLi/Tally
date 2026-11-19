@@ -60,6 +60,7 @@
 ## 发布
 
 - `test` 分支只运行质量检查，不创建测试版本
+- 合并到 `test` 的 PR 必须通过 `gates`，`gates` 包含三个平台的交叉编译
 - 合并到 `main` 的 PR 必须通过 `gates`、`windows-build` 与 `macos-build`
 - 合并到 `main` 的 PR 必须同时更新 `mygo.json` 的 `version` 与 `CHANGELOG.md` 的对应小节
 - 合并到 `main` 的版本号必须严格高于最近一次正式发布版本；重复或更低的版本会让发布工作流终止
