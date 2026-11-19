@@ -25,5 +25,13 @@ The following skills come from mygo-skills and are used under the MIT License:
   Copyright (c) 2026 zhangzhichao
   MIT License: https://github.com/transmit-bug/mygo-skills/blob/main/LICENSE
 
+The following library is used under the BSD 3-Clause License:
+
+- github.com/xuri/excelize/v2
+
+  Copyright (c) 2016-2026 The excelize Authors.
+  Copyright (c) 2011-2017 Geoffrey J. Teale
+  BSD 3-Clause License: https://github.com/xuri/excelize/blob/master/LICENSE
+
 Agent Skills by Addy Osmani is installed as a Codex plugin outside this
 repository and is not part of it.

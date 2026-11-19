@@ -1,0 +1,3 @@
+interface:
+  display_name: "Excelize"
+  short_description: "读取和写入 xlsx 工作簿"
