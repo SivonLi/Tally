@@ -1,78 +1,165 @@
 package main
 
 import (
+	"context"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strconv"
 	"testing"
 
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
+
+	"tally/internal/assessment"
+	"tally/internal/store"
 )
 
-// The view runs without a window in tests, which click and type as a user
-// would.
-func TestView(t *testing.T) {
-	a := &app{}
-	tt := ui.NewTester(a.view, 480, 360)
+func newTestApp(t *testing.T) *app {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("locate test file")
+	}
+	scratch := filepath.Join(filepath.Dir(file), ".scratch")
+	if err := os.MkdirAll(scratch, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dir, err := os.MkdirTemp(scratch, "ui-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.RemoveAll(dir); err != nil {
+			t.Errorf("remove test directory: %v", err)
+		}
+	})
+	ctx := context.Background()
+	opened, err := store.Open(ctx, filepath.Join(dir, "tally.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := opened.Close(); err != nil {
+			t.Errorf("close store: %v", err)
+		}
+	})
+	a := &app{store: opened, dataDir: dir, language: "en", sidebarWidth: 260, batchSidebarWidth: 240}
+	if _, err := opened.EnsureDefaultPlan(ctx); err != nil {
+		t.Fatal(err)
+	}
+	a.reloadPlans(ctx)
+	return a
+}
+
+func TestViewShowsDefaultPlan(t *testing.T) {
+	a := newTestApp(t)
+	tt := ui.NewTester(a.view, 960, 640)
 	tt.SetLocale("en")
-	if err := tt.Click("+"); err != nil {
-		t.Fatal(err)
-	}
-	if a.count != 1 || !tt.HasText("1") {
-		t.Errorf("count %d after a click, texts %q", a.count, tt.Texts())
-	}
-	if err := tt.Click("−"); err != nil {
-		t.Fatal(err)
-	}
-	if a.count != 0 || !tt.HasText("0") {
-		t.Errorf("count %d after a second click, texts %q", a.count, tt.Texts())
-	}
-	if err := tt.Click("Name"); err != nil {
-		t.Fatal(err)
-	}
-	tt.Type("Ada")
-	if !tt.HasText("Hello, Ada!") {
-		t.Errorf("texts %q after typing a name", tt.Texts())
+	tt.Frame()
+	for _, text := range []string{"Assessment plans", "Built-in", "Versions", "Published"} {
+		if !tt.HasText(text) {
+			t.Errorf("missing %q in %q", text, tt.Texts())
+		}
 	}
 }
 
-func TestViewChinese(t *testing.T) {
-	t.Setenv("MYGO_LOCALE", "zh-Hans")
-	a := &app{}
-	tt := ui.NewTester(a.view, 480, 360)
-	tt.SetLocale("zh-Hans")
-	if !tt.HasText("你好！") {
-		t.Errorf("texts %q in Chinese", tt.Texts())
-	}
-	if err := tt.Click("姓名"); err != nil {
+func TestSidebarChangesPlan(t *testing.T) {
+	ctx := context.Background()
+	a := newTestApp(t)
+	config := assessment.DefaultConfig()
+	config.Name = "派生方案"
+	config.Ranking.TieMode = "dense"
+	plan, _, err := a.store.CreatePlan(ctx, store.CreatePlanInput{
+		Name:          config.Name,
+		Kind:          "user",
+		Description:   "从默认方案派生",
+		BaseVersionID: a.versions[0].ID,
+		Config:        config,
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
-	tt.Type("Ada")
-	if !tt.HasText("你好，Ada！") {
-		t.Errorf("texts %q after typing a name", tt.Texts())
+	a.reloadPlans(ctx)
+	tt := ui.NewTester(a.view, 960, 640)
+	tt.SetLocale("en")
+	if err := tt.Click("派生方案"); err != nil {
+		t.Fatal(err)
+	}
+	if a.selectedPlanID != strconv.FormatInt(plan.ID, 10) {
+		t.Fatalf("selected plan = %q", a.selectedPlanID)
+	}
+	if len(a.versions) != 1 || a.versions[0].Status != "draft" {
+		t.Fatalf("versions = %+v", a.versions)
+	}
+}
+
+func TestPublishAndRetireVersion(t *testing.T) {
+	ctx := context.Background()
+	a := newTestApp(t)
+	config := assessment.DefaultConfig()
+	config.Name = "派生方案"
+	config.Ranking.TieMode = "dense"
+	plan, draft, err := a.store.CreatePlan(ctx, store.CreatePlanInput{
+		Name:          config.Name,
+		Kind:          "user",
+		Description:   "从默认方案派生",
+		BaseVersionID: a.versions[0].ID,
+		Config:        config,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.reloadPlans(ctx)
+	a.selectedPlanID = strconv.FormatInt(plan.ID, 10)
+	a.versionIndex = 0
+	a.reloadVersions(ctx)
+	tt := ui.NewTester(a.view, 960, 640)
+	tt.SetLocale("en")
+	if err := tt.Click("Publish"); err != nil {
+		t.Fatal(err)
+	}
+	version, err := a.store.GetVersion(ctx, draft.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if version.Status != "published" {
+		t.Fatalf("status = %q", version.Status)
+	}
+	tt.Frame()
+	if err := tt.Click("Retire"); err != nil {
+		t.Fatal(err)
+	}
+	version, err = a.store.GetVersion(ctx, draft.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if version.Status != "retired" {
+		t.Fatalf("status = %q", version.Status)
 	}
 }
 
 func TestLanguageSwitch(t *testing.T) {
-	a := &app{language: "en"}
-	// 目录访问器通过 i18n.SetLocaleFunc 读取界面语言，测试把它接到 app 状态。
+	a := newTestApp(t)
 	i18n.SetLocaleFunc(func() string { return a.language })
 	t.Cleanup(func() { i18n.SetLocaleFunc(nil) })
-	tt := ui.NewTester(a.view, 480, 360)
+	tt := ui.NewTester(a.view, 960, 640)
 	if err := tt.Click(i18n.Autonym("zh-Hans")); err != nil {
 		t.Fatal(err)
 	}
 	if a.language != "zh-Hans" {
-		t.Errorf("language %q after switching to Chinese", a.language)
+		t.Fatalf("language = %q", a.language)
 	}
-	if !tt.HasText("你好！") {
-		t.Errorf("texts %q after switching to Chinese", tt.Texts())
+	if !tt.HasText("考核方案") {
+		t.Errorf("texts = %q", tt.Texts())
 	}
 	if err := tt.Click(i18n.Autonym("en")); err != nil {
 		t.Fatal(err)
 	}
 	if a.language != "en" {
-		t.Errorf("language %q after switching to English", a.language)
+		t.Fatalf("language = %q", a.language)
 	}
-	if !tt.HasText("Hello!") {
-		t.Errorf("texts %q after switching to English", tt.Texts())
+	if !tt.HasText("Assessment plans") {
+		t.Errorf("texts = %q", tt.Texts())
 	}
 }
