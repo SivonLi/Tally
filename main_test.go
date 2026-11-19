@@ -163,3 +163,71 @@ func TestLanguageSwitch(t *testing.T) {
 		t.Errorf("texts = %q", tt.Texts())
 	}
 }
+
+func TestNavigationSwitchesPages(t *testing.T) {
+	a := newTestApp(t)
+	tt := ui.NewTester(a.view, 960, 640)
+	tt.SetLocale("en")
+	tt.Frame()
+	if err := tt.Click("Batches"); err != nil {
+		t.Fatal(err)
+	}
+	if a.tab != 1 {
+		t.Fatalf("tab = %d", a.tab)
+	}
+	if !tt.HasText("No assessment batches yet.") {
+		t.Errorf("texts = %q", tt.Texts())
+	}
+	if err := tt.Click("Assessment plans"); err != nil {
+		t.Fatal(err)
+	}
+	if a.tab != 0 {
+		t.Fatalf("tab = %d", a.tab)
+	}
+}
+
+func TestEmptyBatchStateAtMinimumSize(t *testing.T) {
+	a := newTestApp(t)
+	a.tab = 1
+	tt := ui.NewTester(a.view, 900, 620)
+	tt.SetLocale("en")
+	tt.Frame()
+	if !tt.HasText("No assessment batches yet.") {
+		t.Errorf("texts = %q", tt.Texts())
+	}
+	if err := tt.Click("New batch"); err != nil {
+		t.Fatal(err)
+	}
+	if !a.newBatchOpen {
+		t.Fatal("new batch dialog not open")
+	}
+}
+
+func TestDarkThemeRendersPlanPage(t *testing.T) {
+	a := newTestApp(t)
+	tt := ui.NewTester(a.view, 960, 640)
+	tt.SetLocale("en")
+	tt.SetDark(true)
+	tt.Frame()
+	for _, text := range []string{"Assessment plans", "Built-in", "Versions"} {
+		if !tt.HasText(text) {
+			t.Errorf("missing %q in %q", text, tt.Texts())
+		}
+	}
+}
+
+func TestPlanPageAtMinimumSize(t *testing.T) {
+	a := newTestApp(t)
+	tt := ui.NewTester(a.view, 900, 620)
+	tt.SetLocale("en")
+	tt.Frame()
+	for _, text := range []string{"Assessment plans", "Built-in", "Versions", "Publish", "Retire"} {
+		box, ok := tt.Find(text)
+		if !ok {
+			t.Fatalf("missing box for %q", text)
+		}
+		if box.X < 0 || box.Y < 0 || box.X+box.W > 900 || box.Y+box.H > 620 {
+			t.Fatalf("%q is outside the window: %+v", text, box)
+		}
+	}
+}

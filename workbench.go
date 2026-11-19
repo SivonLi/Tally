@@ -145,140 +145,255 @@ func (a *app) selectedBatchValue() (*store.Batch, error) {
 	return nil, store.ErrNotFound
 }
 
-func (a *app) batchView(c *ui.Context) {
-	t := c.Theme()
+func (a *app) batchPage(c *ui.Context, p uiPalette) {
+	t := p.theme
 	if a.batchSidebarWidth == 0 {
-		a.batchSidebarWidth = 240
+		a.batchSidebarWidth = t.Space(64)
 	}
-	if len(a.batches) == 0 {
-		ui.Column(c).Fill().Center().Gap(t.Space(3)).Children(func() {
-			ui.Text(c, locales.BatchEmpty()).TextColor(t.TextMuted)
-			if ui.PrimaryButton(c, locales.BatchNew()).Clicked() {
+	if a.batchResultsHeight == 0 {
+		a.batchResultsHeight = t.Space(62)
+	}
+	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
+		pageHeading(c, p, locales.BatchWorkbenchTitle(), locales.BatchPageSubtitle(), func() {
+			if labelledButton(c, locales.BatchNew(), iconPlus, true).Clicked() {
 				a.openNewBatch()
 			}
 		})
-		a.newBatchModal(c)
-		return
-	}
-	ui.Split(c, &a.batchSidebarWidth, func() {
-		a.batchSidebar(c)
-	}, func() {
-		a.batchDetails(c)
-	}).Fill()
-	a.newBatchModal(c)
-	a.zeroModal(c)
-}
-
-func (a *app) batchSidebar(c *ui.Context) {
-	t := c.Theme()
-	ui.Column(c).Fill().Padding(t.Space(3)).Gap(t.Space(3)).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-			ui.Text(c, locales.BatchListTitle()).Bold()
-			ui.Spacer(c)
-			if ui.Button(c, locales.BatchNew()).Clicked() {
-				a.openNewBatch()
-			}
-		})
-		sidebar := ui.Sidebar(c, &a.selectedBatchID, func() {
-			ui.SidebarSection(c, locales.BatchListTitle(), nil, func() {
-				for _, batch := range a.batches {
-					ui.SidebarItem(c, strconv.FormatInt(batch.ID, 10), nil, a.batchLabel(batch))
+		if len(a.batches) == 0 {
+			emptyState(c, p, iconEmptyBatch, locales.BatchEmpty(), locales.BatchEmptyHint(), func() {
+				if labelledButton(c, locales.BatchNew(), iconPlus, true).Clicked() {
+					a.openNewBatch()
 				}
 			})
-		}).Fill()
+		} else {
+			ui.Split(c, &a.batchSidebarWidth, func() {
+				a.batchSidebar(c, p)
+			}, func() {
+				a.batchDetails(c, p)
+			}).Grow(1)
+		}
+	})
+	a.newBatchModal(c, p)
+	a.zeroModal(c, p)
+}
+
+func (a *app) batchSidebar(c *ui.Context, p uiPalette) {
+	changed := false
+	listPanel(c, p, locales.BatchListPanelTitle(), len(a.batches), func() {
+		sidebar := ui.Sidebar(c, &a.selectedBatchID, func() {
+			for _, batch := range a.batches {
+				ui.SidebarItem(c, strconv.FormatInt(batch.ID, 10), iconBatches, a.batchLabel(batch))
+			}
+		}).Label(locales.BatchListTitle()).Fill()
 		if sidebar.Changed() {
-			a.loadLatestRun(context.Background())
+			changed = true
+		}
+	})
+	if changed {
+		a.loadLatestRun(context.Background())
+	}
+}
+
+func (a *app) batchDetails(c *ui.Context, p uiPalette) {
+	batch, err := a.selectedBatchValue()
+	if err != nil {
+		ui.Column(c).Fill().Children(func() {
+			emptyState(c, p, iconEmptyBatch, locales.BatchSelectHint(), "", nil)
+		})
+		return
+	}
+	t := p.theme
+	ui.SplitVertical(c, &a.batchResultsHeight, func() {
+		ui.Scroll(c).Fill().Children(func() {
+			ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
+				a.batchSummary(c, p, *batch)
+				a.batchActions(c, p)
+				if a.batchBusy {
+					panel(c, p).Padding(t.Space(3)).Children(func() {
+						ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+							ui.Spinner(c).Label(locales.BatchWorking())
+							ui.Text(c, locales.BatchWorking()).TextColor(p.muted)
+						})
+					})
+				}
+				if a.batchError != "" {
+					notice(c, p, noticeDanger, a.batchError)
+				}
+				if a.batchMessage != "" {
+					notice(c, p, noticeSuccess, a.batchMessage)
+				}
+				if a.importSummary != nil {
+					a.importSummaryView(c, p)
+				}
+			})
+		})
+	}, func() {
+		a.batchResults(c, p)
+	}).Fill()
+}
+
+func (a *app) batchSummary(c *ui.Context, p uiPalette, batch store.Batch) {
+	t := p.theme
+	panel(c, p).Padding(t.Space(4)).Gap(t.Space(4)).Children(func() {
+		ui.Row(c).AlignItems(ui.Start).Gap(t.Space(3)).Children(func() {
+			ui.Column(c).Grow(1).Gap(t.Space(1)).Children(func() {
+				ui.Text(c, a.batchLabel(batch)).FontSize(t.Rem(1.35)).Bold().
+					LetterSpacing(-0.2).Role(ui.RoleHeading).Level(2)
+			})
+			statusBadge(c, p, batch.Status, a.batchStatusLabel(batch.Status))
+		})
+		ui.Column(c).Gap(t.Space(2)).Children(func() {
+			ui.Text(c, locales.BatchWorkflowTitle()).FontSize(t.Rem(0.8)).
+				TextColor(p.muted).LetterSpacing(0.4)
+			a.batchWorkflow(c, p, batch)
+		})
+	})
+}
+
+type workflowStep struct {
+	label   string
+	caption string
+	done    bool
+	current bool
+}
+
+func (a *app) batchWorkflow(c *ui.Context, p uiPalette, batch store.Batch) {
+	t := p.theme
+	imported := batch.Status != "draft" || a.importSummary != nil
+	calculated := batch.Status == "calculated" || len(a.resultRows) > 0
+	steps := []workflowStep{
+		{label: locales.WorkflowImport()},
+		{label: locales.WorkflowCalculate()},
+		{label: locales.WorkflowExport()},
+	}
+	switch {
+	case !imported:
+		steps[0].current = true
+		steps[0].caption = locales.WorkflowCurrent()
+		steps[1].caption = locales.WorkflowPending()
+		steps[2].caption = locales.WorkflowPending()
+	case !calculated:
+		steps[0].done = true
+		steps[1].current = true
+		steps[0].caption = locales.WorkflowDone()
+		steps[1].caption = locales.WorkflowCurrent()
+		steps[2].caption = locales.WorkflowPending()
+	default:
+		steps[0].done = true
+		steps[1].done = true
+		steps[2].current = true
+		steps[0].caption = locales.WorkflowDone()
+		steps[1].caption = locales.WorkflowDone()
+		steps[2].caption = locales.WorkflowCurrent()
+	}
+	ui.Row(c).AlignItems(ui.Center).Children(func() {
+		for index, step := range steps {
+			marker := ui.Box(c).Size(t.Space(7), t.Space(7)).Radius(t.Space(3.5)).Center()
+			switch {
+			case step.done:
+				marker.Background(p.accent).Children(func() {
+					ui.Icon(c, iconCheck).FontSize(t.Space(3.5)).TextColor(p.accentText)
+				})
+			case step.current:
+				marker.Background(p.accentSoft).Border(1, p.accent).Children(func() {
+					ui.Textf(c, "%d", index+1).FontSize(t.Rem(0.8)).Bold().TextColor(p.accent)
+				})
+			default:
+				marker.Background(p.panelMuted).Border(1, p.border).Children(func() {
+					ui.Textf(c, "%d", index+1).FontSize(t.Rem(0.8)).TextColor(p.muted)
+				})
+			}
+			ui.Column(c).Gap(0).Children(func() {
+				ui.Text(c, step.label).FontSize(t.Rem(0.86)).Bold()
+				ui.Text(c, step.caption).FontSize(t.Rem(0.78)).TextColor(p.muted)
+			})
+			if index < len(steps)-1 {
+				ui.Box(c).Height(1).Grow(1).Background(p.border).Margin(0, t.Space(2))
+			}
 		}
 	})
 }
 
-func (a *app) batchDetails(c *ui.Context) {
-	t := c.Theme()
-	batch, err := a.selectedBatchValue()
-	if err != nil {
-		ui.Text(c, locales.BatchSelectHint()).TextColor(t.TextMuted)
-		return
-	}
-	ui.Column(c).Fill().Padding(t.Space(3)).Gap(t.Space(3)).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-			ui.Text(c, a.batchLabel(*batch)).FontSize(t.FontSize * 1.3).Bold()
+func (a *app) batchActions(c *ui.Context, p uiPalette) {
+	t := p.theme
+	panel(c, p).Padding(t.Space(4)).Children(func() {
+		ui.Row(c).Wrap().AlignItems(ui.End).Gap(t.Space(3)).Children(func() {
+			ui.Column(c).Width(t.Space(50)).Gap(t.Space(1)).Children(func() {
+				ui.Text(c, locales.BatchPlanVersion()).FontSize(t.Rem(0.8)).TextColor(p.muted)
+				if len(a.published) == 0 {
+					ui.Text(c, locales.BatchSelectVersion()).FontSize(t.Rem(0.82)).TextColor(p.danger)
+				} else {
+					ui.Select(c, &a.calculateVersion, a.versionOptions()).
+						Width(t.Space(50)).Label(locales.BatchPlanVersion())
+				}
+			})
 			ui.Spacer(c)
-			ui.Text(c, a.batchStatusLabel(batch.Status)).TextColor(t.TextMuted)
-		})
-		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-			ui.Text(c, locales.BatchPlanVersion()).TextColor(t.TextMuted)
-			if len(a.published) == 0 {
-				ui.Text(c, locales.BatchSelectVersion()).TextColor(t.Danger)
-			} else {
-				ui.Select(c, &a.calculateVersion, a.versionOptions()).Width(t.Space(46)).Label(locales.BatchPlanVersion())
-			}
-			if ui.Button(c, locales.BatchImport()).Label(locales.BatchImport()).Clicked() {
+			if labelledButton(c, locales.BatchImport(), iconImport, false).Clicked() {
 				a.chooseImportFile()
 			}
-			calculate := ui.PrimaryButton(c, locales.BatchCalculate())
+			calculate := labelledButton(c, locales.BatchCalculate(), iconCalculate, true)
 			calculate.Disabled(a.batchBusy || len(a.published) == 0)
 			if calculate.Clicked() {
 				a.startCalculate()
 			}
-			export := ui.Button(c, locales.BatchExport())
+			export := labelledButton(c, locales.BatchExport(), iconExport, false)
 			export.Disabled(a.batchBusy || len(a.resultRows) == 0)
 			if export.Clicked() {
 				a.chooseExportFile()
 			}
 		})
-		if a.batchBusy {
-			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-				ui.Spinner(c).Label(locales.BatchWorking())
-				ui.Text(c, locales.BatchWorking()).TextColor(t.TextMuted)
-			})
-		}
-		if a.batchError != "" {
-			ui.Text(c, a.batchError).TextColor(t.Danger)
-		}
-		if a.batchMessage != "" {
-			ui.Text(c, a.batchMessage).TextColor(t.TextMuted)
-		}
-		if a.importSummary != nil {
-			a.importSummaryView(c)
-		}
-		ui.Divider(c)
-		ui.Text(c, locales.BatchResults()).Bold()
-		if len(a.resultRows) == 0 {
-			ui.Text(c, locales.BatchNoResults()).TextColor(t.TextMuted)
-			return
-		}
-		a.resultsTable(c)
 	})
 }
 
-func (a *app) importSummaryView(c *ui.Context) {
-	t := c.Theme()
+func (a *app) importSummaryView(c *ui.Context, p uiPalette) {
+	t := p.theme
 	summary := a.importSummary
-	ui.Column(c).Gap(t.Space(1)).Children(func() {
-		ui.Text(c, fmt.Sprintf(locales.BatchImportSummary(), summary.Classes, summary.Students, summary.StatGroups))
-		if len(summary.Warnings) == 0 {
-			return
-		}
-		ui.Text(c, locales.BatchWarnings()).Bold()
+	notice(c, p, noticeSuccess, fmt.Sprintf(locales.BatchImportSummary(), summary.Classes, summary.Students, summary.StatGroups))
+	if len(summary.Warnings) == 0 {
+		return
+	}
+	ui.Column(c).Padding(t.Space(3)).Gap(t.Space(1)).Background(p.warningSoft).
+		Border(1, p.warning.Alpha(0.35)).Radius(t.Space(2)).Children(func() {
+		ui.Text(c, locales.BatchWarnings()).FontSize(t.Rem(0.84)).Bold().TextColor(p.warning)
 		for _, warning := range summary.Warnings {
-			ui.Text(c, "- "+warning).TextColor(t.TextMuted)
+			ui.Text(c, "- "+warning).FontSize(t.Rem(0.82)).TextColor(p.muted).Selectable()
 		}
 	})
 }
 
-func (a *app) resultsTable(c *ui.Context) {
+func (a *app) batchResults(c *ui.Context, p uiPalette) {
+	t := p.theme
+	panel(c, p).Grow(1).Padding(t.Space(4)).Gap(t.Space(3)).Children(func() {
+		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+			sectionHeading(c, p, locales.BatchResults(), len(a.resultRows))
+			ui.Spacer(c)
+			if len(a.personalScores) > 0 {
+				ui.Textf(c, locales.BatchPersonalScores(), len(a.personalScores)).
+					FontSize(t.Rem(0.8)).TextColor(p.muted)
+			}
+		})
+		if len(a.resultRows) == 0 {
+			smallEmptyState(c, p, locales.BatchNoResults())
+			return
+		}
+		a.resultsTable(c, p)
+	})
+}
+
+func (a *app) resultsTable(c *ui.Context, p uiPalette) {
 	a.resultTable.Key = func(row int) any {
 		return fmt.Sprintf("%d:%s", a.resultRows[row].StatGroupID, a.resultRows[row].Subject)
 	}
+	a.resultTable.RowHeight = p.theme.Space(8)
 	columns := []ui.TableColumn{
-		{Title: locales.ColumnClass(), Width: 100},
-		{Title: locales.ColumnSubject(), Width: 80},
-		{Title: locales.ColumnStatGroup(), Width: 120},
-		{Title: locales.ColumnTeachers(), Width: 150},
-		{Title: locales.ColumnTotal(), Width: 110, Align: ui.End},
-		{Title: locales.ColumnRank(), Width: 70, Align: ui.End},
-		{Title: locales.ColumnTier(), Width: 80},
-		{Title: locales.ColumnPoints(), Width: 80, Align: ui.End},
+		{Title: locales.ColumnClass(), Width: 80},
+		{Title: locales.ColumnSubject(), Width: 60},
+		{Title: locales.ColumnStatGroup(), Width: 88},
+		{Title: locales.ColumnTeachers(), Width: 0},
+		{Title: locales.ColumnTotal(), Width: 72, Align: ui.End},
+		{Title: locales.ColumnRank(), Width: 46, Align: ui.End},
+		{Title: locales.ColumnTier(), Width: 52},
+		{Title: locales.ColumnPoints(), Width: 52, Align: ui.End},
 	}
 	ui.Table(c, &a.resultTable, columns, len(a.resultRows), func(row, col int) {
 		item := a.resultRows[row]
@@ -292,15 +407,15 @@ func (a *app) resultsTable(c *ui.Context) {
 		case 3:
 			ui.Text(c, decodeNames(item.TeacherNames)).SingleLine()
 		case 4:
-			ui.Textf(c, "%.2f", item.Total)
+			ui.Textf(c, "%.2f", item.Total).FontFeatures("tnum")
 		case 5:
-			ui.Textf(c, "%d", item.Rank)
+			ui.Textf(c, "%d", item.Rank).FontFeatures("tnum")
 		case 6:
 			ui.Text(c, levelLabel(item.TierIndex))
 		case 7:
-			ui.Textf(c, "%.0f", item.Points)
+			ui.Textf(c, "%.0f", item.Points).FontFeatures("tnum")
 		}
-	}).Grow(1).FillWidth()
+	}).Label(locales.BatchResults()).Grow(1).FillWidth()
 }
 
 func (a *app) openNewBatch() {
@@ -320,31 +435,41 @@ func (a *app) openNewBatch() {
 	a.newBatchOpen = true
 }
 
-func (a *app) newBatchModal(c *ui.Context) {
+func (a *app) newBatchModal(c *ui.Context, p uiPalette) {
 	if !a.newBatchOpen {
 		return
 	}
-	t := c.Theme()
+	t := p.theme
 	ui.Modal(c, &a.newBatchOpen, func() {
-		ui.Column(c).Padding(t.Space(4)).Gap(t.Space(2)).Width(t.Space(110)).Children(func() {
-			ui.Text(c, locales.BatchNew()).Bold()
-			ui.Text(c, locales.BatchAcademicYear()).TextColor(t.TextMuted)
-			ui.TextInput(c, &a.newBatchYear)
-			ui.Text(c, locales.BatchSemester()).TextColor(t.TextMuted)
-			ui.Select(c, &a.newBatchSemester, []string{locales.SemesterSpring(), locales.SemesterAutumn()})
-			ui.Text(c, locales.BatchExamType()).TextColor(t.TextMuted)
-			ui.Select(c, &a.newBatchExamType, []string{locales.ExamMidterm(), locales.ExamFinal(), locales.ExamGaokao()})
-			ui.Text(c, locales.BatchGrade()).TextColor(t.TextMuted)
-			ui.Select(c, &a.newBatchGrade, []string{locales.GradeG1(), locales.GradeG2(), locales.GradeG3()})
+		ui.Column(c).Width(t.Space(120)).Gap(t.Space(4)).Children(func() {
+			ui.Column(c).Gap(t.Space(1)).Children(func() {
+				ui.Text(c, locales.BatchNew()).FontSize(t.Rem(1.3)).Bold().
+					Role(ui.RoleHeading).Level(2)
+				ui.Text(c, locales.BatchNewSubtitle()).FontSize(t.Rem(0.9)).TextColor(p.muted).Pretty()
+			})
+			ui.Form(c, func() {
+				ui.Field(c, locales.BatchAcademicYear(), func() {
+					ui.TextInput(c, &a.newBatchYear)
+				})
+				ui.Field(c, locales.BatchSemester(), func() {
+					ui.Select(c, &a.newBatchSemester, []string{locales.SemesterSpring(), locales.SemesterAutumn()})
+				})
+				ui.Field(c, locales.BatchExamType(), func() {
+					ui.Select(c, &a.newBatchExamType, []string{locales.ExamMidterm(), locales.ExamFinal(), locales.ExamGaokao()})
+				})
+				ui.Field(c, locales.BatchGrade(), func() {
+					ui.Select(c, &a.newBatchGrade, []string{locales.GradeG1(), locales.GradeG2(), locales.GradeG3()})
+				})
+			})
 			if a.newBatchError != "" {
-				ui.Text(c, a.newBatchError).TextColor(t.Danger)
+				notice(c, p, noticeDanger, a.newBatchError)
 			}
-			ui.Row(c).Gap(t.Space(2)).Children(func() {
-				if ui.PrimaryButton(c, locales.BatchCreate()).Clicked() {
-					a.startCreateBatch()
-				}
+			ui.Row(c).Justify(ui.End).Gap(t.Space(2)).Children(func() {
 				if ui.Button(c, locales.BatchCancel()).Clicked() {
 					a.newBatchOpen = false
+				}
+				if ui.PrimaryButton(c, locales.BatchCreate()).Clicked() {
+					a.startCreateBatch()
 				}
 			})
 		})
@@ -446,7 +571,7 @@ func (a *app) finishImport(summary store.ImportSummary, err error) {
 	}
 	a.batchError = ""
 	a.importSummary = &summary
-	a.batchMessage = fmt.Sprintf(locales.BatchImportSummary(), summary.Classes, summary.Students, summary.StatGroups)
+	a.batchMessage = ""
 	a.reloadBatches(context.Background())
 }
 
@@ -525,47 +650,44 @@ func (a *app) initZeroValues() {
 	}
 }
 
-func (a *app) zeroModal(c *ui.Context) {
+func (a *app) zeroModal(c *ui.Context, p uiPalette) {
 	if !a.zeroOpen {
 		return
 	}
-	t := c.Theme()
+	t := p.theme
 	excludeClass := int64(0)
 	fill := false
 	ui.Modal(c, &a.zeroOpen, func() {
-		ui.Column(c).Padding(t.Space(4)).Gap(t.Space(2)).Width(t.Space(180)).Children(func() {
-			ui.Text(c, locales.ZeroTitle()).Bold()
-			ui.Text(c, locales.ZeroIntro()).TextColor(t.TextMuted)
-			for index := range a.zeroIssues {
-				issue := a.zeroIssues[index]
-				ui.Text(c, issue.ClassName).Bold()
-				tiers := issue.MissingTiers
-				if len(tiers) == 0 {
-					tiers = issue.AllTiers
-					ui.Text(c, locales.ZeroExplicitZero()).TextColor(t.TextMuted)
-				}
-				for _, tier := range tiers {
-					key := issue.ClassID + ":" + tier
-					ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-						ui.Text(c, a.tierLabel(tier)).Width(t.Space(16))
-						ui.NumberInput(c, a.zeroValues[key], 0, 100000, 1).Width(t.Space(20)).Label(a.tierLabel(tier))
-					})
-				}
-				if ui.Button(c, locales.ZeroExclude()).Clicked() {
-					excludeClass, _ = strconv.ParseInt(issue.ClassID, 10, 64)
-				}
-			}
-			ui.Text(c, locales.ZeroReason()).TextColor(t.TextMuted)
-			ui.TextInput(c, &a.zeroReason)
-			if a.zeroError != "" {
-				ui.Text(c, a.zeroError).TextColor(t.Danger)
-			}
-			ui.Row(c).Gap(t.Space(2)).Children(func() {
-				if ui.PrimaryButton(c, locales.ZeroFill()).Clicked() {
-					fill = true
-				}
+		ui.Column(c).Width(t.Space(170)).Gap(t.Space(4)).Children(func() {
+			ui.Row(c).AlignItems(ui.Start).Gap(t.Space(3)).Children(func() {
+				ui.Box(c).Size(t.Space(11), t.Space(11)).Radius(t.Space(3)).
+					Background(p.warningSoft).Center().Children(func() {
+					ui.Icon(c, iconAlert).FontSize(t.Space(5)).TextColor(p.warning)
+				})
+				ui.Column(c).Grow(1).Gap(t.Space(1)).Children(func() {
+					ui.Text(c, locales.ZeroTitle()).FontSize(t.Rem(1.3)).Bold().
+						Role(ui.RoleHeading).Level(2)
+					ui.Text(c, locales.ZeroIntro()).FontSize(t.Rem(0.9)).TextColor(p.muted).Pretty()
+				})
+			})
+			ui.Scroll(c).MaxHeight(t.Space(72)).FillWidth().Children(func() {
+				ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
+					for index := range a.zeroIssues {
+						a.zeroIssueCard(c, p, index, func(classID int64) {
+							excludeClass = classID
+						})
+					}
+				})
+			})
+			ui.Field(c, locales.ZeroReason(), func() {
+				ui.TextInput(c, &a.zeroReason)
+			}).Error(a.zeroError)
+			ui.Row(c).Justify(ui.End).Gap(t.Space(2)).Children(func() {
 				if ui.Button(c, locales.ZeroClose()).Clicked() {
 					a.zeroOpen = false
+				}
+				if ui.PrimaryButton(c, locales.ZeroFill()).Clicked() {
+					fill = true
 				}
 			})
 		})
@@ -576,6 +698,34 @@ func (a *app) zeroModal(c *ui.Context) {
 	if fill {
 		a.startFillZero()
 	}
+}
+
+func (a *app) zeroIssueCard(c *ui.Context, p uiPalette, index int, exclude func(int64)) {
+	t := p.theme
+	issue := a.zeroIssues[index]
+	panel(c, p).Background(p.panelMuted).Padding(t.Space(3)).Gap(t.Space(2)).Children(func() {
+		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+			ui.Text(c, issue.ClassName).FontSize(t.Rem(0.95)).Bold().Grow(1)
+			if ui.Button(c, locales.ZeroExclude()).Clicked() {
+				classID, _ := strconv.ParseInt(issue.ClassID, 10, 64)
+				exclude(classID)
+			}
+		})
+		tiers := issue.MissingTiers
+		if len(tiers) == 0 {
+			tiers = issue.AllTiers
+			ui.Text(c, locales.ZeroExplicitZero()).FontSize(t.Rem(0.82)).TextColor(p.muted)
+		}
+		for _, tier := range tiers {
+			key := issue.ClassID + ":" + tier
+			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+				ui.Text(c, a.tierLabel(tier)).Width(t.Space(16))
+				name := issue.ClassName + " " + a.tierLabel(tier)
+				ui.NumberInput(c, a.zeroValues[key], 0, 100000, 1).
+					Width(t.Space(22)).Label(name)
+			})
+		}
+	})
 }
 
 type targetAdjustment struct {

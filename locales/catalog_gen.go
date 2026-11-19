@@ -44,6 +44,26 @@ func (msgs Messages) AppTitle() string {
 	return Catalog.Format(msgs.locale, "appTitle", nil)
 }
 
+// AppTagline says "Teaching assessment"
+// in the language the app shows.
+func AppTagline() string { return In(i18n.Locale()).AppTagline() }
+
+// AppTagline says "Teaching assessment"
+// in the language of msgs.
+func (msgs Messages) AppTagline() string {
+	return Catalog.Format(msgs.locale, "appTagline", nil)
+}
+
+// MainNavigation says "Main navigation"
+// in the language the app shows.
+func MainNavigation() string { return In(i18n.Locale()).MainNavigation() }
+
+// MainNavigation says "Main navigation"
+// in the language of msgs.
+func (msgs Messages) MainNavigation() string {
+	return Catalog.Format(msgs.locale, "mainNavigation", nil)
+}
+
 // NameLabel says "Name"
 // in the language the app shows.
 func NameLabel() string { return In(i18n.Locale()).NameLabel() }
@@ -148,6 +168,16 @@ func (msgs Messages) PlanLibraryTitle() string {
 	return Catalog.Format(msgs.locale, "planLibraryTitle", nil)
 }
 
+// PlanPageSubtitle says "Keep scoring rules, versions and release state in one place."
+// in the language the app shows.
+func PlanPageSubtitle() string { return In(i18n.Locale()).PlanPageSubtitle() }
+
+// PlanPageSubtitle says "Keep scoring rules, versions and release state in one place."
+// in the language of msgs.
+func (msgs Messages) PlanPageSubtitle() string {
+	return Catalog.Format(msgs.locale, "planPageSubtitle", nil)
+}
+
 // PlanListTitle says "Plans"
 // in the language the app shows.
 func PlanListTitle() string { return In(i18n.Locale()).PlanListTitle() }
@@ -158,6 +188,16 @@ func (msgs Messages) PlanListTitle() string {
 	return Catalog.Format(msgs.locale, "planListTitle", nil)
 }
 
+// PlanListPanelTitle says "All plans"
+// in the language the app shows.
+func PlanListPanelTitle() string { return In(i18n.Locale()).PlanListPanelTitle() }
+
+// PlanListPanelTitle says "All plans"
+// in the language of msgs.
+func (msgs Messages) PlanListPanelTitle() string {
+	return Catalog.Format(msgs.locale, "planListPanelTitle", nil)
+}
+
 // PlanVersionsTitle says "Versions"
 // in the language the app shows.
 func PlanVersionsTitle() string { return In(i18n.Locale()).PlanVersionsTitle() }
@@ -166,6 +206,36 @@ func PlanVersionsTitle() string { return In(i18n.Locale()).PlanVersionsTitle() }
 // in the language of msgs.
 func (msgs Messages) PlanVersionsTitle() string {
 	return Catalog.Format(msgs.locale, "planVersionsTitle", nil)
+}
+
+// PlanMetricVersions says "Versions"
+// in the language the app shows.
+func PlanMetricVersions() string { return In(i18n.Locale()).PlanMetricVersions() }
+
+// PlanMetricVersions says "Versions"
+// in the language of msgs.
+func (msgs Messages) PlanMetricVersions() string {
+	return Catalog.Format(msgs.locale, "planMetricVersions", nil)
+}
+
+// PlanMetricPublished says "Published"
+// in the language the app shows.
+func PlanMetricPublished() string { return In(i18n.Locale()).PlanMetricPublished() }
+
+// PlanMetricPublished says "Published"
+// in the language of msgs.
+func (msgs Messages) PlanMetricPublished() string {
+	return Catalog.Format(msgs.locale, "planMetricPublished", nil)
+}
+
+// PlanMetricLatest says "Latest version"
+// in the language the app shows.
+func PlanMetricLatest() string { return In(i18n.Locale()).PlanMetricLatest() }
+
+// PlanMetricLatest says "Latest version"
+// in the language of msgs.
+func (msgs Messages) PlanMetricLatest() string {
+	return Catalog.Format(msgs.locale, "planMetricLatest", nil)
 }
 
 // PlanColumnVersion says "Version"
@@ -268,6 +338,16 @@ func (msgs Messages) PlanEmpty() string {
 	return Catalog.Format(msgs.locale, "planEmpty", nil)
 }
 
+// PlanEmptyHint says "Built-in rules appear here after the local database is initialized."
+// in the language the app shows.
+func PlanEmptyHint() string { return In(i18n.Locale()).PlanEmptyHint() }
+
+// PlanEmptyHint says "Built-in rules appear here after the local database is initialized."
+// in the language of msgs.
+func (msgs Messages) PlanEmptyHint() string {
+	return Catalog.Format(msgs.locale, "planEmptyHint", nil)
+}
+
 // PlanNoVersions says "No versions yet."
 // in the language the app shows.
 func PlanNoVersions() string { return In(i18n.Locale()).PlanNoVersions() }
@@ -328,6 +408,16 @@ func (msgs Messages) BatchWorkbenchTitle() string {
 	return Catalog.Format(msgs.locale, "batchWorkbenchTitle", nil)
 }
 
+// BatchPageSubtitle says "Import a workbook, calculate results and export the report."
+// in the language the app shows.
+func BatchPageSubtitle() string { return In(i18n.Locale()).BatchPageSubtitle() }
+
+// BatchPageSubtitle says "Import a workbook, calculate results and export the report."
+// in the language of msgs.
+func (msgs Messages) BatchPageSubtitle() string {
+	return Catalog.Format(msgs.locale, "batchPageSubtitle", nil)
+}
+
 // BatchListTitle says "Batches"
 // in the language the app shows.
 func BatchListTitle() string { return In(i18n.Locale()).BatchListTitle() }
@@ -336,6 +426,16 @@ func BatchListTitle() string { return In(i18n.Locale()).BatchListTitle() }
 // in the language of msgs.
 func (msgs Messages) BatchListTitle() string {
 	return Catalog.Format(msgs.locale, "batchListTitle", nil)
+}
+
+// BatchListPanelTitle says "All batches"
+// in the language the app shows.
+func BatchListPanelTitle() string { return In(i18n.Locale()).BatchListPanelTitle() }
+
+// BatchListPanelTitle says "All batches"
+// in the language of msgs.
+func (msgs Messages) BatchListPanelTitle() string {
+	return Catalog.Format(msgs.locale, "batchListPanelTitle", nil)
 }
 
 // BatchNew says "New batch"
@@ -356,6 +456,96 @@ func BatchEmpty() string { return In(i18n.Locale()).BatchEmpty() }
 // in the language of msgs.
 func (msgs Messages) BatchEmpty() string {
 	return Catalog.Format(msgs.locale, "batchEmpty", nil)
+}
+
+// BatchEmptyHint says "Create a batch to import a workbook and calculate results."
+// in the language the app shows.
+func BatchEmptyHint() string { return In(i18n.Locale()).BatchEmptyHint() }
+
+// BatchEmptyHint says "Create a batch to import a workbook and calculate results."
+// in the language of msgs.
+func (msgs Messages) BatchEmptyHint() string {
+	return Catalog.Format(msgs.locale, "batchEmptyHint", nil)
+}
+
+// BatchNewSubtitle says "Set the term and exam this batch belongs to."
+// in the language the app shows.
+func BatchNewSubtitle() string { return In(i18n.Locale()).BatchNewSubtitle() }
+
+// BatchNewSubtitle says "Set the term and exam this batch belongs to."
+// in the language of msgs.
+func (msgs Messages) BatchNewSubtitle() string {
+	return Catalog.Format(msgs.locale, "batchNewSubtitle", nil)
+}
+
+// BatchWorkflowTitle says "Workflow"
+// in the language the app shows.
+func BatchWorkflowTitle() string { return In(i18n.Locale()).BatchWorkflowTitle() }
+
+// BatchWorkflowTitle says "Workflow"
+// in the language of msgs.
+func (msgs Messages) BatchWorkflowTitle() string {
+	return Catalog.Format(msgs.locale, "batchWorkflowTitle", nil)
+}
+
+// WorkflowImport says "Import"
+// in the language the app shows.
+func WorkflowImport() string { return In(i18n.Locale()).WorkflowImport() }
+
+// WorkflowImport says "Import"
+// in the language of msgs.
+func (msgs Messages) WorkflowImport() string {
+	return Catalog.Format(msgs.locale, "workflowImport", nil)
+}
+
+// WorkflowCalculate says "Calculation"
+// in the language the app shows.
+func WorkflowCalculate() string { return In(i18n.Locale()).WorkflowCalculate() }
+
+// WorkflowCalculate says "Calculation"
+// in the language of msgs.
+func (msgs Messages) WorkflowCalculate() string {
+	return Catalog.Format(msgs.locale, "workflowCalculate", nil)
+}
+
+// WorkflowExport says "Export"
+// in the language the app shows.
+func WorkflowExport() string { return In(i18n.Locale()).WorkflowExport() }
+
+// WorkflowExport says "Export"
+// in the language of msgs.
+func (msgs Messages) WorkflowExport() string {
+	return Catalog.Format(msgs.locale, "workflowExport", nil)
+}
+
+// WorkflowDone says "Done"
+// in the language the app shows.
+func WorkflowDone() string { return In(i18n.Locale()).WorkflowDone() }
+
+// WorkflowDone says "Done"
+// in the language of msgs.
+func (msgs Messages) WorkflowDone() string {
+	return Catalog.Format(msgs.locale, "workflowDone", nil)
+}
+
+// WorkflowCurrent says "In progress"
+// in the language the app shows.
+func WorkflowCurrent() string { return In(i18n.Locale()).WorkflowCurrent() }
+
+// WorkflowCurrent says "In progress"
+// in the language of msgs.
+func (msgs Messages) WorkflowCurrent() string {
+	return Catalog.Format(msgs.locale, "workflowCurrent", nil)
+}
+
+// WorkflowPending says "Not started"
+// in the language the app shows.
+func WorkflowPending() string { return In(i18n.Locale()).WorkflowPending() }
+
+// WorkflowPending says "Not started"
+// in the language of msgs.
+func (msgs Messages) WorkflowPending() string {
+	return Catalog.Format(msgs.locale, "workflowPending", nil)
 }
 
 // BatchAcademicYear says "Academic year"
@@ -576,6 +766,16 @@ func BatchResults() string { return In(i18n.Locale()).BatchResults() }
 // in the language of msgs.
 func (msgs Messages) BatchResults() string {
 	return Catalog.Format(msgs.locale, "batchResults", nil)
+}
+
+// BatchPersonalScores says "%d personal scores"
+// in the language the app shows.
+func BatchPersonalScores() string { return In(i18n.Locale()).BatchPersonalScores() }
+
+// BatchPersonalScores says "%d personal scores"
+// in the language of msgs.
+func (msgs Messages) BatchPersonalScores() string {
+	return Catalog.Format(msgs.locale, "batchPersonalScores", nil)
 }
 
 // BatchNoResults says "No results yet."

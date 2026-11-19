@@ -174,6 +174,38 @@ func TestStartCalculateAndExport(t *testing.T) {
 	}
 }
 
+func TestBatchWorkflowAtMinimumSize(t *testing.T) {
+	a := newTestApp(t)
+	seedBatch(t, a, false)
+	a.tab = 1
+	tt := ui.NewTester(a.view, 900, 620)
+	tt.SetLocale("en")
+	tt.Frame()
+	for _, text := range []string{"Workflow", "Import", "Calculation", "Export", "Import workbook", "Calculate", "Export results"} {
+		if !tt.HasText(text) {
+			t.Errorf("missing %q in %q", text, tt.Texts())
+		}
+	}
+	for _, text := range []string{"Calculate", "Export results"} {
+		box, ok := tt.Find(text)
+		if !ok {
+			t.Fatalf("missing box for %q", text)
+		}
+		if box.X < 0 || box.Y < 0 || box.X+box.W > 900 || box.Y+box.H > 620 {
+			t.Fatalf("%q is outside the window: %+v", text, box)
+		}
+	}
+	if err := tt.Click("Calculate"); err != nil {
+		t.Fatal(err)
+	}
+	if a.batchError != "" {
+		t.Fatal(a.batchError)
+	}
+	if len(a.resultRows) != 2 {
+		t.Fatalf("result rows = %d", len(a.resultRows))
+	}
+}
+
 func TestStartExcludeClass(t *testing.T) {
 	a := newTestApp(t)
 	seedBatch(t, a, true)

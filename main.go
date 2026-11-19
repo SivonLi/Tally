@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
-	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 
 	"tally/internal/calc"
@@ -30,30 +29,31 @@ type app struct {
 	versionTable   ui.ListState
 	loadError      string
 
-	tab               int
-	published         []publishedVersion
-	batches           []store.Batch
-	selectedBatchID   string
-	batchSidebarWidth float32
-	batchBusy         bool
-	batchMessage      string
-	batchError        string
-	importSummary     *store.ImportSummary
-	resultRows        []store.StoredResultRow
-	personalScores    []store.StoredPersonalScore
-	resultTable       ui.ListState
-	calculateVersion  string
-	newBatchOpen      bool
-	newBatchYear      string
-	newBatchSemester  string
-	newBatchExamType  string
-	newBatchGrade     string
-	newBatchError     string
-	zeroOpen          bool
-	zeroIssues        []calc.ZeroTargetIssue
-	zeroValues        map[string]*float64
-	zeroReason        string
-	zeroError         string
+	tab                int
+	published          []publishedVersion
+	batches            []store.Batch
+	selectedBatchID    string
+	batchSidebarWidth  float32
+	batchResultsHeight float32
+	batchBusy          bool
+	batchMessage       string
+	batchError         string
+	importSummary      *store.ImportSummary
+	resultRows         []store.StoredResultRow
+	personalScores     []store.StoredPersonalScore
+	resultTable        ui.ListState
+	calculateVersion   string
+	newBatchOpen       bool
+	newBatchYear       string
+	newBatchSemester   string
+	newBatchExamType   string
+	newBatchGrade      string
+	newBatchError      string
+	zeroOpen           bool
+	zeroIssues         []calc.ZeroTargetIssue
+	zeroValues         map[string]*float64
+	zeroReason         string
+	zeroError          string
 }
 
 func (a *app) load() {
@@ -191,121 +191,158 @@ func (a *app) retireSelected() {
 }
 
 func (a *app) view(c *ui.Context) {
-	t := c.Theme()
-	ui.Column(c).Fill().Padding(t.Space(4)).Gap(t.Space(4)).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(4)).Children(func() {
-			ui.Text(c, locales.AppTitle()).FontSize(t.FontSize * 1.6).Bold()
-			ui.Spacer(c)
-			ui.RadioGroup(c, func() {
-				for _, tag := range []string{"en", "zh-Hans"} {
-					if ui.Radio(c, &a.language, tag, i18n.Autonym(tag)).Changed() {
-						mygo.App.SetLocale(a.language)
-					}
-				}
-			}).Label(locales.LanguageLabel())
-		})
-		if a.loadError != "" {
-			ui.Text(c, locales.PlanLoadError()+": "+a.loadError).TextColor(t.Danger)
-			return
-		}
-		ui.Tabs(c, &a.tab, locales.PlanLibraryTitle(), locales.BatchWorkbenchTitle())
-		if a.tab == 1 {
-			a.batchView(c)
-			return
-		}
-		a.planView(c)
+	p := uiPaletteFor(c)
+	ui.Column(c).Fill().Background(p.canvas).Children(func() {
+		a.appBar(c, p)
+		ui.Column(c).Fill().Padding(p.theme.Space(5), p.theme.Space(7)).Children(func() {
+			if a.loadError != "" {
+				notice(c, p, noticeDanger, locales.PlanLoadError()+": "+a.loadError)
+				return
+			}
+			if a.tab == 1 {
+				a.batchPage(c, p)
+				return
+			}
+			a.planPage(c, p)
+		}).Role(ui.RoleMain)
 	})
 }
 
-func (a *app) planView(c *ui.Context) {
-	t := c.Theme()
-	ui.Column(c).Fill().Gap(t.Space(3)).Children(func() {
+func (a *app) planPage(c *ui.Context, p uiPalette) {
+	t := p.theme
+	if a.sidebarWidth == 0 {
+		a.sidebarWidth = t.Space(67)
+	}
+	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
+		pageHeading(c, p, locales.PlanLibraryTitle(), locales.PlanPageSubtitle(), nil)
 		if len(a.plans) == 0 {
-			ui.Text(c, locales.PlanEmpty()).TextColor(t.TextMuted)
+			emptyState(c, p, iconEmptyPlan, locales.PlanEmpty(), locales.PlanEmptyHint(), nil)
 			return
 		}
 		ui.Split(c, &a.sidebarWidth, func() {
-			a.planSidebar(c)
+			a.planSidebar(c, p)
 		}, func() {
-			a.planDetails(c)
-		}).Fill()
+			a.planDetails(c, p)
+		}).Grow(1)
 	})
 }
 
-func (a *app) planSidebar(c *ui.Context) {
-	sidebar := ui.Sidebar(c, &a.selectedPlanID, func() {
-		ui.SidebarSection(c, locales.PlanListTitle(), nil, func() {
+func (a *app) planSidebar(c *ui.Context, p uiPalette) {
+	changed := false
+	listPanel(c, p, locales.PlanListPanelTitle(), len(a.plans), func() {
+		sidebar := ui.Sidebar(c, &a.selectedPlanID, func() {
 			for _, plan := range a.plans {
-				ui.SidebarItem(c, strconv.FormatInt(plan.ID, 10), nil, plan.Name)
+				ui.SidebarItem(c, strconv.FormatInt(plan.ID, 10), iconPlans, plan.Name)
 			}
-		})
-	}).Fill()
-	if sidebar.Changed() {
+		}).Label(locales.PlanListTitle()).Fill()
+		if sidebar.Changed() {
+			changed = true
+		}
+	})
+	if changed {
 		a.reloadVersions(context.Background())
 	}
 }
 
-func (a *app) planDetails(c *ui.Context) {
-	t := c.Theme()
+func (a *app) planDetails(c *ui.Context, p uiPalette) {
+	t := p.theme
 	plan := a.selectedPlan()
-	ui.Column(c).Fill().Padding(t.Space(3)).Gap(t.Space(3)).Children(func() {
+	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
 		if plan == nil {
-			ui.Text(c, locales.PlanSelectHint()).TextColor(t.TextMuted)
+			emptyState(c, p, iconEmptyPlan, locales.PlanSelectHint(), "", nil)
 			return
 		}
-		ui.Text(c, plan.Name).FontSize(t.FontSize * 1.3).Bold()
-		ui.Text(c, a.kindLabel(plan.Kind)).TextColor(t.TextMuted)
-		if plan.Description != "" {
-			ui.Text(c, plan.Description).TextColor(t.TextMuted)
-		}
-		ui.Row(c).Gap(t.Space(2)).Children(func() {
-			version := a.selectedVersion()
-			publish := ui.Button(c, locales.PublishVersion()).Label(locales.PublishVersion())
-			publish.Disabled(version == nil || version.Status != "draft")
-			if publish.Clicked() {
-				a.publishSelected()
-			}
-			retire := ui.Button(c, locales.RetireVersion()).Label(locales.RetireVersion())
-			retire.Disabled(version == nil || version.Status != "published")
-			if retire.Clicked() {
-				a.retireSelected()
-			}
+		a.planSummary(c, p, *plan)
+		panel(c, p).Grow(1).Padding(t.Space(4)).Gap(t.Space(3)).Children(func() {
+			sectionHeading(c, p, locales.PlanVersionsTitle(), -1)
+			a.versionsTable(c, p)
 		})
-		ui.Divider(c)
-		ui.Text(c, locales.PlanVersionsTitle()).Bold()
-		if len(a.versions) == 0 {
-			ui.Text(c, locales.PlanNoVersions()).TextColor(t.TextMuted)
-			return
-		}
-		a.versionTable.Selected = &a.versionIndex
-		a.versionTable.Key = func(row int) any { return a.versions[row].ID }
-		a.versionTable.Label = func(row int) string {
-			return fmt.Sprintf("%s %d", locales.PlanColumnVersion(), a.versions[row].Version)
-		}
-		columns := []ui.TableColumn{
-			{Title: locales.PlanColumnVersion(), Width: t.Space(18)},
-			{Title: locales.PlanColumnStatus(), Width: t.Space(22)},
-			{Title: locales.PlanColumnCreated(), Width: t.Space(38)},
-			{Title: locales.PlanColumnPublished(), Width: t.Space(38)},
-		}
-		ui.Table(c, &a.versionTable, columns, len(a.versions), func(row, col int) {
-			version := a.versions[row]
-			switch col {
-			case 0:
-				ui.Textf(c, "%d", version.Version)
-			case 1:
-				ui.Text(c, a.statusLabel(version.Status))
-			case 2:
-				ui.Text(c, formatTime(version.CreatedAt))
-			case 3:
-				if version.PublishedAt == nil {
-					ui.Text(c, "-")
-					return
-				}
-				ui.Text(c, formatTime(*version.PublishedAt))
-			}
-		}).Grow(1).FillWidth()
 	})
+}
+
+func (a *app) planSummary(c *ui.Context, p uiPalette, plan store.Plan) {
+	t := p.theme
+	panel(c, p).Padding(t.Space(5)).Gap(t.Space(4)).Children(func() {
+		ui.Row(c).AlignItems(ui.Start).Gap(t.Space(3)).Children(func() {
+			ui.Column(c).Grow(1).Gap(t.Space(1)).Children(func() {
+				ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+					ui.Text(c, plan.Name).FontSize(t.Rem(1.55)).Bold().LetterSpacing(-0.25).
+						Role(ui.RoleHeading).Level(2)
+					kindBadge(c, p, plan.Kind, a.kindLabel(plan.Kind))
+				})
+				if plan.Description != "" {
+					ui.Text(c, plan.Description).FontSize(t.Rem(0.9)).TextColor(p.muted).Pretty()
+				}
+			})
+			a.versionActions(c, p)
+		})
+		ui.Row(c).Gap(t.Space(7)).Children(func() {
+			published := 0
+			for _, version := range a.versions {
+				if version.Status == "published" {
+					published++
+				}
+			}
+			latest := "-"
+			if len(a.versions) > 0 {
+				latest = fmt.Sprintf("v%d", a.versions[0].Version)
+			}
+			metric(c, p, fmt.Sprint(len(a.versions)), locales.PlanMetricVersions())
+			metric(c, p, fmt.Sprint(published), locales.PlanMetricPublished())
+			metric(c, p, latest, locales.PlanMetricLatest())
+		})
+	})
+}
+
+func (a *app) versionActions(c *ui.Context, p uiPalette) {
+	version := a.selectedVersion()
+	publish := labelledButton(c, locales.PublishVersion(), iconExport, true)
+	publish.Disabled(version == nil || version.Status != "draft")
+	if publish.Clicked() {
+		a.publishSelected()
+	}
+	retire := labelledButton(c, locales.RetireVersion(), nil, false)
+	retire.Disabled(version == nil || version.Status != "published")
+	if retire.Clicked() {
+		a.retireSelected()
+	}
+}
+
+func (a *app) versionsTable(c *ui.Context, p uiPalette) {
+	t := p.theme
+	if len(a.versions) == 0 {
+		smallEmptyState(c, p, locales.PlanNoVersions())
+		return
+	}
+	a.versionTable.Selected = &a.versionIndex
+	a.versionTable.Key = func(row int) any { return a.versions[row].ID }
+	a.versionTable.Label = func(row int) string {
+		return fmt.Sprintf("%s %d", locales.PlanColumnVersion(), a.versions[row].Version)
+	}
+	a.versionTable.RowHeight = t.Space(8)
+	columns := []ui.TableColumn{
+		{Title: locales.PlanColumnVersion(), Width: t.Space(18)},
+		{Title: locales.PlanColumnStatus(), Width: t.Space(24)},
+		{Title: locales.PlanColumnCreated(), Width: 0},
+		{Title: locales.PlanColumnPublished(), Width: 0},
+	}
+	ui.Table(c, &a.versionTable, columns, len(a.versions), func(row, col int) {
+		version := a.versions[row]
+		switch col {
+		case 0:
+			ui.Textf(c, "%d", version.Version)
+		case 1:
+			statusBadge(c, p, version.Status, a.statusLabel(version.Status))
+		case 2:
+			ui.Text(c, formatTime(version.CreatedAt)).TextColor(p.muted)
+		case 3:
+			if version.PublishedAt == nil {
+				ui.Text(c, "-").TextColor(p.muted)
+				return
+			}
+			ui.Text(c, formatTime(*version.PublishedAt)).TextColor(p.muted)
+		}
+	}).Label(locales.PlanVersionsTitle()).Grow(1).FillWidth()
 }
 
 func (a *app) kindLabel(kind string) string {
@@ -339,10 +376,10 @@ func main() {
 		a.load()
 		a.win = mygo.NewWindow(mygo.WindowOptions{
 			Title:     locales.AppTitle(),
-			Width:     960,
-			Height:    640,
-			MinWidth:  720,
-			MinHeight: 480,
+			Width:     1120,
+			Height:    760,
+			MinWidth:  900,
+			MinHeight: 620,
 			StateKey:  "plans",
 			Content:   ui.View(a.view),
 		})
