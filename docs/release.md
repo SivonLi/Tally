@@ -84,10 +84,10 @@ go tool mygo keygen
 
 `test` 分支只运行质量检查，不发布测试版本。
 
-`main` 已从初始提交创建并受分支保护，必需检查为 `gates` 与 `windows-build`，必需批准数为 0。第一次正式发布时，从 `test` 向 `main` 开 PR，PR 会带入完整项目文件。
+`main` 已从初始提交创建并受分支保护，必需检查为 `gates`、`windows-build` 与 `macos-build`，必需批准数为 0。第一次正式发布时，从 `test` 向 `main` 开 PR，PR 会带入完整项目文件。
 
 1. 改动合并进 `test`，通过 `gates` 与 `windows-build` 检查
-2. 从 `test` 向 `main` 开 PR，在 PR 内修改 `mygo.json` 的 `version` 与 `CHANGELOG.md` 的对应小节
+2. 从 `test` 向 `main` 开 PR，在 PR 内修改 `mygo.json` 的 `version` 与 `CHANGELOG.md` 的对应小节；PR 还会在 macOS 上运行测试与打包，验证应用包体积
 3. PR 检查通过后合并；`release.yml` 在 `main` 的推送提交上重新运行全部门槛
 4. 工作流校验版本号与变更记录，构建 macOS 与 Windows 包，创建指向 `main` 提交的 `vX.Y.Z` 标签与 Release
 5. Release 先以草稿创建，附件全部上传后再发布，应用不会读到缺少清单或缺少文件的版本

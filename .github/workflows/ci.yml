@@ -6,6 +6,11 @@ on:
   push:
     branches: [test]
   workflow_call:
+    inputs:
+      skip_windows:
+        description: 跳过 Windows 测试
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -79,6 +84,7 @@ jobs:
         run: bash scripts/check-release.sh
 
   windows-build:
+    if: ${{ inputs.skip_windows != true }}
     runs-on: windows-latest
     timeout-minutes: 15
     defaults:
@@ -94,3 +100,30 @@ jobs:
 
       - name: 测试
         run: go test ./...
+
+  macos-build:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 测试
+        run: go test ./...
+
+      - name: 打包
+        run: go tool mygo build
+
+      - name: 体积门槛
+        run: |
+          size=$(du -sm build/darwin-arm64/Tally.app | cut -f1)
+          if [ "$size" -gt 12 ]; then
+            echo "应用包 ${size} MB 超过 12 MB"
+            exit 1
+          fi
+          echo "应用包 ${size} MB"
