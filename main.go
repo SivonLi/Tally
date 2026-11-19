@@ -2,15 +2,19 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
+	"tally/internal/assessment"
 	"tally/internal/calc"
 	"tally/internal/store"
 	"tally/locales"
@@ -28,6 +32,13 @@ type app struct {
 	sidebarWidth   float32
 	versionTable   ui.ListState
 	loadError      string
+	planError      string
+	planMessage    string
+	planEditOpen   bool
+	planEditName   string
+	planEditNotes  string
+	planEditDraft  string
+	planEditError  string
 
 	tab                int
 	published          []publishedVersion
@@ -167,10 +178,12 @@ func (a *app) publishSelected() {
 	}
 	ctx := context.Background()
 	if err := a.store.Publish(ctx, version.ID, "local"); err != nil {
-		a.loadError = err.Error()
+		a.planError = err.Error()
+		a.planMessage = ""
 		return
 	}
-	a.loadError = ""
+	a.planError = ""
+	a.planMessage = fmt.Sprintf(locales.PlanPublishedMessage(), version.Version)
 	a.reloadVersions(ctx)
 	a.reloadPublished(ctx)
 }
@@ -182,10 +195,16 @@ func (a *app) retireSelected() {
 	}
 	ctx := context.Background()
 	if err := a.store.Retire(ctx, version.ID); err != nil {
-		a.loadError = err.Error()
+		if errors.Is(err, store.ErrSystemPlanRetire) {
+			a.planError = locales.PlanSystemCannotRetire()
+		} else {
+			a.planError = err.Error()
+		}
+		a.planMessage = ""
 		return
 	}
-	a.loadError = ""
+	a.planError = ""
+	a.planMessage = fmt.Sprintf(locales.PlanRetiredMessage(), version.Version)
 	a.reloadVersions(ctx)
 	a.reloadPublished(ctx)
 }
@@ -225,6 +244,7 @@ func (a *app) planPage(c *ui.Context, p uiPalette) {
 			a.planDetails(c, p)
 		}).Grow(1)
 	})
+	a.planEditModal(c, p)
 }
 
 func (a *app) planSidebar(c *ui.Context, p uiPalette) {
@@ -240,6 +260,8 @@ func (a *app) planSidebar(c *ui.Context, p uiPalette) {
 		}
 	})
 	if changed {
+		a.planError = ""
+		a.planMessage = ""
 		a.reloadVersions(context.Background())
 	}
 }
@@ -253,6 +275,12 @@ func (a *app) planDetails(c *ui.Context, p uiPalette) {
 			return
 		}
 		a.planSummary(c, p, *plan)
+		if a.planError != "" {
+			notice(c, p, noticeWarning, a.planError)
+		}
+		if a.planMessage != "" {
+			notice(c, p, noticeSuccess, a.planMessage)
+		}
 		panel(c, p).Grow(1).Padding(t.Space(4)).Gap(t.Space(3)).Children(func() {
 			sectionHeading(c, p, locales.PlanVersionsTitle(), -1)
 			a.versionsTable(c, p)
@@ -295,16 +323,170 @@ func (a *app) planSummary(c *ui.Context, p uiPalette, plan store.Plan) {
 }
 
 func (a *app) versionActions(c *ui.Context, p uiPalette) {
+	plan := a.selectedPlan()
 	version := a.selectedVersion()
-	publish := labelledButton(c, locales.PublishVersion(), iconExport, true)
-	publish.Disabled(version == nil || version.Status != "draft")
-	if publish.Clicked() {
-		a.publishSelected()
+	if plan == nil || version == nil {
+		return
 	}
-	retire := labelledButton(c, locales.RetireVersion(), nil, false)
-	retire.Disabled(version == nil || version.Status != "published")
-	if retire.Clicked() {
-		a.retireSelected()
+	t := p.theme
+	ui.Row(c).Wrap().Justify(ui.End).Gap(t.Space(2)).Children(func() {
+		if plan.Kind != "system" {
+			publish := labelledButton(c, locales.PublishVersion(), iconExport, version.Status == "draft")
+			publish.Disabled(version.Status != "draft")
+			if publish.Clicked() {
+				a.publishSelected()
+			}
+		}
+		update := labelledButton(c, locales.PlanUpdate(), iconEdit, plan.Kind == "system")
+		if update.Clicked() {
+			a.openPlanEditor()
+		}
+		if labelledButton(c, locales.PlanSaveAsNew(), iconCopy, false).Clicked() {
+			a.openPlanEditor()
+		}
+		if plan.Kind != "system" {
+			retire := labelledButton(c, locales.RetireVersion(), nil, false)
+			retire.Disabled(version.Status != "published")
+			if retire.Clicked() {
+				a.retireSelected()
+			}
+		}
+	})
+}
+
+func (a *app) openPlanEditor() {
+	plan := a.selectedPlan()
+	version := a.selectedVersion()
+	if plan == nil || version == nil {
+		return
+	}
+	data, err := json.MarshalIndent(version.Config, "", "  ")
+	if err != nil {
+		a.planError = err.Error()
+		return
+	}
+	a.planEditOpen = true
+	a.planEditName = plan.Name
+	a.planEditNotes = ""
+	a.planEditDraft = string(data)
+	a.planEditError = ""
+}
+
+func (a *app) planEditModal(c *ui.Context, p uiPalette) {
+	if !a.planEditOpen {
+		return
+	}
+	t := p.theme
+	ui.Modal(c, &a.planEditOpen, func() {
+		ui.Column(c).Width(t.Space(170)).Gap(t.Space(4)).Children(func() {
+			ui.Column(c).Gap(t.Space(1)).Children(func() {
+				ui.Text(c, locales.PlanConfigTitle()).FontSize(t.Rem(1.3)).Bold().
+					Role(ui.RoleHeading).Level(2)
+				ui.Text(c, locales.PlanConfigSubtitle()).FontSize(t.Rem(0.9)).
+					TextColor(p.muted).Pretty()
+			})
+			ui.Field(c, locales.PlanNameLabel(), func() {
+				ui.TextInput(c, &a.planEditName)
+			})
+			ui.Field(c, locales.PlanConfigJSON(), func() {
+				ui.TextArea(c, &a.planEditDraft).Height(t.Space(88)).FillWidth()
+			})
+			ui.Field(c, locales.PlanVersionNotes(), func() {
+				ui.TextInput(c, &a.planEditNotes)
+			})
+			if a.planEditError != "" {
+				notice(c, p, noticeWarning, a.planEditError)
+			}
+			ui.Row(c).Wrap().Justify(ui.End).Gap(t.Space(2)).Children(func() {
+				if ui.Button(c, locales.PlanCancel()).Clicked() {
+					a.planEditOpen = false
+				}
+				if ui.Button(c, locales.PlanSaveAsNew()).Clicked() {
+					a.savePlanAsNew()
+				}
+				if ui.PrimaryButton(c, locales.PlanUpdate()).Clicked() {
+					a.savePlanUpdate()
+				}
+			})
+		})
+	})
+}
+
+func (a *app) parsePlanEditConfig() (assessment.Config, bool) {
+	config, err := assessment.Decode([]byte(a.planEditDraft))
+	if err != nil {
+		a.planEditError = locales.PlanUpdateInvalid() + " " + err.Error()
+		return assessment.Config{}, false
+	}
+	name := strings.TrimSpace(a.planEditName)
+	if name == "" {
+		a.planEditError = locales.PlanNameRequired()
+		return assessment.Config{}, false
+	}
+	config.Name = name
+	return config, true
+}
+
+func (a *app) savePlanUpdate() {
+	plan := a.selectedPlan()
+	if plan == nil {
+		return
+	}
+	config, ok := a.parsePlanEditConfig()
+	if !ok {
+		return
+	}
+	updated, err := a.store.UpdatePlan(context.Background(), plan.ID, config, a.planEditNotes, "local")
+	if err != nil {
+		a.planEditError = err.Error()
+		return
+	}
+	a.planEditOpen = false
+	a.planEditError = ""
+	a.planError = ""
+	a.planMessage = fmt.Sprintf(locales.PlanUpdateSaved(), updated.Version)
+	a.reloadPlans(context.Background())
+	a.selectPlanVersion(updated.ID)
+}
+
+func (a *app) savePlanAsNew() {
+	base := a.selectedVersion()
+	if base == nil {
+		return
+	}
+	config, ok := a.parsePlanEditConfig()
+	if !ok {
+		return
+	}
+	plan, version, err := a.store.CreatePlan(context.Background(), store.CreatePlanInput{
+		Name:          config.Name,
+		Kind:          "user",
+		Description:   config.Description,
+		BaseVersionID: base.ID,
+		Config:        config,
+		CreatedBy:     "local",
+	})
+	if err != nil {
+		a.planEditError = err.Error()
+		return
+	}
+	a.planEditOpen = false
+	a.planEditError = ""
+	a.planError = ""
+	a.planMessage = fmt.Sprintf(locales.PlanSavedAsNew(), plan.Name, version.Version)
+	a.reloadPlans(context.Background())
+	a.selectedPlanID = strconv.FormatInt(plan.ID, 10)
+	a.reloadVersions(context.Background())
+	a.reloadPublished(context.Background())
+	a.selectPlanVersion(version.ID)
+}
+
+func (a *app) selectPlanVersion(id int64) {
+	for index := range a.versions {
+		if a.versions[index].ID == id {
+			a.versionIndex = index
+			return
+		}
 	}
 }
 

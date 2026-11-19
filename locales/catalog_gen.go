@@ -398,6 +398,156 @@ func (msgs Messages) RetireVersion() string {
 	return Catalog.Format(msgs.locale, "retireVersion", nil)
 }
 
+// PlanUpdate says "Update this plan"
+// in the language the app shows.
+func PlanUpdate() string { return In(i18n.Locale()).PlanUpdate() }
+
+// PlanUpdate says "Update this plan"
+// in the language of msgs.
+func (msgs Messages) PlanUpdate() string {
+	return Catalog.Format(msgs.locale, "planUpdate", nil)
+}
+
+// PlanSaveAsNew says "Save as new plan"
+// in the language the app shows.
+func PlanSaveAsNew() string { return In(i18n.Locale()).PlanSaveAsNew() }
+
+// PlanSaveAsNew says "Save as new plan"
+// in the language of msgs.
+func (msgs Messages) PlanSaveAsNew() string {
+	return Catalog.Format(msgs.locale, "planSaveAsNew", nil)
+}
+
+// PlanCancel says "Cancel"
+// in the language the app shows.
+func PlanCancel() string { return In(i18n.Locale()).PlanCancel() }
+
+// PlanCancel says "Cancel"
+// in the language of msgs.
+func (msgs Messages) PlanCancel() string {
+	return Catalog.Format(msgs.locale, "planCancel", nil)
+}
+
+// PlanConfigTitle says "Plan configuration"
+// in the language the app shows.
+func PlanConfigTitle() string { return In(i18n.Locale()).PlanConfigTitle() }
+
+// PlanConfigTitle says "Plan configuration"
+// in the language of msgs.
+func (msgs Messages) PlanConfigTitle() string {
+	return Catalog.Format(msgs.locale, "planConfigTitle", nil)
+}
+
+// PlanConfigSubtitle says "Edit the rules and save a new version. Earlier versions stay available."
+// in the language the app shows.
+func PlanConfigSubtitle() string { return In(i18n.Locale()).PlanConfigSubtitle() }
+
+// PlanConfigSubtitle says "Edit the rules and save a new version. Earlier versions stay available."
+// in the language of msgs.
+func (msgs Messages) PlanConfigSubtitle() string {
+	return Catalog.Format(msgs.locale, "planConfigSubtitle", nil)
+}
+
+// PlanNameLabel says "Plan name"
+// in the language the app shows.
+func PlanNameLabel() string { return In(i18n.Locale()).PlanNameLabel() }
+
+// PlanNameLabel says "Plan name"
+// in the language of msgs.
+func (msgs Messages) PlanNameLabel() string {
+	return Catalog.Format(msgs.locale, "planNameLabel", nil)
+}
+
+// PlanConfigJSON says "Rules (JSON)"
+// in the language the app shows.
+func PlanConfigJSON() string { return In(i18n.Locale()).PlanConfigJSON() }
+
+// PlanConfigJSON says "Rules (JSON)"
+// in the language of msgs.
+func (msgs Messages) PlanConfigJSON() string {
+	return Catalog.Format(msgs.locale, "planConfigJSON", nil)
+}
+
+// PlanVersionNotes says "Version note"
+// in the language the app shows.
+func PlanVersionNotes() string { return In(i18n.Locale()).PlanVersionNotes() }
+
+// PlanVersionNotes says "Version note"
+// in the language of msgs.
+func (msgs Messages) PlanVersionNotes() string {
+	return Catalog.Format(msgs.locale, "planVersionNotes", nil)
+}
+
+// PlanUpdateInvalid says "Check the configuration."
+// in the language the app shows.
+func PlanUpdateInvalid() string { return In(i18n.Locale()).PlanUpdateInvalid() }
+
+// PlanUpdateInvalid says "Check the configuration."
+// in the language of msgs.
+func (msgs Messages) PlanUpdateInvalid() string {
+	return Catalog.Format(msgs.locale, "planUpdateInvalid", nil)
+}
+
+// PlanNameRequired says "Enter a plan name."
+// in the language the app shows.
+func PlanNameRequired() string { return In(i18n.Locale()).PlanNameRequired() }
+
+// PlanNameRequired says "Enter a plan name."
+// in the language of msgs.
+func (msgs Messages) PlanNameRequired() string {
+	return Catalog.Format(msgs.locale, "planNameRequired", nil)
+}
+
+// PlanUpdateSaved says "Saved as version %d."
+// in the language the app shows.
+func PlanUpdateSaved() string { return In(i18n.Locale()).PlanUpdateSaved() }
+
+// PlanUpdateSaved says "Saved as version %d."
+// in the language of msgs.
+func (msgs Messages) PlanUpdateSaved() string {
+	return Catalog.Format(msgs.locale, "planUpdateSaved", nil)
+}
+
+// PlanSavedAsNew says "Created %s as version %d."
+// in the language the app shows.
+func PlanSavedAsNew() string { return In(i18n.Locale()).PlanSavedAsNew() }
+
+// PlanSavedAsNew says "Created %s as version %d."
+// in the language of msgs.
+func (msgs Messages) PlanSavedAsNew() string {
+	return Catalog.Format(msgs.locale, "planSavedAsNew", nil)
+}
+
+// PlanPublishedMessage says "Version %d published."
+// in the language the app shows.
+func PlanPublishedMessage() string { return In(i18n.Locale()).PlanPublishedMessage() }
+
+// PlanPublishedMessage says "Version %d published."
+// in the language of msgs.
+func (msgs Messages) PlanPublishedMessage() string {
+	return Catalog.Format(msgs.locale, "planPublishedMessage", nil)
+}
+
+// PlanRetiredMessage says "Version %d retired."
+// in the language the app shows.
+func PlanRetiredMessage() string { return In(i18n.Locale()).PlanRetiredMessage() }
+
+// PlanRetiredMessage says "Version %d retired."
+// in the language of msgs.
+func (msgs Messages) PlanRetiredMessage() string {
+	return Catalog.Format(msgs.locale, "planRetiredMessage", nil)
+}
+
+// PlanSystemCannotRetire says "Built-in plans cannot be retired. Update the plan and save a new version."
+// in the language the app shows.
+func PlanSystemCannotRetire() string { return In(i18n.Locale()).PlanSystemCannotRetire() }
+
+// PlanSystemCannotRetire says "Built-in plans cannot be retired. Update the plan and save a new version."
+// in the language of msgs.
+func (msgs Messages) PlanSystemCannotRetire() string {
+	return Catalog.Format(msgs.locale, "planSystemCannotRetire", nil)
+}
+
 // BatchWorkbenchTitle says "Batches"
 // in the language the app shows.
 func BatchWorkbenchTitle() string { return In(i18n.Locale()).BatchWorkbenchTitle() }

@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -9,10 +11,12 @@ import (
 	"testing"
 
 	"github.com/egoist/mygo/i18n"
+	"github.com/egoist/mygo/plugins/sqlite"
 	"github.com/egoist/mygo/ui"
 
 	"tally/internal/assessment"
 	"tally/internal/store"
+	"tally/locales"
 )
 
 func newTestApp(t *testing.T) *app {
@@ -221,7 +225,7 @@ func TestPlanPageAtMinimumSize(t *testing.T) {
 	tt := ui.NewTester(a.view, 900, 620)
 	tt.SetLocale("en")
 	tt.Frame()
-	for _, text := range []string{"Assessment plans", "Built-in", "Versions", "Publish", "Retire"} {
+	for _, text := range []string{"Assessment plans", "Built-in", "Versions", "Update this plan", "Save as new plan"} {
 		box, ok := tt.Find(text)
 		if !ok {
 			t.Fatalf("missing box for %q", text)
@@ -229,5 +233,175 @@ func TestPlanPageAtMinimumSize(t *testing.T) {
 		if box.X < 0 || box.Y < 0 || box.X+box.W > 900 || box.Y+box.H > 620 {
 			t.Fatalf("%q is outside the window: %+v", text, box)
 		}
+	}
+}
+
+func TestUpdateSystemPlanFromEditor(t *testing.T) {
+	a := newTestApp(t)
+	tt := ui.NewTester(a.view, 960, 640)
+	tt.SetLocale("en")
+	tt.Frame()
+	if err := tt.Click("Update this plan"); err != nil {
+		t.Fatal(err)
+	}
+	if !a.planEditOpen {
+		t.Fatal("editor not open")
+	}
+	config := a.versions[a.versionIndex].Config
+	config.Ranking.TieMode = "dense"
+	data, err := json.Marshal(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.planEditDraft = string(data)
+	a.savePlanUpdate()
+	if a.planEditError != "" {
+		t.Fatal(a.planEditError)
+	}
+	if a.planEditOpen {
+		t.Fatal("editor still open")
+	}
+	if a.loadError != "" || a.planError != "" {
+		t.Fatalf("loadError=%q planError=%q", a.loadError, a.planError)
+	}
+	if want := fmt.Sprintf(locales.PlanUpdateSaved(), 2); a.planMessage != want {
+		t.Fatalf("message = %q", a.planMessage)
+	}
+	latest, err := a.store.LatestPublished(context.Background(), a.versions[a.versionIndex].PlanID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if latest.Version != 2 || latest.Status != "published" {
+		t.Fatalf("latest = %+v", latest)
+	}
+	if latest.Config.Ranking.TieMode != "dense" {
+		t.Fatalf("tie mode = %q", latest.Config.Ranking.TieMode)
+	}
+}
+
+func TestSaveAsNewPlanFromEditor(t *testing.T) {
+	a := newTestApp(t)
+	tt := ui.NewTester(a.view, 960, 640)
+	tt.SetLocale("en")
+	tt.Frame()
+	if err := tt.Click("Save as new plan"); err != nil {
+		t.Fatal(err)
+	}
+	if !a.planEditOpen {
+		t.Fatal("editor not open")
+	}
+	a.planEditName = "Derived plan"
+	a.savePlanAsNew()
+	if a.planEditError != "" {
+		t.Fatal(a.planEditError)
+	}
+	if a.planEditOpen {
+		t.Fatal("editor still open")
+	}
+	if a.loadError != "" || a.planError != "" {
+		t.Fatalf("loadError=%q planError=%q", a.loadError, a.planError)
+	}
+	if len(a.plans) != 2 {
+		t.Fatalf("plans = %+v", a.plans)
+	}
+	selected := a.selectedPlan()
+	if selected == nil || selected.Name != "Derived plan" || selected.Kind != "user" {
+		t.Fatalf("selected = %+v", selected)
+	}
+	if len(a.versions) != 1 || a.versions[0].Status != "draft" {
+		t.Fatalf("versions = %+v", a.versions)
+	}
+	if want := fmt.Sprintf(locales.PlanSavedAsNew(), "Derived plan", 1); a.planMessage != want {
+		t.Fatalf("message = %q", a.planMessage)
+	}
+}
+
+func TestRetireSystemPlanKeepsPlanPageUsable(t *testing.T) {
+	a := newTestApp(t)
+	a.retireSelected()
+	if a.planError != locales.PlanSystemCannotRetire() {
+		t.Fatalf("planError = %q", a.planError)
+	}
+	if a.loadError != "" {
+		t.Fatalf("loadError = %q", a.loadError)
+	}
+	tt := ui.NewTester(a.view, 960, 640)
+	tt.SetLocale("en")
+	tt.Frame()
+	if !tt.HasText("Assessment plans") {
+		t.Fatalf("texts = %q", tt.Texts())
+	}
+}
+
+func TestLoadRecoversSystemPlanWithoutPublishedVersion(t *testing.T) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("locate test file")
+	}
+	scratch := filepath.Join(filepath.Dir(file), ".scratch")
+	if err := os.MkdirAll(scratch, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dir, err := os.MkdirTemp(scratch, "recover-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.RemoveAll(dir); err != nil {
+			t.Errorf("remove test directory: %v", err)
+		}
+	})
+	ctx := context.Background()
+	path := filepath.Join(dir, "tally.db")
+	opened, err := store.Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, err := opened.EnsureDefaultPlan(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := opened.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sqlite.Open(ctx, path, sqlite.OpenOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Execute(ctx, `UPDATE plan_versions SET status = 'retired' WHERE id = ?`, base.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	a := &app{dataDir: dir, language: "en"}
+	a.load()
+	if a.loadError != "" {
+		t.Fatal(a.loadError)
+	}
+	t.Cleanup(func() {
+		if err := a.store.Close(); err != nil {
+			t.Errorf("close store: %v", err)
+		}
+	})
+	if len(a.plans) != 1 {
+		t.Fatalf("plans = %+v", a.plans)
+	}
+	versions, err := a.store.ListVersions(ctx, a.plans[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(versions) != 2 {
+		t.Fatalf("versions = %+v", versions)
+	}
+	if versions[1].Status != "published" {
+		t.Fatalf("versions = %+v", versions)
+	}
+	latest, err := a.store.LatestPublished(ctx, a.plans[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if latest.ID != versions[1].ID {
+		t.Fatalf("latest = %+v", latest)
 	}
 }

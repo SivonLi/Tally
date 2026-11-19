@@ -18,6 +18,9 @@ import (
 // ErrNotFound 表示查询的方案或者版本不存在。
 var ErrNotFound = errors.New("记录不存在")
 
+// ErrSystemPlanRetire 表示内置方案不允许停用。
+var ErrSystemPlanRetire = errors.New("system plan cannot be retired")
+
 // Store 是一个打开的本地数据库。
 type Store struct {
 	db  *sqlite.DB
@@ -154,7 +157,14 @@ func (s *Store) EnsureDefaultPlan(ctx context.Context) (PlanVersion, error) {
 	if !ok {
 		return PlanVersion{}, fmt.Errorf("默认方案标识格式不正确")
 	}
-	return s.LatestPublished(ctx, planID)
+	version, err := s.LatestPublished(ctx, planID)
+	if err == nil {
+		return version, nil
+	}
+	if !errors.Is(err, ErrNotFound) {
+		return PlanVersion{}, err
+	}
+	return s.restoreSystemPlan(ctx, planID)
 }
 
 // ListPlans 返回全部方案。
@@ -336,17 +346,100 @@ func (s *Store) Publish(ctx context.Context, id int64, user string) error {
 	return err
 }
 
+// UpdatePlan 在当前方案下追加一个版本。内置方案直接发布，派生方案保存为草稿。
+func (s *Store) UpdatePlan(ctx context.Context, planID int64, config assessment.Config, notes, user string) (PlanVersion, error) {
+	plan, err := s.getPlan(ctx, planID)
+	if err != nil {
+		return PlanVersion{}, err
+	}
+	if err := validateConfig(config); err != nil {
+		return PlanVersion{}, err
+	}
+	parentID, err := s.latestVersionID(ctx, planID)
+	if err != nil {
+		return PlanVersion{}, err
+	}
+	configJSON, configHash, err := encodeConfig(config)
+	if err != nil {
+		return PlanVersion{}, err
+	}
+	status := "draft"
+	var publishedAt any
+	publishedBy := ""
+	if plan.Kind == "system" {
+		status = "published"
+		publishedAt = s.now().Format(time.RFC3339Nano)
+		publishedBy = user
+	}
+	now := s.now().Format(time.RFC3339Nano)
+	results, err := s.db.Transaction(ctx, []sqlite.Statement{
+		{
+			SQL:  `UPDATE plans SET name = ?, description = ? WHERE id = ?`,
+			Args: []any{config.Name, config.Description, planID},
+		},
+		{
+			SQL: `INSERT INTO plan_versions(
+				plan_id, version, status, schema_version, config_json, config_hash, parent_version_id, notes,
+				created_at, created_by, published_at, published_by)
+				VALUES (?, (SELECT COALESCE(MAX(version), 0) + 1 FROM plan_versions WHERE plan_id = ?),
+				?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			Args: []any{
+				planID, planID, status, config.SchemaVersion, configJSON, configHash,
+				nullableID(parentID), notes, now, user, publishedAt, publishedBy,
+			},
+		},
+	})
+	if err != nil {
+		return PlanVersion{}, err
+	}
+	return s.GetVersion(ctx, results[1].LastInsertID)
+}
+
 // Retire 停用一个已发布版本。
 func (s *Store) Retire(ctx context.Context, id int64) error {
 	version, err := s.GetVersion(ctx, id)
 	if err != nil {
 		return err
 	}
+	plan, err := s.getPlan(ctx, version.PlanID)
+	if err != nil {
+		return err
+	}
+	if plan.Kind == "system" {
+		return ErrSystemPlanRetire
+	}
 	if version.Status != "published" {
 		return fmt.Errorf("只有已发布版本可以停用")
 	}
 	_, err = s.db.Execute(ctx, `UPDATE plan_versions SET status = 'retired' WHERE id = ? AND status = 'published'`, id)
 	return err
+}
+
+func (s *Store) restoreSystemPlan(ctx context.Context, planID int64) (PlanVersion, error) {
+	versions, err := s.ListVersions(ctx, planID)
+	if err != nil {
+		return PlanVersion{}, err
+	}
+	config := assessment.DefaultConfig()
+	if len(versions) > 0 {
+		config = versions[len(versions)-1].Config
+	}
+	return s.UpdatePlan(ctx, planID, config, "", "")
+}
+
+func (s *Store) latestVersionID(ctx context.Context, planID int64) (int64, error) {
+	rows, err := s.db.Query(ctx, `SELECT id FROM plan_versions WHERE plan_id = ? ORDER BY version DESC LIMIT 1`, planID)
+	if err != nil {
+		return 0, err
+	}
+	if len(rows.Values) == 0 {
+		return 0, nil
+	}
+	id, ok := rows.Values[0][0].(int64)
+	if !ok {
+		return 0, fmt.Errorf("方案版本标识格式不正确")
+	}
+	return id, nil
 }
 
 func (s *Store) getPlan(ctx context.Context, id int64) (Plan, error) {
