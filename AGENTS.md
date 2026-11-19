@@ -77,8 +77,9 @@ MYGO=$(go list -m -f '{{.Dir}}' github.com/egoist/mygo)
 需求阶段文档的入口是 `docs/README.md`。
 
 - `docs/requirements-analysis.md`：业务口径与确认状态，默认值的唯一来源。
+- `docs/system-design.md`：当前实现的系统结构、模块职责、运行流程、真实数据库结构、界面状态与限制。
 - `docs/assessment-plan.md`：考核方案库、版本状态、完整配置结构、公式规则与核算时选择方案。
-- `docs/design-roadmap.md`：数据模型、算法配置、历史数据、同步与迁移。
+- `docs/design-roadmap.md`：后续阶段、目标数据模型、历史数据、同步与迁移。
 - `docs/historical-data-checklist.md`：历史数据的目录层级、工作簿与工作表角色、读取规则。
 
 开始需求或者实现前先读 `docs/README.md`。`private-data/` 只放原始 Excel、Word、PDF 和考试目录的说明文件，不复制规则。开始一个需求前先看这个目录里有没有对应文件，有就先读完再动手。

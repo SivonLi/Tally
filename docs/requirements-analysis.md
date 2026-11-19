@@ -1,6 +1,6 @@
 # 教学成绩量化考核 需求分析
 
-本文档记录业务流程、计算口径、导入要求与验收标准。口径确认表是默认值的唯一来源；考核方案的配置结构、方案库、版本管理和核算时选择方式见 `docs/assessment-plan.md`；数据模型见 `docs/design-roadmap.md`，历史数据的目录层级与工作表识别见 `docs/historical-data-checklist.md`。
+本文档记录业务流程、计算口径、导入要求与验收标准。口径确认表是默认值的唯一来源；考核方案的配置结构、方案库、版本管理和核算时选择方式见 `docs/assessment-plan.md`；当前实现的系统结构与数据模型见 `docs/system-design.md`，后续目标模型见 `docs/design-roadmap.md`，历史数据的目录层级与工作表识别见 `docs/historical-data-checklist.md`。
 
 ## 使用者与目标
 
