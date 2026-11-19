@@ -1,6 +1,6 @@
 # 考核方案配置
 
-本文档定义考核方案的配置结构、方案库、版本管理、核算时的选择方式和公式规则。默认值的唯一来源是 `docs/requirements-analysis.md` 的口径确认表；当前实现的数据模型与模块结构见 `docs/system-design.md`，后续目标模型见 `docs/design-roadmap.md`。
+本文档定义考核方案的配置结构、方案库、版本管理、核算时的选择方式和公式规则。产品结构、方案配置页和界面交互见 `docs/product-redesign.md` 的 6.8.11 与 6.8.12。默认值的唯一来源是 `docs/requirements-analysis.md` 的口径确认表；当前实现的数据模型与模块结构见 `docs/system-design.md`，后续目标模型见 `docs/design-roadmap.md`。
 
 ## 实现状态
 
@@ -8,10 +8,12 @@
 |---|---|---|
 | 内置默认方案 | 已实现 | 首次启动写入并发布版本 1 |
 | 严格 JSON 解析与语义校验 | 已实现 | 未知字段拒绝，公式编译和指标依赖检查 |
-| 发布与停用版本 | 已实现 | 界面提供按钮，正式核算只接受已发布版本 |
+| 发布与停用版本 | 已实现 | 派生方案可以发布和停用，正式核算只接受已发布版本 |
+| 内置方案更新 | 已实现 | 更新时追加已发布版本，旧版本保留，内置方案不能停用 |
 | 派生方案数据模型 | 已实现 | `store.CreatePlan` 写入完整配置，版本 1 为草稿 |
 | 派生方案新建界面 | 未实现 | 当前没有界面入口 |
-| 方案编辑与版本对比界面 | 未实现 | 配置结构与校验已经可用 |
+| 方案配置页 | 部分实现 | 当前提供 JSON 配置模态窗口，保存前执行完整校验；分节表单和公式编辑器尚未实现 |
+| 版本对比界面 | 未实现 | 配置结构已经可以逐字段比较 |
 | 核算时选择版本 | 已实现 | 批次工作台顶部的下拉框 |
 | 核算摘要与范围提示 | 未实现 | 计划在版本选择区域补充 |
 
@@ -36,10 +38,12 @@
 |---|---|---|
 | 方案 | 一组考核规则的集合，带名称和说明 | 名称和说明可以修改 |
 | 方案版本 | 某一时刻的完整配置快照 | 发布后只读 |
-| 内置默认方案 | 首次启动写入，`kind = system` | 不能删除，可以生成新版本 |
+| 内置默认方案 | 首次启动写入，`kind = system` | 不能删除、不能停用、不能失效，可以更新为新版本 |
 | 派生方案 | 从某个方案版本复制出来 | 独立演进，不影响来源方案 |
 
 内置默认方案首次启动写入版本 1，状态为已发布。修改默认方案时生成版本 2，版本 1 保留，可以随时回退。恢复默认操作从出厂配置生成一个新版本，历史版本不删除。
+
+内置方案始终至少保留一个已发布版本。更新内置方案时，保存动作在一个事务里追加新的已发布版本；旧版本保留，正在使用的版本在新版本写入前保持有效。内置方案不显示停用动作，`Retire` 收到内置方案时返回明确错误。应用启动时如果发现内置方案没有已发布版本，读取最新版本配置并发布一个新版本；内置方案没有任何版本时从 `assessment.DefaultConfig()` 恢复。
 
 派生方案从默认方案或者其他方案的某个版本复制。复制时保存完整配置，不保存相对来源方案的差异；来源方案以后变化，派生方案不受影响。需要同步来源方案的改动时，由用户对比后手动合并。
 
@@ -57,9 +61,18 @@
 |---|---|---|---|
 | `draft` | 能 | 不能 | 只能试算 |
 | `published` | 不能 | 能 | 发布后只读 |
-| `retired` | 不能 | 不能 | 已停用，已有结果继续引用 |
+| `retired` | 不能 | 不能 | 已停用，已有结果继续引用；仅用于派生方案 |
 
-编辑一个已发布版本时，系统复制出新的草稿版本；发布后草稿冻结。批次和计算结果都引用具体版本号，不引用方案名称。
+编辑一个已发布版本时，系统复制出新的草稿版本；发布后草稿冻结。批次和计算结果都引用具体版本号，不引用方案名称。内置方案的更新直接追加已发布版本，不经过草稿状态。
+
+方案编辑页面提供两个保存动作：
+
+| 动作 | 写入结果 | 版本状态 |
+|---|---|---|
+| 保存新的方案 | 新建派生方案，来源版本指向当前打开的版本 | 版本 1 为草稿 |
+| 更新本方案 | 在当前方案下追加版本 | 内置方案直接发布；派生方案保存为草稿 |
+
+两种动作都执行完整配置校验和公式编译。保存失败时不写入任何版本，当前已发布版本继续有效。
 
 ## 核算时选择方案
 
@@ -72,6 +85,85 @@
 - 已有结果时更换方案，旧结果保留；导出前发现输入摘要不一致时要求重新核算。
 
 方案摘要、适用范围提示和两个版本的并排对比属于后续界面。当前同一批次重新核算会保留旧运行记录，最新运行标记为正式结果。
+
+## 可配置项清单
+
+方案配置页覆盖下面全部内容。每项都有出厂默认值，用户可以修改。公式字段直接显示在页面上，不放在隐藏的高级页签里。
+
+| 分区 | 配置键 | 页面控件 | 保存时校验 |
+|---|---|---|---|
+| 方案信息 | `name`、`description` | 文本输入 | 名称非空，同一方案名称唯一 |
+| 适用范围 | `appliesTo.grades`、`appliesTo.examTypes` | 多选 | 至少选择一项，取值在年级与考试类型枚举内 |
+| 数据口径 | `data.validStudent`、`excludeFlags`、`excludeStatus`、`baselineSource`、`gradeAverage` | 下拉框、多选 | 取值在枚举内，剔除清单不重复 |
+| 走班口径 | `data.walking.countIn`、`adminClassDoubleCount`、`japanese.englishStatistics`、`japanese.totalScore`、`japanese.rankGroup`、`artSports.rankGroup` | 下拉框、开关 | 取值在枚举内 |
+| 指标列表 | `indicators[].key`、`indicators[].points`、`indicators[].cap` | 指标列表、数字输入、可选上下限 | 指标键唯一，分值合计为 100，上限大于下限 |
+| 指标公式 | `indicators[].formula` | 公式编辑器 | 语法、变量、类型、依赖、字面除零和节点上限 |
+| 合并组算法 | `indicators[].merge.numerator`、`denominator`、`resultRow`、`leadClass` | 下拉框 | 取值在枚举内，合并组目标存在 |
+| 档位 | `tiers[].key`、`label`、`weight` | 可增删、可排序的表格 | 档位键唯一，权重为大于零的有限数值 |
+| 排名分组 | `ranking.groupBy`、`ranking.tieMode` | 多选、下拉框 | 至少选择一个分组字段，并列规则在枚举内 |
+| 分档模式 | `ranking.boundary.mode` | 下拉框 | `ratio` 或 `manual` |
+| 分档公式 | `ranking.boundary.first`、`ranking.boundary.second` | 公式编辑器 | 返回整数名次，边界递增，覆盖 1 到参评数量 |
+| 学科例外 | `ranking.boundary.overrides[]` | 可增删的表格 | 学科存在，参评数量为正整数，边界连续 |
+| 人工区间 | `ranking.boundary.manual[]` | 可增删的表格 | 学科存在，区间连续且覆盖全部名次 |
+| 赋分 | `ranking.points[]` | 可增删的数字列表 | 每档一个分值，数量与档次一致 |
+| 个人得分 | `personal.mode`、`personal.scope` | 下拉框 | 取值在枚举内 |
+| 专项规则 | `programs[].when`、`indicatorOverrides` | 可增删的条件行、指标选择和公式编辑器 | 条件取值合法，覆盖的指标存在，覆盖公式通过编译 |
+| 校验规则 | `validation.blocking`、`validation.warning` | 多选 | 取值在问题代码枚举内 |
+| 零目标 | `validation.zeroTarget.action`、`allowNotParticipating`、`recomputeAfterFill`、`audit`、`recheckBeforeExport` | 下拉框、开关 | 动作在枚举内 |
+
+公式字段共有三类：
+
+1. 指标公式 `indicators[].formula`，计算每项指标的原始比值。
+2. 分档边界公式 `ranking.boundary.first` 与 `ranking.boundary.second`，计算每个学科排名组的一档与二档结束名次。
+3. 专项覆盖公式 `programs[].indicatorOverrides[key].formula`，在条件匹配时替换指标公式。
+
+三类公式使用同一个公式引擎、同一套变量和同一套函数。页面为每个公式显示可用变量、函数、编译结果和试算值。封顶、分值、权重、赋分和区间属于数值参数，使用数字输入或者表格编辑。
+
+## 历史数据反推的规则
+
+下面这些规则已经通过 2026 年春季高一、高二、高三的期中、期末工作簿和高考专项工作簿确认。它们属于方案，配置页逐项展示，计算代码和导入器不另存一套默认值。
+
+| 已确认规则 | 配置键与默认值 | 说明 |
+|---|---|---|
+| 应考名单与成绩单按考号取交集 | `data.validStudent = registered_and_scored` | 报名表与成绩单同时存在才进入统计 |
+| 缺考、违纪、作弊、无效成绩剔除 | `data.excludeFlags = absent, violation, cheating, invalid` | 标记清单同时决定有效考生 |
+| 转学、休学、借读学生剔除 | `data.excludeStatus = transferred, suspended, borrowed` | 学生变化后按当前名单重算 |
+| 单科 0 分按未参加该科处理 | `data.zeroScore = absent` | 该科不计人数、均分和达线人数，总分保留 |
+| 单科本科线按物理类与历史类分别取线 | `data.cutoffTrack = by_track` | 同一科目不同类别使用不同分数线 |
+| 基数取中考成绩 | `data.baselineSource = zhongkao` | 三个年级统一 |
+| 年级均分取年级总计行 | `data.gradeAverage = total_row` | 包含该年级全部参评班级 |
+| 走班学生按实际授课教学班统计 | `data.walking.countIn = teaching_group` | 行政班不重复计人 |
+| 日语考生不进入英语统计，总分保留 | `data.walking.japanese.englishStatistics = exclude`、`totalScore = include` | 排名随教学班 |
+| 艺体考生随教学班排名 | `data.walking.artSports.rankGroup = teaching_group` | 不单独成组 |
+| 均分提升率 40 分，不封顶 | `indicators.improvement.points = 40`、`cap = null` | 公式结果乘以满分 |
+| 单科达线率 40 分，不封顶 | `indicators.pass.points = 40`、`cap = null` | 得分可以超过 40 |
+| 班级完成率 20 分，不封顶 | `indicators.completion.points = 20`、`cap = null` | 得分可以超过 20 |
+| 档位权重 | `tiers[].weight = 50, 40, 30, 20, 10, 8` | 实际完成分与目标基础分共用 |
+| 三项指标直接相加 | `composite.mode = sum` | 不做组内标准分 |
+| 班级完成率由各科共用 | `composite.completionShared = true` | 每个学科教师的量化成绩都包含该班完成率得分 |
+| 班主任不单独产出个人得分 | `personal.includeHeadTeacher = false` | 个人得分表只列学科教师 |
+| 排名对象是统计组 | `ranking.unit = stat_group` | 合并组只占一个名次 |
+| 排名依据是教学量化成绩 | `ranking.score = total` | 从高到低 |
+| 排名组为同年级同学科 | `ranking.groupBy = grade, subject` | 参评对象是该学科开设的统计组 |
+| 并列默认跳过后一名 | `ranking.tieMode = competition` | 当前口径，等待学校确认 |
+| 并列跨越边界时整组进入较高档 | `ranking.tieBoundary = higher_tier` | 下一档从并列组之后开始 |
+| 三档赋分 | `ranking.points = 70, 67, 64` | 第 1 个元素对应第 1 档 |
+| 默认分档边界按比例生成 | `ranking.boundary.mode = ratio` | 一档止 `floor(n/3)`，二档止 `round(2n/3)` |
+| 个别学科边界例外 | `ranking.boundary.overrides` | 记录学科、参评数量和实际边界 |
+| 合并组分子为成员达线人数之和 | `indicators.pass.merge.numerator = sum_members` | 成员教学班达线人数相加 |
+| 合并组分母取统计组目标 | `indicators.pass.merge.denominator = group_target` | 统计组目标单独维护 |
+| 合并组结果写在承担统计职责的班级行 | `indicators.pass.merge.resultRow = lead_class` | 合并结果只出现一次 |
+| 合并组成员行保留任课教师，不重复得分 | `indicators.pass.merge.memberRows = keep_teacher` | 其他成员行不重复显示赋分 |
+| 教师个人得分取最高两个统计组平均 | `personal.mode = top_two_average` | 只教一个组时取该组赋分 |
+| 跨年级教师按年级分别记录 | `personal.scope = per_grade` | 每个年级一条记录 |
+| 高考完成率按 60% 与 40% 合成 | `programs[gaokao].indicatorOverrides.completion` | 目标任务完成率 0.6 加本科达线完成率 0.4 |
+| 目标基础分为 0 时暂停并补齐 | `validation.zeroTarget.action = pause_and_prompt` | 允许补录或者本班不参与 |
+| 导出前再次检查零目标 | `validation.zeroTarget.recheckBeforeExport = true` | 仍有零目标时不允许导出 |
+| 阻断项与提醒项 | `validation.blocking`、`validation.warning` | 校验结果按文件、工作表、行号和列名列出 |
+
+配置结构版本 1 已经包含大部分字段。`data.zeroScore`、`data.cutoffTrack`、`composite`、`ranking.unit`、`ranking.score`、`ranking.tieBoundary`、`indicators.pass.merge.memberRows` 和 `personal.includeHeadTeacher` 加入配置结构时，`schemaVersion` 升为 2。读取版本 1 的配置时在内存里补齐这些字段的默认值，保存新版本时写入当前结构。
+
+方案保存计算规则。文件格式、工作表识别、表头关键词、列名同义词和旧版 `.xls` 转换属于导入规则；学生名单、成绩、分数线、目标和合并组成员属于批次数据。
 
 ## 配置结构
 
@@ -191,6 +283,42 @@
 
 `grades` 使用 `g1`、`g2`、`g3`，`examTypes` 使用 `midterm`、`final`、`gaokao`。学科使用 `subjects` 表里的稳定代码，例如 `chinese`、`math`、`english`、`physics`、`chemistry`、`biology`、`history`、`geography`、`politics`、`japanese`。`外语`和`英语`使用同一个 `english` 代码，界面标签按年级显示。界面显示中文名称，配置保存代码，改名不影响历史数据。
 
+目标结构版本 2 在上面的版本 1 上增加以下字段：
+
+```json
+{
+  "schemaVersion": 2,
+  "data": {
+    "zeroScore": "absent",
+    "cutoffTrack": "by_track"
+  },
+  "indicators": [
+    {
+      "key": "pass",
+      "merge": {
+        "numerator": "sum_members",
+        "denominator": "group_target",
+        "resultRow": "lead_class",
+        "leadClass": "designated",
+        "memberRows": "keep_teacher"
+      }
+    }
+  ],
+  "ranking": {
+    "unit": "stat_group",
+    "score": "total",
+    "tieBoundary": "higher_tier"
+  },
+  "composite": {
+    "mode": "sum",
+    "completionShared": true
+  },
+  "personal": {
+    "includeHeadTeacher": false
+  }
+}
+```
+
 ### 数据口径
 
 | 字段 | 取值 | 默认 | 说明 |
@@ -198,10 +326,13 @@
 | `validStudent` | `registered_and_scored`、`registered`、`scored` | `registered_and_scored` | 有效考生的定义 |
 | `excludeFlags` | `absent`、`violation`、`cheating`、`invalid`、`not_selected` | `absent`、`violation`、`cheating`、`invalid` | 成绩标记的剔除清单 |
 | `excludeStatus` | `transferred`、`suspended`、`borrowed`、`left_school` | `transferred`、`suspended`、`borrowed` | 学生状态的剔除清单 |
+| `zeroScore` | `absent`、`valid` | `absent` | 单科 0 分按未参加该科处理或者作为有效分数 |
+| `cutoffTrack` | `by_track`、`single` | `by_track` | 单科本科线是否按物理类与历史类分别取值 |
 | `baselineSource` | `zhongkao`、`placement`、`previous_exam`、`imported` | `zhongkao` | 均分提升率的基数来源 |
 | `gradeAverage` | `total_row`、`class_row` | `total_row` | 年级均分取总计行或者指定班级 |
 | `walking.countIn` | `teaching_group`、`admin_class` | `teaching_group` | 走班学生计入哪个单位 |
 | `walking.japanese.englishStatistics` | `exclude`、`include` | `exclude` | 日语考生是否进入英语统计 |
+| `walking.japanese.totalScore` | `include`、`exclude` | `include` | 日语考生的总分是否进入总分统计 |
 | `walking.japanese.rankGroup` | `teaching_group`、`separate` | `teaching_group` | 日语考生的排名组 |
 | `walking.artSports.rankGroup` | `teaching_group`、`separate` | `teaching_group` | 艺体考生的排名组 |
 
@@ -403,23 +534,35 @@
 当前已经实现的界面：
 
 - 方案库列出内置方案和派生方案，右侧显示版本号、状态、创建时间和发布时间。
-- 当前版本可以发布或者停用。
+- 派生方案可以发布或者停用；内置方案只显示更新入口。
+- 方案摘要提供「更新本方案」和「保存新的方案」，两者打开 JSON 配置窗口；保存前执行严格解析、语义校验和公式编译。
 - 批次工作台顶部可以选择已发布版本。
 
-下面是完整的方案编辑界面设计，其中表单编辑、JSON 编辑、差异对比和试算按钮尚未实现。
+下面是完整的方案配置界面设计，页面、交互和视觉规范以 `docs/product-redesign.md` 的 6.8.11 与 6.8.12 为准。
 
 方案库页面：
 
 - 列出全部方案，标出内置默认方案、派生来源、最新版本、状态和使用的批次数。
 - 每个方案下面列出版本，显示发布时间、发布人和说明。
-- 操作包括新建派生方案、编辑草稿、发布、停用、恢复默认和版本对比。
+- 内置方案不能删除、不能停用、不能失效，始终显示当前已发布版本。
+- 操作包括保存新的方案、更新本方案、编辑草稿、发布、停用、重新启用、恢复默认和版本对比。
 
-编辑页面：
+方案配置页面：
 
-- 按「数据口径、指标、合成、排名与分档、个人得分、校验、专项」分节。
+- 默认打开内置方案当前生效的版本。
+- 按「适用范围、数据口径、指标、档位、排名与赋分、个人得分、专项规则、校验」分节。
 - 每个字段显示当前值和默认值，修改后标出与来源版本的差异。
-- 公式字段显示表达式、可用变量和函数，提供「用当前批次试算」按钮。
-- 高级页签直接编辑 JSON，保存前执行结构校验、语义校验、公式编译和一次试算。
+- 指标、分档边界和专项覆盖公式直接显示表达式编辑器，不隐藏在高级页签。
+- 公式编辑器提供变量面板、函数面板、语法高亮、错误定位和「试算」按钮。
+- 试算使用当前本次考核数据；没有本次考核时使用内置最小样例，只显示代入值、原始值、封顶后得分、排名、档次和赋分，不写入正式结果。
+- 高级页签提供完整 JSON 编辑；保存前执行结构校验、语义校验、公式编译、依赖检查和一次试算。
+
+保存动作：
+
+- 「保存新的方案」要求填写方案名称，创建派生方案，版本 1 为草稿，来源版本指向当前打开的版本。
+- 「更新本方案」在当前方案下追加版本。内置方案直接写入已发布版本，旧版本保留；派生方案写入草稿，当前已发布版本继续生效。
+- 两种保存都在数据库事务里完成。保存失败时不写入版本，错误显示在保存动作旁边。
+- 保存新的方案和更新本方案都不弹出确认框。版本历史提供回退能力。
 
 核算页面：
 
@@ -451,15 +594,23 @@
 
 `batches.current_plan_version_id` 记录当前选用的版本。核算时如果用户选了另一个版本，先更新这个字段，再生成新的 `result_runs` 记录。同一批次只能有一个正式结果，由 `result_runs.is_official` 约束。
 
+内置方案的数据不变量：
+
+- `plans.kind = 'system'` 的方案在 `plan_versions` 中始终至少有一条 `status = 'published'` 的记录。
+- `Retire` 先读取方案类型，内置方案返回错误，不执行更新。
+- 更新内置方案时，读取最新已发布版本作为 `parent_version_id`，追加版本号最大的新记录，状态直接写入 `published`。
+- 启动时调用 `EnsureDefaultPlan`。没有内置方案时从 `assessment.DefaultConfig()` 建立；有内置方案但没有已发布版本时，读取最新版本的配置并追加一条已发布版本；没有任何版本时从出厂配置追加版本。
+- 恢复失败返回具体错误，不写入空配置，不把错误转换成默认值。
+
 新增 `target_adjustments` 表：`id`、`batch_id`、`class_id`、`tier_key`、`old_value`、`new_value`、`reason`、`created_by`、`created_at`。只记录零目标补录和本班不参与的选择，不改写原始导入数据。
 
 ## 实施顺序
 
 1. 方案库与配置内核：内置默认方案、方案与版本表、配置加载与校验、公式引擎、三个指标、排名分档、个人得分、结果明细。用 2026 年春三个年级的期中、期末和高考材料逐项比对。
-2. 方案选择与版本管理：核算时选择版本、派生方案、发布与停用、试算对比、旧结果保留。
-3. 编辑界面与迁移：分节表单、JSON 编辑、差异对比、`schemaVersion` 迁移、零目标弹窗。
+2. 方案选择与版本管理：核算时选择版本、保存新的方案、更新本方案、发布与停用、试算对比、旧结果保留。
+3. 方案配置页面：分节表单、指标与公式编辑、变量与函数面板、试算、JSON 编辑、差异对比、`schemaVersion` 迁移、零目标弹窗。
 
-第一阶段完成后，系统可以按内置默认方案算出正确结果；第二阶段完成后，教务处可以新建派生方案并在核算时选择；第三阶段完成后，可以直接在界面里修改和维护方案。
+第一阶段完成后，系统可以按内置默认方案算出正确结果；第二阶段完成后，教务处可以保存新的方案、更新本方案并在核算时选择；第三阶段完成后，可以在界面里修改全部规则和公式。
 
 ## 待确认项与配置位置
 
