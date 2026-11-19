@@ -54,10 +54,10 @@ erDiagram
   BATCH ||--o{ ASSIGNMENT : 包含
   BATCH ||--o{ EXAM : 包含
   BATCH ||--|| PLAN : 使用
-  GRADE ||--o{ CLASS : 包含
-  CLASS ||--o{ STUDENT_CLASS : 包含
+  GRADE ||--o{ ADMIN_CLASS : 包含
+  ADMIN_CLASS ||--o{ STUDENT_CLASS : 包含
   STUDENT ||--o{ STUDENT_CLASS : 归属
-  CLASS ||--o{ TEACHING_GROUP : 组成
+  ADMIN_CLASS ||--o{ TEACHING_GROUP : 组成
   SUBJECT ||--o{ TEACHING_GROUP : 对应
   TEACHER ||--o{ ASSIGNMENT : 承担
   TEACHING_GROUP ||--o{ ASSIGNMENT : 对应
@@ -65,8 +65,8 @@ erDiagram
   SUBJECT ||--o{ SCORE : 对应
   EXAM ||--o{ SCORE : 包含
   EXAM ||--o{ CUTOFF : 包含
-  CLASS ||--o{ BASELINE : 拥有
-  CLASS ||--o{ TARGET : 拥有
+  ADMIN_CLASS ||--o{ BASELINE : 拥有
+  ADMIN_CLASS ||--o{ TARGET : 拥有
   BATCH ||--o{ RESULT : 产出
 ```
 
