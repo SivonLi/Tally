@@ -15,6 +15,7 @@
 | 自绘、画布、着色器、路径与文字绘制 | `mygo-drawing` |
 | 版本升级、崩溃修复、API 行为不确定 | `mygo-maintenance` |
 | 需要 Go 没有的系统能力，用 Swift、Kotlin、Rust 或 Zig 实现 | `mygo-native-modules` |
+| Excel 导入导出、xlsx 读写、多工作表、样式、合并单元格、打印布局 | `excelize` |
 | 新需求、规格、任务拆分、需求澄清 | `spec-driven-development`、`planning-and-task-breakdown`、`interview-me` |
 | 实现功能、分片提交 | `incremental-implementation`、`test-driven-development` |
 | 代码审查、简化实现 | `code-review-and-quality`、`code-simplification` |
@@ -28,6 +29,8 @@
 | 核对 API 与文档 | `source-driven-development` |
 
 `mygo-web` 当前不适用：项目没有网页窗口。加入网页窗口时再引用它。
+
+项目技能来源和锁定范围见 `.agents/skills/README.md`。
 
 选好技能后用它规定的流程执行。技能与本次任务冲突时，以本文件为准。
 
@@ -71,7 +74,13 @@ MYGO=$(go list -m -f '{{.Dir}}' github.com/egoist/mygo)
 - 桌面服务：`$MYGO/docs/native.md`
 - 接口签名以源码为准，用 `go doc github.com/egoist/mygo/ui.<名称>`
 
-本地参考资料放在 `private-data/`：需求文档、需求表格一类的 Word 与 Excel 文件，不进版本库。开始一个需求前先看这个目录里有没有对应文件，有就先读完再动手。
+需求阶段文档的入口是 `docs/README.md`。
+
+- `docs/requirements-analysis.md`：业务口径与确认状态，默认值的唯一来源。
+- `docs/design-roadmap.md`：数据模型、算法配置、历史数据、同步与迁移。
+- `docs/historical-data-checklist.md`：历史数据的目录层级、工作簿与工作表角色、读取规则。
+
+开始需求或者实现前先读 `docs/README.md`。`private-data/` 只放原始 Excel、Word、PDF 和考试目录的说明文件，不复制规则。开始一个需求前先看这个目录里有没有对应文件，有就先读完再动手。
 
 ## 界面语言
 

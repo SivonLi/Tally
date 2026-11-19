@@ -26,15 +26,16 @@ go tool mygo build      # 打包，产物在 build/
 |---|---|
 | `main.go` | 应用状态与视图函数 |
 | `main_test.go` | `ui.NewTester` 驱动的无窗口界面测试 |
+| `internal/excel/` | xlsx 工作簿的打开与创建 |
 | `locales/` | 中文与英文文案目录，`catalog_gen.go` 由 CLI 生成 |
 | `mygo.json` | 应用名称、标识、版本、输出目录、语言目录 |
 | `resources/` | 图标等随应用分发的资源 |
 | `private-data/` | 本地的需求文档与表格，不进版本库 |
-| `docs/` | 发布流程等工程文档 |
+| `docs/` | 需求分析、设计路线、历史数据清单、提交与发布流程 |
 
 ## 约定
 
-开发规则见 `AGENTS.md`，质量门槛见 `CONSTRAINTS.md`，提交规范见 `docs/commits.md`，发布流程见 `docs/release.md`。
+需求阶段文档从 `docs/README.md` 开始。开发规则见 `AGENTS.md`，质量门槛见 `CONSTRAINTS.md`，提交规范见 `docs/commits.md`，发布流程见 `docs/release.md`。
 
 通用工程习惯使用 Waza 的 `think`、`ui`、`check`、`hunt`、`write`、`learn`、`read`、`health` 技能，使用方式见 `AGENTS.md`。
 
