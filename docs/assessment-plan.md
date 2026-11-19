@@ -194,6 +194,8 @@
 | `walking.japanese.rankGroup` | `teaching_group`、`separate` | `teaching_group` | 日语考生的排名组 |
 | `walking.artSports.rankGroup` | `teaching_group`、`separate` | `teaching_group` | 艺体考生的排名组 |
 
+单科成绩为 0 时按未参加该科考试处理。导入阶段把这种成绩记为没有该科成绩，不计入该科人数、均分和达线人数，总分仍然保留。这个规则来自已经核对过的历史工作簿，属于数据读取口径，不随方案版本变化。
+
 ### 指标
 
 每个指标有固定的键、满分、封顶和公式。公式返回比值或者原始比例，引擎把公式结果乘以 `points` 得到该项得分。三项默认指标如下：
@@ -453,5 +455,6 @@
 | 22 年级均分分母 | `data.gradeAverage` | 年级总计行 | 已确认 |
 | 23 合并组分子分母 | `indicators.pass.merge.denominator` | 分子相加，分母取统计组目标 | 已确认 |
 | 24 合并组归属行 | `indicators.pass.merge.resultRow` | 承担统计职责的班级行 | 已确认 |
+| 26 单科成绩为 0 | 导入规则 | 按未参加该科考试处理，不计入该科人数、均分和达线人数 | 已确认 |
 
 只有第 16、17 项仍待学校确认，其余项目已经确认。第 16、17 项的详细说明见 `docs/requirements-analysis.md` 的「待确认项说明」。
