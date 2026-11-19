@@ -157,7 +157,14 @@ flowchart TD
 
 ### 旧版文件
 
-excelize 只支持 `.xlsx`。`.xls` 文件在导入界面直接拒绝，并提示用户用 Excel 另存为 `.xlsx`，同时给出目标路径。转换后的文件作为新的导入来源，原文件继续保留，导入记录保存两者路径。系统不调用外部转换程序，不把文件格式转换放进导入流程。
+excelize 只支持 `.xlsx`。`.xls` 文件在导入时通过 LibreOffice 无界面转换：
+
+1. 应用检测 `soffice`，用独立的用户配置目录执行 `--headless --convert-to xlsx`，输出到应用数据目录下的转换缓存。
+2. 转换后检查工作表名称与数量、合并单元格范围、公式数量和抽样数值。任何一项不一致时阻止导入，列出差异，不把转换失败当成空数据。
+3. 校验通过后，转换文件按内容哈希保存，原文件继续保留。导入记录保存原文件路径、转换文件路径、转换程序版本和校验结果。
+4. 未安装 LibreOffice 时阻止导入，提示安装 LibreOffice 或者手工另存为 `.xlsx`。
+
+转换只用于读取，不回写原文件。转换缓存随导入记录保留，便于追溯。已验证 4 个旧版文件可以转换并被 excelize 打开，公式保留；工作表名称、数量和合并单元格在导入时逐项校验。
 
 ### 导入身份
 
@@ -177,79 +184,50 @@ excelize 只支持 `.xlsx`。`.xls` 文件在导入界面直接拒绝，并提�
 
 计算在后台执行，界面不阻塞。计算结果与输入快照绑定，快照包含学生集合、成绩集合、基数、目标、方案版本的哈希。重新计算时哈希不变就直接复用结果。
 
-## 考核算法配置
+## 考核方案配置
 
-算法配置分四层，每层独立可改。学校调整考核方案时，只改其中一层，其他层不动。
+考核方案的完整结构、默认值、公式变量、校验规则和界面见 `docs/assessment-plan.md`。本节记录设计边界和数据层的对应关系。
 
-### 第一层 数据口径
+方案配置的是「怎么算」，批次数据配置的是「拿什么算」。学校当前只维护一套方案，所有年级统一使用；高考专项通过 `programs` 条件规则表达。指标分值、公式、封顶、档位权重、名次边界、并列规则、合并组算法、个人得分规则和零目标处理都属于方案配置，计算代码不另写默认值。
 
-| 配置项 | 取值 | 默认 |
+| 层次 | 配置内容 | 关键字段 |
 |---|---|---|
-| 有效考生定义 | 报名且有成绩、报名即有效、成绩非空即有效 | 报名且有成绩 |
-| 剔除规则 | 缺考、违纪、借读、转学、休学、未选考 | 缺考、违纪、借读、转学、休学、未选考 |
-| 基数来源 | 中考、分班入口成绩、上次考试、外部导入 | 中考 |
-| 达线判定 | 总分线、单科本科线、总分与单科双达线 | 学科教师用单科本科线，班级完成率用总分档位线 |
-| 走班生处理 | 计入教学班、单独统计、合并统计 | 计入实际授课的教学班；需要合并时按统计组汇总 |
+| 数据口径 | 有效考生、剔除标记、基数来源、年级均分来源、走班与日语艺体处理 | `data.*` |
+| 指标 | 指标键、满分、封顶、公式、合并组算法 | `indicators[]` |
+| 档位 | 完成率档位的代码、显示名称和权重 | `tiers[]` |
+| 排名与分档 | 排名组、并列规则、边界模式、覆盖、赋分 | `ranking.*` |
+| 个人得分 | 取最高两个统计组、跨年级按年级分别记录 | `personal.*` |
+| 专项规则 | 高考完成率的 60/40 组合 | `programs[]` |
+| 校验 | 阻断项、提醒项、零目标补齐 | `validation.*` |
 
-走班学生按学科计入实际授课的教学班，行政班不重复计人。单科达线率按统计组计算，统计组可以包含一个或者多个教学班；合并统计时分子相加，默认分母取合并组目标任务之和。历史工作簿也有只取承担统计职责班级目标的写法，复算时按方案配置决定。后续调整口径时只改这一项，不在计算代码里另写默认值。
+### 方案库与版本
 
-### 第二层 指标
+系统初始只有内置默认方案。默认方案可以修改，修改生成新版本；派生方案从某个版本复制，独立演进。方案版本有 `draft`、`published`、`retired` 三种状态，只有 `published` 可以正式核算。批次和计算结果引用具体版本号，不引用方案名称。
 
-指标由类型和参数组成，类型是系统内置的有限集合，参数决定具体算法。
+核算时在对话框顶部选择方案版本。新批次默认使用内置默认方案的最新已发布版本；已经核算过的批次默认使用上次的版本。同一批数据可以用两个版本试算，并排比较得分、名次、档次和赋分变化，确认后选定一个版本作为正式结果。
 
-| 类型 | 含义 | 主要参数 |
+### 关键默认值
+
+| 配置项 | 默认 | 说明 |
 |---|---|---|
-| `average` | 平均分 | 科目、满分 |
-| `improvement_rate` | 均分提升率 | 基数来源、是否封顶；默认按班级均分与年级均分的比值除以基数比值，再乘 40 |
-| `pass_rate` | 达线率 | 分数线类型、分母口径、是否封顶；默认分母取单科目标任务，再乘 40，不封顶 |
-| `completion_rate` | 完成率 | 目标来源、档位权重、是否封顶；默认按实际完成分与目标基础分的比值乘 20 |
-| `excellent_rate` | 优秀率 | 优秀线 |
-| `rank_change` | 名次变化 | 对比批次 |
-| `stddev` | 标准差 | 科目 |
-
-每个指标还有方向（越大越好或越小越好），用于统一后续的排名与分档。
-
-需要学校自定义指标时，使用受限表达式。表达式只允许四则运算、比较、条件、括号，以及白名单函数 `min`、`max`、`abs`、`round`、`if`。变量只暴露当前上下文里的指标值，例如：
-
-```
-avg_now / avg_grade / base_ratio * 40
-```
-
-表达式在保存时编译并校验，编译失败的配置不能保存。运行时不接受任意函数调用，也不接受文件或网络访问。
-
-### 第三层 合成
-
-| 配置项 | 取值 | 默认与说明 |
-|---|---|---|
-| 合成方式 | 指标得分相加、原始值加权、组内标准分加权、组内排名分加权 | 默认指标得分相加，三项分别为 40、40、20 |
-| 权重 | 每个指标一个权重，总和为 1 | 保存时校验 |
-| 封顶 | 每个指标单独设置上下限 | 默认不封顶；150% 作为可选示例 |
-| 缺项处理 | 剔除该项并重新归一权重、按组内平均分补齐 | 学生人数过少时使用 |
-
-选择组内标准分加权时，使用同年级同学科教师的均值和标准差，转换为 Z 分后加权。组内人数少于设定值（默认 5 人）时，自动改用原始值加权，并在结果页注明。
-
-### 第四层 排名、分档与赋分
-
-| 配置项 | 取值 | 默认 |
-|---|---|---|
-| 排名组 | 年级加学科、年级、全校 | 年级加学科 |
-| 并列处理 | 同名次并跳过后续名次、同名次不跳过 | 并跳过 |
-| 分档方式 | 按名次区间表、按比例、按固定人数、按分数区间 | 按名次区间表 |
-| 名次区间表 | 每个学科一张「名次区间 → 档次 → 赋分」表 | 三档，赋分 70、67、64；边界随参评统计组数调整，由方案维护 |
-| 赋分表 | 档位到分数 | 70、67、64 |
-| 个人得分合成 | 取最高两个统计组的赋分平均、按有效人数加权、按统计组数量平均、取最高组、取最低组 | 取最高两个统计组的赋分平均 |
-
-保存时校验：权重总和为 1、名次区间连续且覆盖全部参评统计组、赋分表覆盖所有档位、排名组字段存在。任何一项不满足都不能保存。
+| `ranking.tieMode` | `competition` | 同分同名次，下一名跳过；待学校确认 |
+| `ranking.boundary.mode` | `ratio` | 一档止 `floor(n/3)`，二档止 `round(2n/3)`，例外用 `overrides`；待学校确认 |
+| `indicators.pass.merge.numerator` | `sum_members` | 合并组达线人数为成员教学班之和 |
+| `indicators.pass.merge.denominator` | `group_target` | 合并组分母为统计组目标，成员目标之和可以与它不同 |
+| `indicators.pass.merge.resultRow` | `lead_class` | 结果写在承担统计职责的班级行 |
+| `validation.zeroTarget.action` | `pause_and_prompt` | 目标基础分为 0 时暂停并弹窗补齐 |
+| `personal.mode` | `top_two_average` | 取最高两个统计组赋分的平均 |
+| `personal.scope` | `per_grade` | 跨年级教师按年级分别记录 |
 
 ### 方案版本与试算
 
-每次修改方案生成新版本，旧版本保留。批次引用某个版本，计算结果记录使用的版本号。
+每次修改方案生成新版本，旧版本保留。发布后的版本只读；编辑已发布版本时复制出新的草稿版本。批次引用某个版本，计算结果记录实际使用的版本号。
 
 同一批数据可以用多个方案试算，结果并排对比：总分差异、名次变化、档位变化。确认后再选定一个版本作为正式结果。试算结果不进入正式导出，但保留在批次里供追溯。
 
 ### 配置的存储形式
 
-配置保存为 JSON，带 `schemaVersion` 字段。界面提供表单编辑，高级用户可以直接编辑 JSON。JSON 结构固定，字段名不随界面文字变化，便于跨版本迁移和人工核对。
+配置保存为 JSON，带 `schemaVersion` 字段。界面提供表单编辑，高级用户可以直接编辑 JSON。JSON 结构固定，字段名不随界面文字变化，便于跨版本迁移和人工核对。旧版本按写入时的 `schemaVersion` 解释，新版本写成当前结构；无法自动决定含义的变化由用户在迁移对话框确认。
 
 ## 数据层
 
@@ -283,15 +261,15 @@ avg_now / avg_grade / base_ratio * 40
 | `cohorts` | 入学年级，例如 2024 级 |
 | `grades` | 年级：高一、高二、高三 |
 | `batches` | 考核批次：学年学期、考试、年级、状态、修订号 |
-| `imports` | 每次导入：文件哈希、相对路径、格式、行数、结果 |
+| `imports` | 每次导入：文件哈希、原文件路径、转换文件路径、格式、行数、转换校验结果 |
 | `import_sheets` | 工作簿内每个被识别的工作表：名称、角色、表头行、数据范围、版本标记 |
 | `import_columns` | 每个工作表的列映射：原始列名、标准字段、用户改选记录 |
 | `students` | 学生基本信息 |
 | `teachers` | 教师基本信息 |
 | `classes` | 行政班 |
-| `subjects` | 学科与满分 |
+| `subjects` | 学科代码、名称与满分 |
 | `teaching_groups` | 教学班：学期、学科、名称 |
-| `stat_groups` | 统计组：批次、学科、名称 |
+| `stat_groups` | 统计组：批次、学科、名称、承担统计职责的班级 |
 | `stat_group_members` | 统计组包含的教学班 |
 | `exams` | 考试：批次、名称、日期 |
 | `student_classes` | 学生在某学期的行政班归属 |
@@ -302,11 +280,12 @@ avg_now / avg_grade / base_ratio * 40
 | `cutoffs` | 分数线 |
 | `baselines` | 单科基数，按统计组保存，带版本 |
 | `targets` | 目标：班级完成率目标按行政班保存，单科目标任务按统计组保存 |
-| `plans` | 考核方案 |
-| `plan_versions` | 方案的每个版本 |
+| `plans` | 考核方案：名称、类型、来源版本、说明 |
+| `plan_versions` | 方案的每个版本：状态、配置、来源版本、哈希、发布信息 |
 | `result_runs` | 每次计算：输入哈希、方案版本、时间、是否正式版本 |
-| `result_rows` | 每个教师、每个统计组、每个学科的指标与得分，属于某次计算 |
+| `result_rows` | 每个教师、每个统计组、每个学科的指标、得分和计算明细，属于某次计算 |
 | `exports` | 导出记录：文件路径、哈希、时间、对应的计算版本 |
+| `target_adjustments` | 零目标补录和本班不参与的选择 |
 | `sync_state` | WebDAV 同步状态：远端修订号、上次同步时间、设备 |
 | `audit_log` | 导入、修改、计算、导出、删除的操作记录 |
 
@@ -322,38 +301,39 @@ avg_now / avg_grade / base_ratio * 40
 | `cohorts` | `id` | `entry_year` | 唯一索引 `(entry_year)` |
 | `grades` | `id` | `name` | 唯一索引 `(name)` |
 | `batches` | `id` | `term_id`、`exam_type`、`grade_id`、`cohort_id`、`status`、`current_plan_version_id`、`revision` | 唯一索引 `(term_id, exam_type, grade_id)` |
-| `imports` | `id` | `batch_id`、`file_hash`、`relative_path`、`file_format`、`row_count`、`status` | 唯一索引 `(batch_id, file_hash)` |
+| `imports` | `id` | `batch_id`、`file_hash`、`relative_path`、`converted_path`、`file_format`、`conversion_tool`、`conversion_report_json`、`row_count`、`status` | 唯一索引 `(batch_id, file_hash)` |
 | `import_sheets` | `id` | `import_id`、`sheet_name`、`role`、`header_row`、`data_range`、`version_tag`、`is_current` | 唯一索引 `(import_id, sheet_name)`；索引 `(import_id, role, is_current)` |
 | `import_columns` | `id` | `import_sheet_id`、`source_column`、`standard_field`、`merged_header`、`is_user_selected` | 唯一索引 `(import_sheet_id, source_column)` |
 | `students` | `id` | `student_no`、`name`、`cohort_id` | 唯一索引 `(student_no)` |
 | `teachers` | `id` | `teacher_no`、`name` | 唯一索引 `(teacher_no)`，`teacher_no` 可以为空 |
 | `classes` | `id` | `term_id`、`grade_id`、`name` | 唯一索引 `(term_id, grade_id, name)` |
 | `teaching_groups` | `id` | `term_id`、`subject_id`、`name` | 唯一索引 `(term_id, subject_id, name)` |
-| `stat_groups` | `id` | `batch_id`、`subject_id`、`name`、`version` | 唯一索引 `(batch_id, subject_id, name, version)` |
+| `stat_groups` | `id` | `batch_id`、`subject_id`、`name`、`lead_class_id`、`version` | 唯一索引 `(batch_id, subject_id, name, version)`；索引 `(batch_id, lead_class_id)` |
 | `stat_group_members` | `id` | `stat_group_id`、`teaching_group_id` | 唯一索引 `(stat_group_id, teaching_group_id)`；索引 `(teaching_group_id)` |
 | `student_classes` | `id` | `student_id`、`class_id`、`term_id` | 唯一索引 `(student_id, term_id)` |
 | `student_teaching_groups` | `id` | `student_id`、`teaching_group_id`、`subject_id`、`term_id` | 唯一索引 `(student_id, term_id, subject_id)`；索引 `(teaching_group_id)` |
 | `student_status` | `id` | `student_id`、`term_id`、`status`、`note` | 唯一索引 `(student_id, term_id)` |
 | `assignments` | `id` | `teacher_id`、`teaching_group_id`、`term_id` | 唯一索引 `(teacher_id, teaching_group_id, term_id)` |
 | `exams` | `id` | `batch_id`、`name`、`exam_date` | 唯一索引 `(batch_id, name)` |
-| `subjects` | `id` | `name`、`full_score` | 唯一索引 `(name)` |
+| `subjects` | `id` | `code`、`name`、`full_score` | 唯一索引 `(code)` 与 `(name)` |
 | `scores` | `id` | `exam_id`、`student_id`、`subject_id`、`score`、`flag` | 唯一索引 `(exam_id, student_id, subject_id)` |
 | `cutoffs` | `id` | `exam_id`、`name`、`line_type`、`subject_id`、`score` | 唯一索引 `(exam_id, name, subject_id)`，`subject_id` 可以为空 |
 | `baselines` | `id` | `batch_id`、`stat_group_id`、`source_exam`、`average`、`count`、`version` | 唯一索引 `(batch_id, stat_group_id, version)` |
 | `targets` | `id` | `batch_id`、`class_id`、`stat_group_id`、`subject_id`、`target_count`、`version` | 唯一索引 `(batch_id, class_id, subject_id, version)` 与 `(batch_id, stat_group_id, version)`；`class_id` 与 `stat_group_id` 恰有一个为空；`subject_id` 只在 `class_id` 非空时使用 |
-| `plans` | `id` | `name` | 唯一索引 `(name)` |
-| `plan_versions` | `id` | `plan_id`、`version`、`schema_version`、`config_json` | 唯一索引 `(plan_id, version)` |
+| `plans` | `id` | `name`、`kind`、`base_plan_version_id`、`description`、`created_at` | 唯一索引 `(name)`；部分唯一索引 `(kind) WHERE kind = 'system'` |
+| `plan_versions` | `id` | `plan_id`、`version`、`schema_version`、`config_json`、`config_hash`、`status`、`parent_version_id`、`notes`、`created_at`、`created_by`、`published_at`、`published_by` | 唯一索引 `(plan_id, version)`；索引 `(plan_id, status)` |
 | `result_runs` | `id` | `batch_id`、`plan_version_id`、`input_hash`、`is_official`、`created_at` | 部分唯一索引 `(batch_id) WHERE is_official = 1`；查询索引 `(batch_id, is_official)` |
-| `result_rows` | `id` | `run_id`、`teacher_id`、`stat_group_id`、`subject_id`、`metrics_json`、`score`、`rank`、`tier`、`points` | 唯一索引 `(run_id, teacher_id, stat_group_id, subject_id)` |
+| `result_rows` | `id` | `run_id`、`teacher_id`、`stat_group_id`、`subject_id`、`indicator_values_json`、`score`、`rank`、`tier`、`points` | 唯一索引 `(run_id, teacher_id, stat_group_id, subject_id)` |
 | `exports` | `id` | `run_id`、`path`、`file_hash`、`created_at` | 索引 `(run_id)` |
+| `target_adjustments` | `id` | `batch_id`、`class_id`、`tier_key`、`old_value`、`new_value`、`reason`、`created_by`、`created_at` | 索引 `(batch_id, class_id)` |
 | `sync_state` | `id` | `device_id`、`remote_revision`、`base_revision`、`last_sync_at`、`package_hash` | 唯一索引 `(device_id)` |
 | `audit_log` | `id` | `action`、`entity`、`entity_id`、`detail_json`、`created_at` | 索引 `(created_at)` |
 
-状态取值：批次为草稿、数据就绪、计算完成、已导出、已归档；学生状态为在籍、转学、休学、借读；成绩标记为正常、缺考、违纪、作弊、无效。
+状态取值：批次为草稿、数据就绪、计算完成、已导出、已归档；学生状态为在籍、转学、休学、借读；成绩标记为正常、缺考、违纪、作弊、无效；方案版本为草稿、已发布、已停用。
 
-`cutoffs.subject_id` 为空表示总分线。`targets.subject_id` 为空表示班级总分目标，非空表示学科目标；按统计组保存的目标从统计组取得学科，不再重复记录 `subject_id`。SQLite 的唯一索引把 NULL 当作不同值，空值使用部分唯一索引。
+`cutoffs.subject_id` 为空表示总分线。`targets.subject_id` 为空表示班级总分目标，非空表示学科目标；按统计组保存的目标从统计组取得学科，不再重复记录 `subject_id`。统计组目标和成员教学班目标是两组数据，统计组目标可以大于、等于或者小于成员目标之和，计算时以统计组目标为准。SQLite 的唯一索引把 NULL 当作不同值，空值使用部分唯一索引。
 
-统计组是单科达线率的计算单位。没有走班合并时，每个教学班建立一个同名统计组；有走班合并时，一个统计组包含多个教学班，学生仍按 `student_teaching_groups` 归属教学班。合并组的达线人数由成员教学班相加，分母取合并组的目标任务，结果只写一条 `result_rows`。导出时结果放在承担统计职责的班级行，其他成员班级只保留任课教师。
+统计组是单科达线率的计算单位。没有走班合并时，每个教学班建立一个同名统计组；有走班合并时，一个统计组包含多个教学班，学生仍按 `student_teaching_groups` 归属教学班。合并组的达线人数由成员教学班相加，分母取统计组目标。排名、档次和赋分按统计组计算一次，写入该统计组的每个教师行时保持一致；教师个人得分明细引用同一组值，不按成员班级重复计算。导出时结果放在 `stat_groups.lead_class_id` 指向的班级行，其他成员班级只保留任课教师。
 
 ### 事务与索引
 
@@ -364,6 +344,8 @@ avg_now / avg_grade / base_ratio * 40
 ### 数据一致性
 
 批次有状态：草稿、数据就绪、计算完成、已导出、已归档。状态只能向前推进，回退需要显式操作并记入审计日志。
+
+方案版本有草稿、已发布、已停用三种状态。发布后的版本只读，编辑已发布版本时生成新的草稿版本；已经引用旧版本的结果继续保留。
 
 删除批次进入回收站，保留三十天，期间可以恢复。真正删除需要二次确认，并且要求先导出备份。
 
@@ -497,9 +479,11 @@ avg_now / avg_grade / base_ratio * 40
 
 迁移脚本随应用发布，只做向前迁移。降级安装旧版本时，应用检测到数据库版本高于自身支持的版本，拒绝打开并提示，避免写坏数据。
 
+方案版本同时记录 `schemaVersion`。应用升级后读取旧版本时在内存里升级到当前结构，新字段填入默认值；发布新版本时写成当前结构。旧版本的计算结果不重写，仍按当时的配置解释。
+
 ### 历史数据迁移
 
-首次使用时，按学期导入历史 Excel。每个文件原样保存到 `files/`，不修改源文件。导入记录保存文件哈希、工作表名、表头行、列映射和行号范围，任意一条成绩都能回溯到原始文件的具体位置。
+首次使用时，按学期导入历史 Excel。每个文件原样保存到 `files/`，不修改源文件。旧版 `.xls` 由 LibreOffice 转换后保存转换文件，原文件与转换文件都保留。导入记录保存文件哈希、原文件路径、转换文件路径、转换程序版本、工作表名、表头行、列映射和行号范围，任意一条成绩都能回溯到原始文件的具体位置。
 
 历史批次可以只导入最终结果，用于对比；也可以导入全部阶段数据，用于完整复算。导入时由用户选择，界面说明两种方式的区别。
 
@@ -629,7 +613,7 @@ Excel 读写、WebDAV 客户端、表达式求值都使用成熟库。新增依�
 
 | 阶段 | 首个可验收成果 | 验收方式 |
 |---|---|---|
-| 一 | 用一个学期的真实数据完成一次完整计算并导出 | 与人工 Excel 逐格比对，差异为零 |
+| 一 | 用一个学期的真实数据完成一次完整计算并导出 | 与人工 Excel 逐格比对，已知公式错误按确认口径重算后，其余差异为零 |
 | 二 | 用真实学生名单生成分班方案 | 各班总分均值极差小于人工结果，必须满足的约束全部满足 |
 | 三 | 生成考场安排与桌贴 | 同班冲突数为零，各考场成绩均值差异小于设定阈值 |
 | 四 | 导入成绩单后自动完成剔除与计算 | 剔除名单与人工名单一致，平均分一致 |

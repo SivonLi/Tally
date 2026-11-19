@@ -16,7 +16,7 @@
 | 版本升级、崩溃修复、API 行为不确定 | `mygo-maintenance` |
 | 需要 Go 没有的系统能力，用 Swift、Kotlin、Rust 或 Zig 实现 | `mygo-native-modules` |
 | Excel 导入导出、xlsx 读写、多工作表、样式、合并单元格、打印布局 | `excelize` |
-| 新需求、规格、任务拆分、需求澄清 | `spec-driven-development`、`planning-and-task-breakdown`、`interview-me` |
+| 新需求、规格、任务划分、需求澄清 | `spec-driven-development`、`planning-and-task-breakdown`、`interview-me` |
 | 实现功能、分片提交 | `incremental-implementation`、`test-driven-development` |
 | 代码审查、简化实现 | `code-review-and-quality`、`code-simplification` |
 | 分支、提交、标签、变更日志 | `git-workflow-and-versioning` |
@@ -77,16 +77,19 @@ MYGO=$(go list -m -f '{{.Dir}}' github.com/egoist/mygo)
 需求阶段文档的入口是 `docs/README.md`。
 
 - `docs/requirements-analysis.md`：业务口径与确认状态，默认值的唯一来源。
+- `docs/assessment-plan.md`：考核方案库、版本状态、完整配置结构、公式规则与核算时选择方案。
 - `docs/design-roadmap.md`：数据模型、算法配置、历史数据、同步与迁移。
 - `docs/historical-data-checklist.md`：历史数据的目录层级、工作簿与工作表角色、读取规则。
 
 开始需求或者实现前先读 `docs/README.md`。`private-data/` 只放原始 Excel、Word、PDF 和考试目录的说明文件，不复制规则。开始一个需求前先看这个目录里有没有对应文件，有就先读完再动手。
 
+计算规则、公式、指标分值、档位权重、排名并列、分档边界、合并组算法和零目标处理都属于考核方案配置。计算代码只实现通用引擎，默认值从方案版本读取，不在代码里固定另一套口径。
+
 ## 界面语言
 
 应用必须支持中文与英文切换，两种语言都要完整。
 
-- 所有用户可见文字来自 `locales/en.json` 与 `locales/zh-Hans.json`，禁止在界面代码里写死。控件自带的字符串（按钮标题、菜单项、提示）同样适用。
+- 所有用户可见文字来自 `locales/en.json` 与 `locales/zh-Hans.json`，禁止在界面代码里固定写入。控件自带的字符串（按钮标题、菜单项、提示）同样适用。
 - `en.json` 是源语言，键必须齐全；新增文字先写 `en.json`，再补 `zh-Hans.json`。`mygo i18n check` 检查两边键是否一致。
 - `locales/catalog_gen.go` 由 `go tool mygo generate` 生成，和 catalog 一起提交。改了 `locales/*.json` 就重新生成。
 - 切换语言调用 `mygo.App.SetLocale("zh-Hans")` 或 `mygo.App.SetLocale("en")`；跟随系统用 `SetLocale("")`。启动时用 `mygo.App.Locale()` 初始化界面上的选择状态。
