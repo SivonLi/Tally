@@ -1,6 +1,6 @@
 # 后续功能与数据层设计
 
-本文档记录后续阶段和目标数据模型。阶段一已经实现的系统结构、真实表结构、界面状态与限制见 `docs/system-design.md`，两者冲突时以当前实现文档为准。阶段二至五、WebDAV 同步、备份、结果归档和自动触发核算尚未实现。
+本文档记录数据层目标模型和后续能力。阶段一至四的系统结构、真实表结构、界面状态与限制见 `docs/system-design.md`，两者冲突时以当前实现文档为准。阶段划分以 `docs/product-redesign.md` 第 9 节为准，本文档下面的旧阶段名称只保留为早期方案记录。阶段五至六、WebDAV 同步、结果归档和自动触发核算尚未实现。
 
 ## 阶段划分
 
@@ -245,22 +245,24 @@ excelize 只支持 `.xlsx`。`.xls` 文件在导入时通过 LibreOffice 无界�
 
 ### 目录结构
 
-当前阶段只创建主数据库和旧版转换目录：
+当前实现创建主数据库、原始文件副本、备份和旧版转换目录：
 
 ```text
 <用户数据目录>/
   tally.db              主数据库
+  files/<哈希>          导入的原始 Excel，按内容哈希命名
+  backups/              迁移前与手动备份
   converted/            旧版 .xls 转换后的 .xlsx
 ```
 
-下面是完整目标结构，`files/`、`backups/`、`exports/` 和 `logs/` 属于后续功能：
+导出文件由用户在保存对话框中选择路径，不写入固定的 `exports/` 目录。运行日志属于后续功能：
 
-```
+```text
 <用户数据目录>/
   tally.db              主数据库
   files/<哈希>          导入的原始 Excel，按内容哈希命名
-  backups/              自动备份
-  exports/              导出的结果
+  backups/              迁移前与手动备份
+  converted/            旧版 .xls 转换后的 .xlsx
   logs/                 运行日志
 ```
 
@@ -268,18 +270,29 @@ excelize 只支持 `.xlsx`。`.xls` 文件在导入时通过 LibreOffice 无界�
 
 ### 主要数据表
 
-当前真实表结构以 `docs/system-design.md` 为准。本节保留完整目标模型，下面这些表尚未在当前实现中建立：`cohorts`、`grades`、`subjects`、`exams`、`student_teaching_groups`、`student_status`、`cutoffs`、`baselines`、`targets`、`sync_state`、`audit_log`。
+当前真实表结构以 `docs/system-design.md` 为准。数据库版本 5 已经建立 `cohorts`、`cohort_stages`、`subjects`、`tracks`、`grade_levels`、`classes`、`class_stage_info`、`student_cohorts`、`student_stage_memberships`、`student_teaching_groups`、`teachers`、`teaching_groups`、`assignments`、`baseline_sets`、`baseline_subjects`、`baseline_scores`、`baseline_aggregates`、`import_runs`、`import_sheets`、`import_columns`、`import_issues`、`import_changes`、`data_revisions`、`audit_log`、`app_settings`、`exams`、`exam_cohorts`、`exam_subjects`、`exam_rosters`、`exam_scores`、`exam_subject_cutoffs`、`exam_tier_cutoffs`、`assessments`、`assessment_class_targets`、`assessment_stat_groups`、`assessment_stat_group_members`、`assessment_stat_group_targets` 和 `assessment_target_adjustments`。下面这些表尚未建立：`sync_state`、`saved_views`。
 
 | 表 | 内容 |
 |---|---|
 | `schema_migrations` | 数据库版本与迁移记录 |
+| `app_settings` | 应用设置：当前学年起点、学科与选科类别 |
 | `terms` | 学年学期 |
 | `cohorts` | 入学年级，例如 2024 级 |
 | `grades` | 年级：高一、高二、高三 |
+| `cohort_stages` | 级在每个学年的阶段与核对状态 |
+| `class_stage_info` | 行政班在某个阶段的信息 |
+| `student_cohorts` | 学生的级与届归属 |
+| `student_stage_memberships` | 学生在某个阶段的行政班归属 |
+| `tracks` | 选科类别 |
+| `grade_levels` | 阶段名称与排序 |
 | `batches` | 考核批次：学年学期、考试、年级、状态、修订号 |
 | `imports` | 每次导入：文件哈希、原文件路径、转换文件路径、格式、行数、转换校验结果 |
 | `import_sheets` | 工作簿内每个被识别的工作表：名称、角色、表头行、数据范围、版本标记 |
 | `import_columns` | 每个工作表的列映射：原始列名、标准字段、用户改选记录 |
+| `import_runs` | 导入记录：范围、数据类型、文件哈希、路径、状态与问题数量 |
+| `import_issues` | 导入问题：严重程度、行号、列名、代码与消息 |
+| `import_changes` | 导入变更：新增、更新和跳过的数据项 |
+| `data_revisions` | 级、阶段、考试与本次考核的数据修订号 |
 | `students` | 学生基本信息 |
 | `teachers` | 教师基本信息 |
 | `classes` | 行政班 |
@@ -287,22 +300,39 @@ excelize 只支持 `.xlsx`。`.xls` 文件在导入时通过 LibreOffice 无界�
 | `teaching_groups` | 教学班：学期、学科、名称 |
 | `stat_groups` | 统计组：批次、学科、名称、承担统计职责的班级 |
 | `stat_group_members` | 统计组包含的教学班 |
-| `exams` | 考试：批次、名称、日期 |
+| `exams` | 考试：学年、学期、类型、名称与日期 |
+| `exam_cohorts` | 参加考试的级与考试当时的阶段 |
+| `exam_subjects` | 考试科目与满分 |
+| `exam_rosters` | 报名名单 |
+| `exam_scores` | 考试成绩 |
+| `exam_subject_cutoffs` | 单科本科线 |
+| `exam_tier_cutoffs` | 档位总分线 |
+| `assessments` | 本次考核：考试、级、方案版本与状态 |
+| `assessment_class_targets` | 班级档位目标 |
+| `assessment_stat_groups` | 合并组 |
+| `assessment_stat_group_members` | 合并组成员教学班 |
+| `assessment_stat_group_targets` | 合并组目标 |
+| `assessment_target_adjustments` | 零目标补齐与不参与记录 |
 | `student_classes` | 学生在某学期的行政班归属 |
 | `student_teaching_groups` | 学生在某学期加入的教学班 |
 | `student_status` | 学生状态：在籍、转学、休学、借读 |
 | `assignments` | 教师与教学班的任课关系 |
-| `scores` | 成绩：考试、学生、科目、分数、标记 |
+| `baseline_sets` | 同一级的入口成绩数据集 |
+| `baseline_subjects` | 入口考试的科目与满分 |
+| `baseline_scores` | 学生入口成绩 |
+| `baseline_aggregates` | 班级与阶段入口成绩汇总 |
+| `scores` | 旧批次成绩：批次、学生、科目、分数、标记 |
 | `cutoffs` | 分数线 |
 | `baselines` | 单科基数，按统计组保存，带版本 |
 | `targets` | 目标：班级完成率目标按行政班保存，单科目标任务按统计组保存 |
 | `plans` | 考核方案：名称、类型、来源版本、说明 |
 | `plan_versions` | 方案的每个版本：状态、配置、来源版本、哈希、发布信息 |
-| `result_runs` | 每次计算：输入哈希、方案版本、时间、是否正式版本 |
+| `result_runs` | 每次计算：输入哈希、方案版本、时间、是否正式版本、本次考核关联 |
 | `result_rows` | 每个教师、每个统计组、每个学科的指标、得分和计算明细，属于某次计算 |
 | `exports` | 导出记录：文件路径、哈希、时间、对应的计算版本 |
-| `target_adjustments` | 零目标补录和本班不参与的选择 |
+| `target_adjustments` | 旧批次的零目标补录和本班不参与的选择 |
 | `sync_state` | WebDAV 同步状态：远端修订号、上次同步时间、设备 |
+| `saved_views` | 保存的筛选、列与排序配置 |
 | `audit_log` | 导入、修改、计算、导出、删除的操作记录 |
 
 `schema_migrations` 由迁移工具维护，字段不在下面的核心表清单中。
@@ -488,7 +518,7 @@ excelize 只支持 `.xlsx`。`.xls` 文件在导入时通过 LibreOffice 无界�
 
 ### 数据库升级
 
-数据库带版本号。应用启动时检查版本，低于当前版本就按顺序执行迁移，每次迁移前自动备份。迁移失败时保留原数据库并提示，不覆盖。
+数据库带版本号。应用启动时检查版本，低于当前版本时先备份数据库与原始文件，再按顺序执行迁移。迁移失败时恢复迁移前备份。当前版本为 5：版本 4 迁移组织数据，版本 5 迁移考试、报名名单、成绩、分数线、班级目标、合并组、合并组目标与结果关联。
 
 迁移脚本随应用发布，只做向前迁移。降级安装旧版本时，应用检测到数据库版本高于自身支持的版本，拒绝打开并提示，避免写坏数据。
 
@@ -624,12 +654,12 @@ Excel 读写、WebDAV 客户端、表达式求值都使用成熟库。新增依�
 
 测试数据和黄金样例的组织方式见 `docs/README.md` 的测试策略。
 
-| 阶段 | 状态 | 首个可验收成果 | 验收方式 |
+| 早期阶段 | 状态 | 首个可验收成果 | 验收方式 |
 |---|---|---|---|
 | 一 | 基础链路已实现，黄金样例验收进行中 | 用一个学期的真实数据完成一次完整计算并导出 | 与人工 Excel 逐格比对，已知公式错误按确认口径重算后，其余差异为零 |
 | 二 | 未开始 | 用真实学生名单生成分班方案 | 各班总分均值极差小于人工结果，必须满足的约束全部满足 |
 | 三 | 未开始 | 生成考场安排与桌贴 | 同班冲突数为零，各考场成绩均值差异小于设定阈值 |
-| 四 | 未开始 | 导入成绩单后自动完成剔除与计算 | 剔除名单与人工名单一致，平均分一致 |
+| 四 | 未开始 | 导入考务系统原始导出文件后自动完成剔除与计算 | 剔除名单与人工名单一致，平均分一致 |
 | 五 | 未开始 | 按需确定 | 按需确定 |
 
 阶段二与阶段三的算法结果需要教务处实际使用一学期后才能判断是否可用。系统提供人工调整能力，算法给出的是起点，最终结果由教务处确认。

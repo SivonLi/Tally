@@ -1530,7 +1530,7 @@ flowchart TD
 | 行政班 | Class | 界面使用 Class |
 | 教学班 | Teaching group | 与行政班区分 |
 | 任课关系 | Teaching assignments | 避免与作业混淆 |
-| 合并组 | Merged group | 数据库表名保持 `stat_groups` |
+| 合并组 | Merged group | 当前考核表为 `assessment_stat_groups` |
 | 入口成绩（基数） | Entry scores (baseline) | 首次出现后写 Entry scores |
 | 目标 | Target | |
 | 分数线 | Cutoff score | |
@@ -1733,16 +1733,16 @@ erDiagram
   COHORTS ||--o{ EXAM_ROSTERS : scopes
   EXAMS ||--o{ EXAM_ROSTERS : lists
   STUDENTS ||--o{ EXAM_ROSTERS : registers
-  EXAMS ||--o{ SCORES : contains
-  STUDENTS ||--o{ SCORES : earns
-  EXAMS ||--o{ SUBJECT_CUTOFFS : has
-  EXAMS ||--o{ TIER_CUTOFFS : has
+  EXAMS ||--o{ EXAM_SCORES : contains
+  STUDENTS ||--o{ EXAM_SCORES : earns
+  EXAMS ||--o{ EXAM_SUBJECT_CUTOFFS : has
+  EXAMS ||--o{ EXAM_TIER_CUTOFFS : has
   EXAM_COHORTS ||--|| ASSESSMENTS : produces
-  ASSESSMENTS ||--o{ CLASS_TARGETS : has
-  ASSESSMENTS ||--o{ STAT_GROUPS : has
-  ASSESSMENTS ||--o{ TARGET_ADJUSTMENTS : adjusts
-  STAT_GROUPS ||--o{ STAT_GROUP_MEMBERS : contains
-  STAT_GROUPS ||--|| STAT_GROUP_TARGETS : has
+  ASSESSMENTS ||--o{ ASSESSMENT_CLASS_TARGETS : has
+  ASSESSMENTS ||--o{ ASSESSMENT_STAT_GROUPS : has
+  ASSESSMENTS ||--o{ ASSESSMENT_TARGET_ADJUSTMENTS : adjusts
+  ASSESSMENT_STAT_GROUPS ||--o{ ASSESSMENT_STAT_GROUP_MEMBERS : contains
+  ASSESSMENT_STAT_GROUPS ||--|| ASSESSMENT_STAT_GROUP_TARGETS : has
   PLANS ||--o{ PLAN_VERSIONS : versions
   PLAN_VERSIONS ||--o{ ASSESSMENTS : selected
   ASSESSMENTS ||--o{ RESULT_RUNS : produces
@@ -1795,9 +1795,9 @@ erDiagram
 | `exam_cohorts` | 参加考试的级与阶段快照 | `exam_id`、`cohort_id`、`stage_id`、`grade_level_at_exam` | 唯一索引 `(exam_id, cohort_id)`；索引 `(cohort_id, exam_id)` |
 | `exam_subjects` | 考试科目与满分 | `exam_id`、`cohort_id`、`subject`、`full_mark`、`enabled` | 唯一索引 `(exam_id, cohort_id, subject)` |
 | `exam_rosters` | 报名名单 | `exam_id`、`cohort_id`、`student_id`、`class_id`、`exam_no`、`candidate_no`、`track`、`total_score`、`status`、`subjects_json` | 唯一索引 `(exam_id, cohort_id, student_id)`；唯一索引 `(exam_id, exam_no) WHERE exam_no <> ''`；索引 `(exam_id, candidate_no)` |
-| `scores` | 成绩 | `exam_id`、`cohort_id`、`student_id`、`subject`、`score`、`flag` | 唯一索引 `(exam_id, cohort_id, student_id, subject)`；索引 `(exam_id, cohort_id, subject)` |
-| `subject_cutoffs` | 单科本科线 | `exam_id`、`cohort_id`、`subject`、`track`、`cutoff` | 唯一索引 `(exam_id, cohort_id, subject, track)` |
-| `tier_cutoffs` | 六档总分线 | `exam_id`、`cohort_id`、`tier_key`、`track`、`cutoff` | 唯一索引 `(exam_id, cohort_id, tier_key, track)` |
+| `exam_scores` | 成绩 | `exam_id`、`cohort_id`、`student_id`、`subject`、`score`、`flag` | 唯一索引 `(exam_id, cohort_id, student_id, subject)`；索引 `(exam_id, cohort_id, subject)` |
+| `exam_subject_cutoffs` | 单科本科线 | `exam_id`、`cohort_id`、`subject`、`track`、`cutoff` | 唯一索引 `(exam_id, cohort_id, subject, track)` |
+| `exam_tier_cutoffs` | 六档总分线 | `exam_id`、`cohort_id`、`tier_key`、`track`、`cutoff` | 唯一索引 `(exam_id, cohort_id, tier_key, track)` |
 
 考核与结果：
 
@@ -1806,11 +1806,11 @@ erDiagram
 | `plans` | 考核方案 | `name`、`kind`、`source_version_id`、`created_at`、`updated_at` | 唯一索引 `(name)` |
 | `plan_versions` | 方案版本 | `plan_id`、`version`、`schema_version`、`config_json`、`status`、`published_at` | 唯一索引 `(plan_id, version)`；索引 `(status)` |
 | `assessments` | 本次考核 | `exam_cohort_id`、`plan_version_id`、`status`、`current_run_id`、`revision` | 唯一索引 `(exam_cohort_id)`；索引 `(status)` |
-| `class_targets` | 班级六档目标 | `assessment_id`、`class_id`、`tier_key`、`target_count` | 唯一索引 `(assessment_id, class_id, tier_key)` |
-| `stat_groups` | 合并组 | `assessment_id`、`subject`、`name`、`lead_class_id`、`baseline_average`、`baseline_ratio`、`baseline_source` | 唯一索引 `(assessment_id, subject, name)` |
-| `stat_group_members` | 合并组成员 | `stat_group_id`、`teaching_group_id` | 唯一索引 `(stat_group_id, teaching_group_id)` |
-| `stat_group_targets` | 合并组目标 | `stat_group_id`、`target_count` | 唯一索引 `(stat_group_id)` |
-| `target_adjustments` | 零目标补齐与不参与记录 | `assessment_id`、`scope_type`、`scope_id`、`subject`、`kind`、`reason`、`value` | 唯一索引 `(assessment_id, scope_type, scope_id, subject, kind)` |
+| `assessment_class_targets` | 班级六档目标 | `assessment_id`、`class_id`、`tier_key`、`target_count` | 唯一索引 `(assessment_id, class_id, tier_key)` |
+| `assessment_stat_groups` | 合并组 | `assessment_id`、`subject`、`name`、`lead_class_id`、`baseline_average`、`baseline_ratio`、`baseline_source` | 唯一索引 `(assessment_id, subject, name)` |
+| `assessment_stat_group_members` | 合并组成员 | `stat_group_id`、`teaching_group_id` | 唯一索引 `(stat_group_id, teaching_group_id)` |
+| `assessment_stat_group_targets` | 合并组目标 | `stat_group_id`、`target_count` | 唯一索引 `(stat_group_id)` |
+| `assessment_target_adjustments` | 零目标补齐与不参与记录 | `assessment_id`、`scope_type`、`scope_id`、`subject`、`kind`、`reason`、`value` | 迁移时按考核、范围、班级、档位、原因和创建时间检查重复 |
 | `result_runs` | 计算运行 | `assessment_id`、`plan_version_id`、`input_hash`、`composite_revision`、`is_official` | 索引 `(assessment_id, is_official)`；部分唯一索引 `(assessment_id) WHERE is_official = 1` |
 | `result_rows` | 结果行 | `run_id`、`stat_group_id`、`stat_group_name`、`subject`、`lead_class_id`、`teacher_names`、`class_count`、`class_average`、`grade_average`、`baseline_average`、`baseline_ratio`、`improvement_score`、`pass_count`、`pass_target`、`pass_score`、`completion_score`、`total`、`rank`、`tier`、`points`、`indicator_values_json` | 唯一索引 `(run_id, stat_group_id)`；索引 `(run_id, subject)` |
 | `personal_scores` | 教师个人得分 | `run_id`、`teacher_id`、`teacher_name`、`subject`、`group_points_json`、`score` | 唯一索引 `(run_id, teacher_id, subject)` |
@@ -1843,7 +1843,7 @@ erDiagram
 - 教学班必须属于一个阶段。任课关系通过教学班确定阶段，不单独保存另一份阶段字段。
 - 入口成绩原始分数只保存一份，并按级引用。班级汇总和阶段汇总记录 `stage_id`，用于反映分班后的班级构成变化。`baseline_aggregates.scope_type` 取值为 `class` 或 `stage`，`scope_id` 分别对应 `class_id` 或 `stage_id`。
 - 入口成绩的科目满分由 `baseline_subjects` 保存。成绩必须在该科目满分范围内，缺失允许保存，阻断均分提升率；0 是有效值。
-- 合并组的入口均分与比值可以从 `baseline_aggregates` 汇总，也可以保存用户确认的合并组数值。保存数值时写入 `stat_groups.baseline_average`、`stat_groups.baseline_ratio` 和 `baseline_source`，计算时以保存值为准。
+- 合并组的入口均分与比值可以从 `baseline_aggregates` 汇总，也可以保存用户确认的合并组数值。保存数值时写入 `assessment_stat_groups.baseline_average`、`assessment_stat_groups.baseline_ratio` 和 `baseline_source`，计算时以保存值为准。
 - 考试通过 `exam_cohorts` 保存参加考试的级和考试当时的阶段。历史考试继续使用考试当时的阶段，不随当前阶段变化。
 - 同一场考试同一级只有一条本次考核。考试可以覆盖多个级，每个级分别保存科目满分、分数线、报名名单、目标、合并组和计算结果。
 - 报名名单的行政班必须属于该考试对应级的 `cohort_stages`。成绩必须属于该考试的报名名单，同一考试同一级同一学生同一学科只有一条成绩记录。
@@ -1861,7 +1861,7 @@ erDiagram
 
 ### 7.5 从当前数据库迁移
 
-当前数据库版本为 2，数据围绕 `batches` 和 `batch_id` 组织。新结构以级、阶段、考试和本次考核为中心。迁移使用数据库版本 3。
+当前数据库围绕 `batches` 和 `batch_id` 组织。新结构以级、阶段、考试和本次考核为中心。迁移分两级：版本 4 迁移组织数据，版本 5 迁移考试数据。
 
 迁移步骤：
 
@@ -1877,9 +1877,9 @@ erDiagram
 10. 把现有 `class_baselines`、`grade_baselines` 转换为按级保存的 `baseline_sets` 和按阶段保存的 `baseline_aggregates`。按学科设置写入 `baseline_subjects` 的默认满分；没有学生入口成绩明细的历史批次只保留汇总值，`source` 标记为历史汇总，`baseline_scores` 留空。
 11. 按学年、学期和考试类型把现有 `batches` 归并成 `exams`，再为每条旧批次建立 `exam_cohorts`。同一考试类型下不同级的旧批次归到同一场考试；同一个级存在多条旧批次时，按日期或者名称区分，无法判断时保留为独立考试并写入迁移报告。
 12. 为每条 `exam_cohorts` 建立一条 `assessments`。本次考核引用旧批次的 `current_plan_version_id`、`status` 和 `revision`，阶段取考试当时的 `cohort_stages`。
-13. 从旧批次的 `student_classes` 生成 `exam_rosters`，保留 `track`、`status` 和 `total_score`，`subjects_json` 由 `track` 与 `elective` 生成，考号缺失时留空并写入迁移报告；把现有 `scores` 按 `exam_id`、`cohort_id`、学生和学科转换，保留分数与标记。
-14. 把现有 `subject_cutoffs`、`tier_cutoffs` 转换为按考试和级保存的分数线。旧批次没有级字段时，级取该批次对应的 `cohort_id`。
-15. 把现有 `class_targets`、`stat_groups`、`stat_group_members` 和 `target_adjustments` 转换为本次考核的班级目标、合并组、合并组成员和调整记录。旧 `stat_groups.target` 写入 `stat_group_targets`，旧 `baseline_average` 和 `baseline_ratio` 保留在合并组。
+13. 从旧批次的 `student_classes` 生成 `exam_rosters`，保留 `track`、`status` 和 `total_score`，`subjects_json` 由 `track` 与 `elective` 生成，考号缺失时留空并写入迁移报告；把现有 `scores` 按 `exam_id`、`cohort_id`、学生和学科转换到 `exam_scores`，保留分数与标记。
+14. 把现有 `subject_cutoffs`、`tier_cutoffs` 转换为按考试和级保存的 `exam_subject_cutoffs` 与 `exam_tier_cutoffs`。旧批次没有级字段时，级取该批次对应的 `cohort_id`。
+15. 把现有 `class_targets`、`stat_groups`、`stat_group_members` 和 `target_adjustments` 转换为 `assessment_class_targets`、`assessment_stat_groups`、`assessment_stat_group_members`、`assessment_stat_group_targets` 和 `assessment_target_adjustments`。旧 `stat_groups.target` 写入合并组目标，旧 `baseline_average` 和 `baseline_ratio` 保留在合并组。
 16. 把现有 `result_runs`、`result_rows`、`personal_scores`、`exports` 关联到新的本次考核，保留方案版本、结果分数、排名、档次、赋分和导出记录。
 17. 把现有 `imports`、`import_sheets`、`import_columns` 转换为 `import_runs`、`import_sheets`、`import_columns`。旧工作簿导入记录使用 `data_kind = 'legacy_workbook'`，保留文件副本、工作表角色、列名映射和源路径。
 18. 初始化 `data_revisions`，为每个级、阶段、考试和本次考核写入起始修订号。根据现有 `terms` 生成学年与学期起止，写入 `app_settings`；现有表没有日期字段时使用默认校历。
@@ -1889,10 +1889,12 @@ erDiagram
 
 迁移不修改历史考试的阶段。2025级在 2025-2026 学年高一期中考试中仍记录为高一，即使迁移当天这个级已经进入高二。应用检测到数据库版本高于自身支持的版本时拒绝打开，避免写坏数据。
 
+实施范围：版本 4 完成第 1 至 10 步的组织数据迁移，以及第 17、18 步的导入记录与修订号初始化；版本 5 完成第 11 至 16 步的考试、报名名单、成绩、分数线、目标和结果迁移。旧 `batches`、成绩、结果和方案表继续保留，核算仍读取旧批次数据；第 21 步的旧表删除尚未执行。
+
 ### 7.6 存储与性能
 
 - 继续使用 MyGo SQLite 插件，保持单机、无 cgo、无需安装数据库。
-- 应用数据目录保存 `tally.db`、`files/`、`converted/`、`backups/` 和 `exports/`。`files/` 存放导入工作簿的副本，`converted/` 存放旧版 `.xls` 转换结果。
+- 应用数据目录保存 `tally.db`、`files/`、`converted/` 和 `backups/`。`files/` 存放导入工作簿的副本，`converted/` 存放旧版 `.xls` 转换结果，导出文件由用户在保存对话框中选择路径。
 - 成绩按考试、级、学生和学科建立唯一索引；常用查询按阶段、考试、班级、学科和教师建立索引。
 - 数据浏览分页读取，每页 200 条，使用 `ListState.EndReached` 加载下一页。
 - 导入预览只读取前 50 条，完整校验在后台扫描。
@@ -1920,7 +1922,7 @@ erDiagram
 | 本次考核 | assessment | 一场考试中一个级的一次考核 |
 | 行政班 | admin class | 学生日常管理班级 |
 | 教学班 | teaching group | 按学科组织的授课单位 |
-| 合并组 | merged group | 单科达线率的计算单位，数据库表名保持 `stat_groups` |
+| 合并组 | merged group | 单科达线率的计算单位，当前考核表为 `assessment_stat_groups` |
 | 入口成绩（基数） | entry scores (baseline) | 首次出现后写 entry scores，均分提升率的比较基准 |
 | 目标 | target | 完成率与达线率的分母来源 |
 | 试算 | test calculation | 非正式计算 |
@@ -1935,10 +1937,12 @@ erDiagram
 
 每一阶段都能独立使用，后一阶段引用前一阶段的数据与组件。
 
+阶段一已经实现：应用外壳、左侧导航、顶栏、级与阶段切换、当前学年显示、设计变量、总览空状态与新建年级。阶段二已经实现：数据库版本 4、组织数据迁移、迁移前备份与失败恢复、原始文件副本、学科与选科类别设置、级、阶段、班级、学生、教师、教学班、任课关系与入口成绩的表结构和数据页面。阶段三已经实现：六步引导式导入、年级准备清单、模板、列名映射、校验、问题清单、导入记录与撤销、阶段复制与待核对、历史阶段只读。阶段四已经实现：数据库版本 5、考试、报名名单、成绩、分数线、目标、合并组、数据质量与考试准备清单。
+
 | 阶段 | 交付内容 | 验收方式 | 依赖 |
 |---|---|---|---|
 | 一 | 应用外壳、左侧导航、顶栏、级与阶段切换、当前学年显示、设计变量、总览空状态 | 默认尺寸与最小尺寸可用；浅色与深色正确；键盘可以到达主要操作；当前级显示正确阶段和届 | 无 |
-| 二 | 数据库版本 3、旧数据迁移、自动备份与恢复、原始文件副本、学科与选科类别设置、级、阶段、班级、学生、教师、教学班、任课关系的表结构与数据页面 | 旧数据库迁移后数量一致；迁移前自动备份；导入一个级的名单后，可以浏览、搜索、筛选、查看来源和历史阶段 | 一 |
+| 二 | 数据库版本 4、组织数据迁移、自动备份与恢复、原始文件副本、学科与选科类别设置、级、阶段、班级、学生、教师、教学班、任课关系与入口成绩的表结构与数据页面 | 旧数据库迁移后组织数据数量一致；只在需要迁移时备份；导入一个级的学生名单、任课关系和入口成绩后，可以浏览、搜索、筛选、查看来源和历史阶段 | 一 |
 | 三 | 引导式导入、年级准备向导、考试准备向导、阶段复制与待核对、模板、列名映射、校验、问题清单、导入记录与撤销 | 每类数据可以在向导内完成导入；阻断问题不写入；撤销恢复原数据；新用户可以从总览走完一个级的基础数据准备 | 二 |
 | 四 | 考试、报名名单、成绩、分数线、目标、合并组与数据质量页面 | 导入一场考试后可以查看成绩、分布、目标零值和问题清单；一场考试可以覆盖多个级 | 二、三 |
 | 五 | 本次考核、准备清单、方案选择、方案库界面、方案配置页、公式编辑、试算、正式计算、结果与导出 | 黄金样例与现有计算引擎逐项一致；方案页面可以修改全部分值和公式；可以保存新的方案或者更新本方案；内置方案始终可用；输入变化后结果标记为需要重新计算 | 四 |
@@ -2000,7 +2004,7 @@ erDiagram
 | 8 | 视觉方向 | 采用「档案纸与靛墨」，暖纸色、靛青主色、胭脂风险色、等宽数字特性 | 决定全部页面与组件颜色 |
 | 9 | 计算口径 | 保持现有口径与方案配置不变，重构只改变数据组织与界面 | 决定计算引擎是否需要修改 |
 | 10 | 导出范围 | 本期保留 Excel 导出，产品不增加 PDF 报告；6.16 的设计评审 PDF 只用于方案选择 | 决定导出页面与依赖 |
-| 11 | 历史数据迁移 | 迁移现有 `batches` 记录到级、阶段、考试和本次考核结构，保留结果与方案版本 | 决定数据库版本 3 的迁移范围 |
+| 11 | 历史数据迁移 | 迁移现有 `batches` 记录到级、阶段、考试和本次考核结构，保留结果与方案版本 | 版本 4 迁移组织数据，版本 5 迁移考试数据 |
 | 12 | 首次使用的最短路径 | 班级、教师、教学班、合并组和报名名单按默认规则自动建立；学生名单、任课关系、入口成绩、成绩、分数线和目标由用户确认 | 决定准备向导的步骤数和自动创建范围 |
 | 13 | 文案语言 | 中文按教务老师的日常用语，英文按 Apple Human Interface Guidelines 与 Microsoft Writing Style Guide 的界面习惯，高一到高三使用 Grade 10 到 Grade 12 | 决定全部界面文案与语言目录 |
 | 14 | 报名名单与成绩单人数差异阈值 | 差异超过 2% 且超过 5 人时阻断，其余差异作为提醒；阈值可以在设置中调整 | 决定导入校验的阻断条件 |
