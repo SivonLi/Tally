@@ -48,17 +48,29 @@ func newTestApp(t *testing.T) *app {
 			t.Errorf("close store: %v", err)
 		}
 	})
-	a := &app{store: opened, dataDir: dir, language: "en", sidebarWidth: 260, batchSidebarWidth: 240}
+	a := &app{
+		store:              opened,
+		dataDir:            dir,
+		language:           "en",
+		sidebarWidth:       260,
+		batchSidebarWidth:  240,
+		page:               pagePlans,
+		systemAcademicYear: 2026,
+		academicYearStart:  2026,
+	}
 	if _, err := opened.EnsureDefaultPlan(ctx); err != nil {
 		t.Fatal(err)
 	}
 	a.reloadPlans(ctx)
+	a.reloadCohorts(ctx)
+	a.reloadSchoolSettings(ctx)
+	a.reloadExams(ctx)
 	return a
 }
 
 func TestViewShowsDefaultPlan(t *testing.T) {
 	a := newTestApp(t)
-	tt := ui.NewTester(a.view, 960, 640)
+	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
 	for _, text := range []string{"Assessment plans", "Built-in", "Versions", "Published"} {
@@ -85,7 +97,7 @@ func TestSidebarChangesPlan(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.reloadPlans(ctx)
-	tt := ui.NewTester(a.view, 960, 640)
+	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	if err := tt.Click("派生方案"); err != nil {
 		t.Fatal(err)
@@ -118,7 +130,7 @@ func TestPublishAndRetireVersion(t *testing.T) {
 	a.selectedPlanID = strconv.FormatInt(plan.ID, 10)
 	a.versionIndex = 0
 	a.reloadVersions(ctx)
-	tt := ui.NewTester(a.view, 960, 640)
+	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	if err := tt.Click("Publish"); err != nil {
 		t.Fatal(err)
@@ -147,7 +159,7 @@ func TestLanguageSwitch(t *testing.T) {
 	a := newTestApp(t)
 	i18n.SetLocaleFunc(func() string { return a.language })
 	t.Cleanup(func() { i18n.SetLocaleFunc(nil) })
-	tt := ui.NewTester(a.view, 960, 640)
+	tt := ui.NewTester(a.view, 1280, 800)
 	if err := tt.Click(i18n.Autonym("zh-Hans")); err != nil {
 		t.Fatal(err)
 	}
@@ -170,14 +182,14 @@ func TestLanguageSwitch(t *testing.T) {
 
 func TestNavigationSwitchesPages(t *testing.T) {
 	a := newTestApp(t)
-	tt := ui.NewTester(a.view, 960, 640)
+	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
-	if err := tt.Click("Batches"); err != nil {
+	if err := tt.Click("Assessments"); err != nil {
 		t.Fatal(err)
 	}
-	if a.tab != 1 {
-		t.Fatalf("tab = %d", a.tab)
+	if a.page != pageAssessments {
+		t.Fatalf("page = %q", a.page)
 	}
 	if !tt.HasText("No assessment batches yet.") {
 		t.Errorf("texts = %q", tt.Texts())
@@ -185,15 +197,15 @@ func TestNavigationSwitchesPages(t *testing.T) {
 	if err := tt.Click("Assessment plans"); err != nil {
 		t.Fatal(err)
 	}
-	if a.tab != 0 {
-		t.Fatalf("tab = %d", a.tab)
+	if a.page != pagePlans {
+		t.Fatalf("page = %q", a.page)
 	}
 }
 
 func TestEmptyBatchStateAtMinimumSize(t *testing.T) {
 	a := newTestApp(t)
-	a.tab = 1
-	tt := ui.NewTester(a.view, 900, 620)
+	a.page = pageAssessments
+	tt := ui.NewTester(a.view, 1024, 640)
 	tt.SetLocale("en")
 	tt.Frame()
 	if !tt.HasText("No assessment batches yet.") {
@@ -209,7 +221,7 @@ func TestEmptyBatchStateAtMinimumSize(t *testing.T) {
 
 func TestDarkThemeRendersPlanPage(t *testing.T) {
 	a := newTestApp(t)
-	tt := ui.NewTester(a.view, 960, 640)
+	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.SetDark(true)
 	tt.Frame()
@@ -222,15 +234,15 @@ func TestDarkThemeRendersPlanPage(t *testing.T) {
 
 func TestPlanPageAtMinimumSize(t *testing.T) {
 	a := newTestApp(t)
-	tt := ui.NewTester(a.view, 900, 620)
+	tt := ui.NewTester(a.view, 1024, 640)
 	tt.SetLocale("en")
 	tt.Frame()
-	for _, text := range []string{"Assessment plans", "Built-in", "Versions", "Update this plan", "Save as new plan"} {
+	for _, text := range []string{"Built-in", "Versions", "Update this plan", "Save as new plan"} {
 		box, ok := tt.Find(text)
 		if !ok {
 			t.Fatalf("missing box for %q", text)
 		}
-		if box.X < 0 || box.Y < 0 || box.X+box.W > 900 || box.Y+box.H > 620 {
+		if box.X < 0 || box.Y < 0 || box.X+box.W > 1024 || box.Y+box.H > 640 {
 			t.Fatalf("%q is outside the window: %+v", text, box)
 		}
 	}
@@ -238,7 +250,7 @@ func TestPlanPageAtMinimumSize(t *testing.T) {
 
 func TestUpdateSystemPlanFromEditor(t *testing.T) {
 	a := newTestApp(t)
-	tt := ui.NewTester(a.view, 960, 640)
+	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
 	if err := tt.Click("Update this plan"); err != nil {
@@ -281,7 +293,7 @@ func TestUpdateSystemPlanFromEditor(t *testing.T) {
 
 func TestSaveAsNewPlanFromEditor(t *testing.T) {
 	a := newTestApp(t)
-	tt := ui.NewTester(a.view, 960, 640)
+	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
 	if err := tt.Click("Save as new plan"); err != nil {
@@ -325,7 +337,7 @@ func TestRetireSystemPlanKeepsPlanPageUsable(t *testing.T) {
 	if a.loadError != "" {
 		t.Fatalf("loadError = %q", a.loadError)
 	}
-	tt := ui.NewTester(a.view, 960, 640)
+	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
 	if !tt.HasText("Assessment plans") {

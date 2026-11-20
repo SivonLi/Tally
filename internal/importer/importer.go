@@ -573,15 +573,17 @@ func parseStudents(table excel.Table) ([]store.ImportStudent, error) {
 		}
 		seen[studentNo] = true
 		student := store.ImportStudent{
-			StudentNo: studentNo,
-			Name:      name,
-			ClassName: className,
-			Elective:  valueAt(row.Values, electiveColumn),
-			Japanese:  flagValue(valueAt(row.Values, japaneseColumn)),
-			Walking:   flagValue(valueAt(row.Values, walkingColumn)),
-			Status:    statusValue(valueAt(row.Values, statusColumn)),
-			Scores:    map[string]float64{},
-			Flags:     map[string]string{},
+			StudentNo:   studentNo,
+			Name:        name,
+			ClassName:   className,
+			Elective:    valueAt(row.Values, electiveColumn),
+			Japanese:    flagValue(valueAt(row.Values, japaneseColumn)),
+			Walking:     flagValue(valueAt(row.Values, walkingColumn)),
+			Status:      statusValue(valueAt(row.Values, statusColumn)),
+			Scores:      map[string]float64{},
+			Flags:       map[string]string{},
+			SourceSheet: table.Sheet,
+			SourceRow:   row.Number,
 		}
 		student.Track = trackFromElective(student.Elective)
 		if totalColumn >= 0 {
@@ -647,6 +649,8 @@ func parseTeachers(table excel.Table) ([]store.ImportAssignment, []string, error
 				ClassName:   className,
 				Subject:     subject,
 				TeacherName: teacher,
+				SourceSheet: table.Sheet,
+				SourceRow:   row.Number,
 			})
 			teacherSet[teacher] = true
 		}
@@ -1025,6 +1029,8 @@ func flagValue(text string) bool {
 
 func statusValue(text string) string {
 	switch strings.TrimSpace(text) {
+	case "在读", "正常":
+		return "active"
 	case "转学":
 		return "transferred"
 	case "休学":

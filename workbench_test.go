@@ -98,8 +98,8 @@ func seedBatch(t *testing.T, a *app, missingTarget bool) store.Batch {
 
 func TestBatchPageShowsNewBatch(t *testing.T) {
 	a := newTestApp(t)
-	a.tab = 1
-	tt := ui.NewTester(a.view, 1100, 720)
+	a.page = pageAssessments
+	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
 	if err := tt.Click("New batch"); err != nil {
@@ -116,7 +116,7 @@ func TestBatchPageShowsNewBatch(t *testing.T) {
 		t.Fatalf("batches = %d", len(a.batches))
 	}
 	tt.Frame()
-	for _, text := range []string{"Batches", "2025-2026 Spring Grade 1 Midterm", "Import workbook", "Calculate"} {
+	for _, text := range []string{"Assessments", "2025-2026 Spring Grade 10 Midterm", "Import workbook", "Calculate"} {
 		if !tt.HasText(text) {
 			t.Errorf("missing %q in %q", text, tt.Texts())
 		}
@@ -182,8 +182,8 @@ func TestZeroTargetDialogAndFill(t *testing.T) {
 	if !a.zeroOpen || len(a.zeroIssues) == 0 {
 		t.Fatalf("zero dialog = %v issues=%d", a.zeroOpen, len(a.zeroIssues))
 	}
-	a.tab = 1
-	tt := ui.NewTester(a.view, 1100, 720)
+	a.page = pageAssessments
+	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
 	if !tt.HasText("Fill missing targets") {

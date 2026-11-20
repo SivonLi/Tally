@@ -237,13 +237,13 @@ func (a *app) batchSummary(c *ui.Context, p uiPalette, batch store.Batch) {
 	panel(c, p).Padding(t.Space(4)).Gap(t.Space(4)).Children(func() {
 		ui.Row(c).AlignItems(ui.Start).Gap(t.Space(3)).Children(func() {
 			ui.Column(c).Grow(1).Gap(t.Space(1)).Children(func() {
-				ui.Text(c, a.batchLabel(batch)).FontSize(t.Rem(1.35)).Bold().
+				ui.Text(c, a.batchLabel(batch)).FontSize(sectionSize(t)).Bold().
 					LetterSpacing(-0.2).Role(ui.RoleHeading).Level(2)
 			})
 			statusBadge(c, p, batch.Status, a.batchStatusLabel(batch.Status))
 		})
 		ui.Column(c).Gap(t.Space(2)).Children(func() {
-			ui.Text(c, locales.BatchWorkflowTitle()).FontSize(t.Rem(0.8)).
+			ui.Text(c, locales.BatchWorkflowTitle()).FontSize(captionSize(t)).
 				TextColor(p.muted).LetterSpacing(0.4)
 			a.batchWorkflow(c, p, batch)
 		})
@@ -296,16 +296,16 @@ func (a *app) batchWorkflow(c *ui.Context, p uiPalette, batch store.Batch) {
 				})
 			case step.current:
 				marker.Background(p.accentSoft).Border(1, p.accent).Children(func() {
-					ui.Textf(c, "%d", index+1).FontSize(t.Rem(0.8)).Bold().TextColor(p.accent)
+					ui.Textf(c, "%d", index+1).FontSize(captionSize(t)).Bold().TextColor(p.accent)
 				})
 			default:
 				marker.Background(p.panelMuted).Border(1, p.border).Children(func() {
-					ui.Textf(c, "%d", index+1).FontSize(t.Rem(0.8)).TextColor(p.muted)
+					ui.Textf(c, "%d", index+1).FontSize(captionSize(t)).TextColor(p.muted)
 				})
 			}
 			ui.Column(c).Gap(0).Children(func() {
-				ui.Text(c, step.label).FontSize(t.Rem(0.86)).Bold()
-				ui.Text(c, step.caption).FontSize(t.Rem(0.78)).TextColor(p.muted)
+				ui.Text(c, step.label).FontSize(bodySize(t)).Bold()
+				ui.Text(c, step.caption).FontSize(captionSize(t)).TextColor(p.muted)
 			})
 			if index < len(steps)-1 {
 				ui.Box(c).Height(1).Grow(1).Background(p.border).Margin(0, t.Space(2))
@@ -317,30 +317,33 @@ func (a *app) batchWorkflow(c *ui.Context, p uiPalette, batch store.Batch) {
 func (a *app) batchActions(c *ui.Context, p uiPalette) {
 	t := p.theme
 	panel(c, p).Padding(t.Space(4)).Children(func() {
-		ui.Row(c).Wrap().AlignItems(ui.End).Gap(t.Space(3)).Children(func() {
-			ui.Column(c).Width(t.Space(50)).Gap(t.Space(1)).Children(func() {
-				ui.Text(c, locales.BatchPlanVersion()).FontSize(t.Rem(0.8)).TextColor(p.muted)
-				if len(a.published) == 0 {
-					ui.Text(c, locales.BatchSelectVersion()).FontSize(t.Rem(0.82)).TextColor(p.danger)
-				} else {
-					ui.Select(c, &a.calculateVersion, a.versionOptions()).
-						Width(t.Space(50)).Label(locales.BatchPlanVersion())
+		ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
+			ui.Row(c).AlignItems(ui.End).Children(func() {
+				ui.Column(c).Width(t.Space(50)).Gap(t.Space(1)).Children(func() {
+					ui.Text(c, locales.BatchPlanVersion()).FontSize(captionSize(t)).TextColor(p.muted)
+					if len(a.published) == 0 {
+						ui.Text(c, locales.BatchSelectVersion()).FontSize(bodySize(t)).TextColor(p.danger)
+					} else {
+						ui.Select(c, &a.calculateVersion, a.versionOptions()).
+							Width(t.Space(50)).Label(locales.BatchPlanVersion())
+					}
+				})
+			})
+			ui.Row(c).Wrap().Justify(ui.End).Gap(t.Space(3)).Children(func() {
+				if labelledButton(c, locales.BatchImport(), iconImport, false).Clicked() {
+					a.chooseImportFile()
+				}
+				calculate := labelledButton(c, locales.BatchCalculate(), iconCalculate, true)
+				calculate.Disabled(a.batchBusy || len(a.published) == 0)
+				if calculate.Clicked() {
+					a.startCalculate()
+				}
+				export := labelledButton(c, locales.BatchExport(), iconExport, false)
+				export.Disabled(a.batchBusy || len(a.resultRows) == 0)
+				if export.Clicked() {
+					a.chooseExportFile()
 				}
 			})
-			ui.Spacer(c)
-			if labelledButton(c, locales.BatchImport(), iconImport, false).Clicked() {
-				a.chooseImportFile()
-			}
-			calculate := labelledButton(c, locales.BatchCalculate(), iconCalculate, true)
-			calculate.Disabled(a.batchBusy || len(a.published) == 0)
-			if calculate.Clicked() {
-				a.startCalculate()
-			}
-			export := labelledButton(c, locales.BatchExport(), iconExport, false)
-			export.Disabled(a.batchBusy || len(a.resultRows) == 0)
-			if export.Clicked() {
-				a.chooseExportFile()
-			}
 		})
 	})
 }
@@ -354,9 +357,9 @@ func (a *app) importSummaryView(c *ui.Context, p uiPalette) {
 	}
 	ui.Column(c).Padding(t.Space(3)).Gap(t.Space(1)).Background(p.warningSoft).
 		Border(1, p.warning.Alpha(0.35)).Radius(t.Space(2)).Children(func() {
-		ui.Text(c, locales.BatchWarnings()).FontSize(t.Rem(0.84)).Bold().TextColor(p.warning)
+		ui.Text(c, locales.BatchWarnings()).FontSize(bodySize(t)).Bold().TextColor(p.warning)
 		for _, warning := range summary.Warnings {
-			ui.Text(c, "- "+warning).FontSize(t.Rem(0.82)).TextColor(p.muted).Selectable()
+			ui.Text(c, "- "+warning).FontSize(captionSize(t)).TextColor(p.muted).Selectable()
 		}
 	})
 }
@@ -369,7 +372,7 @@ func (a *app) batchResults(c *ui.Context, p uiPalette) {
 			ui.Spacer(c)
 			if len(a.personalScores) > 0 {
 				ui.Textf(c, locales.BatchPersonalScores(), len(a.personalScores)).
-					FontSize(t.Rem(0.8)).TextColor(p.muted)
+					FontSize(captionSize(t)).TextColor(p.muted)
 			}
 		})
 		if len(a.resultRows) == 0 {
@@ -443,9 +446,9 @@ func (a *app) newBatchModal(c *ui.Context, p uiPalette) {
 	ui.Modal(c, &a.newBatchOpen, func() {
 		ui.Column(c).Width(t.Space(120)).Gap(t.Space(4)).Children(func() {
 			ui.Column(c).Gap(t.Space(1)).Children(func() {
-				ui.Text(c, locales.BatchNew()).FontSize(t.Rem(1.3)).Bold().
+				ui.Text(c, locales.BatchNew()).FontSize(sectionSize(t)).Bold().
 					Role(ui.RoleHeading).Level(2)
-				ui.Text(c, locales.BatchNewSubtitle()).FontSize(t.Rem(0.9)).TextColor(p.muted).Pretty()
+				ui.Text(c, locales.BatchNewSubtitle()).FontSize(bodySize(t)).TextColor(p.muted).Pretty()
 			})
 			ui.Form(c, func() {
 				ui.Field(c, locales.BatchAcademicYear(), func() {
@@ -540,11 +543,18 @@ func (a *app) startImport(path string) {
 	a.batchError = ""
 	work := func() (store.ImportSummary, error) {
 		ctx := context.Background()
-		summary, _, err := importer.ImportInto(ctx, a.store, batch.ID, path, importer.Options{
+		data, report, err := importer.ImportWorkspace(path, importer.Options{
 			ConversionDir: filepath.Join(a.dataDir, "converted"),
-			CreatedBy:     "local",
 		})
-		return summary, err
+		if err != nil {
+			return store.ImportSummary{}, err
+		}
+		stored, err := a.store.StoreImportFile(path, report.FileHash)
+		if err != nil {
+			return store.ImportSummary{}, err
+		}
+		report.StoredPath = stored
+		return a.store.MergeImport(ctx, batch.ID, data, report)
 	}
 	run := func() {
 		summary, err := work()
@@ -665,9 +675,9 @@ func (a *app) zeroModal(c *ui.Context, p uiPalette) {
 					ui.Icon(c, iconAlert).FontSize(t.Space(5)).TextColor(p.warning)
 				})
 				ui.Column(c).Grow(1).Gap(t.Space(1)).Children(func() {
-					ui.Text(c, locales.ZeroTitle()).FontSize(t.Rem(1.3)).Bold().
+					ui.Text(c, locales.ZeroTitle()).FontSize(sectionSize(t)).Bold().
 						Role(ui.RoleHeading).Level(2)
-					ui.Text(c, locales.ZeroIntro()).FontSize(t.Rem(0.9)).TextColor(p.muted).Pretty()
+					ui.Text(c, locales.ZeroIntro()).FontSize(bodySize(t)).TextColor(p.muted).Pretty()
 				})
 			})
 			ui.Scroll(c).MaxHeight(t.Space(72)).FillWidth().Children(func() {
@@ -705,7 +715,7 @@ func (a *app) zeroIssueCard(c *ui.Context, p uiPalette, index int, exclude func(
 	issue := a.zeroIssues[index]
 	panel(c, p).Background(p.panelMuted).Padding(t.Space(3)).Gap(t.Space(2)).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-			ui.Text(c, issue.ClassName).FontSize(t.Rem(0.95)).Bold().Grow(1)
+			ui.Text(c, issue.ClassName).FontSize(bodySize(t)).Bold().Grow(1)
 			if ui.Button(c, locales.ZeroExclude()).Clicked() {
 				classID, _ := strconv.ParseInt(issue.ClassID, 10, 64)
 				exclude(classID)
@@ -714,7 +724,7 @@ func (a *app) zeroIssueCard(c *ui.Context, p uiPalette, index int, exclude func(
 		tiers := issue.MissingTiers
 		if len(tiers) == 0 {
 			tiers = issue.AllTiers
-			ui.Text(c, locales.ZeroExplicitZero()).FontSize(t.Rem(0.82)).TextColor(p.muted)
+			ui.Text(c, locales.ZeroExplicitZero()).FontSize(captionSize(t)).TextColor(p.muted)
 		}
 		for _, tier := range tiers {
 			key := issue.ClassID + ":" + tier

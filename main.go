@@ -16,6 +16,7 @@ import (
 
 	"tally/internal/assessment"
 	"tally/internal/calc"
+	"tally/internal/school"
 	"tally/internal/store"
 	"tally/locales"
 )
@@ -40,7 +41,6 @@ type app struct {
 	planEditDraft  string
 	planEditError  string
 
-	tab                int
 	published          []publishedVersion
 	batches            []store.Batch
 	selectedBatchID    string
@@ -65,6 +65,126 @@ type app struct {
 	zeroValues         map[string]*float64
 	zeroReason         string
 	zeroError          string
+
+	now                  func() time.Time
+	page                 pageID
+	systemAcademicYear   int
+	academicYearStart    int
+	cohorts              []store.Cohort
+	cohortStages         []store.CohortStage
+	selectedCohortID     string
+	selectedStageID      int64
+	stageCounts          store.StageCounts
+	stageClasses         []string
+	cohortSidebarWidth   float32
+	newCohortOpen        bool
+	newCohortYear        float64
+	newCohortError       string
+	settingsError        string
+	dataQuery            string
+	dataClassFilter      int64
+	dataTrackFilter      string
+	dataStatusFilter     string
+	teacherQuery         string
+	groupQuery           string
+	groupSubjectFilter   string
+	baselineQuery        string
+	baselineClassFilter  int64
+	importQuery          string
+	dataBusy             bool
+	dataError            string
+	dataMessage          string
+	classes              []store.SchoolClass
+	students             []store.DataStudent
+	studentsTotal        int
+	studentTable         ui.ListState
+	classTable           ui.ListState
+	teacherTable         ui.ListState
+	groupTable           ui.ListState
+	baselineTable        ui.ListState
+	selectedStudentID    int64
+	studentDetail        store.DataStudent
+	studentDetailOpen    bool
+	teachers             []store.DataTeacher
+	teachingGroups       []store.DataTeachingGroup
+	baselines            []store.BaselineRow
+	importRuns           []store.ImportRun
+	subjects             []store.Subject
+	tracks               []store.Track
+	subjectDrafts        []store.Subject
+	trackDrafts          []store.Track
+	facultyTab           int
+	backups              []store.BackupInfo
+	restoreBackupName    string
+	restoreOpen          bool
+	importWizard         *importWizardState
+	importRunID          int64
+	importDetail         *store.ImportRunDetail
+	prepOpen             bool
+	stageReviewOpen      bool
+	stageNoticeDismissed map[int64]bool
+
+	exams               []store.Exam
+	selectedExamID      int64
+	examCohortID        int64
+	exam                store.Exam
+	examCohort          store.ExamCohort
+	examAssessment      store.Assessment
+	examTierKeys        []string
+	examClasses         []store.SchoolClass
+	examTeachingGroups  []store.DataTeachingGroup
+	examTab             int
+	examRoster          []store.ExamRosterEntry
+	examRosterTotal     int
+	examScores          []store.ExamScoreRow
+	examScoresTotal     int
+	examScoreSummaries  []store.ExamScoreSummary
+	examScoreBands      []store.ExamScoreBand
+	examClassAverages   []store.ExamClassAverage
+	examCutoffImpacts   []store.ExamCutoffImpact
+	examSubjectCutoffs  []store.ExamSubjectCutoff
+	examTierCutoffs     []store.ExamTierCutoff
+	examTargets         []store.AssessmentClassTarget
+	examStatGroups      []store.ExamStatGroup
+	examQuality         []store.ExamQualityIssue
+	examPrep            store.ExamPrepStatus
+	examRosterQuery     string
+	examScoreQuery      string
+	examScoreSubject    string
+	examScoreClass      int64
+	examBusy            bool
+	examError           string
+	examMessage         string
+	newExamOpen         bool
+	newExamYear         float64
+	newExamTerm         int
+	newExamType         int
+	newExamName         string
+	newExamDate         time.Time
+	newExamCohorts      map[int64]bool
+	newExamMarks        map[int64]map[string]float64
+	examDefaultTrack    string
+	examTargetDrafts    map[string]*float64
+	examPrepOpen        bool
+	qualityExams        []qualityExamOverview
+	qualityError        string
+	qualitySeverity     int
+	qualityImports      map[int64]string
+	qualityDataItem     string
+	qualityImportRun    int64
+	qualityLoaded       bool
+	lastPage            pageID
+	statGroupOpen       bool
+	statGroupID         int64
+	statGroupSubject    string
+	statGroupName       string
+	statGroupLeadClass  int64
+	statGroupTarget     float64
+	statGroupMembers    map[int64]bool
+	statGroupError      string
+	statGroupDeleteOpen bool
+	statGroupDeleteID   int64
+	statGroupDeleteName string
 }
 
 func (a *app) load() {
@@ -85,12 +205,24 @@ func (a *app) load() {
 	}
 	a.store = opened
 	a.dataDir = dir
+	a.systemAcademicYear = school.AcademicYearStart(a.nowValue())
+	a.academicYearStart, err = opened.CurrentAcademicYear(ctx, a.systemAcademicYear)
+	if err != nil {
+		a.loadError = err.Error()
+		return
+	}
 	if _, err := opened.EnsureDefaultPlan(ctx); err != nil {
 		a.loadError = err.Error()
 		return
 	}
 	a.reloadPlans(ctx)
 	a.reloadBatches(ctx)
+	a.reloadCohorts(ctx)
+	a.reloadExams(ctx)
+	a.reloadSchoolSettings(ctx)
+	if a.page == "" {
+		a.page = pageOverview
+	}
 }
 
 func (a *app) reloadPlans(ctx context.Context) {
@@ -209,24 +341,6 @@ func (a *app) retireSelected() {
 	a.reloadPublished(ctx)
 }
 
-func (a *app) view(c *ui.Context) {
-	p := uiPaletteFor(c)
-	ui.Column(c).Fill().Background(p.canvas).Children(func() {
-		a.appBar(c, p)
-		ui.Column(c).Fill().Padding(p.theme.Space(5), p.theme.Space(7)).Children(func() {
-			if a.loadError != "" {
-				notice(c, p, noticeDanger, locales.PlanLoadError()+": "+a.loadError)
-				return
-			}
-			if a.tab == 1 {
-				a.batchPage(c, p)
-				return
-			}
-			a.planPage(c, p)
-		}).Role(ui.RoleMain)
-	})
-}
-
 func (a *app) planPage(c *ui.Context, p uiPalette) {
 	t := p.theme
 	if a.sidebarWidth == 0 {
@@ -294,12 +408,12 @@ func (a *app) planSummary(c *ui.Context, p uiPalette, plan store.Plan) {
 		ui.Row(c).AlignItems(ui.Start).Gap(t.Space(3)).Children(func() {
 			ui.Column(c).Grow(1).Gap(t.Space(1)).Children(func() {
 				ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-					ui.Text(c, plan.Name).FontSize(t.Rem(1.55)).Bold().LetterSpacing(-0.25).
+					ui.Text(c, plan.Name).FontSize(sectionSize(t)).Bold().LetterSpacing(-0.15).
 						Role(ui.RoleHeading).Level(2)
 					kindBadge(c, p, plan.Kind, a.kindLabel(plan.Kind))
 				})
 				if plan.Description != "" {
-					ui.Text(c, plan.Description).FontSize(t.Rem(0.9)).TextColor(p.muted).Pretty()
+					ui.Text(c, plan.Description).FontSize(bodySize(t)).TextColor(p.muted).Pretty()
 				}
 			})
 			a.versionActions(c, p)
@@ -380,9 +494,9 @@ func (a *app) planEditModal(c *ui.Context, p uiPalette) {
 	ui.Modal(c, &a.planEditOpen, func() {
 		ui.Column(c).Width(t.Space(170)).Gap(t.Space(4)).Children(func() {
 			ui.Column(c).Gap(t.Space(1)).Children(func() {
-				ui.Text(c, locales.PlanConfigTitle()).FontSize(t.Rem(1.3)).Bold().
+				ui.Text(c, locales.PlanConfigTitle()).FontSize(sectionSize(t)).Bold().
 					Role(ui.RoleHeading).Level(2)
-				ui.Text(c, locales.PlanConfigSubtitle()).FontSize(t.Rem(0.9)).
+				ui.Text(c, locales.PlanConfigSubtitle()).FontSize(bodySize(t)).
 					TextColor(p.muted).Pretty()
 			})
 			ui.Field(c, locales.PlanNameLabel(), func() {
@@ -558,11 +672,11 @@ func main() {
 		a.load()
 		a.win = mygo.NewWindow(mygo.WindowOptions{
 			Title:     locales.AppTitle(),
-			Width:     1120,
-			Height:    760,
-			MinWidth:  900,
-			MinHeight: 620,
-			StateKey:  "plans",
+			Width:     1280,
+			Height:    800,
+			MinWidth:  1024,
+			MinHeight: 640,
+			StateKey:  "tally",
 			Content:   ui.View(a.view),
 		})
 		mygo.App.OnLocaleChanged(func(string) {

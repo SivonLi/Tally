@@ -8,6 +8,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/egoist/mygo/plugins/sqlite"
@@ -21,10 +24,14 @@ var ErrNotFound = errors.New("记录不存在")
 // ErrSystemPlanRetire 表示内置方案不允许停用。
 var ErrSystemPlanRetire = errors.New("system plan cannot be retired")
 
+// SchemaVersion 是当前应用写入的数据库版本。
+const SchemaVersion = 5
+
 // Store 是一个打开的本地数据库。
 type Store struct {
-	db  *sqlite.DB
-	now func() time.Time
+	db   *sqlite.DB
+	root string
+	now  func() time.Time
 }
 
 // Plan 是一项考核方案。
@@ -76,16 +83,79 @@ type CreateDraftInput struct {
 
 // Open 打开数据库并执行迁移。
 func Open(ctx context.Context, path string) (*Store, error) {
+	root := ""
+	if path != ":memory:" {
+		root = filepath.Dir(path)
+		pending, err := needsSchoolMigration(ctx, path)
+		if err != nil {
+			return nil, fmt.Errorf("检查数据库版本: %w", err)
+		}
+		if !pending {
+			root = ""
+		}
+	}
+	backup := ""
+	if root != "" {
+		var err error
+		backup, err = BackupBeforeOpen(root)
+		if err != nil {
+			return nil, fmt.Errorf("备份现有数据库: %w", err)
+		}
+	}
 	db, err := sqlite.Open(ctx, path, sqlite.OpenOptions{})
 	if err != nil {
 		return nil, err
 	}
-	store := &Store{db: db, now: func() time.Time { return time.Now().UTC() }}
+	store := &Store{db: db, root: filepath.Dir(path), now: func() time.Time { return time.Now().UTC() }}
 	if err := store.migrate(ctx); err != nil {
 		db.Close()
+		if backup != "" {
+			if restoreErr := restoreBackup(root, filepath.Base(backup), false); restoreErr != nil {
+				return nil, fmt.Errorf("%w；恢复迁移前备份失败: %v", err, restoreErr)
+			}
+			return nil, fmt.Errorf("%w；数据库已经恢复到迁移前状态", err)
+		}
 		return nil, err
 	}
 	return store, nil
+}
+
+func needsSchoolMigration(ctx context.Context, path string) (bool, error) {
+	info, err := os.Stat(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if info.Size() == 0 {
+		return false, nil
+	}
+	db, err := sqlite.Open(ctx, path, sqlite.OpenOptions{ReadOnly: true})
+	if err != nil {
+		return false, err
+	}
+	defer db.Close()
+	rows, err := db.Query(ctx, `SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'`)
+	if err != nil {
+		return false, err
+	}
+	if len(rows.Values) == 0 {
+		return true, nil
+	}
+	rows, err = db.Query(ctx, `SELECT COALESCE(MAX(version), 0) FROM schema_migrations`)
+	if err != nil {
+		return false, err
+	}
+	version := 0
+	if len(rows.Values) > 0 {
+		value, _ := rows.Values[0][0].(int64)
+		version = int(value)
+	}
+	if version > SchemaVersion {
+		return false, fmt.Errorf("数据库版本 %d 高于应用支持的版本 %d", version, SchemaVersion)
+	}
+	return version < SchemaVersion, nil
 }
 
 // Close 关闭数据库。
@@ -130,8 +200,14 @@ func (s *Store) migrate(ctx context.Context) error {
 			ON plan_versions(plan_id, status)`},
 	}
 	statements = append(statements, batchSchema()...)
-	_, err := s.db.Transaction(ctx, statements)
-	return err
+	statements = append(statements, cohortSchema()...)
+	if _, err := s.db.Transaction(ctx, statements); err != nil {
+		return err
+	}
+	if err := s.deriveLegacyCohorts(ctx); err != nil {
+		return err
+	}
+	return s.migrateSchoolData(ctx)
 }
 
 // EnsureDefaultPlan 在首次启动时写入内置默认方案，返回最新的已发布版本。

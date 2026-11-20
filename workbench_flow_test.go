@@ -121,8 +121,8 @@ func TestStartImportWorkbook(t *testing.T) {
 		t.Fatalf("students = %d", a.importSummary.Students)
 	}
 	a.selectedBatchID = strconv.FormatInt(batch.ID, 10)
-	a.tab = 1
-	tt := ui.NewTester(a.view, 1100, 720)
+	a.page = pageAssessments
+	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
 	if !tt.HasText("Imported 2 classes, 8 students, 4 stat groups.") {
@@ -133,8 +133,8 @@ func TestStartImportWorkbook(t *testing.T) {
 func TestStartCalculateAndExport(t *testing.T) {
 	a := newTestApp(t)
 	seedBatch(t, a, false)
-	a.tab = 1
-	tt := ui.NewTester(a.view, 1100, 720)
+	a.page = pageAssessments
+	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
 	if err := tt.Click("Calculate"); err != nil {
@@ -177,8 +177,8 @@ func TestStartCalculateAndExport(t *testing.T) {
 func TestBatchWorkflowAtMinimumSize(t *testing.T) {
 	a := newTestApp(t)
 	seedBatch(t, a, false)
-	a.tab = 1
-	tt := ui.NewTester(a.view, 900, 620)
+	a.page = pageAssessments
+	tt := ui.NewTester(a.view, 1024, 640)
 	tt.SetLocale("en")
 	tt.Frame()
 	for _, text := range []string{"Workflow", "Import", "Calculation", "Export", "Import workbook", "Calculate", "Export results"} {
@@ -191,7 +191,7 @@ func TestBatchWorkflowAtMinimumSize(t *testing.T) {
 		if !ok {
 			t.Fatalf("missing box for %q", text)
 		}
-		if box.X < 0 || box.Y < 0 || box.X+box.W > 900 || box.Y+box.H > 620 {
+		if box.X < 0 || box.Y < 0 || box.X+box.W > 1024 || box.Y+box.H > 640 {
 			t.Fatalf("%q is outside the window: %+v", text, box)
 		}
 	}
@@ -214,8 +214,8 @@ func TestStartExcludeClass(t *testing.T) {
 		t.Fatalf("zero dialog = %v issues=%d", a.zeroOpen, len(a.zeroIssues))
 	}
 	a.zeroReason = "本班不参与"
-	a.tab = 1
-	tt := ui.NewTester(a.view, 1100, 720)
+	a.page = pageAssessments
+	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
 	if err := tt.Click("Do not participate"); err != nil {
@@ -294,10 +294,10 @@ func TestLabelHelpers(t *testing.T) {
 	if got := a.examLabel("other"); got != "other" {
 		t.Errorf("examLabel = %q", got)
 	}
-	if got := a.gradeLabel("g2"); got != "Grade 2" {
+	if got := a.gradeLabel("g2"); got != "Grade 11" {
 		t.Errorf("gradeLabel = %q", got)
 	}
-	if got := a.gradeLabel("g3"); got != "Grade 3" {
+	if got := a.gradeLabel("g3"); got != "Grade 12" {
 		t.Errorf("gradeLabel = %q", got)
 	}
 	if got := a.gradeLabel("other"); got != "other" {
@@ -318,10 +318,10 @@ func TestLabelHelpers(t *testing.T) {
 	if got := examCode("other"); got != "other" {
 		t.Errorf("examCode = %q", got)
 	}
-	if got := gradeCode("Grade 2"); got != "g2" {
+	if got := gradeCode("Grade 11"); got != "g2" {
 		t.Errorf("gradeCode = %q", got)
 	}
-	if got := gradeCode("Grade 3"); got != "g3" {
+	if got := gradeCode("Grade 12"); got != "g3" {
 		t.Errorf("gradeCode = %q", got)
 	}
 	if got := gradeCode("other"); got != "other" {

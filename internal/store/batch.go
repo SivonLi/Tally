@@ -40,17 +40,19 @@ type CreateBatchInput struct {
 
 // ImportStudent 是导入时的一名学生。
 type ImportStudent struct {
-	StudentNo  string
-	Name       string
-	ClassName  string
-	Track      string
-	Elective   string
-	Status     string
-	Japanese   bool
-	Walking    bool
-	TotalScore *float64
-	Scores     map[string]float64
-	Flags      map[string]string
+	StudentNo   string
+	Name        string
+	ClassName   string
+	Track       string
+	Elective    string
+	Status      string
+	Japanese    bool
+	Walking     bool
+	TotalScore  *float64
+	Scores      map[string]float64
+	Flags       map[string]string
+	SourceSheet string
+	SourceRow   int
 }
 
 // ImportAssignment 是导入时的一条任课关系。
@@ -58,6 +60,18 @@ type ImportAssignment struct {
 	ClassName   string
 	Subject     string
 	TeacherName string
+	TeacherNo   string
+	SourceSheet string
+	SourceRow   int
+}
+
+// ImportTeacher 是导入时的一名教师。
+type ImportTeacher struct {
+	TeacherNo   string
+	Name        string
+	Subject     string
+	SourceSheet string
+	SourceRow   int
 }
 
 // ImportClassTarget 是一个行政班的分档目标人数。
@@ -68,10 +82,12 @@ type ImportClassTarget struct {
 
 // ImportClassBaseline 是一个行政班某个学科的基数均分。
 type ImportClassBaseline struct {
-	ClassName string
-	Subject   string
-	Average   float64
-	Ratio     *float64
+	ClassName   string
+	Subject     string
+	Average     float64
+	Ratio       *float64
+	SourceSheet string
+	SourceRow   int
 }
 
 // ImportSubjectCutoff 是一个学科在某一类考生的分数线。
@@ -110,6 +126,7 @@ type ImportSheet struct {
 type ImportReport struct {
 	FileHash      string
 	Path          string
+	StoredPath    string
 	ConvertedPath string
 	Format        string
 	Conversion    string
@@ -122,7 +139,9 @@ type ImportReport struct {
 type ImportData struct {
 	Classes        []string
 	Students       []ImportStudent
+	Roster         []ImportRoster
 	Teachers       []string
+	TeacherList    []ImportTeacher
 	Assignments    []ImportAssignment
 	ClassTargets   []ImportClassTarget
 	ClassBaselines []ImportClassBaseline
@@ -130,6 +149,41 @@ type ImportData struct {
 	TierCutoffs    []ImportTierCutoff
 	StatGroups     []ImportStatGroup
 	GradeBaselines map[string]float64
+}
+
+// ImportIssue 是一条导入校验问题。Code 与 Args 用于界面按语言生成文案。
+type ImportIssue struct {
+	Severity string
+	Row      int
+	Column   string
+	Code     string
+	Args     []string
+}
+
+// StageImportRequest 是一次阶段数据导入请求。
+type StageImportRequest struct {
+	Kind    string
+	Data    ImportData
+	Report  ImportReport
+	Mapping map[string]string
+	Issues  []ImportIssue
+}
+
+// ImportPreview 是写入前的校验结果。
+type ImportPreview struct {
+	Kind     string
+	New      int
+	Update   int
+	Skip     int
+	Issues   []ImportIssue
+	Blocking int
+	Warnings int
+}
+
+// ImportRunDetail 是导入记录详情。
+type ImportRunDetail struct {
+	Run    ImportRun
+	Issues []ImportIssue
 }
 
 // ImportSummary 是导入完成后可以显示的数量摘要。
@@ -143,6 +197,10 @@ type ImportSummary struct {
 	ClassTargets   int
 	SubjectCutoffs int
 	TierCutoffs    int
+	Baselines      int
+	Inserted       int
+	Updated        int
+	Skipped        int
 	Warnings       []string
 }
 
@@ -546,7 +604,14 @@ func (s *Store) CreateBatch(ctx context.Context, input CreateBatchInput) (Batch,
 	if !ok {
 		return Batch{}, fmt.Errorf("批次标识格式不正确")
 	}
-	return s.GetBatch(ctx, id)
+	batch, err := s.GetBatch(ctx, id)
+	if err != nil {
+		return Batch{}, err
+	}
+	if _, err := s.ensureBatchStage(ctx, batch); err != nil {
+		return Batch{}, err
+	}
+	return batch, nil
 }
 
 // GetBatch 按标识读取一个批次。
@@ -598,7 +663,16 @@ func (s *Store) SetBatchPlan(ctx context.Context, batchID, versionID int64) erro
 
 // MergeImport 把一次解析的数据合并到批次中，并让已有结果失效。
 func (s *Store) MergeImport(ctx context.Context, batchID int64, data ImportData, report ImportReport) (ImportSummary, error) {
-	if _, err := s.GetBatch(ctx, batchID); err != nil {
+	batch, err := s.GetBatch(ctx, batchID)
+	if err != nil {
+		return ImportSummary{}, err
+	}
+	stage, err := s.stageForBatch(ctx, batch)
+	if err != nil {
+		return ImportSummary{}, err
+	}
+	runID, err := s.ensureImportRun(ctx, stage, report, data)
+	if err != nil {
 		return ImportSummary{}, err
 	}
 	now := s.now().Format(time.RFC3339Nano)
@@ -608,28 +682,76 @@ func (s *Store) MergeImport(ctx context.Context, batchID int64, data ImportData,
 			continue
 		}
 		statements = append(statements, sqlite.Statement{
-			SQL:  `INSERT INTO classes(batch_id, name) VALUES (?, ?) ON CONFLICT(batch_id, name) DO NOTHING`,
-			Args: []any{batchID, class},
+			SQL: `INSERT INTO classes(cohort_id, name, created_at, import_run_id)
+				VALUES (?, ?, ?, ?) ON CONFLICT(cohort_id, name) DO NOTHING`,
+			Args: []any{stage.CohortID, normalizeClassName(class), now, runID},
+		}, sqlite.Statement{
+			SQL: `INSERT INTO class_stage_info(class_id, stage_id, status, import_run_id)
+				SELECT id, ?, 'active', ? FROM classes WHERE cohort_id = ? AND name = ?
+				ON CONFLICT(class_id, stage_id) DO NOTHING`,
+			Args: []any{stage.StageID, runID, stage.CohortID, normalizeClassName(class)},
 		})
+	}
+	teacherSubjects := map[string]map[string]bool{}
+	classSubjects := map[string]map[string]bool{}
+	for _, assignment := range data.Assignments {
+		if assignment.TeacherName == "" || assignment.Subject == "" || assignment.ClassName == "" {
+			continue
+		}
+		if teacherSubjects[assignment.TeacherName] == nil {
+			teacherSubjects[assignment.TeacherName] = map[string]bool{}
+		}
+		teacherSubjects[assignment.TeacherName][assignment.Subject] = true
+		if classSubjects[assignment.ClassName] == nil {
+			classSubjects[assignment.ClassName] = map[string]bool{}
+		}
+		classSubjects[assignment.ClassName][assignment.Subject] = true
+	}
+	for _, teacher := range data.Teachers {
+		if teacher == "" || teacherSubjects[teacher] != nil {
+			continue
+		}
+		teacherSubjects[teacher] = map[string]bool{"": true}
 	}
 	for _, student := range data.Students {
 		if student.StudentNo == "" || student.Name == "" || student.ClassName == "" {
 			return ImportSummary{}, fmt.Errorf("学生 %q 缺少考号、姓名或者班级", student.Name)
 		}
+		className := normalizeClassName(student.ClassName)
+		if classSubjects[student.ClassName] == nil {
+			classSubjects[student.ClassName] = map[string]bool{}
+		}
+		for subject := range student.Scores {
+			classSubjects[student.ClassName][subject] = true
+		}
 		statements = append(statements,
 			sqlite.Statement{
-				SQL:  `INSERT INTO students(student_no, name) VALUES (?, ?) ON CONFLICT(student_no) DO UPDATE SET name = excluded.name`,
-				Args: []any{student.StudentNo, student.Name},
+				SQL: `INSERT INTO students(student_no, name, created_at, import_run_id, source_sheet, source_row)
+					VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(student_no) DO UPDATE SET
+						name = excluded.name, import_run_id = excluded.import_run_id,
+						source_sheet = excluded.source_sheet, source_row = excluded.source_row`,
+				Args: []any{student.StudentNo, student.Name, now, runID, student.SourceSheet, student.SourceRow},
 			},
 			sqlite.Statement{
-				SQL: `INSERT INTO student_classes(batch_id, student_id, class_id, track, elective, japanese, walking, status, total_score)
-					SELECT ?, s.id, c.id, ?, ?, ?, ?, ?, ? FROM students s, classes c
-					WHERE s.student_no = ? AND c.batch_id = ? AND c.name = ?
-					ON CONFLICT(batch_id, student_id) DO UPDATE SET class_id = excluded.class_id,
+				SQL: `INSERT INTO student_cohorts(student_id, cohort_id, status, import_run_id, source_sheet, source_row)
+					SELECT id, ?, 'active', ?, ?, ? FROM students WHERE student_no = ?
+					ON CONFLICT(student_id, cohort_id) DO NOTHING`,
+				Args: []any{stage.CohortID, runID, student.SourceSheet, student.SourceRow, student.StudentNo},
+			},
+			sqlite.Statement{
+				SQL: `INSERT INTO student_stage_memberships(
+					student_id, stage_id, class_id, status, walking, track, elective, japanese, total_score,
+					import_run_id, source_sheet, source_row)
+					SELECT s.id, ?, c.id, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM students s, classes c
+					WHERE s.student_no = ? AND c.cohort_id = ? AND c.name = ?
+					ON CONFLICT(student_id, stage_id) DO UPDATE SET class_id = excluded.class_id,
 						track = excluded.track, elective = excluded.elective, japanese = excluded.japanese,
-						walking = excluded.walking, status = excluded.status, total_score = excluded.total_score`,
-				Args: []any{batchID, student.Track, student.Elective, boolInt(student.Japanese), boolInt(student.Walking),
-					student.Status, optionalFloat(student.TotalScore), student.StudentNo, batchID, student.ClassName},
+						walking = excluded.walking, status = excluded.status, total_score = excluded.total_score,
+						import_run_id = excluded.import_run_id, source_sheet = excluded.source_sheet,
+						source_row = excluded.source_row`,
+				Args: []any{stage.StageID, student.Status, boolInt(student.Walking), student.Track,
+					student.Elective, boolInt(student.Japanese), optionalFloat(student.TotalScore),
+					runID, student.SourceSheet, student.SourceRow, student.StudentNo, stage.CohortID, className},
 			},
 		)
 		for subject, score := range student.Scores {
@@ -642,39 +764,57 @@ func (s *Store) MergeImport(ctx context.Context, batchID int64, data ImportData,
 			})
 		}
 	}
-	for _, teacher := range data.Teachers {
-		if teacher == "" {
-			continue
+	for teacher, subjects := range teacherSubjects {
+		for subject := range subjects {
+			statements = append(statements, sqlite.Statement{
+				SQL: `INSERT INTO teachers(teacher_no, name, subject, created_at, import_run_id)
+					SELECT '', ?, ?, ?, ? WHERE NOT EXISTS (
+						SELECT 1 FROM teachers WHERE teacher_no = '' AND name = ? AND subject = ?)`,
+				Args: []any{teacher, subject, now, runID, teacher, subject},
+			})
 		}
-		statements = append(statements, sqlite.Statement{
-			SQL:  `INSERT INTO teachers(name) VALUES (?) ON CONFLICT(name) DO NOTHING`,
-			Args: []any{teacher},
-		})
+	}
+	for className, subjects := range classSubjects {
+		name := normalizeClassName(className)
+		for subject := range subjects {
+			statements = append(statements, sqlite.Statement{
+				SQL: `INSERT INTO teaching_groups(stage_id, subject, name, kind, import_run_id)
+					VALUES (?, ?, ?, 'admin', ?) ON CONFLICT(stage_id, subject, name) DO NOTHING`,
+				Args: []any{stage.StageID, subject, name, runID},
+			})
+		}
 	}
 	for _, assignment := range data.Assignments {
 		if assignment.TeacherName == "" {
 			continue
 		}
-		statements = append(statements,
-			sqlite.Statement{
-				SQL:  `INSERT INTO teachers(name) VALUES (?) ON CONFLICT(name) DO NOTHING`,
-				Args: []any{assignment.TeacherName},
-			},
-			sqlite.Statement{
-				SQL: `INSERT INTO teaching_groups(batch_id, subject, name, class_id)
-					SELECT ?, ?, c.name, c.id FROM classes c WHERE c.batch_id = ? AND c.name = ?
-					ON CONFLICT(batch_id, subject, class_id) DO UPDATE SET name = excluded.name`,
-				Args: []any{batchID, assignment.Subject, batchID, assignment.ClassName},
-			},
-			sqlite.Statement{
-				SQL: `INSERT INTO assignments(teacher_id, teaching_group_id)
-					SELECT t.id, g.id FROM teachers t, teaching_groups g
-					WHERE t.name = ? AND g.batch_id = ? AND g.subject = ?
-						AND g.class_id = (SELECT id FROM classes WHERE batch_id = ? AND name = ?)
-					ON CONFLICT(teacher_id, teaching_group_id) DO NOTHING`,
-				Args: []any{assignment.TeacherName, batchID, assignment.Subject, batchID, assignment.ClassName},
-			},
-		)
+		statements = append(statements, sqlite.Statement{
+			SQL: `INSERT INTO assignments(teacher_id, teaching_group_id, import_run_id, source_sheet, source_row)
+				SELECT t.id, g.id, ?, ?, ? FROM teachers t, teaching_groups g
+				WHERE t.teacher_no = '' AND t.name = ? AND t.subject = ?
+					AND g.stage_id = ? AND g.subject = ? AND g.name = ?
+				ON CONFLICT(teacher_id, teaching_group_id) DO NOTHING`,
+			Args: []any{runID, assignment.SourceSheet, assignment.SourceRow,
+				assignment.TeacherName, assignment.Subject, stage.StageID, assignment.Subject,
+				normalizeClassName(assignment.ClassName)},
+		})
+	}
+	for className, subjects := range classSubjects {
+		name := normalizeClassName(className)
+		for subject := range subjects {
+			statements = append(statements, sqlite.Statement{
+				SQL: `INSERT INTO student_teaching_groups(
+					student_id, stage_id, subject, teaching_group_id, import_run_id)
+					SELECT m.student_id, m.stage_id, g.subject, g.id, ?
+					FROM student_stage_memberships m
+					JOIN classes c ON c.id = m.class_id
+					JOIN teaching_groups g ON g.stage_id = m.stage_id AND g.name = c.name AND g.subject = ?
+					WHERE m.stage_id = ? AND c.name = ?
+					ON CONFLICT(student_id, stage_id, subject) DO UPDATE SET
+						teaching_group_id = excluded.teaching_group_id, import_run_id = excluded.import_run_id`,
+				Args: []any{runID, subject, stage.StageID, name},
+			})
+		}
 	}
 	for _, target := range data.ClassTargets {
 		for tier, count := range target.Counts {
@@ -683,20 +823,53 @@ func (s *Store) MergeImport(ctx context.Context, batchID int64, data ImportData,
 			}
 			statements = append(statements, sqlite.Statement{
 				SQL: `INSERT INTO class_targets(batch_id, class_id, tier_key, target_count)
-					SELECT ?, c.id, ?, ? FROM classes c WHERE c.batch_id = ? AND c.name = ?
+					SELECT ?, c.id, ?, ? FROM classes c WHERE c.cohort_id = ? AND c.name = ?
 					ON CONFLICT(batch_id, class_id, tier_key) DO UPDATE SET target_count = excluded.target_count`,
-				Args: []any{batchID, tier, *count, batchID, target.ClassName},
+				Args: []any{batchID, tier, *count, stage.CohortID, normalizeClassName(target.ClassName)},
 			})
 		}
 	}
 	for _, baseline := range data.ClassBaselines {
 		statements = append(statements, sqlite.Statement{
 			SQL: `INSERT INTO class_baselines(batch_id, class_id, subject, average, ratio)
-				SELECT ?, c.id, ?, ?, ? FROM classes c WHERE c.batch_id = ? AND c.name = ?
+				SELECT ?, c.id, ?, ?, ? FROM classes c WHERE c.cohort_id = ? AND c.name = ?
 				ON CONFLICT(batch_id, class_id, subject) DO UPDATE SET average = excluded.average,
 					ratio = excluded.ratio`,
-			Args: []any{batchID, baseline.Subject, baseline.Average, floatOrZero(baseline.Ratio), batchID, baseline.ClassName},
+			Args: []any{batchID, baseline.Subject, baseline.Average, floatOrZero(baseline.Ratio),
+				stage.CohortID, normalizeClassName(baseline.ClassName)},
 		})
+	}
+	if len(data.ClassBaselines) > 0 || len(data.GradeBaselines) > 0 {
+		statements = append(statements, sqlite.Statement{
+			SQL: `INSERT INTO baseline_sets(cohort_id, name, source, kind, status, created_at, import_run_id)
+				VALUES (?, '入口成绩', 'import', 'zhongkao', 'active', ?, ?)
+				ON CONFLICT(cohort_id, name) DO NOTHING`,
+			Args: []any{stage.CohortID, now, runID},
+		})
+	}
+	for _, baseline := range data.ClassBaselines {
+		statements = append(statements,
+			sqlite.Statement{
+				SQL: `INSERT OR IGNORE INTO baseline_subjects(baseline_set_id, subject, full_mark)
+					SELECT id, ?, ? FROM baseline_sets WHERE cohort_id = ? AND name = '入口成绩'`,
+				Args: []any{baseline.Subject, defaultFullMark(baseline.Subject), stage.CohortID},
+			},
+			sqlite.Statement{
+				SQL: `INSERT INTO baseline_aggregates(
+					baseline_set_id, stage_id, scope_type, scope_id, subject, average, count, ratio, import_run_id)
+					SELECT b.id, ?, 'class', c.id, ?, ?, (
+						SELECT COUNT(*) FROM student_stage_memberships m
+						WHERE m.stage_id = ? AND m.class_id = c.id), ?, ?
+					FROM baseline_sets b, classes c
+					WHERE b.cohort_id = ? AND b.name = '入口成绩' AND c.cohort_id = ? AND c.name = ?
+					ON CONFLICT(baseline_set_id, stage_id, scope_type, scope_id, subject) DO UPDATE SET
+						average = excluded.average, count = excluded.count, ratio = excluded.ratio,
+						import_run_id = excluded.import_run_id`,
+				Args: []any{stage.StageID, baseline.Subject, baseline.Average, stage.StageID,
+					floatOrZero(baseline.Ratio), runID, stage.CohortID, stage.CohortID,
+					normalizeClassName(baseline.ClassName)},
+			},
+		)
 	}
 	for subject, average := range data.GradeBaselines {
 		statements = append(statements, sqlite.Statement{
@@ -704,6 +877,23 @@ func (s *Store) MergeImport(ctx context.Context, batchID int64, data ImportData,
 				ON CONFLICT(batch_id, subject) DO UPDATE SET average = excluded.average`,
 			Args: []any{batchID, subject, average},
 		})
+		statements = append(statements,
+			sqlite.Statement{
+				SQL: `INSERT OR IGNORE INTO baseline_subjects(baseline_set_id, subject, full_mark)
+					SELECT id, ?, ? FROM baseline_sets WHERE cohort_id = ? AND name = '入口成绩'`,
+				Args: []any{subject, defaultFullMark(subject), stage.CohortID},
+			},
+			sqlite.Statement{
+				SQL: `INSERT INTO baseline_aggregates(
+					baseline_set_id, stage_id, scope_type, scope_id, subject, average, count, ratio, import_run_id)
+					SELECT id, ?, 'stage', ?, ?, ?, (
+						SELECT COUNT(*) FROM student_stage_memberships WHERE stage_id = ?), 0, ?
+					FROM baseline_sets WHERE cohort_id = ? AND name = '入口成绩'
+					ON CONFLICT(baseline_set_id, stage_id, scope_type, scope_id, subject) DO UPDATE SET
+						average = excluded.average, count = excluded.count, import_run_id = excluded.import_run_id`,
+				Args: []any{stage.StageID, stage.StageID, subject, average, stage.StageID, runID, stage.CohortID},
+			},
+		)
 	}
 	for _, cutoff := range data.SubjectCutoffs {
 		statements = append(statements, sqlite.Statement{
@@ -719,22 +909,15 @@ func (s *Store) MergeImport(ctx context.Context, batchID int64, data ImportData,
 			Args: []any{batchID, cutoff.TierKey, cutoff.Track, cutoff.Value},
 		})
 	}
-	statements = append(statements, sqlite.Statement{
-		SQL: `INSERT INTO teaching_groups(batch_id, subject, name, class_id)
-			SELECT DISTINCT ?, sc.subject, c.name, c.id
-			FROM scores sc JOIN classes c ON c.batch_id = sc.batch_id JOIN students st ON st.id = sc.student_id
-			JOIN student_classes scl ON scl.student_id = st.id AND scl.batch_id = sc.batch_id
-			WHERE sc.batch_id = ? AND c.id = scl.class_id
-			ON CONFLICT(batch_id, subject, class_id) DO NOTHING`, Args: []any{batchID, batchID},
-	})
 	for _, group := range data.StatGroups {
 		statements = append(statements,
 			sqlite.Statement{
 				SQL: `INSERT INTO stat_groups(batch_id, subject, name, lead_class_id, target, baseline_average, explicit)
-					SELECT ?, ?, ?, c.id, ?, ?, 1 FROM classes c WHERE c.batch_id = ? AND c.name = ?
+					SELECT ?, ?, ?, c.id, ?, ?, 1 FROM classes c WHERE c.cohort_id = ? AND c.name = ?
 					ON CONFLICT(batch_id, subject, name) DO UPDATE SET lead_class_id = excluded.lead_class_id,
 						target = excluded.target, baseline_average = excluded.baseline_average, explicit = 1`,
-				Args: []any{batchID, group.Subject, group.Name, group.Target, group.BaselineAverage, batchID, group.LeadClassName},
+				Args: []any{batchID, group.Subject, group.Name, group.Target, group.BaselineAverage,
+					stage.CohortID, normalizeClassName(group.LeadClassName)},
 			},
 			sqlite.Statement{
 				SQL: `DELETE FROM stat_group_members WHERE stat_group_id =
@@ -747,10 +930,9 @@ func (s *Store) MergeImport(ctx context.Context, batchID int64, data ImportData,
 				SQL: `INSERT INTO stat_group_members(stat_group_id, teaching_group_id)
 					SELECT sg.id, g.id FROM stat_groups sg, teaching_groups g
 					WHERE sg.batch_id = ? AND sg.subject = ? AND sg.name = ?
-						AND g.batch_id = ? AND g.subject = ? AND g.class_id =
-							(SELECT id FROM classes WHERE batch_id = ? AND name = ?)
+						AND g.stage_id = ? AND g.subject = ? AND g.name = ?
 					ON CONFLICT(stat_group_id, teaching_group_id) DO NOTHING`,
-				Args: []any{batchID, group.Subject, group.Name, batchID, group.Subject, batchID, className},
+				Args: []any{batchID, group.Subject, group.Name, stage.StageID, group.Subject, normalizeClassName(className)},
 			})
 		}
 	}
@@ -768,24 +950,10 @@ func (s *Store) MergeImport(ctx context.Context, batchID int64, data ImportData,
 			Args: []any{batchID},
 		},
 	)
-	if report.FileHash != "" {
-		reportJSON, err := json.Marshal(report)
-		if err != nil {
-			return ImportSummary{}, err
-		}
-		statements = append(statements, sqlite.Statement{
-			SQL: `INSERT INTO imports(batch_id, file_hash, relative_path, converted_path, file_format,
-				conversion_tool, conversion_report_json, row_count, status, created_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'imported', ?)
-				ON CONFLICT(batch_id, file_hash) DO UPDATE SET relative_path = excluded.relative_path,
-					converted_path = excluded.converted_path, file_format = excluded.file_format,
-					conversion_tool = excluded.conversion_tool, conversion_report_json = excluded.conversion_report_json,
-					row_count = excluded.row_count, status = 'imported'`,
-			Args: []any{batchID, report.FileHash, report.Path, report.ConvertedPath, report.Format,
-				report.Conversion, string(reportJSON), report.RowCount, now},
-		})
-	}
 	if _, err := s.db.Transaction(ctx, statements); err != nil {
+		if runID != 0 {
+			_, _ = s.db.Execute(ctx, `DELETE FROM import_runs WHERE id = ?`, runID)
+		}
 		return ImportSummary{}, err
 	}
 	if _, err := s.db.Execute(ctx, `DELETE FROM stat_groups WHERE batch_id = ? AND explicit = 0`, batchID); err != nil {
@@ -795,7 +963,7 @@ func (s *Store) MergeImport(ctx context.Context, batchID int64, data ImportData,
 		return ImportSummary{}, err
 	}
 	if report.FileHash != "" {
-		if err := s.saveImportSheets(ctx, batchID, report); err != nil {
+		if err := s.saveImportSheets(ctx, runID, report); err != nil {
 			return ImportSummary{}, err
 		}
 	}
@@ -807,68 +975,106 @@ func (s *Store) MergeImport(ctx context.Context, batchID int64, data ImportData,
 	return summary, nil
 }
 
-func (s *Store) saveImportSheets(ctx context.Context, batchID int64, report ImportReport) error {
-	rows, err := s.db.Query(ctx, `SELECT id FROM imports WHERE batch_id = ? AND file_hash = ?`, batchID, report.FileHash)
+func (s *Store) ensureImportRun(ctx context.Context, stage migrationBatch, report ImportReport, data ImportData) (int64, error) {
+	if report.FileHash == "" {
+		return 0, nil
+	}
+	stored := report.StoredPath
+	if stored == "" {
+		stored = report.Path
+	}
+	if _, err := s.db.Execute(ctx, `INSERT INTO import_runs(
+		scope_type, scope_id, data_kind, file_hash, stored_path, relative_path, converted_path,
+		status, row_count, warning_count, created_at)
+		VALUES ('stage', ?, 'workbook', ?, ?, ?, ?, 'imported', ?, ?, ?)
+		ON CONFLICT(scope_type, scope_id, data_kind, file_hash) DO UPDATE SET
+			stored_path = excluded.stored_path, relative_path = excluded.relative_path,
+			converted_path = excluded.converted_path, row_count = excluded.row_count,
+			warning_count = excluded.warning_count, created_at = excluded.created_at`,
+		stage.StageID, report.FileHash, stored, report.Path, report.ConvertedPath,
+		report.RowCount, len(report.Warnings), s.now().Format(time.RFC3339Nano)); err != nil {
+		return 0, err
+	}
+	rows, err := s.db.Query(ctx, `SELECT id FROM import_runs
+		WHERE scope_type = 'stage' AND scope_id = ? AND data_kind = 'workbook' AND file_hash = ?`,
+		stage.StageID, report.FileHash)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if len(rows.Values) == 0 {
-		return nil
+		return 0, fmt.Errorf("导入记录写入失败")
 	}
-	importID, ok := rows.Values[0][0].(int64)
-	if !ok {
-		return fmt.Errorf("导入记录标识格式不正确")
-	}
-	statements := []sqlite.Statement{{SQL: `DELETE FROM import_sheets WHERE import_id = ?`, Args: []any{importID}}}
-	for _, sheet := range report.Sheets {
-		statements = append(statements, sqlite.Statement{
-			SQL: `INSERT INTO import_sheets(import_id, sheet_name, role, header_row, data_range, is_current)
-				VALUES (?, ?, ?, ?, ?, 1)`,
-			Args: []any{importID, sheet.Name, sheet.Role, sheet.HeaderRow, fmt.Sprintf("%d rows", sheet.Rows)},
-		})
-	}
-	_, err = s.db.Transaction(ctx, statements)
-	return err
+	id, _ := rows.Values[0][0].(int64)
+	return id, nil
 }
 
-func (s *Store) rebuildDefaultStatGroups(ctx context.Context, batchID int64) error {
-	statements := []sqlite.Statement{
-		{SQL: `INSERT INTO teaching_groups(batch_id, subject, name, class_id)
-			SELECT DISTINCT ?, sc.subject, c.name, c.id
-			FROM scores sc JOIN classes c ON c.batch_id = sc.batch_id JOIN students st ON st.id = sc.student_id
-			JOIN student_classes scl ON scl.student_id = st.id AND scl.batch_id = sc.batch_id
-			WHERE sc.batch_id = ? AND c.id = scl.class_id
-			ON CONFLICT(batch_id, subject, class_id) DO NOTHING`, Args: []any{batchID, batchID}},
-		{SQL: `INSERT INTO stat_groups(batch_id, subject, name, lead_class_id, target, baseline_average, baseline_ratio, explicit)
-			SELECT g.batch_id, g.subject, g.name, g.class_id,
-				COALESCE((SELECT ct.target_count FROM class_targets ct
-					WHERE ct.batch_id = g.batch_id AND ct.class_id = g.class_id AND ct.tier_key = 'single_subject'),
-					(SELECT ct.target_count FROM class_targets ct
-						WHERE ct.batch_id = g.batch_id AND ct.class_id = g.class_id AND ct.tier_key = 'undergraduate'), 0),
-				COALESCE((SELECT cb.average FROM class_baselines cb
-					WHERE cb.batch_id = g.batch_id AND cb.class_id = g.class_id AND cb.subject = g.subject), 0),
-				COALESCE((SELECT cb.ratio FROM class_baselines cb
-					WHERE cb.batch_id = g.batch_id AND cb.class_id = g.class_id AND cb.subject = g.subject), 0),
-				0
-			FROM teaching_groups g WHERE g.batch_id = ?
-			AND NOT EXISTS (SELECT 1 FROM stat_groups sg WHERE sg.batch_id = g.batch_id AND sg.subject = g.subject
-				AND sg.name = g.name)
-			AND NOT EXISTS (SELECT 1 FROM stat_group_members sgm
-				JOIN stat_groups explicit_group ON explicit_group.id = sgm.stat_group_id
-				WHERE explicit_group.batch_id = g.batch_id AND explicit_group.subject = g.subject
-					AND explicit_group.explicit = 1 AND sgm.teaching_group_id = g.id)
-			ON CONFLICT(batch_id, subject, name) DO NOTHING`, Args: []any{batchID}},
-		{SQL: `INSERT INTO stat_group_members(stat_group_id, teaching_group_id)
-			SELECT sg.id, g.id FROM stat_groups sg, teaching_groups g
-			WHERE sg.batch_id = ? AND sg.explicit = 0 AND g.batch_id = sg.batch_id
-				AND g.subject = sg.subject AND g.name = sg.name
-			ON CONFLICT(stat_group_id, teaching_group_id) DO NOTHING`, Args: []any{batchID}},
+func (s *Store) saveImportSheets(ctx context.Context, runID int64, report ImportReport) error {
+	if runID == 0 {
+		return nil
+	}
+	statements := []sqlite.Statement{{SQL: `DELETE FROM import_sheets WHERE import_run_id = ?`, Args: []any{runID}}}
+	for _, sheet := range report.Sheets {
+		statements = append(statements, sqlite.Statement{
+			SQL: `INSERT INTO import_sheets(import_run_id, sheet_name, role, header_row, data_range, is_current)
+				VALUES (?, ?, ?, ?, ?, 1)`,
+			Args: []any{runID, sheet.Name, sheet.Role, sheet.HeaderRow, fmt.Sprintf("%d rows", sheet.Rows)},
+		})
 	}
 	_, err := s.db.Transaction(ctx, statements)
 	return err
 }
 
+func (s *Store) rebuildDefaultStatGroups(ctx context.Context, batchID int64) error {
+	batch, err := s.GetBatch(ctx, batchID)
+	if err != nil {
+		return err
+	}
+	stage, err := s.stageForBatch(ctx, batch)
+	if err != nil {
+		return err
+	}
+	statements := []sqlite.Statement{
+		{SQL: `INSERT INTO stat_groups(batch_id, subject, name, lead_class_id, target, baseline_average, baseline_ratio, explicit)
+			SELECT ?, g.subject, g.name, c.id,
+				COALESCE((SELECT ct.target_count FROM class_targets ct
+					WHERE ct.batch_id = ? AND ct.class_id = c.id AND ct.tier_key = 'single_subject'),
+					(SELECT ct.target_count FROM class_targets ct
+						WHERE ct.batch_id = ? AND ct.class_id = c.id AND ct.tier_key = 'undergraduate'), 0),
+				COALESCE((SELECT cb.average FROM class_baselines cb
+					WHERE cb.batch_id = ? AND cb.class_id = c.id AND cb.subject = g.subject), 0),
+				COALESCE((SELECT cb.ratio FROM class_baselines cb
+					WHERE cb.batch_id = ? AND cb.class_id = c.id AND cb.subject = g.subject), 0),
+				0
+			FROM teaching_groups g
+			JOIN classes c ON c.cohort_id = ? AND c.name = g.name
+			WHERE g.stage_id = ?
+			AND NOT EXISTS (SELECT 1 FROM stat_groups sg WHERE sg.batch_id = ? AND sg.subject = g.subject
+				AND sg.name = g.name)
+			AND NOT EXISTS (SELECT 1 FROM stat_group_members sgm
+				JOIN stat_groups explicit_group ON explicit_group.id = sgm.stat_group_id
+				WHERE explicit_group.batch_id = ? AND explicit_group.subject = g.subject
+					AND explicit_group.explicit = 1 AND sgm.teaching_group_id = g.id)
+			ON CONFLICT(batch_id, subject, name) DO NOTHING`,
+			Args: []any{batchID, batchID, batchID, batchID, batchID, stage.CohortID, stage.StageID, batchID, batchID}},
+		{SQL: `INSERT INTO stat_group_members(stat_group_id, teaching_group_id)
+			SELECT sg.id, g.id FROM stat_groups sg, teaching_groups g
+			WHERE sg.batch_id = ? AND sg.explicit = 0 AND g.stage_id = ?
+				AND g.subject = sg.subject AND g.name = sg.name
+			ON CONFLICT(stat_group_id, teaching_group_id) DO NOTHING`, Args: []any{batchID, stage.StageID}},
+	}
+	_, err = s.db.Transaction(ctx, statements)
+	return err
+}
+
 func (s *Store) importSummary(ctx context.Context, batchID int64, data ImportData) (ImportSummary, error) {
+	batch, err := s.GetBatch(ctx, batchID)
+	if err != nil {
+		return ImportSummary{}, err
+	}
+	stage, err := s.stageForBatch(ctx, batch)
+	if err != nil {
+		return ImportSummary{}, err
+	}
 	count := func(query string, args ...any) (int, error) {
 		rows, err := s.db.Query(ctx, query, args...)
 		if err != nil {
@@ -884,25 +1090,27 @@ func (s *Store) importSummary(ctx context.Context, batchID int64, data ImportDat
 		return int(value), nil
 	}
 	summary := ImportSummary{}
-	var err error
-	if summary.Classes, err = count(`SELECT COUNT(*) FROM classes WHERE batch_id = ?`, batchID); err != nil {
+	if summary.Classes, err = count(`SELECT COUNT(*) FROM classes c
+		JOIN class_stage_info i ON i.class_id = c.id WHERE i.stage_id = ?`, stage.StageID); err != nil {
 		return summary, err
 	}
-	if summary.Students, err = count(`SELECT COUNT(*) FROM student_classes WHERE batch_id = ?`, batchID); err != nil {
+	if summary.Students, err = count(`SELECT COUNT(*) FROM student_stage_memberships WHERE stage_id = ?`,
+		stage.StageID); err != nil {
 		return summary, err
 	}
 	if summary.Teachers, err = count(`SELECT COUNT(DISTINCT a.teacher_id) FROM assignments a
-		JOIN teaching_groups g ON g.id = a.teaching_group_id WHERE g.batch_id = ?`, batchID); err != nil {
+		JOIN teaching_groups g ON g.id = a.teaching_group_id WHERE g.stage_id = ?`, stage.StageID); err != nil {
 		return summary, err
 	}
-	if summary.TeachingGroups, err = count(`SELECT COUNT(*) FROM teaching_groups WHERE batch_id = ?`, batchID); err != nil {
+	if summary.TeachingGroups, err = count(`SELECT COUNT(*) FROM teaching_groups WHERE stage_id = ?`,
+		stage.StageID); err != nil {
 		return summary, err
 	}
 	if summary.StatGroups, err = count(`SELECT COUNT(*) FROM stat_groups WHERE batch_id = ?`, batchID); err != nil {
 		return summary, err
 	}
 	if summary.Assignments, err = count(`SELECT COUNT(*) FROM assignments a
-		JOIN teaching_groups g ON g.id = a.teaching_group_id WHERE g.batch_id = ?`, batchID); err != nil {
+		JOIN teaching_groups g ON g.id = a.teaching_group_id WHERE g.stage_id = ?`, stage.StageID); err != nil {
 		return summary, err
 	}
 	if summary.ClassTargets, err = count(`SELECT COUNT(*) FROM class_targets WHERE batch_id = ?`, batchID); err != nil {
@@ -932,6 +1140,10 @@ func (s *Store) LoadBatchData(ctx context.Context, batchID int64) (BatchData, er
 	if err != nil {
 		return BatchData{}, err
 	}
+	stage, err := s.stageForBatch(ctx, batch)
+	if err != nil {
+		return BatchData{}, err
+	}
 	data := BatchData{
 		Batch:                     batch,
 		ClassBaselines:            map[string]map[string]float64{},
@@ -940,7 +1152,8 @@ func (s *Store) LoadBatchData(ctx context.Context, batchID int64) (BatchData, er
 		ExcludedCompletionClasses: map[int64]bool{},
 	}
 	classesByID := map[int64]string{}
-	rows, err := s.db.Query(ctx, `SELECT id, name FROM classes WHERE batch_id = ? ORDER BY name`, batchID)
+	rows, err := s.db.Query(ctx, `SELECT c.id, c.name FROM classes c
+		JOIN class_stage_info i ON i.class_id = c.id WHERE i.stage_id = ? ORDER BY c.name`, stage.StageID)
 	if err != nil {
 		return BatchData{}, err
 	}
@@ -950,10 +1163,10 @@ func (s *Store) LoadBatchData(ctx context.Context, batchID int64) (BatchData, er
 		classesByID[id] = name
 		data.Classes = append(data.Classes, Class{ID: id, Name: name})
 	}
-	rows, err = s.db.Query(ctx, `SELECT st.id, st.student_no, st.name, sc.class_id, sc.track, sc.elective,
-		sc.japanese, sc.walking, sc.status, sc.total_score
-		FROM student_classes sc JOIN students st ON st.id = sc.student_id
-		WHERE sc.batch_id = ? ORDER BY st.student_no`, batchID)
+	rows, err = s.db.Query(ctx, `SELECT st.id, st.student_no, st.name, m.class_id, m.track, m.elective,
+		m.japanese, m.walking, m.status, m.total_score
+		FROM student_stage_memberships m JOIN students st ON st.id = m.student_id
+		WHERE m.stage_id = ? ORDER BY st.student_no`, stage.StageID)
 	if err != nil {
 		return BatchData{}, err
 	}
@@ -1002,7 +1215,10 @@ func (s *Store) LoadBatchData(ctx context.Context, batchID int64) (BatchData, er
 		data.Students[index].Scores[subject] = score
 		data.Students[index].ScoreFlags[subject] = flag
 	}
-	rows, err = s.db.Query(ctx, `SELECT id, subject, name, class_id FROM teaching_groups WHERE batch_id = ? ORDER BY subject, name`, batchID)
+	rows, err = s.db.Query(ctx, `SELECT g.id, g.subject, g.name, COALESCE(c.id, 0)
+		FROM teaching_groups g
+		LEFT JOIN classes c ON c.cohort_id = ? AND c.name = g.name
+		WHERE g.stage_id = ? ORDER BY g.subject, g.name`, stage.CohortID, stage.StageID)
 	if err != nil {
 		return BatchData{}, err
 	}
@@ -1020,6 +1236,19 @@ func (s *Store) LoadBatchData(ctx context.Context, batchID int64) (BatchData, er
 			if group.ClassID == data.Students[i].ClassID {
 				data.Students[i].TeachingGroups[group.Subject] = group.ID
 			}
+		}
+	}
+	rows, err = s.db.Query(ctx, `SELECT student_id, subject, teaching_group_id
+		FROM student_teaching_groups WHERE stage_id = ?`, stage.StageID)
+	if err != nil {
+		return BatchData{}, err
+	}
+	for _, row := range rows.Values {
+		studentID, _ := row[0].(int64)
+		subject, _ := row[1].(string)
+		groupID, _ := row[2].(int64)
+		if index, ok := studentIndex[studentID]; ok {
+			data.Students[index].TeachingGroups[subject] = groupID
 		}
 	}
 	rows, err = s.db.Query(ctx, `SELECT sg.id, sg.subject, sg.name, sg.lead_class_id, sg.target, sg.baseline_average,
@@ -1063,7 +1292,7 @@ func (s *Store) LoadBatchData(ctx context.Context, batchID int64) (BatchData, er
 	}
 	rows, err = s.db.Query(ctx, `SELECT a.teacher_id, t.name, a.teaching_group_id
 		FROM assignments a JOIN teachers t ON t.id = a.teacher_id
-		JOIN teaching_groups g ON g.id = a.teaching_group_id WHERE g.batch_id = ?`, batchID)
+		JOIN teaching_groups g ON g.id = a.teaching_group_id WHERE g.stage_id = ?`, stage.StageID)
 	if err != nil {
 		return BatchData{}, err
 	}
