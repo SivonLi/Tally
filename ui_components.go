@@ -78,7 +78,7 @@ func pageHeading(c *ui.Context, p uiPalette, title, subtitle string, actions fun
 	ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
 		ui.Row(c).AlignItems(ui.End).Gap(t.Space(4)).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
-				ui.Text(c, title).FontSize(titleSize(t)).FontWeight(700).LetterSpacing(-0.4).
+				ui.Text(c, title).FontSize(titleSize(t)).FontWeight(600).LetterSpacing(-0.2).
 					Role(ui.RoleHeading).Level(1)
 				if subtitle != "" {
 					ui.Text(c, subtitle).FontSize(bodySize(t)).TextColor(p.muted).Pretty()
@@ -163,7 +163,7 @@ func kindBadge(c *ui.Context, p uiPalette, kind string, label string) {
 func metric(c *ui.Context, p uiPalette, value, label string) {
 	t := p.theme
 	ui.Column(c).Gap(0).Children(func() {
-		ui.Text(c, value).FontSize(titleSize(t)).Bold().FontFeatures("tnum")
+		ui.Text(c, value).FontSize(titleSize(t)).FontWeight(600).FontFeatures("tnum")
 		ui.Text(c, label).FontSize(captionSize(t)).TextColor(p.muted)
 	})
 }

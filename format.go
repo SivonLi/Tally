@@ -29,6 +29,7 @@ func formatPercent(ratio float64) string {
 	if math.IsNaN(ratio) || math.IsInf(ratio, 0) {
 		return "-"
 	}
+	ratio = max(0, min(1, ratio))
 	return formatDecimal(ratio*100, 1) + "%"
 }
 

@@ -23,8 +23,6 @@ func (a *app) prepSteps() []prepStep {
 			Count: a.stageCounts.Classes, Page: pageCohorts},
 		{Kind: importer.KindStudents, Title: locales.PrepStudents(), Body: locales.PrepStudentsBody(),
 			Count: a.stageCounts.Students, Page: pageStudents},
-		{Kind: importer.KindTeachers, Title: locales.PrepTeachers(), Body: locales.PrepTeachersBody(),
-			Count: a.stageCounts.Teachers, Page: pageFaculty},
 		{Kind: importer.KindAssignments, Title: locales.PrepAssignments(), Body: locales.PrepAssignmentsBody(),
 			Count: a.stageCounts.Assignments, Page: pageFaculty},
 		{Kind: importer.KindBaselines, Title: locales.PrepBaselines(), Body: locales.PrepBaselinesBody(),
@@ -57,8 +55,7 @@ func (a *app) prepPage(c *ui.Context, p uiPalette) {
 				a.prepOpen = false
 			}
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
-				ui.Text(c, locales.PrepTitle()).FontSize(titleSize(t)).FontWeight(700).
-					LetterSpacing(-0.4).
+				ui.Text(c, locales.PrepTitle()).FontSize(titleSize(t)).FontWeight(600).
 					Role(ui.RoleHeading).Level(1)
 				ui.Text(c, locales.PrepSubtitle()).FontSize(bodySize(t)).TextColor(p.muted)
 			})

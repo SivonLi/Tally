@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"image/color"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -57,7 +58,7 @@ func TestOverviewEmptyStateAndCohortCreation(t *testing.T) {
 	for _, text := range []string{
 		"2026 cohort · Grade 10 · Class of 2029",
 		"2026-2027 academic year",
-		"0 of 5 data items ready",
+		"0 of 4 data items ready",
 	} {
 		if !tt.HasText(text) {
 			t.Errorf("missing %q in %q", text, tt.Texts())
@@ -204,8 +205,8 @@ func TestSettingsWindowUsesBlackAndMaterial(t *testing.T) {
 	tt.Advance(2 * time.Second)
 	tt.Frame()
 	img := tt.Image()
-	if got := img.RGBAAt(600, 400); got.R != 0 || got.G != 0 || got.B != 0 {
-		t.Fatalf("content background = %v, want black", got)
+	if got := img.RGBAAt(600, 400); got != (color.RGBA{R: 0x17, G: 0x15, B: 0x12, A: 0xff}) {
+		t.Fatalf("content background = %v, want warm dark canvas", got)
 	}
 	if _, ok := tt.Find("Subjects"); !ok {
 		t.Errorf("texts = %q", tt.Texts())

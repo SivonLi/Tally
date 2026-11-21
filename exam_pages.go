@@ -55,7 +55,7 @@ func (a *app) examsPage(c *ui.Context, p uiPalette) {
 					row := linkRow(c, p, a.examBatchLabel(exam), func() {
 						ui.Column(c).Grow(1).Gap(0).Children(func() {
 							ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-								ui.Text(c, a.examBatchLabel(exam)).FontSize(bodySize(t)).Bold()
+								ui.Text(c, a.examBatchLabel(exam)).FontSize(bodySize(t)).FontWeight(600)
 								badge(c, p, a.examTypeName(exam.ExamType), toneAccent)
 							})
 							ui.Textf(c, locales.ExamListMeta(), a.academicYearLabel(exam.AcademicYearStart),
@@ -99,7 +99,7 @@ func (a *app) examDetailPage(c *ui.Context, p uiPalette) {
 			}
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-					ui.Text(c, a.examBatchLabel(a.exam)).FontSize(titleSize(t)).Bold().
+					ui.Text(c, a.examBatchLabel(a.exam)).FontSize(titleSize(t)).FontWeight(600).
 						Role(ui.RoleHeading).Level(1)
 					badge(c, p, a.examTypeName(a.exam.ExamType), toneAccent)
 				})
@@ -387,7 +387,7 @@ func (a *app) examScoresTab(c *ui.Context, p uiPalette) {
 				if item.Score == nil {
 					ui.Text(c, "-").TextColor(p.muted)
 				} else {
-					ui.Textf(c, "%.1f", *item.Score).FontFeatures("tnum")
+					ui.Text(c, formatDecimal(*item.Score, 1)).FontFeatures("tnum")
 				}
 			case 5:
 				if item.Flag == "" {
@@ -752,7 +752,7 @@ func (a *app) examPrepPage(c *ui.Context, p uiPalette) {
 				a.examPrepOpen = false
 			}
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
-				ui.Text(c, locales.ExamPrepTitle()).FontSize(titleSize(t)).Bold().
+				ui.Text(c, locales.ExamPrepTitle()).FontSize(titleSize(t)).FontWeight(600).
 					Role(ui.RoleHeading).Level(1)
 				ui.Text(c, locales.ExamPrepSubtitle()).FontSize(bodySize(t)).TextColor(p.muted)
 			})

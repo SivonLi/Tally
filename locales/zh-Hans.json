@@ -784,6 +784,8 @@
   "assessmentCheckTargets": "各档位的班级目标。",
   "assessmentCheckGroups": "计算达线率的合并组。",
   "assessmentPlanVersion": "考核方案版本",
+  "assessmentPrepareRequired": "计算前先准备：%s。",
+  "assessmentFixExam": "打开%s的考试数据",
   "assessmentOpenExam": "查看考试数据",
   "assessmentCalculate": "开始计算",
   "assessmentExport": "导出结果",
@@ -805,7 +807,7 @@
   "assessmentCountStudents": "%s 名学生",
   "assessmentCountScores": "%s 条成绩",
   "assessmentCountCutoffs": "%s 条分数线",
-  "assessmentCountTargets": "%s 条目标",
+  "assessmentCountTargets": "%s 个目标",
   "assessmentCountGroups": "%s 个合并组",
   "assessmentOpen": "查看"
 }

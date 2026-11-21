@@ -177,6 +177,38 @@ func TestAssessmentPageShowsWorkflow(t *testing.T) {
 	}
 }
 
+func TestAssessmentCalculateRequiresPreparation(t *testing.T) {
+	fixture := newAssessmentPageFixture(t, false)
+	a := fixture.App
+	ctx := context.Background()
+	groups, err := a.store.ListExamStatGroups(ctx, fixture.AssessmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, group := range groups {
+		if err := a.store.DeleteStatGroup(ctx, fixture.AssessmentID, group.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a.reloadAssessments(ctx)
+	overview := a.selectedAssessmentOverview()
+	if overview == nil {
+		t.Fatal("no assessment selected")
+	}
+	if a.assessmentReady(*overview) {
+		t.Fatal("assessment is ready without stat groups")
+	}
+	if got := a.assessmentMissingItems(*overview); len(got) != 1 || got[0] != "Merged groups" {
+		t.Fatalf("missing items = %q", got)
+	}
+	tt := ui.NewTester(a.view, 1280, 800)
+	tt.SetLocale("en")
+	tt.Frame()
+	if !tt.HasText("Before calculation, prepare: Merged groups.") {
+		t.Fatalf("texts = %q", tt.Texts())
+	}
+}
+
 func TestAssessmentExportWritesWorkbook(t *testing.T) {
 	fixture := newAssessmentPageFixture(t, false)
 	a := fixture.App

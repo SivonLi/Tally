@@ -7882,6 +7882,26 @@ func (msgs Messages) AssessmentPlanVersion() string {
 	return Catalog.Format(msgs.locale, "assessmentPlanVersion", nil)
 }
 
+// AssessmentPrepareRequired says "Before calculation, prepare: %s."
+// in the language the app shows.
+func AssessmentPrepareRequired() string { return In(i18n.Locale()).AssessmentPrepareRequired() }
+
+// AssessmentPrepareRequired says "Before calculation, prepare: %s."
+// in the language of msgs.
+func (msgs Messages) AssessmentPrepareRequired() string {
+	return Catalog.Format(msgs.locale, "assessmentPrepareRequired", nil)
+}
+
+// AssessmentFixExam says "Open %s data"
+// in the language the app shows.
+func AssessmentFixExam() string { return In(i18n.Locale()).AssessmentFixExam() }
+
+// AssessmentFixExam says "Open %s data"
+// in the language of msgs.
+func (msgs Messages) AssessmentFixExam() string {
+	return Catalog.Format(msgs.locale, "assessmentFixExam", nil)
+}
+
 // AssessmentOpenExam says "Open exam data"
 // in the language the app shows.
 func AssessmentOpenExam() string { return In(i18n.Locale()).AssessmentOpenExam() }
@@ -8072,41 +8092,41 @@ func (msgs Messages) AssessmentCountStudents() string {
 	return Catalog.Format(msgs.locale, "assessmentCountStudents", nil)
 }
 
-// AssessmentCountScores says "%s scores"
+// AssessmentCountScores says "%s score rows"
 // in the language the app shows.
 func AssessmentCountScores() string { return In(i18n.Locale()).AssessmentCountScores() }
 
-// AssessmentCountScores says "%s scores"
+// AssessmentCountScores says "%s score rows"
 // in the language of msgs.
 func (msgs Messages) AssessmentCountScores() string {
 	return Catalog.Format(msgs.locale, "assessmentCountScores", nil)
 }
 
-// AssessmentCountCutoffs says "%s cutoffs"
+// AssessmentCountCutoffs says "%s cutoff rows"
 // in the language the app shows.
 func AssessmentCountCutoffs() string { return In(i18n.Locale()).AssessmentCountCutoffs() }
 
-// AssessmentCountCutoffs says "%s cutoffs"
+// AssessmentCountCutoffs says "%s cutoff rows"
 // in the language of msgs.
 func (msgs Messages) AssessmentCountCutoffs() string {
 	return Catalog.Format(msgs.locale, "assessmentCountCutoffs", nil)
 }
 
-// AssessmentCountTargets says "%s targets"
+// AssessmentCountTargets says "%s target rows"
 // in the language the app shows.
 func AssessmentCountTargets() string { return In(i18n.Locale()).AssessmentCountTargets() }
 
-// AssessmentCountTargets says "%s targets"
+// AssessmentCountTargets says "%s target rows"
 // in the language of msgs.
 func (msgs Messages) AssessmentCountTargets() string {
 	return Catalog.Format(msgs.locale, "assessmentCountTargets", nil)
 }
 
-// AssessmentCountGroups says "%s groups"
+// AssessmentCountGroups says "%s merged groups"
 // in the language the app shows.
 func AssessmentCountGroups() string { return In(i18n.Locale()).AssessmentCountGroups() }
 
-// AssessmentCountGroups says "%s groups"
+// AssessmentCountGroups says "%s merged groups"
 // in the language of msgs.
 func (msgs Messages) AssessmentCountGroups() string {
 	return Catalog.Format(msgs.locale, "assessmentCountGroups", nil)

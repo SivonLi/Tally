@@ -97,7 +97,7 @@ func (a *app) stageReviewBanner(c *ui.Context, p uiPalette) {
 			ui.Icon(c, iconAlert).FontSize(t.Space(4)).TextColor(p.warning)
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Textf(c, locales.StageAdvanceTitle(),
-					a.academicYearLabel(stage.AcademicYearStart)).FontSize(bodySize(t)).Bold()
+					a.academicYearLabel(stage.AcademicYearStart)).FontSize(bodySize(t)).FontWeight(600)
 				ui.Textf(c, locales.StageAdvanceBody(), a.stageName(stage.GradeLevel),
 					a.stageCounts.Classes, a.stageCounts.TeachingGroups, a.stageCounts.Assignments).
 					FontSize(bodySize(t)).TextColor(p.inkSecondary).Pretty()
@@ -190,7 +190,6 @@ func (a *app) readinessPanel(c *ui.Context, p uiPalette) {
 		steps := []readinessStep{
 			{locales.ReadinessClasses(), a.stageCounts.Classes, pageCohorts},
 			{locales.ReadinessStudents(), a.stageCounts.Students, pageStudents},
-			{locales.ReadinessTeachers(), a.stageCounts.Teachers, pageFaculty},
 			{locales.ReadinessAssignments(), a.stageCounts.Assignments, pageFaculty},
 			{locales.ReadinessBaseline(), a.stageCounts.Baselines, pageBaseline},
 		}
@@ -432,7 +431,7 @@ func (a *app) cohortDetails(c *ui.Context, p uiPalette) {
 			section(c, p, func() {
 				ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
 					ui.Column(c).Grow(1).Gap(t.Space(1)).Children(func() {
-						ui.Text(c, a.cohortName(cohort.EnrollmentYear)).FontSize(sectionSize(t)).Bold()
+						ui.Text(c, a.cohortName(cohort.EnrollmentYear)).FontSize(sectionSize(t)).FontWeight(600)
 						ui.Text(c, a.classOfName(cohort.GraduationYear)).FontSize(bodySize(t)).
 							TextColor(p.muted)
 					})
@@ -540,7 +539,7 @@ func (a *app) helpPage(c *ui.Context, p uiPalette) {
 func (a *app) helpRow(c *ui.Context, p uiPalette, label, body string) {
 	t := p.theme
 	ui.Column(c).FillWidth().Gap(0).Padding(t.Space(2), 0).Children(func() {
-		ui.Text(c, label).FontSize(bodySize(t)).Bold()
+		ui.Text(c, label).FontSize(bodySize(t)).FontWeight(600)
 		ui.Text(c, body).FontSize(bodySize(t)).TextColor(p.inkSecondary).Pretty()
 	})
 }

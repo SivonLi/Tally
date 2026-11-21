@@ -106,7 +106,7 @@ func (a *app) qualityPage(c *ui.Context, p uiPalette) {
 							rule(c)
 							row := linkRow(c, p, overview.ExamLabel, func() {
 								ui.Column(c).Grow(1).Gap(0).Children(func() {
-									ui.Text(c, overview.ExamLabel).FontSize(bodySize(t)).Bold()
+									ui.Text(c, overview.ExamLabel).FontSize(bodySize(t)).FontWeight(600)
 									ui.Textf(c, locales.ExamQualityCohortMeta(), overview.CohortName,
 										a.stageName(overview.GradeLevel)).FontSize(captionSize(t)).
 										TextColor(p.muted)

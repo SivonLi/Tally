@@ -241,6 +241,30 @@ func (a *app) assessmentOverviewLabel(item store.AssessmentOverview) string {
 	return fmt.Sprintf("%s · %s", a.examTypeName(item.ExamType), item.CohortName)
 }
 
+func (a *app) assessmentMissingItems(overview store.AssessmentOverview) []string {
+	items := []struct {
+		label string
+		count int
+	}{
+		{locales.ExamTabRoster(), overview.RosterCount},
+		{locales.ExamTabScores(), overview.ScoreCount},
+		{locales.ExamTabCutoffs(), overview.CutoffCount},
+		{locales.ExamTabTargets(), overview.TargetCount},
+		{locales.ExamTabGroups(), overview.GroupCount},
+	}
+	missing := make([]string, 0, len(items))
+	for _, item := range items {
+		if item.count == 0 {
+			missing = append(missing, item.label)
+		}
+	}
+	return missing
+}
+
+func (a *app) assessmentReady(overview store.AssessmentOverview) bool {
+	return len(a.assessmentMissingItems(overview)) == 0
+}
+
 func (a *app) assessmentDetail(c *ui.Context, p uiPalette) {
 	overview := a.selectedAssessmentOverview()
 	if overview == nil {
@@ -252,7 +276,7 @@ func (a *app) assessmentDetail(c *ui.Context, p uiPalette) {
 	switch {
 	case overview.RosterCount == 0:
 		stage = 0
-	case overview.ScoreCount == 0 || overview.CutoffCount == 0 || overview.TargetCount == 0 || overview.GroupCount == 0:
+	case !a.assessmentReady(*overview):
 		stage = 0
 	case overview.Status == "calculated":
 		stage = 2
@@ -262,7 +286,7 @@ func (a *app) assessmentDetail(c *ui.Context, p uiPalette) {
 	ui.Column(c).Fill().Gap(t.Space(3)).Children(func() {
 		ui.Row(c).AlignItems(ui.Start).Gap(t.Space(3)).Children(func() {
 			ui.Column(c).Grow(1).Gap(t.Space(1)).Children(func() {
-				ui.Text(c, a.assessmentLabel()).FontSize(titleSize(t)).Bold().
+				ui.Text(c, a.assessmentLabel()).FontSize(titleSize(t)).FontWeight(600).
 					LetterSpacing(-0.2).Role(ui.RoleHeading).Level(1)
 				ui.Textf(c, locales.AssessmentDetailMeta(), a.academicYearLabel(overview.AcademicYearStart),
 					a.examTermName(overview.Term), overview.ExamDate).FontSize(captionSize(t)).
@@ -326,7 +350,7 @@ func (a *app) assessmentChecklist(c *ui.Context, p uiPalette, overview store.Ass
 		for _, item := range items {
 			item := item
 			missing := item.Count == 0
-			row := textButton(c, item.Label+" "+item.Meta).FillWidth().
+			row := textButton(c, item.Label).FillWidth().
 				Padding(t.Space(2), 0).Radius(t.Space(1.5)).Background(ui.Transparent).
 				AlignItems(ui.Center)
 			row.Children(func() {
@@ -362,6 +386,11 @@ func (a *app) assessmentActions(c *ui.Context, p uiPalette, overview store.Asses
 	t := p.theme
 	ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
 		rule(c)
+		missing := a.assessmentMissingItems(overview)
+		if len(missing) > 0 {
+			notice(c, p, noticeWarning, fmt.Sprintf(locales.AssessmentPrepareRequired(),
+				strings.Join(missing, locales.ListSeparator())))
+		}
 		ui.Row(c).Wrap().AlignItems(ui.End).Gap(t.Space(3)).Children(func() {
 			ui.Column(c).Width(t.Space(56)).MinWidth(0).Gap(t.Space(1)).Children(func() {
 				ui.Text(c, locales.AssessmentPlanVersion()).FontSize(captionSize(t)).TextColor(p.muted)
@@ -374,11 +403,13 @@ func (a *app) assessmentActions(c *ui.Context, p uiPalette, overview store.Asses
 			})
 			ui.Spacer(c)
 			ui.Row(c).Wrap().Gap(t.Space(2)).Children(func() {
-				if labelledButton(c, locales.AssessmentOpenExam(), iconExams, false).Clicked() {
+				if labelledButton(c, fmt.Sprintf(locales.AssessmentFixExam(), overview.ExamName),
+					iconExams, false).Clicked() {
 					a.openExamTab(overview, 0)
 				}
 				calculate := labelledButton(c, locales.AssessmentCalculate(), iconCalculate, true)
-				calculate.Disabled(a.assessmentBusy || len(a.published) == 0)
+				calculate.Disabled(a.assessmentBusy || len(a.published) == 0 ||
+					!a.assessmentReady(overview))
 				if calculate.Clicked() {
 					a.startAssessmentCalculate()
 				}
@@ -652,7 +683,7 @@ func (a *app) zeroIssueCard(c *ui.Context, p uiPalette, index int, exclude func(
 	issue := a.zeroIssues[index]
 	panel(c, p).Background(p.panelMuted).Padding(t.Space(3)).Gap(t.Space(2)).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-			ui.Text(c, issue.ClassName).FontSize(bodySize(t)).Bold().Grow(1)
+			ui.Text(c, issue.ClassName).FontSize(bodySize(t)).FontWeight(600).Grow(1)
 			if plainButton(c, locales.ZeroExclude()).Clicked() {
 				classID, _ := strconv.ParseInt(issue.ClassID, 10, 64)
 				exclude(classID)

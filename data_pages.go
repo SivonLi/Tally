@@ -226,7 +226,7 @@ func (a *app) studentPanel(c *ui.Context, p uiPalette) {
 		ui.Scroll(c).Fill().Children(func() {
 			ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
 				ui.Column(c).Gap(0).Children(func() {
-					ui.Text(c, student.Name).FontSize(sectionSize(t)).Bold()
+					ui.Text(c, student.Name).FontSize(sectionSize(t)).FontWeight(600)
 					ui.Text(c, student.StudentNo).FontSize(captionSize(t)).TextColor(p.muted).
 						FontFeatures("tnum")
 				})
@@ -234,7 +234,7 @@ func (a *app) studentPanel(c *ui.Context, p uiPalette) {
 				a.detailRow(c, p, locales.ColumnTrack(), a.trackName(student.Track, student.Track))
 				a.detailRow(c, p, locales.ColumnStatus(), a.statusName(student.Status))
 				if student.TotalScore != nil {
-					a.detailRow(c, p, locales.ColumnTotal(), fmt.Sprintf("%.1f", *student.TotalScore))
+					a.detailRow(c, p, locales.ColumnTotal(), formatDecimal(*student.TotalScore, 1))
 				}
 				rule(c)
 				ui.Text(c, locales.StudentTeachingGroups()).FontSize(captionSize(t)).

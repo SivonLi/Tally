@@ -793,6 +793,8 @@
   "assessmentCheckTargets": "Class targets for each tier.",
   "assessmentCheckGroups": "Groups used for the pass rate.",
   "assessmentPlanVersion": "Plan version",
+  "assessmentPrepareRequired": "Before calculation, prepare: %s.",
+  "assessmentFixExam": "Open %s data",
   "assessmentOpenExam": "Open exam data",
   "assessmentCalculate": "Calculate",
   "assessmentExport": "Export results",
@@ -812,9 +814,9 @@
   "assessmentEmptyStateHint": "Create an exam to import its roster, scores, cutoffs and targets.",
   "assessmentChecklistMeta": "%d students",
   "assessmentCountStudents": "%s students",
-  "assessmentCountScores": "%s scores",
-  "assessmentCountCutoffs": "%s cutoffs",
-  "assessmentCountTargets": "%s targets",
-  "assessmentCountGroups": "%s groups",
+  "assessmentCountScores": "%s score rows",
+  "assessmentCountCutoffs": "%s cutoff rows",
+  "assessmentCountTargets": "%s target rows",
+  "assessmentCountGroups": "%s merged groups",
   "assessmentOpen": "Open"
 }

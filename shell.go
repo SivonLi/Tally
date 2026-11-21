@@ -157,7 +157,7 @@ func (a *app) cohortSwitcher(c *ui.Context, p uiPalette) {
 		if cohort := a.selectedCohort(); cohort != nil {
 			name = a.cohortName(cohort.EnrollmentYear)
 		}
-		ui.Text(c, name).FontSize(12.5).FontWeight(600).TextColor(color).
+		ui.Text(c, name).FontSize(captionSize(p.theme)).FontWeight(600).TextColor(color).
 			SingleLine().Shrink(1).MinWidth(0)
 		ui.Icon(c, iconUpDown).Size(11, 11).TextColor(p.muted)
 	})
@@ -228,7 +228,7 @@ func (a *app) stageMenuItems(c *ui.Context, p uiPalette, sel ui.SelectParts[stri
 			item.Background(p.fill)
 		}
 		item.Children(func() {
-			ui.Text(c, label).FontSize(12.5).TextColor(p.inkSecondary).Grow(1).
+			ui.Text(c, label).FontSize(captionSize(p.theme)).TextColor(p.inkSecondary).Grow(1).
 				Shrink(1).MinWidth(0).SingleLine()
 			if selected {
 				ui.Icon(c, iconCheck).Size(13, 13).TextColor(p.accent)
@@ -280,7 +280,7 @@ func (a *app) navItem(c *ui.Context, p uiPalette, page pageID, icon *ui.SVG, lab
 	}
 	b.Children(func() {
 		ui.Icon(c, icon).Size(17, 17).TextColor(iconColor)
-		ui.Text(c, label).FontSize(13.5).FontWeight(500).TextColor(color).SingleLine()
+		ui.Text(c, label).FontSize(bodySize(p.theme)).FontWeight(500).TextColor(color).SingleLine()
 	})
 	if b.Clicked() {
 		a.page = page

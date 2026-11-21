@@ -180,6 +180,11 @@ func (a *app) loadWizardFile(wizard *importWizardState, path string) {
 	wizard.FileName = filepath.Base(path)
 	wizard.Sheet = importer.BestSheet(wizard.Kind, workbook)
 	wizard.Mapping = nil
+	wizard.Data = store.ImportData{}
+	wizard.Preview = store.ImportPreview{}
+	wizard.Issues = nil
+	wizard.Summary = nil
+	wizard.ConfirmedWarnings = false
 	if wizard.Sheet != "" {
 		if table, ok := workbook.Sheet(wizard.Sheet); ok {
 			wizard.Mapping = importer.AutoMappingFor(wizard.Kind, table, a.subjects, a.wizardTierKeys())
@@ -391,7 +396,7 @@ func (a *app) importWizardPage(c *ui.Context, p uiPalette) {
 				a.closeImportWizard()
 			}
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
-				ui.Text(c, locales.ImportWizardTitle()).FontSize(titleSize(t)).Bold().
+				ui.Text(c, locales.ImportWizardTitle()).FontSize(titleSize(t)).FontWeight(600).
 					Level(1).Role(ui.RoleHeading)
 				if wizard.Kind != "" {
 					ui.Text(c, importKindName(wizard.Kind)).FontSize(bodySize(t)).TextColor(p.muted)
@@ -464,7 +469,7 @@ func (a *app) wizardItemStep(c *ui.Context, p uiPalette) {
 					ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
 						ui.Column(c).Grow(1).Gap(0).Children(func() {
 							ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-								ui.Text(c, importKindName(kind)).FontSize(bodySize(t)).Bold()
+								ui.Text(c, importKindName(kind)).FontSize(bodySize(t)).FontWeight(600)
 								if a.importKindCount(kind) > 0 {
 									badge(c, p, locales.ReadinessReady(), toneNeutral)
 								} else {
@@ -675,7 +680,7 @@ func (a *app) wizardResultStep(c *ui.Context, p uiPalette) {
 	panel(c, p).FillWidth().Padding(t.Space(5)).Gap(t.Space(3)).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
 			ui.Icon(c, iconCheck).FontSize(t.Space(5)).TextColor(p.success)
-			ui.Text(c, locales.ImportWizardFinished()).FontSize(sectionSize(t)).Bold()
+			ui.Text(c, locales.ImportWizardFinished()).FontSize(sectionSize(t)).FontWeight(600)
 		})
 		if summary != nil {
 			ui.Text(c, importResultText(wizard.Kind, summary)).FontSize(bodySize(t)).Pretty()

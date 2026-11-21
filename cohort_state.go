@@ -274,7 +274,6 @@ func (a *app) readiness() (ready, total int) {
 	items := []bool{
 		a.stageCounts.Classes > 0,
 		a.stageCounts.Students > 0,
-		a.stageCounts.Teachers > 0,
 		a.stageCounts.Assignments > 0,
 		a.stageCounts.Baselines > 0,
 	}
@@ -292,7 +291,7 @@ func (a *app) nextSetupPage() pageID {
 		return pageCohorts
 	case a.stageCounts.Students == 0:
 		return pageStudents
-	case a.stageCounts.Teachers == 0 || a.stageCounts.Assignments == 0:
+	case a.stageCounts.Assignments == 0:
 		return pageFaculty
 	case a.stageCounts.Baselines == 0:
 		return pageBaseline
