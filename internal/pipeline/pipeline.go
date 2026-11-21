@@ -1,4 +1,4 @@
-// Package pipeline 把批次数据转换为计算引擎输入，并保存核算结果。
+// Package pipeline 把本次考核的数据转换为计算引擎输入，并保存核算结果。
 package pipeline
 
 import (
@@ -54,6 +54,97 @@ func BuildInput(ctx context.Context, storage *store.Store, batchID int64, plan a
 		return calc.Input{}, data, "", err
 	}
 	return input, data, hash, nil
+}
+
+// BuildAssessmentInput 读取本次考核的数据并生成计算引擎输入。
+func BuildAssessmentInput(ctx context.Context, storage *store.Store, assessmentID int64, plan assessment.Config) (calc.Input, store.BatchData, string, error) {
+	data, err := storage.LoadAssessmentData(ctx, assessmentID)
+	if err != nil {
+		return calc.Input{}, store.BatchData{}, "", err
+	}
+	input, issues := build(data, plan)
+	if len(issues) > 0 {
+		return calc.Input{}, data, "", &ValidationError{Issues: issues}
+	}
+	hash, err := store.InputHash(plan, data)
+	if err != nil {
+		return calc.Input{}, data, "", err
+	}
+	return input, data, hash, nil
+}
+
+// CalculateAssessment 按选定的方案版本核算本次考核并保存结果。
+func CalculateAssessment(ctx context.Context, storage *store.Store, assessmentID, versionID int64) (calc.Result, error) {
+	version, err := storage.GetVersion(ctx, versionID)
+	if err != nil {
+		return calc.Result{}, err
+	}
+	if version.Status != "published" {
+		return calc.Result{}, fmt.Errorf("正式核算只能选择已发布的方案版本")
+	}
+	input, data, hash, err := BuildAssessmentInput(ctx, storage, assessmentID, version.Config)
+	if err != nil {
+		return calc.Result{}, err
+	}
+	excluded := make(map[string]bool, len(data.ExcludedCompletionClasses))
+	for classID := range data.ExcludedCompletionClasses {
+		excluded[strconv.FormatInt(classID, 10)] = true
+	}
+	result, err := calc.Calculate(input, calc.Options{ExcludedCompletionClasses: excluded})
+	if err != nil {
+		return calc.Result{}, err
+	}
+	if _, err := storage.SaveAssessmentRun(ctx, assessmentID, versionID, hash, result); err != nil {
+		return calc.Result{}, err
+	}
+	return result, nil
+}
+
+// ExportAssessment 把本次考核最新的核算结果写成工作簿，并记录导出文件。
+func ExportAssessment(ctx context.Context, storage *store.Store, assessmentID int64, path string) error {
+	run, rows, personal, err := storage.LatestAssessmentRun(ctx, assessmentID)
+	if err != nil {
+		return err
+	}
+	context, err := storage.LoadAssessmentContext(ctx, assessmentID)
+	if err != nil {
+		return err
+	}
+	version, err := storage.GetVersion(ctx, run.PlanVersionID)
+	if err != nil {
+		return err
+	}
+	_, _, currentHash, err := BuildAssessmentInput(ctx, storage, assessmentID, version.Config)
+	if err != nil {
+		return err
+	}
+	if currentHash != run.InputHash {
+		return fmt.Errorf("本次考核的数据或者方案已经变化，需要重新核算后才能导出")
+	}
+	batch := store.Batch{
+		AcademicYear: context.AcademicYear,
+		Semester:     context.Exam.Term,
+		ExamType:     context.Exam.ExamType,
+		Grade:        context.Grade,
+		Status:       "calculated",
+		Revision:     context.Assessment.Revision,
+	}
+	if err := exporter.Write(exporter.Input{
+		Path:        path,
+		Batch:       batch,
+		Plan:        version,
+		Run:         run,
+		Rows:        rows,
+		Personal:    personal,
+		GeneratedAt: time.Now(),
+	}); err != nil {
+		return err
+	}
+	hash, err := fileHash(path)
+	if err != nil {
+		return err
+	}
+	return storage.SaveExport(ctx, run.ID, path, hash)
 }
 
 // CalculateBatch 按选定的方案版本核算批次并保存结果。

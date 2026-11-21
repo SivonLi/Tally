@@ -155,11 +155,15 @@ func DetectSheet(kind string, table excel.Table) int {
 			findHeader(headers, "学科", "科目", "工号", "教师工号") >= 0 &&
 			findHeader(headers, "班级", "行政班") < 0 {
 			score = 20
+		} else if wideAssignmentTable(table) {
+			score = 20
 		}
 	case KindAssignments:
 		if findHeader(headers, "教师姓名", "任课教师", "教师") >= 0 &&
 			findHeader(headers, "学科", "科目") >= 0 &&
 			findHeader(headers, "班级", "行政班") >= 0 {
+			score = 20
+		} else if wideAssignmentTable(table) {
 			score = 20
 		}
 	case KindBaselines:
@@ -184,6 +188,26 @@ func DetectSheet(kind string, table excel.Table) int {
 		score += 20
 	}
 	return score
+}
+
+// wideAssignmentTable 判断是不是教师一览的宽表：一行一个班，每个学科一列。
+func wideAssignmentTable(table excel.Table) bool {
+	if findHeader(table.Headers, "班级", "行政班") < 0 {
+		return false
+	}
+	if findHeader(table.Headers, "教师姓名", "任课教师", "教师", "学科", "科目") >= 0 {
+		return false
+	}
+	if findHeader(table.Headers, "考号", "学号", "考生号") >= 0 {
+		return false
+	}
+	subjects := 0
+	for _, header := range table.Headers {
+		if _, ok := subjectAliases[strings.TrimSpace(header)]; ok {
+			subjects++
+		}
+	}
+	return subjects >= 2
 }
 
 // BestSheet 返回数据项最匹配的工作表，找不到时返回空字符串。
@@ -317,6 +341,18 @@ func FieldsFor(kind string, subjects []store.Subject, tiers []string) []Field {
 	}
 }
 
+// FieldsForTable 返回某个工作表在向导里需要映射的字段。教师一览的宽表
+// 只有一个行政班列需要指定，学科列按表头自动识别。
+func FieldsForTable(kind string, table excel.Table, subjects []store.Subject, tiers []string) []Field {
+	if kind == KindAssignments && wideAssignmentTable(table) {
+		return []Field{{Key: FieldClassName, Required: true}}
+	}
+	if kind == KindTeachers && wideAssignmentTable(table) {
+		return nil
+	}
+	return FieldsFor(kind, subjects, tiers)
+}
+
 // AutoMapping 按表头同义词生成默认列名映射。
 func AutoMapping(kind string, table excel.Table, subjects []store.Subject) map[string]string {
 	return AutoMappingFor(kind, table, subjects, DefaultTiers())
@@ -325,9 +361,19 @@ func AutoMapping(kind string, table excel.Table, subjects []store.Subject) map[s
 // AutoMappingFor 按表头同义词生成默认列名映射，档位来自当前方案。
 func AutoMappingFor(kind string, table excel.Table, subjects []store.Subject, tiers []string) map[string]string {
 	mapping := map[string]string{}
-	for _, field := range FieldsFor(kind, subjects, tiers) {
+	for _, field := range FieldsForTable(kind, table, subjects, tiers) {
 		if header := matchHeader(field.Key, table.Headers, subjects); header != "" {
 			mapping[field.Key] = header
+		}
+	}
+	if kind == KindAssignments && wideAssignmentTable(table) {
+		for _, subject := range subjects {
+			if !subject.Enabled {
+				continue
+			}
+			if header := matchHeader("subject:"+subject.Key, table.Headers, subjects); header != "" {
+				mapping["subject:"+subject.Key] = header
+			}
 		}
 	}
 	return mapping
@@ -508,6 +554,12 @@ func ParseSheet(workbook *Workbook, sheet, kind string, mapping map[string]strin
 
 // ParseSheetFor 按列名映射解析一个工作表，档位来自当前方案。
 func ParseSheetFor(workbook *Workbook, sheet, kind string, mapping map[string]string, subjects []store.Subject, tiers []string) (store.ImportData, []store.ImportIssue, error) {
+	return ParseSheetForGrade(workbook, sheet, kind, mapping, subjects, tiers, "")
+}
+
+// ParseSheetForGrade 按列名映射解析一个工作表，并只保留指定年级的数据。
+// 教师一览这类跨年级的工作簿用它把行归到当前阶段。
+func ParseSheetForGrade(workbook *Workbook, sheet, kind string, mapping map[string]string, subjects []store.Subject, tiers []string, grade string) (store.ImportData, []store.ImportIssue, error) {
 	table, ok := workbook.Sheet(sheet)
 	if !ok {
 		return store.ImportData{}, nil, fmt.Errorf("工作簿中没有工作表 %q", sheet)
@@ -518,9 +570,9 @@ func ParseSheetFor(workbook *Workbook, sheet, kind string, mapping map[string]st
 	case KindStudents:
 		return parseRosterSheet(table, mapping, subjects)
 	case KindTeachers:
-		return parseTeacherSheet(table, mapping, subjects)
+		return parseTeacherSheet(table, mapping, subjects, grade)
 	case KindAssignments:
-		return parseAssignmentSheet(table, mapping, subjects)
+		return parseAssignmentSheet(table, mapping, subjects, grade)
 	case KindBaselines:
 		return parseBaselineSheet(table, mapping, subjects)
 	case KindRoster:
@@ -710,7 +762,10 @@ func trackFromText(text string) string {
 	return ""
 }
 
-func parseTeacherSheet(table excel.Table, mapping map[string]string, subjects []store.Subject) (store.ImportData, []store.ImportIssue, error) {
+func parseTeacherSheet(table excel.Table, mapping map[string]string, subjects []store.Subject, grade string) (store.ImportData, []store.ImportIssue, error) {
+	if wideAssignmentTable(table) {
+		return parseWideTeacherSheet(table, subjects, grade)
+	}
 	nameColumn := columnIndex(table, mapping, FieldTeacherName)
 	if nameColumn < 0 {
 		return store.ImportData{}, nil, fmt.Errorf("工作表 %s 缺少教师姓名列", table.Sheet)
@@ -792,7 +847,60 @@ func parseTeacherSheet(table excel.Table, mapping map[string]string, subjects []
 	return data, issues, nil
 }
 
-func parseAssignmentSheet(table excel.Table, mapping map[string]string, subjects []store.Subject) (store.ImportData, []store.ImportIssue, error) {
+// parseWideTeacherSheet 从教师一览的宽表里收集教师名单，学科来自列名。
+func parseWideTeacherSheet(table excel.Table, subjects []store.Subject, grade string) (store.ImportData, []store.ImportIssue, error) {
+	data := store.ImportData{}
+	var issues []store.ImportIssue
+	seen := map[string]bool{}
+	foundSubjectColumn := false
+	gradeColumn := gradeColumnIndex(table)
+	for _, subject := range subjects {
+		if !subject.Enabled {
+			continue
+		}
+		column := -1
+		for index, header := range table.Headers {
+			if strings.TrimSpace(header) == subject.Name {
+				column = index
+				break
+			}
+		}
+		if column < 0 {
+			continue
+		}
+		foundSubjectColumn = true
+		for _, row := range table.Rows {
+			if !rowInGrade(row, gradeColumn, grade) {
+				continue
+			}
+			name := strings.TrimSpace(valueAt(row.Values, column))
+			if name == "" || name == "/" || name == "-" || name == "—" {
+				continue
+			}
+			key := name + "\x00" + subject.Key
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			data.TeacherList = append(data.TeacherList, store.ImportTeacher{
+				Name: name, Subject: subject.Key,
+				SourceSheet: table.Sheet, SourceRow: row.Number,
+			})
+		}
+	}
+	if !foundSubjectColumn || len(data.TeacherList) == 0 {
+		issues = append(issues, store.ImportIssue{
+			Severity: "blocking", Row: table.HeaderRow, Column: FieldTeacherName,
+			Code: "no_rows",
+		})
+	}
+	return data, issues, nil
+}
+
+func parseAssignmentSheet(table excel.Table, mapping map[string]string, subjects []store.Subject, grade string) (store.ImportData, []store.ImportIssue, error) {
+	if wideAssignmentTable(table) {
+		return parseWideAssignmentSheet(table, mapping, subjects, grade)
+	}
 	teacherColumn := columnIndex(table, mapping, FieldTeacherName)
 	classColumn := columnIndex(table, mapping, FieldClassName)
 	subjectColumn := columnIndex(table, mapping, FieldSubject)
@@ -857,6 +965,120 @@ func parseAssignmentSheet(table excel.Table, mapping map[string]string, subjects
 		})
 	}
 	return data, issues, nil
+}
+
+// parseWideAssignmentSheet 读取教师一览的宽表：每个学科一列，单元格是该班的任课教师。
+func parseWideAssignmentSheet(table excel.Table, mapping map[string]string, subjects []store.Subject, grade string) (store.ImportData, []store.ImportIssue, error) {
+	classColumn := columnIndex(table, mapping, FieldClassName)
+	if classColumn < 0 {
+		return store.ImportData{}, nil, fmt.Errorf("工作表 %s 缺少行政班列", table.Sheet)
+	}
+	gradeColumn := gradeColumnIndex(table)
+	type subjectColumn struct {
+		subject string
+		column  int
+	}
+	var columns []subjectColumn
+	for _, subject := range subjects {
+		if !subject.Enabled {
+			continue
+		}
+		column := columnIndex(table, mapping, "subject:"+subject.Key)
+		if column < 0 {
+			continue
+		}
+		columns = append(columns, subjectColumn{subject: subject.Key, column: column})
+	}
+	if len(columns) == 0 {
+		return store.ImportData{}, nil, fmt.Errorf("工作表 %s 没有可识别的学科列", table.Sheet)
+	}
+	data := store.ImportData{}
+	var issues []store.ImportIssue
+	seen := map[string]bool{}
+	teacherSeen := map[string]bool{}
+	for _, row := range table.Rows {
+		if !rowInGrade(row, gradeColumn, grade) {
+			continue
+		}
+		className := normalizeClassName(valueAt(row.Values, classColumn))
+		if className == "" || skipSummaryRow(className) {
+			continue
+		}
+		for _, column := range columns {
+			teacher := strings.TrimSpace(valueAt(row.Values, column.column))
+			if teacher == "" || teacher == "/" || teacher == "-" || teacher == "—" {
+				continue
+			}
+			key := teacher + "\x00" + className + "\x00" + column.subject
+			if seen[key] {
+				issues = append(issues, store.ImportIssue{
+					Severity: "warning", Row: row.Number, Column: table.Headers[column.column],
+					Code: "duplicate_assignment", Args: []string{teacher, className, subjectLabel(subjects, column.subject)},
+				})
+				continue
+			}
+			seen[key] = true
+			data.Assignments = append(data.Assignments, store.ImportAssignment{
+				ClassName: className, Subject: column.subject, TeacherName: teacher,
+				SourceSheet: table.Sheet, SourceRow: row.Number,
+			})
+			data.Classes = append(data.Classes, className)
+			teacherKey := teacher + "\x00" + column.subject
+			if !teacherSeen[teacherKey] {
+				teacherSeen[teacherKey] = true
+				data.TeacherList = append(data.TeacherList, store.ImportTeacher{
+					Name: teacher, Subject: column.subject,
+					SourceSheet: table.Sheet, SourceRow: row.Number,
+				})
+			}
+		}
+	}
+	data.Classes = uniqueStrings(data.Classes)
+	if len(data.Assignments) == 0 {
+		issues = append(issues, store.ImportIssue{
+			Severity: "blocking", Row: table.HeaderRow, Column: mapping[FieldClassName],
+			Code: "no_rows",
+		})
+	}
+	return data, issues, nil
+}
+
+func subjectLabel(subjects []store.Subject, key string) string {
+	for _, subject := range subjects {
+		if subject.Key == key {
+			return subject.Name
+		}
+	}
+	return key
+}
+
+// gradeColumnIndex 返回教师一览里的年级列。
+func gradeColumnIndex(table excel.Table) int {
+	for index, header := range table.Headers {
+		switch strings.TrimSpace(header) {
+		case "年级", "级", "Grade", "Stage":
+			return index
+		}
+	}
+	return -1
+}
+
+// rowInGrade 判断教师一览的一行是否属于当前阶段。
+func rowInGrade(row excel.TableRow, column int, grade string) bool {
+	if column < 0 || grade == "" {
+		return true
+	}
+	text := strings.TrimSpace(valueAt(row.Values, column))
+	switch grade {
+	case "g1":
+		return strings.Contains(text, "高一") || text == "Grade 10" || text == "10"
+	case "g2":
+		return strings.Contains(text, "高二") || text == "Grade 11" || text == "11"
+	case "g3":
+		return strings.Contains(text, "高三") || text == "Grade 12" || text == "12"
+	default:
+		return true
+	}
 }
 
 func parseBaselineSheet(table excel.Table, mapping map[string]string, subjects []store.Subject) (store.ImportData, []store.ImportIssue, error) {

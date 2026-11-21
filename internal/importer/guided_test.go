@@ -214,3 +214,94 @@ func TestGuidedTeacherNeedsNumberOrSubject(t *testing.T) {
 		t.Fatalf("issues = %+v", issues)
 	}
 }
+
+func TestGuidedWideTeacherSheet(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "overview.xlsx")
+	workbook := excelize.NewFile()
+	defer workbook.Close()
+	if err := workbook.SetSheetName("Sheet1", "2026年春学期"); err != nil {
+		t.Fatal(err)
+	}
+	rows := [][]any{
+		{"年级", "类型", "选科", "班级", "班主任", "语文", "数学", "英语", "物理", "化学"},
+		{"高一", "精英", "物化生", "537", "韩锋", "王丽", "程胜", "赵丽", "韩锋", "王栋"},
+		{"高一", "精英", "物化生", "545", "王磊", "苗劲", "王桃英", "刘爱英", "陈凯", "张晓燕"},
+		{"高一", "重点", "物化生", "546", "宋强", "", "王丽", "李丽芳", "呼颖慧", "暴海霞"},
+		{"高二", "精英", "物化生", "601", "张老师", "李老师", "", "", "", ""},
+	}
+	for index, row := range rows {
+		cell, err := excelize.CoordinatesToCellName(1, index+1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := workbook.SetSheetRow("2026年春学期", cell, &row); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := workbook.SaveAs(path); err != nil {
+		t.Fatal(err)
+	}
+	inspect, err := importer.InspectWorkbook(path, importer.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := importer.BestSheet(importer.KindAssignments, inspect); got != "2026年春学期" {
+		t.Fatalf("assignment sheet = %q", got)
+	}
+	table, ok := inspect.Sheet("2026年春学期")
+	if !ok {
+		t.Fatal("missing sheet")
+	}
+	subjects := []store.Subject{
+		{Key: "chinese", Name: "语文", Enabled: true},
+		{Key: "math", Name: "数学", Enabled: true},
+		{Key: "english", Name: "英语", Enabled: true},
+		{Key: "physics", Name: "物理", Enabled: true},
+		{Key: "chemistry", Name: "化学", Enabled: true},
+	}
+	fields := importer.FieldsForTable(importer.KindAssignments, table, subjects, nil)
+	if len(fields) != 1 || fields[0].Key != importer.FieldClassName {
+		t.Fatalf("fields = %+v", fields)
+	}
+	mapping := importer.AutoMappingFor(importer.KindAssignments, table, subjects, nil)
+	if mapping[importer.FieldClassName] != "班级" {
+		t.Fatalf("mapping = %+v", mapping)
+	}
+	data, issues, err := importer.ParseSheetFor(inspect, "2026年春学期", importer.KindAssignments, mapping, subjects, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(issues) != 0 {
+		t.Fatalf("issues = %+v", issues)
+	}
+	if len(data.Assignments) != 15 {
+		t.Fatalf("assignments = %+v", data.Assignments)
+	}
+	if len(data.TeacherList) != 15 {
+		t.Fatalf("teachers = %+v", data.TeacherList)
+	}
+	if data.Assignments[0].ClassName != "537" || data.Assignments[0].Subject != "chinese" ||
+		data.Assignments[0].TeacherName != "王丽" {
+		t.Fatalf("first assignment = %+v", data.Assignments[0])
+	}
+	if len(data.Classes) != 4 {
+		t.Fatalf("classes = %+v", data.Classes)
+	}
+	filtered, issues, err := importer.ParseSheetForGrade(inspect, "2026年春学期",
+		importer.KindAssignments, mapping, subjects, nil, "g1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(issues) != 0 || len(filtered.Assignments) != 14 || len(filtered.Classes) != 3 {
+		t.Fatalf("filtered = %+v issues = %+v", filtered.Assignments, issues)
+	}
+	other, _, err := importer.ParseSheetForGrade(inspect, "2026年春学期",
+		importer.KindAssignments, mapping, subjects, nil, "g2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(other.Assignments) != 1 || other.Assignments[0].ClassName != "601" {
+		t.Fatalf("other grade = %+v", other.Assignments)
+	}
+}
