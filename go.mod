@@ -6,6 +6,7 @@ tool github.com/egoist/mygo/cmd/mygo
 
 require (
 	github.com/egoist/mygo v0.10.0
+	github.com/lobehub/lobe-mygo v0.0.0-20261116124832-d88b4ad7f238
 	github.com/xuri/excelize/v2 v2.11.1
 )
 
