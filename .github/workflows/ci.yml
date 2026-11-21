@@ -1,0 +1,125 @@
+name: 质量检查
+
+on:
+  pull_request:
+    branches: [test, main]
+  push:
+    branches: [test]
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 格式检查
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "以下文件未格式化："
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: 静态检查
+        run: go vet ./...
+
+      - name: 原生 UI 生命周期检查
+        run: go tool mygo vet
+
+      - name: 依赖整洁
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: 语言目录
+        run: |
+          go tool mygo i18n check
+          go tool mygo generate
+          git diff --exit-code locales/
+
+      - name: 交叉编译
+        run: |
+          GOOS=linux GOARCH=amd64 go build -o /dev/null .
+          GOOS=windows GOARCH=amd64 go build -o /dev/null .
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o /dev/null .
+
+      - name: 测试
+        run: go test -race ./...
+
+      - name: 覆盖率
+        run: go test -race -coverprofile=coverage.out .
+
+      - name: 覆盖率门槛
+        run: |
+          total=$(go tool cover -func=coverage.out | awk '/^total:/ { gsub("%", "", $3); print $3 }')
+          if ! awk -v t="$total" 'BEGIN { exit (t + 0 >= 65) ? 0 : 1 }'; then
+            echo "语句覆盖率 ${total}% 低于 65%"
+            exit 1
+          fi
+          echo "语句覆盖率 ${total}%"
+
+      - name: 正式版本检查
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/check-release.sh
+
+  windows-build:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 测试
+        run: go test ./...
+
+  macos-build:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 测试
+        run: go test ./...
+
+      - name: 打包
+        run: go tool mygo build
+
+      - name: 体积门槛
+        run: |
+          size=$(du -sm build/darwin-arm64/Tally.app | cut -f1)
+          if [ "$size" -gt 30 ]; then
+            echo "应用包 ${size} MB 超过 30 MB"
+            exit 1
+          fi
+          echo "应用包 ${size} MB"
