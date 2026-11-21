@@ -304,6 +304,74 @@ func (s *Store) ensureResultAssessmentColumn(ctx context.Context) error {
 	return nil
 }
 
+// migrateResultRunsAssessment 让结果记录可以只关联本次考核，不再强制关联旧批次。
+func (s *Store) migrateResultRunsAssessment(ctx context.Context) error {
+	nullable, err := s.columnNullable(ctx, "result_runs", "batch_id")
+	if err != nil {
+		return err
+	}
+	if nullable {
+		return nil
+	}
+	if _, err := s.db.Execute(ctx, `PRAGMA foreign_keys=OFF`); err != nil {
+		return err
+	}
+	statements := []sqlite.Statement{
+		{SQL: `CREATE TABLE result_runs_new (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			batch_id INTEGER REFERENCES batches(id),
+			assessment_id INTEGER REFERENCES assessments(id),
+			plan_version_id INTEGER NOT NULL REFERENCES plan_versions(id),
+			input_hash TEXT NOT NULL,
+			is_official INTEGER NOT NULL DEFAULT 0,
+			created_at TEXT NOT NULL
+		)`},
+		{SQL: `INSERT INTO result_runs_new(id, batch_id, assessment_id, plan_version_id, input_hash,
+			is_official, created_at)
+			SELECT id, batch_id, assessment_id, plan_version_id, input_hash, is_official, created_at
+			FROM result_runs`},
+		{SQL: `DROP TABLE result_runs`},
+		{SQL: `ALTER TABLE result_runs_new RENAME TO result_runs`},
+		{SQL: `CREATE INDEX IF NOT EXISTS result_runs_batch ON result_runs(batch_id, is_official)`},
+		{SQL: `CREATE INDEX IF NOT EXISTS result_runs_assessment
+			ON result_runs(assessment_id, is_official)`},
+	}
+	if _, err := s.db.Transaction(ctx, statements); err != nil {
+		_, _ = s.db.Execute(ctx, `PRAGMA foreign_keys=ON`)
+		return fmt.Errorf("重建核算结果表: %w", err)
+	}
+	if _, err := s.db.Execute(ctx, `PRAGMA foreign_keys=ON`); err != nil {
+		return err
+	}
+	rows, err := s.db.Query(ctx, `PRAGMA foreign_key_check`)
+	if err != nil {
+		return err
+	}
+	if len(rows.Values) > 0 {
+		return fmt.Errorf("核算结果表重建后存在 %d 条外键异常", len(rows.Values))
+	}
+	return nil
+}
+
+func (s *Store) columnNullable(ctx context.Context, table, column string) (bool, error) {
+	rows, err := s.db.Query(ctx, `PRAGMA table_info(`+table+`)`)
+	if err != nil {
+		return false, err
+	}
+	for _, row := range rows.Values {
+		if len(row) < 4 {
+			continue
+		}
+		name, _ := row[1].(string)
+		if name != column {
+			continue
+		}
+		notNull, _ := row[3].(int64)
+		return notNull == 0, nil
+	}
+	return false, fmt.Errorf("表 %s 没有列 %s", table, column)
+}
+
 func (s *Store) migrateLegacyResults(ctx context.Context) error {
 	rows, err := s.db.Query(ctx, `SELECT r.id, r.batch_id, r.plan_version_id, r.input_hash,
 		r.is_official, r.created_at, t.academic_year, t.semester, b.exam_type, b.grade

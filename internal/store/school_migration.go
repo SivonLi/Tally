@@ -59,6 +59,9 @@ func (s *Store) migrateSchoolData(ctx context.Context) error {
 	if err := s.ensureResultAssessmentColumn(ctx); err != nil {
 		return err
 	}
+	if err := s.migrateResultRunsAssessment(ctx); err != nil {
+		return err
+	}
 	if err := s.migrateLegacyResults(ctx); err != nil {
 		return err
 	}

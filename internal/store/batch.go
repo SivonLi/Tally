@@ -515,7 +515,8 @@ func batchSchema() []sqlite.Statement {
 		)`},
 		{SQL: `CREATE TABLE IF NOT EXISTS result_runs (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			batch_id INTEGER NOT NULL REFERENCES batches(id),
+			batch_id INTEGER REFERENCES batches(id),
+			assessment_id INTEGER REFERENCES assessments(id),
 			plan_version_id INTEGER NOT NULL REFERENCES plan_versions(id),
 			input_hash TEXT NOT NULL,
 			is_official INTEGER NOT NULL DEFAULT 0,

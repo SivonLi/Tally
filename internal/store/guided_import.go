@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -39,9 +40,10 @@ func (s *Store) ValidateStageImport(ctx context.Context, cohortID, stageID int64
 		return ImportPreview{}, err
 	}
 	for _, issue := range preview.Issues {
-		if issue.Severity == "blocking" {
+		switch issue.Severity {
+		case "blocking":
 			preview.Blocking++
-		} else {
+		case "warning":
 			preview.Warnings++
 		}
 	}
@@ -218,6 +220,8 @@ func (s *Store) validateAssignmentImport(ctx context.Context, stage migrationBat
 		return err
 	}
 	seen := map[string]bool{}
+	createdClasses := make([]string, 0)
+	seenClass := map[string]bool{}
 	for _, assignment := range req.Data.Assignments {
 		switch {
 		case assignment.TeacherName == "":
@@ -253,13 +257,21 @@ func (s *Store) validateAssignmentImport(ctx context.Context, stage migrationBat
 			preview.Skip++
 			continue
 		}
+		if !classes[className] && !seenClass[className] {
+			seenClass[className] = true
+			createdClasses = append(createdClasses, className)
+		}
 		if !classes[className] {
-			preview.Issues = append(preview.Issues, ImportIssue{
-				Severity: "warning", Row: assignment.SourceRow, Column: "class_name",
-				Code: "class_created", Args: []string{className},
-			})
+			preview.New++
+			continue
 		}
 		preview.New++
+	}
+	if len(createdClasses) > 0 {
+		preview.Issues = append(preview.Issues, ImportIssue{
+			Severity: "warning", Column: "class_name",
+			Code: "classes_created", Args: []string{strconv.Itoa(len(createdClasses))},
+		})
 	}
 	return nil
 }
