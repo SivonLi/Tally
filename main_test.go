@@ -57,6 +57,15 @@ func newTestApp(t *testing.T) *app {
 		systemAcademicYear: 2026,
 		academicYearStart:  2026,
 	}
+	t.Cleanup(func() {
+		if a.store == nil {
+			return
+		}
+		if err := a.store.Close(); err != nil {
+			t.Errorf("close current store: %v", err)
+		}
+		a.store = nil
+	})
 	if _, err := opened.EnsureDefaultPlan(ctx); err != nil {
 		t.Fatal(err)
 	}

@@ -15,11 +15,6 @@ import (
 func openCohortStore(t *testing.T) *store.Store {
 	t.Helper()
 	opened, _ := openCohortStorePath(t)
-	t.Cleanup(func() {
-		if err := opened.Close(); err != nil {
-			t.Errorf("close store: %v", err)
-		}
-	})
 	return opened
 }
 
@@ -47,6 +42,11 @@ func openCohortStorePath(t *testing.T) (*store.Store, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		if err := opened.Close(); err != nil {
+			t.Errorf("close store: %v", err)
+		}
+	})
 	return opened, path
 }
 
