@@ -41,7 +41,7 @@ func TestOverviewEmptyStateAndCohortCreation(t *testing.T) {
 		t.Fatal("new cohort dialog not open")
 	}
 	tt.Frame()
-	if err := tt.Click("Create"); err != nil {
+	if err := tt.Click("Create cohort"); err != nil {
 		t.Fatal(err)
 	}
 	if a.newCohortOpen {
@@ -110,7 +110,7 @@ func TestCohortSwitcher(t *testing.T) {
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
-	if err := tt.Click("2026 cohort"); err != nil {
+	if err := tt.Click("Current cohort"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
@@ -127,6 +127,20 @@ func TestCohortSwitcher(t *testing.T) {
 	}
 }
 
+func TestCohortSwitcherHiddenWithoutCohorts(t *testing.T) {
+	a := newTestApp(t)
+	a.page = pageOverview
+	tt := ui.NewTester(a.view, 1280, 800)
+	tt.SetLocale("en")
+	tt.Frame()
+	if _, ok := tt.Find("Current cohort"); ok {
+		t.Error("the cohort switcher shows without a cohort")
+	}
+	if !tt.HasText("No cohorts yet. Create a cohort to get started.") {
+		t.Errorf("texts = %q", tt.Texts())
+	}
+}
+
 func TestStageHistorySwitching(t *testing.T) {
 	a := newTestApp(t)
 	a.page = pageOverview
@@ -135,7 +149,7 @@ func TestStageHistorySwitching(t *testing.T) {
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
-	if err := tt.Click("Grade 11 · 2027-2028"); err != nil {
+	if err := tt.Click("Current cohort"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
@@ -152,6 +166,78 @@ func TestStageHistorySwitching(t *testing.T) {
 	}
 	if !tt.HasText("2026-2027 academic year") {
 		t.Errorf("texts = %q", tt.Texts())
+	}
+}
+
+func TestSettingsWindowCategories(t *testing.T) {
+	a := newTestApp(t)
+	tt := ui.NewTester(a.settingsView, 760, 620)
+	tt.SetLocale("en")
+	tt.Frame()
+	for _, text := range []string{
+		"School and academic year",
+		"Subjects",
+		"Data",
+		"Language and appearance",
+	} {
+		if !tt.HasText(text) {
+			t.Errorf("missing %q in %q", text, tt.Texts())
+		}
+	}
+	if err := tt.Click("Language and appearance"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if !tt.HasText("Appearance") || !tt.HasText("Language") {
+		t.Errorf("texts = %q", tt.Texts())
+	}
+}
+
+// 设置窗口与主窗口一致：内容区纯黑，左侧分类使用系统材质。
+func TestSettingsWindowUsesBlackAndMaterial(t *testing.T) {
+	a := newTestApp(t)
+	tt := ui.NewTester(a.settingsView, 760, 620)
+	tt.SetLocale("en")
+	tt.SetDark(true)
+	tt.SetVibrancy(true)
+	tt.Frame()
+	tt.Advance(2 * time.Second)
+	tt.Frame()
+	img := tt.Image()
+	if got := img.RGBAAt(600, 400); got.R != 0 || got.G != 0 || got.B != 0 {
+		t.Fatalf("content background = %v, want black", got)
+	}
+	if _, ok := tt.Find("Subjects"); !ok {
+		t.Errorf("texts = %q", tt.Texts())
+	}
+}
+
+func TestAppearanceSwitchPersists(t *testing.T) {
+	a := newTestApp(t)
+	a.settingsPageID = "appearance"
+	tt := ui.NewTester(a.settingsView, 760, 620)
+	tt.SetLocale("en")
+	tt.Frame()
+	if err := tt.Click("Dark"); err != nil {
+		t.Fatal(err)
+	}
+	if a.appearance != store.AppearanceDark {
+		t.Fatalf("appearance = %q", a.appearance)
+	}
+	saved, err := a.store.Appearance(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved != store.AppearanceDark {
+		t.Fatalf("saved appearance = %q", saved)
+	}
+	tt.Frame()
+	if err := tt.Click("Light"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if err := tt.Click("System"); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -173,11 +259,19 @@ func TestSidebarNavigationToDataPages(t *testing.T) {
 	if err := tt.Click("Settings"); err != nil {
 		t.Fatal(err)
 	}
-	if a.page != pageSettings {
-		t.Fatalf("page = %q", a.page)
+	settings := ui.NewTester(a.settingsView, 760, 620)
+	settings.SetLocale("en")
+	settings.Frame()
+	if !settings.HasText("School and academic year") {
+		t.Errorf("texts = %q", settings.Texts())
 	}
-	if !tt.HasText("School and academic year") || !tt.HasText(a.dataDir) {
-		t.Errorf("texts = %q", tt.Texts())
+	settings.Frame()
+	if err := settings.Click("Data"); err != nil {
+		t.Fatal(err)
+	}
+	settings.Frame()
+	if !settings.HasText(a.dataDir) {
+		t.Errorf("texts = %q", settings.Texts())
 	}
 	if err := tt.Click("Help"); err != nil {
 		t.Fatal(err)
@@ -192,8 +286,7 @@ func TestSidebarNavigationToDataPages(t *testing.T) {
 
 func TestSettingsChangesAcademicYear(t *testing.T) {
 	a := newTestApp(t)
-	a.page = pageSettings
-	tt := ui.NewTester(a.view, 1280, 800)
+	tt := ui.NewTester(a.settingsView, 760, 620)
 	tt.SetLocale("en")
 	tt.Frame()
 	if err := tt.Click("2026-2027 academic year"); err != nil {

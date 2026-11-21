@@ -233,8 +233,8 @@ func TestRestoreBackupUsesAlertDialog(t *testing.T) {
 	if len(a.backups) == 0 {
 		t.Fatal("no backups")
 	}
-	a.page = pageSettings
-	tt := ui.NewTester(a.view, 1280, 1600)
+	a.settingsPageID = "data"
+	tt := ui.NewTester(a.settingsView, 760, 700)
 	tt.SetLocale("en")
 	tt.Frame()
 	if err := tt.Click("Restore"); err != nil {

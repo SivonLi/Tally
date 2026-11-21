@@ -76,7 +76,7 @@ func (a *app) qualityPage(c *ui.Context, p uiPalette) {
 	}
 	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
 		pageHeading(c, p, locales.NavQuality(), locales.QualityPageSubtitle(), func() {
-			if ui.Button(c, locales.ExamRevalidate()).Clicked() {
+			if plainButton(c, locales.ExamRevalidate()).Clicked() {
 				a.reloadQuality(context.Background())
 			}
 		})
@@ -84,9 +84,9 @@ func (a *app) qualityPage(c *ui.Context, p uiPalette) {
 			notice(c, p, noticeDanger, a.qualityError)
 		}
 		ui.Row(c).AlignItems(ui.End).Wrap().Gap(t.Space(2)).Children(func() {
-			ui.Segmented(c, &a.qualitySeverity,
-				locales.ExamQualityAll(), locales.ExamQualityBlocking(),
-				locales.ExamQualityWarnings()).Label(locales.ExamQualitySeverity())
+			segmentedField(c, &a.qualitySeverity,
+				[]string{locales.ExamQualityAll(), locales.ExamQualityBlocking(),
+					locales.ExamQualityWarnings()}, locales.ExamQualitySeverity())
 			a.qualityItemFilter(c, p)
 			a.qualityImportFilter(c, p)
 			ui.Spacer(c)
@@ -101,32 +101,34 @@ func (a *app) qualityPage(c *ui.Context, p uiPalette) {
 			ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
 				for _, overview := range visible {
 					overview := overview
-					panel(c, p).FillWidth().Padding(t.Space(3)).Gap(t.Space(2)).Children(func() {
-						row := linkRow(c, p, overview.ExamLabel, func() {
-							ui.Column(c).Grow(1).Gap(0).Children(func() {
-								ui.Text(c, overview.ExamLabel).FontSize(bodySize(t)).Bold()
-								ui.Textf(c, locales.ExamQualityCohortMeta(), overview.CohortName,
-									a.stageName(overview.GradeLevel)).FontSize(captionSize(t)).
-									TextColor(p.muted)
+					ui.Column(c).FillWidth().Gap(t.Space(2)).Padding(t.Space(1), 0).
+						Children(func() {
+							rule(c)
+							row := linkRow(c, p, overview.ExamLabel, func() {
+								ui.Column(c).Grow(1).Gap(0).Children(func() {
+									ui.Text(c, overview.ExamLabel).FontSize(bodySize(t)).Bold()
+									ui.Textf(c, locales.ExamQualityCohortMeta(), overview.CohortName,
+										a.stageName(overview.GradeLevel)).FontSize(captionSize(t)).
+										TextColor(p.muted)
+								})
+								if plainButton(c, locales.View()).Clicked() {
+									a.openQualityExam(overview)
+								}
 							})
-							if ui.Button(c, locales.View()).Clicked() {
+							if row.Clicked() {
 								a.openQualityExam(overview)
 							}
-						})
-						if row.Clicked() {
-							a.openQualityExam(overview)
-						}
-						for _, group := range qualityIssueGroups(overview.Issues) {
-							group := group
-							sectionHeading(c, p, a.qualityDataItemName(group.Key), len(group.Issues))
-							for _, issue := range group.Issues {
-								issue := issue
-								a.qualityIssueRow(c, p, issue, func() {
-									a.openQualityIssue(overview, issue)
-								})
+							for _, group := range qualityIssueGroups(overview.Issues) {
+								group := group
+								sectionHeading(c, p, a.qualityDataItemName(group.Key), len(group.Issues))
+								for _, issue := range group.Issues {
+									issue := issue
+									a.qualityIssueRow(c, p, issue, func() {
+										a.openQualityIssue(overview, issue)
+									})
+								}
 							}
-						}
-					})
+						})
 				}
 			})
 		})
@@ -151,7 +153,7 @@ func (a *app) qualityItemFilter(c *ui.Context, p uiPalette) {
 		}
 	}
 	next := chosen
-	ui.Select(c, &next, labels).Label(locales.ExamQualityDataItem()).Width(t.Space(32))
+	selectField(c, &next, labels, locales.ExamQualityDataItem()).Width(t.Space(32))
 	if next != chosen {
 		for index, label := range labels {
 			if label == next {
@@ -180,7 +182,7 @@ func (a *app) qualityImportFilter(c *ui.Context, p uiPalette) {
 		}
 	}
 	next := chosen
-	ui.Select(c, &next, labels).Label(locales.ExamQualityImport()).Width(t.Space(40))
+	selectField(c, &next, labels, locales.ExamQualityImport()).Width(t.Space(40))
 	if next != chosen {
 		for index, label := range labels {
 			if label == next {
@@ -198,9 +200,9 @@ func (a *app) qualityIssueRow(c *ui.Context, p uiPalette, issue store.ExamQualit
 		tone = toneDanger
 	}
 	label := a.examQualityText(issue)
-	element := ui.Button(c, "").Label(label).FillWidth().
+	element := textButton(c, label).FillWidth().
 		Padding(t.Space(1.5), t.Space(2)).Radius(t.Space(1.5)).
-		Border(1, p.border).Background(p.panel)
+		Background(ui.Transparent)
 	element.Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Start).Gap(t.Space(2)).Children(func() {
 			badge(c, p, a.examSeverityName(issue.Severity), tone)

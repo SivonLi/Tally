@@ -2,18 +2,18 @@ package main
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/lobehub/lobe-mygo/pkg/feedback"
+	"github.com/lobehub/lobe-mygo/pkg/nav"
 
 	"tally/internal/calc"
-	"tally/internal/importer"
 	"tally/internal/pipeline"
 	"tally/internal/store"
 	"tally/locales"
@@ -82,534 +82,408 @@ func (a *app) labelForVersionID(id int64) string {
 	return ""
 }
 
-func (a *app) reloadBatches(ctx context.Context) {
+func (a *app) reloadAssessments(ctx context.Context) {
 	if a.store == nil {
 		return
 	}
-	batches, err := a.store.ListBatches(ctx)
+	items, err := a.store.ListAssessmentOverview(ctx)
 	if err != nil {
-		a.loadError = err.Error()
+		a.assessmentError = err.Error()
 		return
 	}
-	a.batches = batches
+	a.assessments = items
 	found := false
-	for _, batch := range batches {
-		if strconv.FormatInt(batch.ID, 10) == a.selectedBatchID {
+	for _, item := range items {
+		if item.AssessmentID == a.selectedAssessmentID {
 			found = true
 			break
 		}
 	}
 	if !found {
-		if len(batches) > 0 {
-			a.selectedBatchID = strconv.FormatInt(batches[0].ID, 10)
-		} else {
-			a.selectedBatchID = ""
+		a.selectedAssessmentID = 0
+		a.assessmentRows = nil
+		a.assessmentPersonal = nil
+		if len(items) > 0 {
+			a.selectAssessment(items[0].AssessmentID)
 		}
-	}
-	a.loadLatestRun(ctx)
-}
-
-func (a *app) loadLatestRun(ctx context.Context) {
-	a.resultRows = nil
-	a.personalScores = nil
-	batch, err := a.selectedBatchValue()
-	if err != nil {
 		return
 	}
-	if batch.CurrentPlanVersionID != 0 {
-		if label := a.labelForVersionID(batch.CurrentPlanVersionID); label != "" {
+	if a.selectedAssessmentID != 0 {
+		a.loadAssessmentDetail(ctx)
+	}
+}
+
+func (a *app) selectedAssessmentOverview() *store.AssessmentOverview {
+	for index := range a.assessments {
+		if a.assessments[index].AssessmentID == a.selectedAssessmentID {
+			return &a.assessments[index]
+		}
+	}
+	return nil
+}
+
+func (a *app) selectAssessment(id int64) {
+	a.selectedAssessmentID = id
+	a.assessmentError = ""
+	a.assessmentMessage = ""
+	a.loadAssessmentDetail(context.Background())
+}
+
+func (a *app) loadAssessmentDetail(ctx context.Context) {
+	if a.store == nil || a.selectedAssessmentID == 0 {
+		return
+	}
+	detail, err := a.store.LoadAssessmentContext(ctx, a.selectedAssessmentID)
+	if err != nil {
+		a.assessmentError = err.Error()
+		return
+	}
+	a.assessmentContext = detail
+	if detail.Assessment.PlanVersion != 0 {
+		if label := a.labelForVersionID(detail.Assessment.PlanVersion); label != "" {
 			a.calculateVersion = label
 		}
 	}
-	_, rows, personal, err := a.store.LatestRun(ctx, batch.ID)
+	run, rows, personal, err := a.store.LatestAssessmentRun(ctx, a.selectedAssessmentID)
 	if err != nil {
+		if !errors.Is(err, store.ErrNotFound) {
+			a.assessmentError = err.Error()
+			return
+		}
+		a.assessmentRun = store.ResultRun{}
+		a.assessmentRows = nil
+		a.assessmentPersonal = nil
 		return
 	}
-	a.resultRows = rows
-	a.personalScores = personal
+	a.assessmentRun = run
+	a.assessmentRows = rows
+	a.assessmentPersonal = personal
 }
 
-func (a *app) selectedBatchValue() (*store.Batch, error) {
-	if a.selectedBatchID == "" {
-		return nil, store.ErrNotFound
+func (a *app) assessmentLabel() string {
+	detail := a.assessmentContext
+	if detail.Assessment.ID == 0 {
+		return ""
 	}
-	id, err := strconv.ParseInt(a.selectedBatchID, 10, 64)
-	if err != nil {
-		return nil, err
-	}
-	for index := range a.batches {
-		if a.batches[index].ID == id {
-			return &a.batches[index], nil
+	return fmt.Sprintf("%s · %s · %s", a.examBatchLabel(detail.Exam),
+		a.cohortName(detail.Cohort.EnrollmentYear), a.stageName(detail.Stage.GradeLevel))
+}
+
+func (a *app) assessmentPage(c *ui.Context, p uiPalette) {
+	t := p.theme
+	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
+		pageHeading(c, p, locales.AssessmentTitle(), locales.AssessmentSubtitle(), func() {
+			if labelledButton(c, locales.AssessmentNewExam(), iconPlus, true).Clicked() {
+				a.page = pageExams
+				a.openNewExam()
+			}
+		})
+		if a.assessmentError != "" {
+			notice(c, p, noticeDanger, a.assessmentError)
 		}
-	}
-	return nil, store.ErrNotFound
+		if len(a.assessments) == 0 {
+			emptyState(c, p, iconEmptyBatch, locales.AssessmentEmpty(), locales.AssessmentEmptyHint(), func() {
+				if labelledButton(c, locales.AssessmentNewExam(), iconPlus, true).Clicked() {
+					a.page = pageExams
+					a.openNewExam()
+				}
+			})
+			return
+		}
+		ui.Split(c, &a.batchSidebarWidth, func() {
+			a.assessmentList(c, p)
+		}, func() {
+			a.assessmentDetail(c, p)
+		}).Grow(1)
+	})
+	a.zeroModal(c, p)
+	a.newExamModal(c, p)
 }
 
-func (a *app) batchPage(c *ui.Context, p uiPalette) {
+func (a *app) assessmentList(c *ui.Context, p uiPalette) {
 	t := p.theme
 	if a.batchSidebarWidth == 0 {
 		a.batchSidebarWidth = t.Space(64)
 	}
-	if a.batchResultsHeight == 0 {
-		a.batchResultsHeight = t.Space(62)
-	}
-	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
-		pageHeading(c, p, locales.BatchWorkbenchTitle(), locales.BatchPageSubtitle(), func() {
-			if labelledButton(c, locales.BatchNew(), iconPlus, true).Clicked() {
-				a.openNewBatch()
-			}
-		})
-		if len(a.batches) == 0 {
-			emptyState(c, p, iconEmptyBatch, locales.BatchEmpty(), locales.BatchEmptyHint(), func() {
-				if labelledButton(c, locales.BatchNew(), iconPlus, true).Clicked() {
-					a.openNewBatch()
-				}
-			})
-		} else {
-			ui.Split(c, &a.batchSidebarWidth, func() {
-				a.batchSidebar(c, p)
-			}, func() {
-				a.batchDetails(c, p)
-			}).Grow(1)
-		}
-	})
-	a.newBatchModal(c, p)
-	a.zeroModal(c, p)
-}
-
-func (a *app) batchSidebar(c *ui.Context, p uiPalette) {
-	changed := false
-	listPanel(c, p, locales.BatchListPanelTitle(), len(a.batches), func() {
-		sidebar := ui.Sidebar(c, &a.selectedBatchID, func() {
-			for _, batch := range a.batches {
-				ui.SidebarItem(c, strconv.FormatInt(batch.ID, 10), iconBatches, a.batchLabel(batch))
-			}
-		}).Label(locales.BatchListTitle()).Fill()
-		if sidebar.Changed() {
-			changed = true
-		}
-	})
-	if changed {
-		a.loadLatestRun(context.Background())
-	}
-}
-
-func (a *app) batchDetails(c *ui.Context, p uiPalette) {
-	batch, err := a.selectedBatchValue()
-	if err != nil {
-		ui.Column(c).Fill().Children(func() {
-			emptyState(c, p, iconEmptyBatch, locales.BatchSelectHint(), "", nil)
-		})
-		return
-	}
-	t := p.theme
-	ui.SplitVertical(c, &a.batchResultsHeight, func() {
+	listPanel(c, p, locales.AssessmentListTitle(), len(a.assessments), func() {
 		ui.Scroll(c).Fill().Children(func() {
-			ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
-				a.batchSummary(c, p, *batch)
-				a.batchActions(c, p)
-				if a.batchBusy {
-					panel(c, p).Padding(t.Space(3)).Children(func() {
-						ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-							ui.Spinner(c).Label(locales.BatchWorking())
-							ui.Text(c, locales.BatchWorking()).TextColor(p.muted)
+			ui.Column(c).FillWidth().Gap(t.Space(1)).Children(func() {
+				for _, item := range a.assessments {
+					item := item
+					selected := item.AssessmentID == a.selectedAssessmentID
+					background := ui.Transparent
+					if selected {
+						background = p.accentSoft
+					}
+					row := textButton(c, a.assessmentOverviewLabel(item)).FillWidth().
+						Padding(t.Space(2), t.Space(2.5)).Radius(t.Space(1.5)).
+						Background(background).AlignItems(ui.Start)
+					row.Children(func() {
+						ui.Column(c).FillWidth().Gap(t.Space(0.5)).Children(func() {
+							ui.Text(c, a.assessmentOverviewLabel(item)).FontSize(bodySize(t)).
+								FontWeight(500).SingleLine()
+							ui.Textf(c, locales.AssessmentListMeta(), a.academicYearLabel(item.AcademicYearStart),
+								a.examTermName(item.Term),
+								fmt.Sprintf(locales.AssessmentStudentCount(), formatInt(item.RosterCount))).
+								FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
 						})
 					})
-				}
-				if a.batchError != "" {
-					notice(c, p, noticeDanger, a.batchError)
-				}
-				if a.batchMessage != "" {
-					notice(c, p, noticeSuccess, a.batchMessage)
-				}
-				if a.importSummary != nil {
-					a.importSummaryView(c, p)
+					if row.Clicked() {
+						a.selectAssessment(item.AssessmentID)
+					}
 				}
 			})
 		})
-	}, func() {
-		a.batchResults(c, p)
-	}).Fill()
+	})
 }
 
-func (a *app) batchSummary(c *ui.Context, p uiPalette, batch store.Batch) {
+func (a *app) assessmentOverviewLabel(item store.AssessmentOverview) string {
+	return fmt.Sprintf("%s · %s", a.examTypeName(item.ExamType), item.CohortName)
+}
+
+func (a *app) assessmentDetail(c *ui.Context, p uiPalette) {
+	overview := a.selectedAssessmentOverview()
+	if overview == nil {
+		emptyState(c, p, iconEmptyBatch, locales.AssessmentSelectHint(), "", nil)
+		return
+	}
 	t := p.theme
-	panel(c, p).Padding(t.Space(4)).Gap(t.Space(4)).Children(func() {
+	stage := 0
+	switch {
+	case overview.RosterCount == 0:
+		stage = 0
+	case overview.ScoreCount == 0 || overview.CutoffCount == 0 || overview.TargetCount == 0 || overview.GroupCount == 0:
+		stage = 0
+	case overview.Status == "calculated":
+		stage = 2
+	default:
+		stage = 1
+	}
+	ui.Column(c).Fill().Gap(t.Space(3)).Children(func() {
 		ui.Row(c).AlignItems(ui.Start).Gap(t.Space(3)).Children(func() {
 			ui.Column(c).Grow(1).Gap(t.Space(1)).Children(func() {
-				ui.Text(c, a.batchLabel(batch)).FontSize(sectionSize(t)).Bold().
-					LetterSpacing(-0.2).Role(ui.RoleHeading).Level(2)
+				ui.Text(c, a.assessmentLabel()).FontSize(titleSize(t)).Bold().
+					LetterSpacing(-0.2).Role(ui.RoleHeading).Level(1)
+				ui.Textf(c, locales.AssessmentDetailMeta(), a.academicYearLabel(overview.AcademicYearStart),
+					a.examTermName(overview.Term), overview.ExamDate).FontSize(captionSize(t)).
+					TextColor(p.muted).FontFeatures("tnum")
 			})
-			statusBadge(c, p, batch.Status, a.batchStatusLabel(batch.Status))
+			statusBadge(c, p, overview.Status, a.assessmentStatusLabel(overview.Status))
 		})
-		ui.Column(c).Gap(t.Space(2)).Children(func() {
-			ui.Text(c, locales.BatchWorkflowTitle()).FontSize(captionSize(t)).
-				TextColor(p.muted).LetterSpacing(0.4)
-			a.batchWorkflow(c, p, batch)
+		a.assessmentSteps(c, p, stage)
+		a.assessmentActions(c, p, *overview)
+		ui.Scroll(c).Grow(1).Children(func() {
+			ui.Column(c).FillWidth().Gap(t.Space(4)).Children(func() {
+				a.assessmentChecklist(c, p, *overview)
+				a.assessmentResults(c, p)
+			})
 		})
 	})
 }
 
-type workflowStep struct {
-	label   string
-	caption string
-	done    bool
-	current bool
+func (a *app) assessmentSteps(c *ui.Context, p uiPalette, current int) {
+	items := []nav.StepItem{
+		{Title: locales.AssessmentStepPrepare()},
+		{Title: locales.AssessmentStepCalculate()},
+		{Title: locales.AssessmentStepExport()},
+	}
+	nav.Steps(c, nav.StepsProps{Items: items, Current: current})
 }
 
-func (a *app) batchWorkflow(c *ui.Context, p uiPalette, batch store.Batch) {
-	t := p.theme
-	imported := batch.Status != "draft" || a.importSummary != nil
-	calculated := batch.Status == "calculated" || len(a.resultRows) > 0
-	steps := []workflowStep{
-		{label: locales.WorkflowImport()},
-		{label: locales.WorkflowCalculate()},
-		{label: locales.WorkflowExport()},
-	}
-	switch {
-	case !imported:
-		steps[0].current = true
-		steps[0].caption = locales.WorkflowCurrent()
-		steps[1].caption = locales.WorkflowPending()
-		steps[2].caption = locales.WorkflowPending()
-	case !calculated:
-		steps[0].done = true
-		steps[1].current = true
-		steps[0].caption = locales.WorkflowDone()
-		steps[1].caption = locales.WorkflowCurrent()
-		steps[2].caption = locales.WorkflowPending()
+func (a *app) assessmentStatusLabel(status string) string {
+	switch status {
+	case "calculated":
+		return locales.AssessmentStatusCalculated()
 	default:
-		steps[0].done = true
-		steps[1].done = true
-		steps[2].current = true
-		steps[0].caption = locales.WorkflowDone()
-		steps[1].caption = locales.WorkflowDone()
-		steps[2].caption = locales.WorkflowCurrent()
+		return locales.AssessmentStatusDraft()
 	}
-	ui.Row(c).AlignItems(ui.Center).Children(func() {
-		for index, step := range steps {
-			marker := ui.Box(c).Size(t.Space(7), t.Space(7)).Radius(t.Space(3.5)).Center()
-			switch {
-			case step.done:
-				marker.Background(p.accent).Children(func() {
-					ui.Icon(c, iconCheck).FontSize(t.Space(3.5)).TextColor(p.accentText)
-				})
-			case step.current:
-				marker.Background(p.accentSoft).Border(1, p.accent).Children(func() {
-					ui.Textf(c, "%d", index+1).FontSize(captionSize(t)).Bold().TextColor(p.accent)
-				})
-			default:
-				marker.Background(p.panelMuted).Border(1, p.border).Children(func() {
-					ui.Textf(c, "%d", index+1).FontSize(captionSize(t)).TextColor(p.muted)
-				})
-			}
-			ui.Column(c).Gap(0).Children(func() {
-				ui.Text(c, step.label).FontSize(bodySize(t)).Bold()
-				ui.Text(c, step.caption).FontSize(captionSize(t)).TextColor(p.muted)
-			})
-			if index < len(steps)-1 {
-				ui.Box(c).Height(1).Grow(1).Background(p.border).Margin(0, t.Space(2))
-			}
-		}
-	})
 }
 
-func (a *app) batchActions(c *ui.Context, p uiPalette) {
+func (a *app) assessmentChecklist(c *ui.Context, p uiPalette, overview store.AssessmentOverview) {
 	t := p.theme
-	panel(c, p).Padding(t.Space(4)).Children(func() {
-		ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
-			ui.Row(c).AlignItems(ui.End).Children(func() {
-				ui.Column(c).Width(t.Space(50)).Gap(t.Space(1)).Children(func() {
-					ui.Text(c, locales.BatchPlanVersion()).FontSize(captionSize(t)).TextColor(p.muted)
-					if len(a.published) == 0 {
-						ui.Text(c, locales.BatchSelectVersion()).FontSize(bodySize(t)).TextColor(p.danger)
-					} else {
-						ui.Select(c, &a.calculateVersion, a.versionOptions()).
-							Width(t.Space(50)).Label(locales.BatchPlanVersion())
-					}
-				})
-			})
-			ui.Row(c).Wrap().Justify(ui.End).Gap(t.Space(3)).Children(func() {
-				if labelledButton(c, locales.BatchImport(), iconImport, false).Clicked() {
-					a.chooseImportFile()
-				}
-				calculate := labelledButton(c, locales.BatchCalculate(), iconCalculate, true)
-				calculate.Disabled(a.batchBusy || len(a.published) == 0)
-				if calculate.Clicked() {
-					a.startCalculate()
-				}
-				export := labelledButton(c, locales.BatchExport(), iconExport, false)
-				export.Disabled(a.batchBusy || len(a.resultRows) == 0)
-				if export.Clicked() {
-					a.chooseExportFile()
-				}
-			})
+	items := []struct {
+		Label string
+		Count int
+		Meta  string
+		Tab   int
+	}{
+		{locales.ExamTabRoster(), overview.RosterCount,
+			fmt.Sprintf(locales.AssessmentCountStudents(), formatInt(overview.RosterCount)), 0},
+		{locales.ExamTabScores(), overview.ScoreCount,
+			fmt.Sprintf(locales.AssessmentCountScores(), formatInt(overview.ScoreCount)), 1},
+		{locales.ExamTabCutoffs(), overview.CutoffCount,
+			fmt.Sprintf(locales.AssessmentCountCutoffs(), formatInt(overview.CutoffCount)), 2},
+		{locales.ExamTabTargets(), overview.TargetCount,
+			fmt.Sprintf(locales.AssessmentCountTargets(), formatInt(overview.TargetCount)), 3},
+		{locales.ExamTabGroups(), overview.GroupCount,
+			fmt.Sprintf(locales.AssessmentCountGroups(), formatInt(overview.GroupCount)), 4},
+	}
+	ui.Column(c).FillWidth().Gap(t.Space(1)).Children(func() {
+		ui.Row(c).AlignItems(ui.Center).Children(func() {
+			sectionHeading(c, p, locales.AssessmentChecklistTitle(), -1)
 		})
-	})
-}
-
-func (a *app) importSummaryView(c *ui.Context, p uiPalette) {
-	t := p.theme
-	summary := a.importSummary
-	notice(c, p, noticeSuccess, fmt.Sprintf(locales.BatchImportSummary(), summary.Classes, summary.Students, summary.StatGroups))
-	if len(summary.Warnings) == 0 {
-		return
-	}
-	ui.Column(c).Padding(t.Space(3)).Gap(t.Space(1)).Background(p.warningSoft).
-		Border(1, p.warning.Alpha(0.35)).Radius(t.Space(2)).Children(func() {
-		ui.Text(c, locales.BatchWarnings()).FontSize(bodySize(t)).Bold().TextColor(p.warning)
-		for _, warning := range summary.Warnings {
-			ui.Text(c, "- "+warning).FontSize(captionSize(t)).TextColor(p.muted).Selectable()
+		rule(c)
+		for _, item := range items {
+			item := item
+			missing := item.Count == 0
+			row := textButton(c, item.Label+" "+item.Meta).FillWidth().
+				Padding(t.Space(2), 0).Radius(t.Space(1.5)).Background(ui.Transparent).
+				AlignItems(ui.Center)
+			row.Children(func() {
+				if missing {
+					ui.Icon(c, iconAlert).FontSize(t.Space(4)).TextColor(p.warning)
+				} else {
+					ui.Icon(c, iconCheck).FontSize(t.Space(4)).TextColor(p.accent)
+				}
+				ui.Text(c, item.Label).FontSize(bodySize(t)).Grow(1).SingleLine().
+					TextAlign(ui.Start)
+				ui.Text(c, item.Meta).FontSize(captionSize(t)).
+					TextColor(p.muted).SingleLine().FontFeatures("tnum")
+				ui.Icon(c, iconArrowRight).FontSize(t.Space(3.5)).TextColor(p.muted)
+			})
+			if row.Clicked() {
+				a.openExamTab(overview, item.Tab)
+			}
+			rule(c)
 		}
 	})
 }
 
-func (a *app) batchResults(c *ui.Context, p uiPalette) {
+// openExamTab 跳到这场考试的对应页签，让准备清单可以直接补数据。
+func (a *app) openExamTab(overview store.AssessmentOverview, tab int) {
+	a.page = pageExams
+	a.selectExam(overview.ExamID)
+	a.examCohortID = overview.CohortID
+	a.examTab = tab
+	a.reloadExamData(context.Background())
+}
+
+func (a *app) assessmentActions(c *ui.Context, p uiPalette, overview store.AssessmentOverview) {
 	t := p.theme
-	panel(c, p).Grow(1).Padding(t.Space(4)).Gap(t.Space(3)).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-			sectionHeading(c, p, locales.BatchResults(), len(a.resultRows))
+	ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
+		rule(c)
+		ui.Row(c).Wrap().AlignItems(ui.End).Gap(t.Space(3)).Children(func() {
+			ui.Column(c).Width(t.Space(56)).MinWidth(0).Gap(t.Space(1)).Children(func() {
+				ui.Text(c, locales.AssessmentPlanVersion()).FontSize(captionSize(t)).TextColor(p.muted)
+				if len(a.published) == 0 {
+					ui.Text(c, locales.BatchSelectVersion()).FontSize(bodySize(t)).TextColor(p.warning)
+					return
+				}
+				selectField(c, &a.calculateVersion, a.versionOptions(), locales.AssessmentPlanVersion()).
+					Width(t.Space(56)).Label(locales.AssessmentPlanVersion())
+			})
 			ui.Spacer(c)
-			if len(a.personalScores) > 0 {
-				ui.Textf(c, locales.BatchPersonalScores(), len(a.personalScores)).
-					FontSize(captionSize(t)).TextColor(p.muted)
-			}
+			ui.Row(c).Wrap().Gap(t.Space(2)).Children(func() {
+				if labelledButton(c, locales.AssessmentOpenExam(), iconExams, false).Clicked() {
+					a.openExamTab(overview, 0)
+				}
+				calculate := labelledButton(c, locales.AssessmentCalculate(), iconCalculate, true)
+				calculate.Disabled(a.assessmentBusy || len(a.published) == 0)
+				if calculate.Clicked() {
+					a.startAssessmentCalculate()
+				}
+				export := labelledButton(c, locales.AssessmentExport(), iconExport, false)
+				export.Disabled(a.assessmentBusy || len(a.assessmentRows) == 0)
+				if export.Clicked() {
+					a.chooseAssessmentExport()
+				}
+			})
 		})
-		if len(a.resultRows) == 0 {
-			smallEmptyState(c, p, locales.BatchNoResults())
-			return
+		if a.assessmentBusy {
+			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+				ui.Spinner(c).Label(locales.BatchWorking())
+				ui.Text(c, locales.BatchWorking()).FontSize(bodySize(t)).TextColor(p.muted)
+			})
 		}
-		a.resultsTable(c, p)
+		if a.assessmentMessage != "" {
+			notice(c, p, noticeSuccess, a.assessmentMessage)
+		}
+		if len(a.assessmentRows) == 0 {
+			ui.Text(c, locales.AssessmentNotCalculated()).FontSize(bodySize(t)).
+				TextColor(p.muted).Pretty()
+		}
 	})
 }
 
-func (a *app) resultsTable(c *ui.Context, p uiPalette) {
-	a.resultTable.Key = func(row int) any {
-		return fmt.Sprintf("%d:%s", a.resultRows[row].StatGroupID, a.resultRows[row].Subject)
-	}
-	a.resultTable.RowHeight = p.theme.Space(8)
-	columns := []ui.TableColumn{
-		{Title: locales.ColumnClass(), Width: 80},
-		{Title: locales.ColumnSubject(), Width: 60},
-		{Title: locales.ColumnStatGroup(), Width: 88},
-		{Title: locales.ColumnTeachers(), Width: 0},
-		{Title: locales.ColumnTotal(), Width: 72, Align: ui.End},
-		{Title: locales.ColumnRank(), Width: 46, Align: ui.End},
-		{Title: locales.ColumnTier(), Width: 52},
-		{Title: locales.ColumnPoints(), Width: 52, Align: ui.End},
-	}
-	ui.Table(c, &a.resultTable, columns, len(a.resultRows), func(row, col int) {
-		item := a.resultRows[row]
-		switch col {
-		case 0:
-			ui.Text(c, item.LeadClassName).SingleLine()
-		case 1:
-			ui.Text(c, subjectLabel(item.Subject)).SingleLine()
-		case 2:
-			ui.Text(c, item.StatGroupName).SingleLine()
-		case 3:
-			ui.Text(c, decodeNames(item.TeacherNames)).SingleLine()
-		case 4:
-			ui.Textf(c, "%.2f", item.Total).FontFeatures("tnum")
-		case 5:
-			ui.Textf(c, "%d", item.Rank).FontFeatures("tnum")
-		case 6:
-			ui.Text(c, levelLabel(item.TierIndex))
-		case 7:
-			ui.Textf(c, "%.0f", item.Points).FontFeatures("tnum")
-		}
-	}).Label(locales.BatchResults()).Grow(1).FillWidth()
-}
-
-func (a *app) openNewBatch() {
-	if a.newBatchYear == "" {
-		a.newBatchYear = "2025-2026"
-	}
-	if a.newBatchSemester == "" {
-		a.newBatchSemester = locales.SemesterSpring()
-	}
-	if a.newBatchExamType == "" {
-		a.newBatchExamType = locales.ExamMidterm()
-	}
-	if a.newBatchGrade == "" {
-		a.newBatchGrade = locales.GradeG1()
-	}
-	a.newBatchError = ""
-	a.newBatchOpen = true
-}
-
-func (a *app) newBatchModal(c *ui.Context, p uiPalette) {
-	if !a.newBatchOpen {
-		return
-	}
+func (a *app) assessmentResults(c *ui.Context, p uiPalette) {
 	t := p.theme
-	ui.Modal(c, &a.newBatchOpen, func() {
-		ui.Column(c).Width(t.Space(120)).Gap(t.Space(4)).Children(func() {
-			ui.Column(c).Gap(t.Space(1)).Children(func() {
-				ui.Text(c, locales.BatchNew()).FontSize(sectionSize(t)).Bold().
-					Role(ui.RoleHeading).Level(2)
-				ui.Text(c, locales.BatchNewSubtitle()).FontSize(bodySize(t)).TextColor(p.muted).Pretty()
-			})
-			ui.Form(c, func() {
-				ui.Field(c, locales.BatchAcademicYear(), func() {
-					ui.TextInput(c, &a.newBatchYear)
-				})
-				ui.Field(c, locales.BatchSemester(), func() {
-					ui.Select(c, &a.newBatchSemester, []string{locales.SemesterSpring(), locales.SemesterAutumn()})
-				})
-				ui.Field(c, locales.BatchExamType(), func() {
-					ui.Select(c, &a.newBatchExamType, []string{locales.ExamMidterm(), locales.ExamFinal(), locales.ExamGaokao()})
-				})
-				ui.Field(c, locales.BatchGrade(), func() {
-					ui.Select(c, &a.newBatchGrade, []string{locales.GradeG1(), locales.GradeG2(), locales.GradeG3()})
-				})
-			})
-			if a.newBatchError != "" {
-				notice(c, p, noticeDanger, a.newBatchError)
+	ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
+		ui.Row(c).AlignItems(ui.Center).Children(func() {
+			sectionHeading(c, p, locales.AssessmentResults(), len(a.assessmentRows))
+			ui.Spacer(c)
+			if a.assessmentRun.ID != 0 {
+				ui.Textf(c, locales.AssessmentRunMeta(), formatTime(a.assessmentRun.CreatedAt)).
+					FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum")
 			}
-			ui.Row(c).Justify(ui.End).Gap(t.Space(2)).Children(func() {
-				if ui.Button(c, locales.BatchCancel()).Clicked() {
-					a.newBatchOpen = false
-				}
-				if ui.PrimaryButton(c, locales.BatchCreate()).Clicked() {
-					a.startCreateBatch()
-				}
-			})
 		})
+		if len(a.assessmentRows) == 0 {
+			ui.Text(c, locales.AssessmentNoResults()).FontSize(bodySize(t)).TextColor(p.muted)
+			return
+		}
+		rows := a.assessmentRows
+		a.resultTable.Key = func(row int) any {
+			return fmt.Sprintf("%d:%s", rows[row].StatGroupID, rows[row].Subject)
+		}
+		a.resultTable.RowHeight = t.Space(8)
+		columns := []ui.TableColumn{
+			{Title: locales.ColumnClass(), Width: t.Space(18)},
+			{Title: locales.ColumnSubject(), Width: t.Space(14)},
+			{Title: locales.ColumnStatGroup(), Width: t.Space(20)},
+			{Title: locales.ColumnTeachers(), Width: 0},
+			{Title: locales.ColumnTotal(), Width: t.Space(16), Align: ui.End},
+			{Title: locales.ColumnRank(), Width: t.Space(12), Align: ui.End},
+			{Title: locales.ColumnTier(), Width: t.Space(12)},
+			{Title: locales.ColumnPoints(), Width: t.Space(12), Align: ui.End},
+		}
+		rule(c)
+		ui.Table(c, &a.resultTable, columns, len(rows), func(row, col int) {
+			item := rows[row]
+			switch col {
+			case 0:
+				ui.Text(c, item.LeadClassName).SingleLine()
+			case 1:
+				ui.Text(c, subjectLabel(item.Subject)).SingleLine()
+			case 2:
+				ui.Text(c, item.StatGroupName).SingleLine()
+			case 3:
+				ui.Text(c, decodeNames(item.TeacherNames)).SingleLine()
+			case 4:
+				ui.Text(c, formatDecimal(item.Total, 1)).FontFeatures("tnum")
+			case 5:
+				ui.Text(c, formatInt(item.Rank)).FontFeatures("tnum")
+			case 6:
+				ui.Text(c, levelLabel(item.TierIndex))
+			case 7:
+				ui.Text(c, formatDecimal(item.Points, 1)).FontFeatures("tnum")
+			}
+		}).Label(locales.AssessmentResults()).FillWidth()
 	})
 }
 
-func (a *app) startCreateBatch() {
-	input := store.CreateBatchInput{
-		AcademicYear: strings.TrimSpace(a.newBatchYear),
-		Semester:     semesterCode(a.newBatchSemester),
-		ExamType:     examCode(a.newBatchExamType),
-		Grade:        gradeCode(a.newBatchGrade),
-	}
-	work := func() (store.Batch, error) {
-		ctx := context.Background()
-		return a.store.CreateBatch(ctx, input)
-	}
-	if a.win == nil {
-		batch, err := work()
-		a.finishCreateBatch(batch, err)
-		return
-	}
-	go func() {
-		batch, err := work()
-		a.win.Update(func() {
-			a.finishCreateBatch(batch, err)
-		})
-	}()
-}
-
-func (a *app) finishCreateBatch(batch store.Batch, err error) {
-	if err != nil {
-		a.newBatchError = err.Error()
-		return
-	}
-	a.newBatchOpen = false
-	a.newBatchError = ""
-	a.selectedBatchID = strconv.FormatInt(batch.ID, 10)
-	a.reloadBatches(context.Background())
-}
-
-func (a *app) chooseImportFile() {
-	go func() {
-		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
-			Title:   locales.BatchImport(),
-			Filters: []mygo.FileFilter{{Name: "Excel", Extensions: []string{"xlsx", "xls"}}},
-		})
-		if err != nil || len(paths) == 0 {
-			return
-		}
-		if a.win == nil {
-			a.startImport(paths[0])
-			return
-		}
-		a.win.Update(func() {
-			a.startImport(paths[0])
-		})
-	}()
-}
-
-func (a *app) startImport(path string) {
-	batch, err := a.selectedBatchValue()
-	if err != nil {
-		a.batchError = err.Error()
-		return
-	}
-	a.batchBusy = true
-	a.batchError = ""
-	work := func() (store.ImportSummary, error) {
-		ctx := context.Background()
-		data, report, err := importer.ImportWorkspace(path, importer.Options{
-			ConversionDir: filepath.Join(a.dataDir, "converted"),
-		})
-		if err != nil {
-			return store.ImportSummary{}, err
-		}
-		stored, err := a.store.StoreImportFile(path, report.FileHash)
-		if err != nil {
-			return store.ImportSummary{}, err
-		}
-		report.StoredPath = stored
-		return a.store.MergeImport(ctx, batch.ID, data, report)
-	}
-	run := func() {
-		summary, err := work()
-		if a.win == nil {
-			a.finishImport(summary, err)
-			return
-		}
-		a.win.Update(func() {
-			a.finishImport(summary, err)
-		})
-	}
-	if a.win == nil {
-		run()
-		return
-	}
-	go run()
-}
-
-func (a *app) finishImport(summary store.ImportSummary, err error) {
-	a.batchBusy = false
-	if err != nil {
-		a.batchError = err.Error()
-		return
-	}
-	a.batchError = ""
-	a.importSummary = &summary
-	a.batchMessage = ""
-	a.reloadBatches(context.Background())
-}
-
-func (a *app) startCalculate() {
-	batch, err := a.selectedBatchValue()
-	if err != nil {
-		a.batchError = err.Error()
+func (a *app) startAssessmentCalculate() {
+	if a.store == nil || a.selectedAssessmentID == 0 {
 		return
 	}
 	version := a.publishedByLabel(a.calculateVersion)
 	if version == nil {
-		a.batchError = locales.BatchSelectVersion()
+		a.assessmentError = locales.BatchSelectVersion()
 		return
 	}
-	a.batchBusy = true
-	a.batchError = ""
+	assessmentID := a.selectedAssessmentID
+	a.assessmentBusy = true
+	a.assessmentError = ""
 	work := func() (calc.Result, error) {
 		ctx := context.Background()
-		return pipeline.CalculateBatch(ctx, a.store, batch.ID, version.Version.ID)
+		return pipeline.CalculateAssessment(ctx, a.store, assessmentID, version.Version.ID)
 	}
 	run := func() {
 		result, err := work()
 		if a.win == nil {
-			a.finishCalculate(result, err)
+			a.finishAssessmentCalculate(result, err)
 			return
 		}
 		a.win.Update(func() {
-			a.finishCalculate(result, err)
+			a.finishAssessmentCalculate(result, err)
 		})
 	}
 	if a.win == nil {
@@ -619,8 +493,8 @@ func (a *app) startCalculate() {
 	go run()
 }
 
-func (a *app) finishCalculate(result calc.Result, err error) {
-	a.batchBusy = false
+func (a *app) finishAssessmentCalculate(result calc.Result, err error) {
+	a.assessmentBusy = false
 	if err != nil {
 		if zero, ok := err.(*calc.ZeroTargetError); ok {
 			a.zeroIssues = zero.Issues
@@ -632,13 +506,72 @@ func (a *app) finishCalculate(result calc.Result, err error) {
 			a.initZeroValues()
 			return
 		}
-		a.batchError = err.Error()
+		a.assessmentError = err.Error()
 		return
 	}
 	a.zeroOpen = false
-	a.batchError = ""
-	a.batchMessage = fmt.Sprintf(locales.BatchCalculated(), len(result.Rows), len(result.Personal))
-	a.reloadBatches(context.Background())
+	a.assessmentError = ""
+	a.assessmentMessage = fmt.Sprintf(locales.AssessmentCalculated(), len(result.Rows), len(result.Personal))
+	a.reloadAssessments(context.Background())
+}
+
+func (a *app) chooseAssessmentExport() {
+	name := "Tally.xlsx"
+	if overview := a.selectedAssessmentOverview(); overview != nil {
+		name = a.assessmentOverviewLabel(*overview) + ".xlsx"
+	}
+	go func() {
+		path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{
+			Title:       locales.AssessmentExport(),
+			DefaultPath: name,
+			Filters:     []mygo.FileFilter{{Name: "Excel", Extensions: []string{"xlsx"}}},
+		})
+		if err != nil || path == "" {
+			return
+		}
+		if a.win == nil {
+			a.startAssessmentExport(path)
+			return
+		}
+		a.win.Update(func() {
+			a.startAssessmentExport(path)
+		})
+	}()
+}
+
+func (a *app) startAssessmentExport(path string) {
+	if a.store == nil || a.selectedAssessmentID == 0 {
+		return
+	}
+	assessmentID := a.selectedAssessmentID
+	a.assessmentBusy = true
+	a.assessmentError = ""
+	run := func() {
+		ctx := context.Background()
+		err := pipeline.ExportAssessment(ctx, a.store, assessmentID, path)
+		if a.win == nil {
+			a.finishAssessmentExport(path, err)
+			return
+		}
+		a.win.Update(func() {
+			a.finishAssessmentExport(path, err)
+		})
+	}
+	if a.win == nil {
+		run()
+		return
+	}
+	go run()
+}
+
+func (a *app) finishAssessmentExport(path string, err error) {
+	a.assessmentBusy = false
+	if err != nil {
+		a.assessmentError = err.Error()
+		return
+	}
+	a.assessmentError = ""
+	a.assessmentMessage = fmt.Sprintf(locales.BatchExported(), path)
 }
 
 func (a *app) initZeroValues() {
@@ -667,7 +600,13 @@ func (a *app) zeroModal(c *ui.Context, p uiPalette) {
 	t := p.theme
 	excludeClass := int64(0)
 	fill := false
-	ui.Modal(c, &a.zeroOpen, func() {
+	open := true
+	if feedback.Modal(c, &open, feedback.ModalProps{
+		Title:      locales.ZeroTitle(),
+		OkText:     locales.ZeroFill(),
+		CancelText: locales.ZeroClose(),
+		Width:      t.Space(170),
+	}, func() {
 		ui.Column(c).Width(t.Space(170)).Gap(t.Space(4)).Children(func() {
 			ui.Row(c).AlignItems(ui.Start).Gap(t.Space(3)).Children(func() {
 				ui.Box(c).Size(t.Space(11), t.Space(11)).Radius(t.Space(3)).
@@ -675,8 +614,6 @@ func (a *app) zeroModal(c *ui.Context, p uiPalette) {
 					ui.Icon(c, iconAlert).FontSize(t.Space(5)).TextColor(p.warning)
 				})
 				ui.Column(c).Grow(1).Gap(t.Space(1)).Children(func() {
-					ui.Text(c, locales.ZeroTitle()).FontSize(sectionSize(t)).Bold().
-						Role(ui.RoleHeading).Level(2)
 					ui.Text(c, locales.ZeroIntro()).FontSize(bodySize(t)).TextColor(p.muted).Pretty()
 				})
 			})
@@ -689,21 +626,21 @@ func (a *app) zeroModal(c *ui.Context, p uiPalette) {
 					}
 				})
 			})
-			ui.Field(c, locales.ZeroReason(), func() {
-				ui.TextInput(c, &a.zeroReason)
-			}).Error(a.zeroError)
-			ui.Row(c).Justify(ui.End).Gap(t.Space(2)).Children(func() {
-				if ui.Button(c, locales.ZeroClose()).Clicked() {
-					a.zeroOpen = false
-				}
-				if ui.PrimaryButton(c, locales.ZeroFill()).Clicked() {
-					fill = true
-				}
+			a.dialogField(c, "zero-reason", locales.ZeroReason(), "", func() {
+				textField(c, &a.zeroReason, locales.ZeroReason(), "")
 			})
+			if a.zeroError != "" {
+				notice(c, p, noticeDanger, a.zeroError)
+			}
 		})
-	})
+	}) {
+		fill = true
+	}
+	if !open {
+		a.zeroOpen = false
+	}
 	if excludeClass != 0 {
-		a.startExcludeClass(excludeClass)
+		a.startExcludeAssessmentClass(excludeClass)
 	}
 	if fill {
 		a.startFillZero()
@@ -716,7 +653,7 @@ func (a *app) zeroIssueCard(c *ui.Context, p uiPalette, index int, exclude func(
 	panel(c, p).Background(p.panelMuted).Padding(t.Space(3)).Gap(t.Space(2)).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
 			ui.Text(c, issue.ClassName).FontSize(bodySize(t)).Bold().Grow(1)
-			if ui.Button(c, locales.ZeroExclude()).Clicked() {
+			if plainButton(c, locales.ZeroExclude()).Clicked() {
 				classID, _ := strconv.ParseInt(issue.ClassID, 10, 64)
 				exclude(classID)
 			}
@@ -731,7 +668,7 @@ func (a *app) zeroIssueCard(c *ui.Context, p uiPalette, index int, exclude func(
 			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
 				ui.Text(c, a.tierLabel(tier)).Width(t.Space(16))
 				name := issue.ClassName + " " + a.tierLabel(tier)
-				ui.NumberInput(c, a.zeroValues[key], 0, 100000, 1).
+				numberField(c, a.zeroValues[key], 0, 100000, 1, key).
 					Width(t.Space(22)).Label(name)
 			})
 		}
@@ -769,10 +706,9 @@ func (a *app) startFillZero() {
 			adjustments = append(adjustments, targetAdjustment{classID: classID, tier: tier, value: value})
 		}
 	}
-	a.runZeroWork(func(ctx context.Context, batchID int64) error {
+	a.runZeroWork(func(ctx context.Context, assessmentID int64) error {
 		for _, item := range adjustments {
-			value := item.value
-			if err := a.store.AdjustTarget(ctx, batchID, item.classID, item.tier, nil, &value, reason, "local"); err != nil {
+			if err := a.store.AdjustAssessmentTarget(ctx, assessmentID, item.classID, item.tier, item.value, reason); err != nil {
 				return err
 			}
 		}
@@ -780,21 +716,20 @@ func (a *app) startFillZero() {
 	})
 }
 
-func (a *app) startExcludeClass(classID int64) {
+func (a *app) startExcludeAssessmentClass(classID int64) {
 	reason := strings.TrimSpace(a.zeroReason)
 	if reason == "" {
 		a.zeroError = locales.ZeroReasonRequired()
 		return
 	}
-	a.runZeroWork(func(ctx context.Context, batchID int64) error {
-		return a.store.ExcludeClassFromCompletion(ctx, batchID, classID, reason, "local")
+	a.runZeroWork(func(ctx context.Context, assessmentID int64) error {
+		return a.store.ExcludeAssessmentClass(ctx, assessmentID, classID, reason)
 	})
 }
 
-func (a *app) runZeroWork(work func(ctx context.Context, batchID int64) error) {
-	batch, err := a.selectedBatchValue()
-	if err != nil {
-		a.zeroError = err.Error()
+func (a *app) runZeroWork(work func(ctx context.Context, assessmentID int64) error) {
+	if a.selectedAssessmentID == 0 {
+		a.zeroError = locales.AssessmentSelectHint()
 		return
 	}
 	version := a.publishedByLabel(a.calculateVersion)
@@ -802,14 +737,15 @@ func (a *app) runZeroWork(work func(ctx context.Context, batchID int64) error) {
 		a.zeroError = locales.BatchSelectVersion()
 		return
 	}
-	a.batchBusy = true
+	assessmentID := a.selectedAssessmentID
+	a.assessmentBusy = true
 	a.zeroError = ""
 	run := func() {
 		ctx := context.Background()
-		err := work(ctx, batch.ID)
+		err := work(ctx, assessmentID)
 		var result calc.Result
 		if err == nil {
-			result, err = pipeline.CalculateBatch(ctx, a.store, batch.ID, version.Version.ID)
+			result, err = pipeline.CalculateAssessment(ctx, a.store, assessmentID, version.Version.ID)
 		}
 		if a.win == nil {
 			a.finishZeroWork(result, err)
@@ -827,7 +763,7 @@ func (a *app) runZeroWork(work func(ctx context.Context, batchID int64) error) {
 }
 
 func (a *app) finishZeroWork(result calc.Result, err error) {
-	a.batchBusy = false
+	a.assessmentBusy = false
 	if err != nil {
 		if zero, ok := err.(*calc.ZeroTargetError); ok {
 			a.zeroIssues = zero.Issues
@@ -836,240 +772,68 @@ func (a *app) finishZeroWork(result calc.Result, err error) {
 			return
 		}
 		a.zeroError = err.Error()
-		a.batchError = err.Error()
+		a.assessmentError = err.Error()
 		return
 	}
 	a.zeroOpen = false
 	a.zeroError = ""
-	a.batchError = ""
-	a.batchMessage = fmt.Sprintf(locales.BatchCalculated(), len(result.Rows), len(result.Personal))
-	a.reloadBatches(context.Background())
+	a.assessmentError = ""
+	a.assessmentMessage = fmt.Sprintf(locales.AssessmentCalculated(), len(result.Rows), len(result.Personal))
+	a.reloadAssessments(context.Background())
 }
 
-func (a *app) chooseExportFile() {
-	name := "Tally.xlsx"
-	if batch, err := a.selectedBatchValue(); err == nil {
-		name = a.batchLabel(*batch) + ".xlsx"
-	}
-	go func() {
-		path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{
-			Title:       locales.BatchExport(),
-			DefaultPath: name,
-			Filters:     []mygo.FileFilter{{Name: "Excel", Extensions: []string{"xlsx"}}},
+func (a *app) resultsPage(c *ui.Context, p uiPalette) {
+	t := p.theme
+	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
+		pageHeading(c, p, locales.NavResults(), locales.ResultsSubtitle(), func() {
+			export := labelledButton(c, locales.AssessmentExport(), iconExport, false)
+			export.Disabled(a.assessmentBusy || len(a.assessmentRows) == 0)
+			if export.Clicked() {
+				a.chooseAssessmentExport()
+			}
 		})
-		if err != nil || path == "" {
+		if a.assessmentError != "" {
+			notice(c, p, noticeDanger, a.assessmentError)
+		}
+		if a.assessmentMessage != "" {
+			notice(c, p, noticeSuccess, a.assessmentMessage)
+		}
+		if len(a.assessments) == 0 {
+			emptyState(c, p, iconResults, locales.ResultsEmpty(), locales.ResultsEmptyHint(), func() {
+				if labelledButton(c, locales.AssessmentNewExam(), iconPlus, true).Clicked() {
+					a.page = pageExams
+					a.openNewExam()
+				}
+			})
 			return
 		}
-		if a.win == nil {
-			a.startExport(path)
-			return
-		}
-		a.win.Update(func() {
-			a.startExport(path)
-		})
-	}()
-}
-
-func (a *app) startExport(path string) {
-	batch, err := a.selectedBatchValue()
-	if err != nil {
-		a.batchError = err.Error()
-		return
-	}
-	a.batchBusy = true
-	a.batchError = ""
-	run := func() {
-		ctx := context.Background()
-		err := pipeline.ExportLatest(ctx, a.store, batch.ID, path)
-		if a.win == nil {
-			a.finishExport(path, err)
-			return
-		}
-		a.win.Update(func() {
-			a.finishExport(path, err)
-		})
-	}
-	if a.win == nil {
-		run()
-		return
-	}
-	go run()
-}
-
-func (a *app) finishExport(path string, err error) {
-	a.batchBusy = false
-	if err != nil {
-		a.batchError = err.Error()
-		return
-	}
-	a.batchError = ""
-	a.batchMessage = fmt.Sprintf(locales.BatchExported(), path)
-}
-
-func (a *app) batchLabel(batch store.Batch) string {
-	return fmt.Sprintf("%s %s %s %s", batch.AcademicYear, a.semesterLabel(batch.Semester),
-		a.gradeLabel(batch.Grade), a.examLabel(batch.ExamType))
-}
-
-func (a *app) batchStatusLabel(status string) string {
-	switch status {
-	case "draft":
-		return locales.BatchStatusDraft()
-	case "imported":
-		return locales.BatchStatusImported()
-	case "calculated":
-		return locales.BatchStatusCalculated()
-	default:
-		return status
-	}
-}
-
-func (a *app) semesterLabel(value string) string {
-	switch value {
-	case "spring":
-		return locales.SemesterSpring()
-	case "autumn":
-		return locales.SemesterAutumn()
-	default:
-		return value
-	}
-}
-
-func (a *app) examLabel(value string) string {
-	switch value {
-	case "midterm":
-		return locales.ExamMidterm()
-	case "final":
-		return locales.ExamFinal()
-	case "gaokao":
-		return locales.ExamGaokao()
-	default:
-		return value
-	}
-}
-
-func (a *app) gradeLabel(value string) string {
-	switch value {
-	case "g1":
-		return locales.GradeG1()
-	case "g2":
-		return locales.GradeG2()
-	case "g3":
-		return locales.GradeG3()
-	default:
-		return value
-	}
-}
-
-func semesterCode(label string) string {
-	switch label {
-	case locales.SemesterSpring():
-		return "spring"
-	case locales.SemesterAutumn():
-		return "autumn"
-	default:
-		return label
-	}
-}
-
-func examCode(label string) string {
-	switch label {
-	case locales.ExamMidterm():
-		return "midterm"
-	case locales.ExamFinal():
-		return "final"
-	case locales.ExamGaokao():
-		return "gaokao"
-	default:
-		return label
-	}
-}
-
-func gradeCode(label string) string {
-	switch label {
-	case locales.GradeG1():
-		return "g1"
-	case locales.GradeG2():
-		return "g2"
-	case locales.GradeG3():
-		return "g3"
-	default:
-		return label
-	}
-}
-
-func (a *app) tierLabel(key string) string {
-	if version := a.publishedByLabel(a.calculateVersion); version != nil {
-		for _, tier := range version.Version.Config.Tiers {
-			if tier.Key == key {
-				return tier.Label
+		labels := make([]string, 0, len(a.assessments))
+		chosen := ""
+		for _, item := range a.assessments {
+			label := a.assessmentOverviewLabel(item)
+			labels = append(labels, label)
+			if item.AssessmentID == a.selectedAssessmentID {
+				chosen = label
 			}
 		}
-	}
-	switch key {
-	case "qingbei":
-		return locales.TierQingbei()
-	case "c9":
-		return locales.TierC9()
-	case "project985":
-		return locales.TierProject985()
-	case "project211":
-		return locales.TierProject211()
-	case "special_control":
-		return locales.TierSpecialControl()
-	case "undergraduate":
-		return locales.TierUndergraduate()
-	}
-	return key
-}
-
-func subjectLabel(code string) string {
-	switch code {
-	case "chinese":
-		return locales.SubjectChinese()
-	case "math":
-		return locales.SubjectMath()
-	case "english":
-		return locales.SubjectEnglish()
-	case "physics":
-		return locales.SubjectPhysics()
-	case "chemistry":
-		return locales.SubjectChemistry()
-	case "biology":
-		return locales.SubjectBiology()
-	case "history":
-		return locales.SubjectHistory()
-	case "geography":
-		return locales.SubjectGeography()
-	case "politics":
-		return locales.SubjectPolitics()
-	case "japanese":
-		return locales.SubjectJapanese()
-	}
-	return code
-}
-
-func levelLabel(index int) string {
-	switch index {
-	case 0:
-		return locales.LevelFirst()
-	case 1:
-		return locales.LevelSecond()
-	case 2:
-		return locales.LevelThird()
-	default:
-		return fmt.Sprintf(locales.LevelOther(), index+1)
-	}
-}
-
-func decodeNames(value string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return ""
-	}
-	var names []string
-	if err := json.Unmarshal([]byte(value), &names); err != nil {
-		return value
-	}
-	return strings.Join(names, "、")
+		next := chosen
+		selectField(c, &next, labels, locales.AssessmentResultsSelect()).Width(t.Space(72))
+		if next != chosen {
+			for _, item := range a.assessments {
+				if a.assessmentOverviewLabel(item) == next {
+					a.selectAssessment(item.AssessmentID)
+					break
+				}
+			}
+		}
+		if len(a.assessmentRows) == 0 {
+			emptyState(c, p, iconResults, locales.AssessmentNoResults(), locales.AssessmentNoResultsHint(), func() {
+				if labelledButton(c, locales.AssessmentOpenAssessment(), iconBatches, false).Clicked() {
+					a.page = pageAssessments
+				}
+			})
+			return
+		}
+		a.assessmentResults(c, p)
+	})
 }

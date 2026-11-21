@@ -4,80 +4,13 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strconv"
 	"testing"
 
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
-	"github.com/xuri/excelize/v2"
 
 	"tally/internal/store"
 )
-
-func writeImportWorkbook(t *testing.T, path string) {
-	t.Helper()
-	workbook := excelize.NewFile()
-	t.Cleanup(func() {
-		if err := workbook.Close(); err != nil {
-			t.Errorf("close workbook: %v", err)
-		}
-	})
-	sheets := map[string][][]any{
-		"成绩": {
-			{"考号", "姓名", "班级", "选科", "总分", "语文", "数学"},
-			{"1001", "学生甲", "A", "物理", 180, 90, 90},
-			{"1002", "学生乙", "B", "历史", 175, 88, 87},
-		},
-		"任课教师": {
-			{"班级", "班主任", "语文", "数学"},
-			{"A", "班主任甲", "教师甲", "教师乙"},
-			{"B", "班主任乙", "教师丙", "教师丁"},
-		},
-		"目标任务": {
-			{"班级", "清北", "C9", "985", "211", "特控", "本科"},
-			{"A", 1, 1, 1, 1, 1, 1},
-			{"B", 1, 1, 1, 1, 1, 1},
-		},
-		"基数": {
-			{"班级", "语均", "数均", "总均"},
-			{"A", 90, 90, 180},
-			{"B", 88, 87, 175},
-			{"年级总计", 89, 88.5, 177.5},
-		},
-		"分数线": {
-			{"科目", "特控线", "本科线", "科目", "特控线", "本科线"},
-			{"语文", 90, 60, "语文", 90, 60},
-			{"数学", 90, 60, "数学", 90, 60},
-			{"总分", 500, 400, "总分", 500, 400},
-		},
-		"说明": {
-			{"备注：546班政治走班和鹭宁班政治合并计算"},
-		},
-	}
-	defaultSheet := workbook.GetSheetName(0)
-	for name, rows := range sheets {
-		if name != defaultSheet {
-			if _, err := workbook.NewSheet(name); err != nil {
-				t.Fatal(err)
-			}
-		}
-		for rowIndex, row := range rows {
-			cell, err := excelize.CoordinatesToCellName(1, rowIndex+1)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := workbook.SetSheetRow(name, cell, &row); err != nil {
-				t.Fatal(err)
-			}
-		}
-	}
-	if err := workbook.DeleteSheet(defaultSheet); err != nil {
-		t.Fatal(err)
-	}
-	if err := workbook.SaveAs(path); err != nil {
-		t.Fatal(err)
-	}
-}
 
 func TestLoadFromDataDir(t *testing.T) {
 	dir := t.TempDir()
@@ -102,88 +35,17 @@ func TestLoadFromDataDir(t *testing.T) {
 	}
 }
 
-func TestStartImportWorkbook(t *testing.T) {
-	a := newTestApp(t)
-	batch := seedBatch(t, a, false)
-	path := filepath.Join(a.dataDir, "import.xlsx")
-	writeImportWorkbook(t, path)
-	a.startImport(path)
-	if a.batchError != "" {
-		t.Fatal(a.batchError)
-	}
-	if a.batchBusy {
-		t.Fatal("import still busy")
-	}
-	if a.importSummary == nil {
-		t.Fatal("missing import summary")
-	}
-	if a.importSummary.Students != 8 {
-		t.Fatalf("students = %d", a.importSummary.Students)
-	}
-	a.selectedBatchID = strconv.FormatInt(batch.ID, 10)
-	a.page = pageAssessments
-	tt := ui.NewTester(a.view, 1280, 800)
-	tt.SetLocale("en")
-	tt.Frame()
-	if !tt.HasText("Imported 2 classes, 8 students, 4 stat groups.") {
-		t.Errorf("texts = %q", tt.Texts())
-	}
-}
-
-func TestStartCalculateAndExport(t *testing.T) {
-	a := newTestApp(t)
-	seedBatch(t, a, false)
-	a.page = pageAssessments
-	tt := ui.NewTester(a.view, 1280, 800)
-	tt.SetLocale("en")
-	tt.Frame()
-	if err := tt.Click("Calculate"); err != nil {
-		t.Fatal(err)
-	}
-	if a.batchError != "" {
-		t.Fatal(a.batchError)
-	}
-	if a.batchBusy {
-		t.Fatal("calculate still busy")
-	}
-	if len(a.resultRows) != 2 {
-		t.Fatalf("result rows = %d", len(a.resultRows))
-	}
-	if len(a.personalScores) != 2 {
-		t.Fatalf("personal = %d", len(a.personalScores))
-	}
-	tt.Frame()
-	for _, text := range []string{"A", "B", "Chinese", "Teacher A"} {
-		if !tt.HasText(text) {
-			t.Errorf("missing %q in %q", text, tt.Texts())
-		}
-	}
-	path := filepath.Join(a.dataDir, "export.xlsx")
-	a.startExport(path)
-	if a.batchError != "" {
-		t.Fatal(a.batchError)
-	}
-	if a.batchBusy {
-		t.Fatal("export still busy")
-	}
-	if _, err := os.Stat(path); err != nil {
-		t.Fatal(err)
-	}
-	if a.batchMessage != "Exported to "+path {
-		t.Fatalf("message = %q", a.batchMessage)
-	}
-}
-
-func TestBatchWorkflowAtMinimumSize(t *testing.T) {
-	a := newTestApp(t)
-	seedBatch(t, a, false)
-	a.page = pageAssessments
+func TestAssessmentWorkflowAtMinimumSize(t *testing.T) {
+	fixture := newAssessmentPageFixture(t, false)
+	a := fixture.App
 	tt := ui.NewTester(a.view, 1024, 640)
 	tt.SetLocale("en")
 	tt.Frame()
-	for _, text := range []string{"Workflow", "Import", "Calculation", "Export", "Import workbook", "Calculate", "Export results"} {
+	for _, text := range []string{
+		"Assessments", "Data", "Calculate", "Export", "Data for this assessment", "Export results",
+	} {
 		if !tt.HasText(text) {
-			t.Errorf("missing %q in %q", text, tt.Texts())
+			t.Fatalf("missing %q in %q", text, tt.Texts())
 		}
 	}
 	for _, text := range []string{"Calculate", "Export results"} {
@@ -198,23 +60,22 @@ func TestBatchWorkflowAtMinimumSize(t *testing.T) {
 	if err := tt.Click("Calculate"); err != nil {
 		t.Fatal(err)
 	}
-	if a.batchError != "" {
-		t.Fatal(a.batchError)
+	if a.assessmentError != "" {
+		t.Fatal(a.assessmentError)
 	}
-	if len(a.resultRows) != 2 {
-		t.Fatalf("result rows = %d", len(a.resultRows))
+	if len(a.assessmentRows) != 2 {
+		t.Fatalf("result rows = %d", len(a.assessmentRows))
 	}
 }
 
-func TestStartExcludeClass(t *testing.T) {
-	a := newTestApp(t)
-	seedBatch(t, a, true)
-	a.startCalculate()
+func TestAssessmentExcludeClassFromZeroDialog(t *testing.T) {
+	fixture := newAssessmentPageFixture(t, true)
+	a := fixture.App
+	a.startAssessmentCalculate()
 	if !a.zeroOpen || len(a.zeroIssues) == 0 {
 		t.Fatalf("zero dialog = %v issues=%d", a.zeroOpen, len(a.zeroIssues))
 	}
 	a.zeroReason = "本班不参与"
-	a.page = pageAssessments
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
@@ -227,19 +88,45 @@ func TestStartExcludeClass(t *testing.T) {
 	if a.zeroOpen {
 		t.Fatal("zero dialog still open")
 	}
-	if len(a.resultRows) == 0 {
+	if len(a.assessmentRows) == 0 {
 		t.Fatal("missing results after exclusion")
 	}
 }
 
-func TestOpenNewBatchDefaults(t *testing.T) {
-	a := newTestApp(t)
-	a.openNewBatch()
-	if !a.newBatchOpen {
-		t.Fatal("dialog not open")
+func TestAssessmentOpenExamData(t *testing.T) {
+	fixture := newAssessmentPageFixture(t, false)
+	a := fixture.App
+	tt := ui.NewTester(a.view, 1280, 800)
+	tt.SetLocale("en")
+	tt.Frame()
+	if err := tt.Click("Open exam data"); err != nil {
+		t.Fatal(err)
 	}
-	if a.newBatchYear == "" || a.newBatchSemester == "" || a.newBatchExamType == "" || a.newBatchGrade == "" {
-		t.Fatalf("defaults = %q %q %q %q", a.newBatchYear, a.newBatchSemester, a.newBatchExamType, a.newBatchGrade)
+	if a.page != pageExams || a.selectedExamID != fixture.ExamID {
+		t.Fatalf("page = %q exam = %d", a.page, a.selectedExamID)
+	}
+	if a.examCohortID != fixture.CohortID {
+		t.Fatalf("cohort = %d", a.examCohortID)
+	}
+}
+
+func TestAssessmentNewExamFromEmptyState(t *testing.T) {
+	a := newTestApp(t)
+	a.page = pageAssessments
+	tt := ui.NewTester(a.view, 1024, 640)
+	tt.SetLocale("en")
+	tt.Frame()
+	if !tt.HasText("No exams yet") {
+		t.Fatalf("texts = %q", tt.Texts())
+	}
+	if err := tt.Click("New exam"); err != nil {
+		t.Fatal(err)
+	}
+	if !a.newExamOpen {
+		t.Fatal("new exam dialog not open")
+	}
+	if a.newExamYear == 0 || a.newExamDate.IsZero() {
+		t.Fatalf("defaults = %v %v", a.newExamYear, a.newExamDate)
 	}
 }
 
@@ -266,18 +153,6 @@ func TestLabelHelpers(t *testing.T) {
 	}
 	if got := decodeNames("  "); got != "" {
 		t.Errorf("decodeNames empty = %q", got)
-	}
-	if got := a.batchStatusLabel("draft"); got != "Draft" {
-		t.Errorf("batchStatusLabel = %q", got)
-	}
-	if got := a.batchStatusLabel("imported"); got != "Imported" {
-		t.Errorf("batchStatusLabel = %q", got)
-	}
-	if got := a.batchStatusLabel("calculated"); got != "Calculated" {
-		t.Errorf("batchStatusLabel = %q", got)
-	}
-	if got := a.batchStatusLabel("other"); got != "other" {
-		t.Errorf("batchStatusLabel = %q", got)
 	}
 	if got := a.semesterLabel("autumn"); got != "Autumn" {
 		t.Errorf("semesterLabel = %q", got)
@@ -336,18 +211,9 @@ func TestLabelHelpers(t *testing.T) {
 	if got := a.kindLabel("user"); got != "Derived" {
 		t.Errorf("kindLabel = %q", got)
 	}
-	if got := a.statusLabel("published"); got != "Published" {
-		t.Errorf("statusLabel = %q", got)
-	}
-	if got := a.statusLabel("retired"); got != "Retired" {
-		t.Errorf("statusLabel = %q", got)
-	}
-	if got := a.statusLabel("other"); got != "other" {
-		t.Errorf("statusLabel = %q", got)
-	}
 }
 
-func TestSelectedValuesAndMissingBatch(t *testing.T) {
+func TestSelectedValuesAndMissingAssessment(t *testing.T) {
 	ctx := context.Background()
 	a := newTestApp(t)
 	a.selectedPlanID = "not-a-number"
@@ -368,49 +234,92 @@ func TestSelectedValuesAndMissingBatch(t *testing.T) {
 	if a.selectedVersion() != nil {
 		t.Fatal("expected nil version")
 	}
-	a.selectedBatchID = ""
-	if _, err := a.selectedBatchValue(); err == nil {
-		t.Fatal("expected missing batch error")
+	a.selectedAssessmentID = 999
+	if a.selectedAssessmentOverview() != nil {
+		t.Fatal("expected nil assessment")
 	}
 	if got := a.labelForVersionID(999); got != "" {
 		t.Fatalf("label = %q", got)
 	}
 }
 
-func TestImportFailureKeepsError(t *testing.T) {
-	a := newTestApp(t)
-	seedBatch(t, a, false)
-	a.startImport(filepath.Join(a.dataDir, "missing.xlsx"))
-	if a.batchError == "" {
-		t.Fatal("expected import error")
-	}
-	if a.batchBusy {
-		t.Fatal("import still busy")
-	}
-}
-
-func TestCalculateWithoutVersion(t *testing.T) {
-	a := newTestApp(t)
-	seedBatch(t, a, false)
+func TestAssessmentCalculateWithoutVersion(t *testing.T) {
+	fixture := newAssessmentPageFixture(t, false)
+	a := fixture.App
 	a.calculateVersion = "missing"
-	a.startCalculate()
-	if a.batchError == "" {
+	a.startAssessmentCalculate()
+	if a.assessmentError == "" {
 		t.Fatal("expected version error")
 	}
 }
 
-func TestFinishExportError(t *testing.T) {
-	a := newTestApp(t)
-	a.finishExport("out.xlsx", os.ErrPermission)
-	if a.batchError == "" {
+func TestAssessmentExportError(t *testing.T) {
+	fixture := newAssessmentPageFixture(t, false)
+	a := fixture.App
+	a.finishAssessmentExport("out.xlsx", os.ErrPermission)
+	if a.assessmentError == "" {
 		t.Fatal("expected export error")
 	}
 }
 
-func TestFinishImportError(t *testing.T) {
+func TestAssessmentSelectionAndOverview(t *testing.T) {
+	fixture := newAssessmentPageFixture(t, false)
+	a := fixture.App
+	if len(a.assessments) != 1 {
+		t.Fatalf("assessments = %d", len(a.assessments))
+	}
+	item := a.assessments[0]
+	if item.AssessmentID != fixture.AssessmentID {
+		t.Fatalf("assessment = %d", item.AssessmentID)
+	}
+	if got := a.assessmentOverviewLabel(item); got != "Midterm · 2026级" {
+		t.Fatalf("label = %q", got)
+	}
+	a.selectedAssessmentID = 0
+	a.reloadAssessments(context.Background())
+	if a.selectedAssessmentID != fixture.AssessmentID {
+		t.Fatalf("selected = %d", a.selectedAssessmentID)
+	}
+	if a.assessmentContext.Exam.ID != fixture.ExamID {
+		t.Fatalf("context exam = %d", a.assessmentContext.Exam.ID)
+	}
+}
+
+func TestAssessmentDetailWithoutSelection(t *testing.T) {
 	a := newTestApp(t)
-	a.finishImport(store.ImportSummary{}, os.ErrInvalid)
-	if a.batchError == "" {
-		t.Fatal("expected import error")
+	a.page = pageAssessments
+	tt := ui.NewTester(a.view, 1280, 800)
+	tt.SetLocale("en")
+	tt.Frame()
+	if !tt.HasText("No exams yet") {
+		t.Fatalf("texts = %q", tt.Texts())
+	}
+	a.assessments = []store.AssessmentOverview{{AssessmentID: 1}}
+	a.selectedAssessmentID = 0
+	tt.Frame()
+	if !tt.HasText("Select an exam to see what is ready.") {
+		t.Fatalf("texts = %q", tt.Texts())
+	}
+}
+
+func TestAssessmentOverviewSortsRecentFirst(t *testing.T) {
+	fixture := newAssessmentPageFixture(t, false)
+	a := fixture.App
+	ctx := context.Background()
+	cohort := a.selectedCohort()
+	exam, err := a.store.CreateExam(ctx, store.CreateExamInput{
+		AcademicYearStart: 2026, Term: store.ExamTermSecond, ExamType: store.ExamFinal,
+		Name: "期末考试", ExamDate: "2027-01-12", CohortIDs: []int64{cohort.ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.reloadExams(ctx)
+	a.reloadAssessments(ctx)
+	if len(a.assessments) != 2 {
+		t.Fatalf("assessments = %d", len(a.assessments))
+	}
+	if a.assessments[0].ExamID != exam.ID {
+		t.Fatalf("first exam = %d", a.assessments[0].ExamID)
 	}
 }

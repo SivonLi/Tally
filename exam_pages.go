@@ -7,6 +7,8 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/chart"
+	"github.com/lobehub/lobe-mygo/pkg/feedback"
+	"github.com/lobehub/lobe-mygo/pkg/field"
 
 	"tally/internal/importer"
 	"tally/internal/store"
@@ -61,7 +63,7 @@ func (a *app) examsPage(c *ui.Context, p uiPalette) {
 								FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum")
 						})
 						ui.Column(c).Gap(0).AlignItems(ui.End).Children(func() {
-							ui.Textf(c, locales.ExamCohortCount(), len(exam.Cohorts)).
+							ui.Textf(c, locales.ExamCohortCount(), formatInt(len(exam.Cohorts))).
 								FontSize(bodySize(t)).FontFeatures("tnum")
 							statusBadge(c, p, exam.Status, a.examStatusName(exam.Status))
 						})
@@ -85,7 +87,7 @@ func (a *app) examDetailPage(c *ui.Context, p uiPalette) {
 	}
 	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
-			if ui.Button(c, "").Label(locales.Back()).Children(func() {
+			if textButton(c, locales.Back()).Children(func() {
 				ui.Icon(c, iconArrowLeft).FontSize(t.Space(4))
 				ui.Text(c, locales.Back()).FontSize(bodySize(t))
 			}).Clicked() {
@@ -126,7 +128,7 @@ func (a *app) examDetailPage(c *ui.Context, p uiPalette) {
 				}
 			}
 			next := chosen
-			ui.Select(c, &next, labels).Label(locales.ExamCohortSelect()).Width(t.Space(72))
+			selectField(c, &next, labels, locales.ExamCohortSelect()).Width(t.Space(72))
 			if next != chosen {
 				for index, label := range labels {
 					if label == next {
@@ -144,10 +146,10 @@ func (a *app) examDetailPage(c *ui.Context, p uiPalette) {
 			notice(c, p, noticeSuccess, a.examMessage)
 		}
 		a.examSummary(c, p)
-		ui.Segmented(c, &a.examTab,
-			locales.ExamTabRoster(), locales.ExamTabScores(), locales.ExamTabCutoffs(),
-			locales.ExamTabTargets(), locales.ExamTabGroups(), locales.ExamTabQuality()).
-			Label(locales.ExamViewLabel())
+		segmentedField(c, &a.examTab,
+			[]string{locales.ExamTabRoster(), locales.ExamTabScores(), locales.ExamTabCutoffs(),
+				locales.ExamTabTargets(), locales.ExamTabGroups(), locales.ExamTabQuality()},
+			locales.ExamViewLabel())
 		switch a.examTab {
 		case 1:
 			a.examScoresTab(c, p)
@@ -169,17 +171,21 @@ func (a *app) examDetailPage(c *ui.Context, p uiPalette) {
 
 func (a *app) examSummary(c *ui.Context, p uiPalette) {
 	t := p.theme
-	panel(c, p).FillWidth().Padding(t.Space(3)).Gap(t.Space(2)).Children(func() {
-		ui.Row(c).Wrap().Gap(t.Space(6)).Children(func() {
-			metric(c, p, fmtInt(a.examCohort.RosterCount), locales.ExamTabRoster())
-			metric(c, p, fmtInt(a.examCohort.ScoreCount), locales.ExamTabScores())
-			metric(c, p, fmtInt(len(a.examSubjectCutoffs)+len(a.examTierCutoffs)), locales.ExamTabCutoffs())
-			metric(c, p, fmtInt(a.examCohort.ClassTargetCount), locales.ExamTabTargets())
-			metric(c, p, fmtInt(len(a.examStatGroups)), locales.ExamTabGroups())
-			blocking, warnings := examIssueCounts(a.examQuality)
-			metric(c, p, fmtInt(blocking), locales.ExamQualityBlocking())
-			metric(c, p, fmtInt(warnings), locales.ExamQualityWarnings())
-		})
+	blocking, warnings := examIssueCounts(a.examQuality)
+	ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(t.Space(5)).Children(func() {
+		metricInline(c, p, uint64(a.examCohort.RosterCount), locales.ExamTabRoster())
+		metricInline(c, p, uint64(a.examCohort.ScoreCount), locales.ExamTabScores())
+		metricInline(c, p, uint64(len(a.examSubjectCutoffs)+len(a.examTierCutoffs)), locales.ExamTabCutoffs())
+		metricInline(c, p, uint64(a.examCohort.ClassTargetCount), locales.ExamTabTargets())
+		metricInline(c, p, uint64(len(a.examStatGroups)), locales.ExamTabGroups())
+		if blocking > 0 {
+			ui.Text(c, fmt.Sprintf("%s %s", formatInt(blocking), locales.ExamQualityBlocking())).
+				FontSize(captionSize(t)).TextColor(p.danger)
+		}
+		if warnings > 0 {
+			ui.Text(c, fmt.Sprintf("%s %s", formatInt(warnings), locales.ExamQualityWarnings())).
+				FontSize(captionSize(t)).TextColor(p.warning)
+		}
 	})
 }
 
@@ -202,7 +208,9 @@ func (a *app) examRosterTab(c *ui.Context, p uiPalette) {
 		ui.Row(c).AlignItems(ui.End).Wrap().Gap(t.Space(2)).Children(func() {
 			ui.Column(c).Width(t.Space(56)).Children(func() {
 				next := a.examRosterQuery
-				ui.SearchField(c, &next).Label(locales.ExamSearchRoster())
+				field.SearchBar(c, &next, field.SearchBarProps{
+					Placeholder: locales.ExamSearchRoster(),
+				}).Label(locales.ExamSearchRoster())
 				if next != a.examRosterQuery {
 					a.examRosterQuery = next
 					a.reloadExamData(context.Background())
@@ -227,7 +235,7 @@ func (a *app) examRosterTab(c *ui.Context, p uiPalette) {
 				chosenTrack = trackLabels[0]
 			}
 			nextTrack := chosenTrack
-			ui.Select(c, &nextTrack, trackLabels).Label(locales.ExamDefaultTrack()).Width(t.Space(24))
+			selectField(c, &nextTrack, trackLabels, locales.ExamDefaultTrack()).Width(t.Space(24))
 			if nextTrack != chosenTrack {
 				for index, label := range trackLabels {
 					if label == nextTrack {
@@ -248,7 +256,7 @@ func (a *app) examRosterTab(c *ui.Context, p uiPalette) {
 			emptyState(c, p, iconStudents, locales.ExamRosterEmpty(), locales.ExamRosterEmptyHint(), nil)
 			return
 		}
-		ui.Textf(c, locales.DataRecordCount(), a.examRosterTotal).FontSize(captionSize(t)).
+		ui.Textf(c, locales.DataRecordCount(), formatInt(a.examRosterTotal)).FontSize(captionSize(t)).
 			TextColor(p.muted).FontFeatures("tnum")
 		columns := []ui.TableColumn{
 			{Title: locales.ColumnStudentNo(), Width: t.Space(18)},
@@ -284,7 +292,9 @@ func (a *app) examScoresTab(c *ui.Context, p uiPalette) {
 		ui.Row(c).AlignItems(ui.End).Wrap().Gap(t.Space(2)).Children(func() {
 			ui.Column(c).Width(t.Space(52)).Children(func() {
 				next := a.examScoreQuery
-				ui.SearchField(c, &next).Label(locales.ExamSearchScores())
+				field.SearchBar(c, &next, field.SearchBarProps{
+					Placeholder: locales.ExamSearchScores(),
+				}).Label(locales.ExamSearchScores())
 				if next != a.examScoreQuery {
 					a.examScoreQuery = next
 					a.reloadExamData(context.Background())
@@ -298,7 +308,7 @@ func (a *app) examScoresTab(c *ui.Context, p uiPalette) {
 				}
 			}
 			nextSubject := chosenSubject
-			ui.Select(c, &nextSubject, subjectLabels).Label(locales.DataFilterSubject()).Width(t.Space(24))
+			selectField(c, &nextSubject, subjectLabels, locales.DataFilterSubject()).Width(t.Space(24))
 			if nextSubject != chosenSubject {
 				for index, label := range subjectLabels {
 					if label == nextSubject {
@@ -316,7 +326,7 @@ func (a *app) examScoresTab(c *ui.Context, p uiPalette) {
 				}
 			}
 			nextClass := chosenClass
-			ui.Select(c, &nextClass, classLabels).Label(locales.DataFilterClass()).Width(t.Space(24))
+			selectField(c, &nextClass, classLabels, locales.DataFilterClass()).Width(t.Space(24))
 			if nextClass != chosenClass {
 				for index, label := range classLabels {
 					if label == nextClass {
@@ -332,16 +342,16 @@ func (a *app) examScoresTab(c *ui.Context, p uiPalette) {
 			}
 		})
 		if len(a.examScoreSummaries) > 0 {
-			ui.Row(c).Wrap().Gap(t.Space(4)).Children(func() {
+			ui.Row(c).Wrap().Gap(t.Space(5)).Children(func() {
 				for _, summary := range a.examScoreSummaries {
-					panel(c, p).Padding(t.Space(2)).Width(t.Space(34)).Gap(0).Children(func() {
+					ui.Column(c).Width(t.Space(30)).Gap(0).Children(func() {
 						ui.Row(c).AlignItems(ui.Center).Children(func() {
 							ui.Text(c, a.subjectName(summary.Subject, summary.Subject)).
-								FontSize(bodySize(t)).Bold().Grow(1)
+								FontSize(captionSize(t)).TextColor(p.muted).Grow(1)
 							ui.Textf(c, locales.ExamAverage(), summary.Average).FontSize(captionSize(t)).
-								TextColor(p.muted).FontFeatures("tnum")
+								TextColor(p.inkSecondary).FontFeatures("tnum")
 						})
-						ui.Textf(c, locales.ExamScoreMeta(), summary.Count, summary.Missing).
+						ui.Textf(c, locales.ExamScoreMeta(), formatInt(summary.Count), formatInt(summary.Missing)).
 							FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum")
 					})
 				}
@@ -352,7 +362,7 @@ func (a *app) examScoresTab(c *ui.Context, p uiPalette) {
 			emptyState(c, p, iconExams, locales.ExamScoresEmpty(), locales.ExamScoresEmptyHint(), nil)
 			return
 		}
-		ui.Textf(c, locales.DataRecordCount(), a.examScoresTotal).FontSize(captionSize(t)).
+		ui.Textf(c, locales.DataRecordCount(), formatInt(a.examScoresTotal)).FontSize(captionSize(t)).
 			TextColor(p.muted).FontFeatures("tnum")
 		columns := []ui.TableColumn{
 			{Title: locales.ColumnStudentNo(), Width: t.Space(18)},
@@ -427,9 +437,9 @@ func (a *app) examScoreStatistics(c *ui.Context, p uiPalette) {
 	if len(bands) == 0 {
 		return
 	}
-	panel(c, p).FillWidth().Padding(t.Space(3)).Gap(t.Space(2)).Children(func() {
+	sectionRule(c, p, func() {
 		ui.Textf(c, locales.ExamScoreDistribution(), a.subjectName(subject, subject)).
-			FontSize(bodySize(t)).Bold()
+			FontSize(bodySize(t)).FontWeight(600)
 		labels := make([]string, 0, len(bands))
 		values := make([]float64, 0, len(bands))
 		for _, band := range bands {
@@ -447,16 +457,17 @@ func (a *app) examScoreStatistics(c *ui.Context, p uiPalette) {
 				for index, band := range bands {
 					bar := chart.Rect(c, x.Band(index), y.Span(0, float64(band.Count))).
 						Background(p.accent).Radius(t.Space(0.5))
-					bar.Label(labels[index] + " " + fmtInt(band.Count))
-					bar.Tooltip(labels[index] + ": " + fmtInt(band.Count))
+					bar.Label(labels[index] + " " + formatInt(band.Count))
+					bar.Tooltip(labels[index] + ": " + formatInt(band.Count))
 				}
 			}).Label(locales.ExamScoreDistribution()).Height(t.Space(48)).Gap(t.Space(2))
 		if len(averages) > 0 {
-			ui.Divider(c)
-			ui.Text(c, locales.ExamClassComparison()).FontSize(bodySize(t)).Bold()
+			rule(c)
+			ui.Text(c, locales.ExamClassComparison()).FontSize(bodySize(t)).FontWeight(600)
 			ui.Row(c).Wrap().Gap(t.Space(4)).Children(func() {
 				for _, average := range averages {
-					ui.Textf(c, "%s · %.1f (%d)", average.ClassName, average.Average, average.Count).
+					ui.Textf(c, locales.ExamClassAverageLine(), average.ClassName,
+						formatDecimal(average.Average, 1), formatInt(average.Count)).
 						FontSize(captionSize(t)).TextColor(p.inkSecondary).FontFeatures("tnum")
 				}
 			})
@@ -494,12 +505,15 @@ func (a *app) examCutoffsTab(c *ui.Context, p uiPalette) {
 				if len(a.examSubjectCutoffs) == 0 {
 					smallEmptyState(c, p, locales.ExamCutoffsEmpty())
 				} else {
+					rule(c)
 					for _, cutoff := range a.examSubjectCutoffs {
 						ui.Row(c).FillWidth().Gap(t.Space(2)).Padding(t.Space(1.5), 0).Children(func() {
-							ui.Text(c, a.subjectName(cutoff.Subject, cutoff.Subject)).Width(t.Space(24))
-							ui.Text(c, a.trackName(cutoff.Track, cutoff.Track)).Width(t.Space(18)).
+							ui.Text(c, a.subjectName(cutoff.Subject, cutoff.Subject)).Width(t.Space(24)).
+								SingleLine()
+							ui.Text(c, a.trackName(cutoff.Track, cutoff.Track)).Grow(1).SingleLine().
 								TextColor(p.muted)
-							ui.Textf(c, "%.1f", cutoff.Cutoff).FontFeatures("tnum")
+							ui.Text(c, formatDecimal(cutoff.Cutoff, 1)).FontFeatures("tnum").
+								Width(t.Space(14)).TextAlign(ui.End)
 						})
 					}
 				}
@@ -507,12 +521,14 @@ func (a *app) examCutoffsTab(c *ui.Context, p uiPalette) {
 				if len(a.examTierCutoffs) == 0 {
 					smallEmptyState(c, p, locales.ExamCutoffsEmpty())
 				} else {
+					rule(c)
 					for _, cutoff := range a.examTierCutoffs {
 						ui.Row(c).FillWidth().Gap(t.Space(2)).Padding(t.Space(1.5), 0).Children(func() {
-							ui.Text(c, a.tierName(cutoff.TierKey)).Width(t.Space(24))
-							ui.Text(c, a.trackName(cutoff.Track, cutoff.Track)).Width(t.Space(18)).
+							ui.Text(c, a.tierName(cutoff.TierKey)).Width(t.Space(24)).SingleLine()
+							ui.Text(c, a.trackName(cutoff.Track, cutoff.Track)).Grow(1).SingleLine().
 								TextColor(p.muted)
-							ui.Textf(c, "%.1f", cutoff.Cutoff).FontFeatures("tnum")
+							ui.Text(c, formatDecimal(cutoff.Cutoff, 1)).FontFeatures("tnum").
+								Width(t.Space(14)).TextAlign(ui.End)
 						})
 					}
 				}
@@ -520,14 +536,19 @@ func (a *app) examCutoffsTab(c *ui.Context, p uiPalette) {
 				if len(a.examCutoffImpacts) == 0 {
 					smallEmptyState(c, p, locales.ExamCutoffsEmpty())
 				} else {
+					rule(c)
 					for _, impact := range a.examCutoffImpacts {
 						ui.Row(c).FillWidth().Gap(t.Space(2)).Padding(t.Space(1.5), 0).Children(func() {
-							ui.Text(c, a.subjectName(impact.Subject, impact.Subject)).Width(t.Space(24))
-							ui.Text(c, a.trackName(impact.Track, impact.Track)).Width(t.Space(18)).
+							ui.Text(c, a.subjectName(impact.Subject, impact.Subject)).Width(t.Space(24)).
+								SingleLine()
+							ui.Text(c, a.trackName(impact.Track, impact.Track)).Grow(1).SingleLine().
 								TextColor(p.muted)
-							ui.Textf(c, locales.ExamCutoffImpactValue(), impact.Cutoff,
-								impact.Reached, impact.Rostered, impact.ReachedRatio*100).
-								FontFeatures("tnum").TextColor(p.inkSecondary).Grow(1)
+							ui.Text(c, formatDecimal(impact.Cutoff, 1)).FontFeatures("tnum").
+								Width(t.Space(14)).TextAlign(ui.End)
+							ui.Textf(c, locales.ExamCutoffImpactRate(), formatInt(impact.Reached),
+								formatInt(impact.Rostered), formatPercent(impact.ReachedRatio)).
+								FontFeatures("tnum").TextColor(p.inkSecondary).
+								Width(t.Space(34)).TextAlign(ui.End)
 						})
 					}
 				}
@@ -569,7 +590,7 @@ func (a *app) examTargetsTab(c *ui.Context, p uiPalette) {
 				empty := 0.0
 				value = &empty
 			}
-			ui.NumberInput(c, value, 0, 10000, 1).Label(class.Name + " " + a.tierName(tier))
+			numberField(c, value, 0, 10000, 1, class.Name+" "+a.tierName(tier))
 		}).Label(locales.ExamTabTargets()).Grow(1).FillWidth()
 	})
 }
@@ -588,15 +609,18 @@ func (a *app) examStatGroupsTab(c *ui.Context, p uiPalette) {
 			return
 		}
 		ui.Scroll(c).Grow(1).Children(func() {
-			ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
+			ui.Column(c).FillWidth().Gap(0).Children(func() {
 				for _, group := range a.examStatGroups {
 					group := group
-					panel(c, p).FillWidth().Padding(t.Space(3)).Gap(t.Space(1)).Children(func() {
+					rule(c)
+					ui.Column(c).FillWidth().Padding(t.Space(3), 0).Gap(t.Space(1.5)).Children(func() {
 						ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-							ui.Text(c, group.Name).FontSize(bodySize(t)).Bold().Grow(1)
-							badge(c, p, a.subjectName(group.Subject, group.Subject), toneAccent)
+							ui.Text(c, group.Name).FontSize(bodySize(t)).FontWeight(600).Grow(1)
+							ui.Text(c, a.subjectName(group.Subject, group.Subject)).
+								FontSize(captionSize(t)).TextColor(p.muted)
 							if group.Target == nil || *group.Target == 0 {
-								badge(c, p, locales.ExamTargetMissing(), toneWarning)
+								ui.Text(c, locales.ExamTargetMissing()).FontSize(captionSize(t)).
+									TextColor(p.warning)
 							}
 						})
 						ui.Textf(c, locales.ExamStatGroupMeta(), group.LeadClassName,
@@ -612,10 +636,10 @@ func (a *app) examStatGroupsTab(c *ui.Context, p uiPalette) {
 						ui.Text(c, strings.Join(members, locales.ListSeparator())).
 							FontSize(bodySize(t)).TextColor(p.inkSecondary).Pretty()
 						ui.Row(c).Gap(t.Space(2)).Children(func() {
-							if ui.Button(c, locales.Edit()).Clicked() {
+							if plainButton(c, locales.Edit()).Clicked() {
 								a.openStatGroupEditor(&group)
 							}
-							if ui.Button(c, locales.Delete()).Clicked() {
+							if plainButton(c, locales.Delete()).Clicked() {
 								a.statGroupDeleteOpen = true
 								a.statGroupDeleteID = group.ID
 								a.statGroupDeleteName = group.Name
@@ -651,7 +675,7 @@ func (a *app) examQualityTab(c *ui.Context, p uiPalette) {
 			badge(c, p, fmt.Sprintf(locales.ExamQualityBlockingCount(), blocking), toneDanger)
 			badge(c, p, fmt.Sprintf(locales.ExamQualityWarningCount(), warnings), toneWarning)
 			ui.Spacer(c)
-			if ui.Button(c, locales.ExamRevalidate()).Clicked() {
+			if plainButton(c, locales.ExamRevalidate()).Clicked() {
 				a.reloadExamData(context.Background())
 			}
 		})
@@ -721,7 +745,7 @@ func (a *app) examPrepPage(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
-			if ui.Button(c, "").Label(locales.Back()).Children(func() {
+			if textButton(c, locales.Back()).Children(func() {
 				ui.Icon(c, iconArrowLeft).FontSize(t.Space(4))
 				ui.Text(c, locales.Back()).FontSize(bodySize(t))
 			}).Clicked() {
@@ -742,7 +766,7 @@ func (a *app) examPrepPage(c *ui.Context, p uiPalette) {
 			return
 		}
 		ui.Scroll(c).Fill().Children(func() {
-			ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
+			ui.Column(c).FillWidth().Gap(0).Children(func() {
 				steps := []struct {
 					Kind  string
 					Title string
@@ -754,31 +778,27 @@ func (a *app) examPrepPage(c *ui.Context, p uiPalette) {
 					{importer.KindCutoffs, locales.ExamTabCutoffs(), locales.ExamKindCutoffsPurpose(), a.examPrep.Cutoffs},
 					{importer.KindTargets, locales.ExamTabTargets(), locales.ExamKindTargetsPurpose(), a.examPrep.Targets},
 				}
-				for index, step := range steps {
+				for _, step := range steps {
 					step := step
-					panel(c, p).FillWidth().Padding(t.Space(3)).Gap(t.Space(1)).Children(func() {
-						ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
-							if step.Count > 0 {
-								badge(c, p, fmtInt(index+1), toneSuccess)
-							} else {
-								badge(c, p, fmtInt(index+1), toneNeutral)
-							}
-							ui.Column(c).Grow(1).Gap(0).Children(func() {
-								ui.Text(c, step.Title).FontSize(bodySize(t)).Bold()
-								ui.Text(c, step.Body).FontSize(captionSize(t)).TextColor(p.muted).Pretty()
-							})
-							if step.Count > 0 {
-								badge(c, p, locales.ReadinessReady(), toneSuccess)
-								if ui.Button(c, locales.View()).Clicked() {
-									a.examTab = examKindTab(step.Kind)
-									a.examPrepOpen = false
-								}
-								return
-							}
-							if labelledButton(c, locales.PrepImport(), iconImports, false).Clicked() {
-								a.openExamImportWizard(step.Kind, a.exam.ID, a.examCohort.CohortID)
-							}
+					rule(c)
+					ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).
+						Padding(t.Space(3.5), 0).Children(func() {
+						ui.Column(c).Grow(1).MinWidth(0).Gap(t.Space(0.5)).Children(func() {
+							ui.Text(c, step.Title).FontSize(bodySize(t)).FontWeight(600)
+							ui.Text(c, step.Body).FontSize(captionSize(t)).TextColor(p.muted).Pretty()
 						})
+						if step.Count > 0 {
+							ui.Textf(c, locales.DataRecordCount(), formatInt(step.Count)).FontSize(captionSize(t)).
+								TextColor(p.muted).FontFeatures("tnum")
+							if plainButton(c, locales.View()).Clicked() {
+								a.examTab = examKindTab(step.Kind)
+								a.examPrepOpen = false
+							}
+							return
+						}
+						if labelledButton(c, locales.PrepImport(), iconImports, false).Clicked() {
+							a.openExamImportWizard(step.Kind, a.exam.ID, a.examCohort.CohortID)
+						}
 					})
 				}
 			})
@@ -807,59 +827,69 @@ func (a *app) newExamModal(c *ui.Context, p uiPalette) {
 		return
 	}
 	t := p.theme
-	ui.Modal(c, &a.newExamOpen, func() {
+	open := true
+	if feedback.Modal(c, &open, feedback.ModalProps{
+		Title:      locales.ExamNewTitle(),
+		OkText:     locales.ExamCreate(),
+		CancelText: locales.PlanCancel(),
+		Width:      t.Space(120),
+	}, func() {
 		ui.Column(c).Width(t.Space(120)).Gap(t.Space(4)).Children(func() {
-			ui.Column(c).Gap(t.Space(1)).Children(func() {
-				ui.Text(c, locales.ExamNewTitle()).FontSize(sectionSize(t)).Bold().
-					Role(ui.RoleHeading).Level(2)
-				ui.Text(c, locales.ExamNewSubtitle()).FontSize(bodySize(t)).TextColor(p.muted).Pretty()
-			})
-			ui.Form(c, func() {
-				ui.Field(c, locales.SettingsAcademicYear(), func() {
-					ui.NumberInput(c, &a.newExamYear, 1990, 3000, 1).Label(locales.SettingsAcademicYear())
-				})
-				ui.Field(c, locales.ExamTerm(), func() {
-					labels := []string{locales.ExamTermFirst(), locales.ExamTermSecond()}
-					chosen := 0
-					if a.newExamTerm >= 0 && a.newExamTerm < len(labels) {
-						chosen = a.newExamTerm
-					}
-					next := labels[chosen]
-					ui.Select(c, &next, labels).Label(locales.ExamTerm())
-					if next != labels[chosen] {
-						for index, label := range labels {
-							if label == next {
-								a.newExamTerm = index
-								break
+			ui.Text(c, locales.ExamNewSubtitle()).FontSize(bodySize(t)).TextColor(p.muted).Pretty()
+			a.dialogForm(c, func() {
+				ui.Grid(c).FillWidth().ColumnTracks(ui.Fr(1), ui.Fr(1)).Gap(t.Space(4)).Children(func() {
+					ui.Column(c).Gap(t.Space(2)).Children(func() {
+						a.dialogField(c, "exam-year", locales.SettingsAcademicYear(), "", func() {
+							numberField(c, &a.newExamYear, 1990, 3000, 1, locales.SettingsAcademicYear())
+						})
+						a.dialogField(c, "exam-term", locales.ExamTerm(), "", func() {
+							labels := []string{locales.ExamTermFirst(), locales.ExamTermSecond()}
+							chosen := 0
+							if a.newExamTerm >= 0 && a.newExamTerm < len(labels) {
+								chosen = a.newExamTerm
 							}
-						}
-					}
-				})
-				ui.Field(c, locales.ExamType(), func() {
-					labels := []string{
-						locales.ExamTypeMidterm(), locales.ExamTypeFinal(), locales.ExamTypeGaokao(),
-					}
-					chosen := 0
-					if a.newExamType >= 0 && a.newExamType < len(labels) {
-						chosen = a.newExamType
-					}
-					next := labels[chosen]
-					ui.Select(c, &next, labels).Label(locales.ExamType())
-					if next != labels[chosen] {
-						for index, label := range labels {
-							if label == next {
-								a.newExamType = index
-								break
+							next := labels[chosen]
+							selectField(c, &next, labels, locales.ExamTerm())
+							if next != labels[chosen] {
+								for index, label := range labels {
+									if label == next {
+										a.newExamTerm = index
+										break
+									}
+								}
 							}
-						}
-					}
+						})
+						a.dialogField(c, "exam-type", locales.ExamType(), "", func() {
+							labels := []string{
+								locales.ExamTypeMidterm(), locales.ExamTypeFinal(), locales.ExamTypeGaokao(),
+							}
+							chosen := 0
+							if a.newExamType >= 0 && a.newExamType < len(labels) {
+								chosen = a.newExamType
+							}
+							next := labels[chosen]
+							selectField(c, &next, labels, locales.ExamType())
+							if next != labels[chosen] {
+								for index, label := range labels {
+									if label == next {
+										a.newExamType = index
+										break
+									}
+								}
+							}
+						})
+					})
+					ui.Column(c).Gap(t.Space(2)).Children(func() {
+						a.dialogField(c, "exam-name", locales.ExamName(), "", func() {
+							textField(c, &a.newExamName, locales.ExamName(), "")
+						})
+						a.dialogField(c, "exam-date", locales.ExamDate(), locales.ExamDateHint(), func() {
+							field.DatePicker(c, &a.newExamDate, field.DatePickerProps{
+								Format: "2006-01-02",
+							}).Label(locales.ExamDate())
+						})
+					})
 				})
-				ui.Field(c, locales.ExamName(), func() {
-					ui.TextInput(c, &a.newExamName).Label(locales.ExamName())
-				})
-				ui.Field(c, locales.ExamDate(), func() {
-					ui.DateInput(c, &a.newExamDate).Label(locales.ExamDate())
-				}).Description(locales.ExamDateHint())
 			})
 			ui.Column(c).Gap(t.Space(1)).Children(func() {
 				ui.Text(c, locales.ExamCohorts()).FontSize(captionSize(t)).TextColor(p.muted)
@@ -869,7 +899,7 @@ func (a *app) newExamModal(c *ui.Context, p uiPalette) {
 						a.newExamCohorts = map[int64]bool{}
 					}
 					checked := a.newExamCohorts[cohort.ID]
-					ui.Checkbox(c, &checked, a.cohortName(cohort.EnrollmentYear)+" · "+
+					checkboxField(c, &checked, a.cohortName(cohort.EnrollmentYear)+" · "+
 						a.classOfName(cohort.GraduationYear))
 					a.newExamCohorts[cohort.ID] = checked
 					if !checked {
@@ -890,8 +920,8 @@ func (a *app) newExamModal(c *ui.Context, p uiPalette) {
 								value = subject.FullMark
 							}
 							ui.Column(c).Width(t.Space(20)).Gap(0).Children(func() {
-								ui.NumberInput(c, &value, 0.1, 10000, 1).
-									Label(a.subjectName(subject.Key, subject.Name))
+								numberField(c, &value, 0.1, 10000, 1,
+									a.subjectName(subject.Key, subject.Name))
 								ui.Text(c, a.subjectName(subject.Key, subject.Name)).
 									FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
 							})
@@ -903,17 +933,15 @@ func (a *app) newExamModal(c *ui.Context, p uiPalette) {
 			if a.examError != "" {
 				notice(c, p, noticeDanger, a.examError)
 			}
-			ui.Row(c).Justify(ui.End).Gap(t.Space(2)).Children(func() {
-				if ui.Button(c, locales.PlanCancel()).Clicked() {
-					a.newExamOpen = false
-					a.examError = ""
-				}
-				if ui.PrimaryButton(c, locales.ExamCreate()).Clicked() {
-					a.createExam()
-				}
-			})
 		})
-	})
+	}) {
+		a.createExam()
+		return
+	}
+	if !open {
+		a.newExamOpen = false
+		a.examError = ""
+	}
 }
 
 func (a *app) statGroupModal(c *ui.Context, p uiPalette) {
@@ -921,62 +949,71 @@ func (a *app) statGroupModal(c *ui.Context, p uiPalette) {
 		return
 	}
 	t := p.theme
-	ui.Modal(c, &a.statGroupOpen, func() {
+	open := true
+	if feedback.Modal(c, &open, feedback.ModalProps{
+		Title:      locales.ExamStatGroupTitle(),
+		OkText:     locales.Save(),
+		CancelText: locales.PlanCancel(),
+		Width:      t.Space(124),
+	}, func() {
 		ui.Column(c).Width(t.Space(124)).Gap(t.Space(3)).Children(func() {
-			ui.Text(c, locales.ExamStatGroupTitle()).FontSize(sectionSize(t)).Bold().
-				Role(ui.RoleHeading).Level(2)
-			ui.Form(c, func() {
-				ui.Field(c, locales.ExamStatGroupSubject(), func() {
-					labels := make([]string, 0)
-					codes := make([]string, 0)
-					chosen := ""
-					for _, subject := range a.subjects {
-						if !subject.Enabled || subject.Key == "japanese" {
-							continue
-						}
-						if subject.Key == a.statGroupSubject {
-							chosen = a.subjectName(subject.Key, subject.Name)
-						}
-						labels = append(labels, a.subjectName(subject.Key, subject.Name))
-						codes = append(codes, subject.Key)
-					}
-					next := chosen
-					ui.Select(c, &next, labels).Label(locales.ExamStatGroupSubject())
-					if next != chosen {
-						for index, label := range labels {
-							if label == next {
-								a.statGroupSubject = codes[index]
-								break
+			a.dialogForm(c, func() {
+				ui.Grid(c).FillWidth().ColumnTracks(ui.Fr(1), ui.Fr(1)).Gap(t.Space(4)).Children(func() {
+					ui.Column(c).Gap(t.Space(2)).Children(func() {
+						a.dialogField(c, "stat-group-subject", locales.ExamStatGroupSubject(), "", func() {
+							labels := make([]string, 0)
+							codes := make([]string, 0)
+							chosen := ""
+							for _, subject := range a.subjects {
+								if !subject.Enabled || subject.Key == "japanese" {
+									continue
+								}
+								if subject.Key == a.statGroupSubject {
+									chosen = a.subjectName(subject.Key, subject.Name)
+								}
+								labels = append(labels, a.subjectName(subject.Key, subject.Name))
+								codes = append(codes, subject.Key)
 							}
-						}
-					}
-				})
-				ui.Field(c, locales.ExamStatGroupName(), func() {
-					ui.TextInput(c, &a.statGroupName).Label(locales.ExamStatGroupName())
-				})
-				ui.Field(c, locales.ExamStatGroupLead(), func() {
-					labels := make([]string, 0, len(a.examClasses))
-					chosen := ""
-					for _, class := range a.examClasses {
-						if class.ID == a.statGroupLeadClass {
-							chosen = class.Name
-						}
-						labels = append(labels, class.Name)
-					}
-					next := chosen
-					ui.Select(c, &next, labels).Label(locales.ExamStatGroupLead())
-					if next != chosen {
-						for _, class := range a.examClasses {
-							if class.Name == next {
-								a.statGroupLeadClass = class.ID
-								break
+							next := chosen
+							selectField(c, &next, labels, locales.ExamStatGroupSubject())
+							if next != chosen {
+								for index, label := range labels {
+									if label == next {
+										a.statGroupSubject = codes[index]
+										break
+									}
+								}
 							}
-						}
-					}
-				})
-				ui.Field(c, locales.ExamStatGroupTarget(), func() {
-					ui.NumberInput(c, &a.statGroupTarget, 0, 10000, 1).
-						Label(locales.ExamStatGroupTarget())
+						})
+						a.dialogField(c, "stat-group-name", locales.ExamStatGroupName(), "", func() {
+							textField(c, &a.statGroupName, locales.ExamStatGroupName(), "")
+						})
+					})
+					ui.Column(c).Gap(t.Space(2)).Children(func() {
+						a.dialogField(c, "stat-group-lead", locales.ExamStatGroupLead(), "", func() {
+							labels := make([]string, 0, len(a.examClasses))
+							chosen := ""
+							for _, class := range a.examClasses {
+								if class.ID == a.statGroupLeadClass {
+									chosen = class.Name
+								}
+								labels = append(labels, class.Name)
+							}
+							next := chosen
+							selectField(c, &next, labels, locales.ExamStatGroupLead())
+							if next != chosen {
+								for _, class := range a.examClasses {
+									if class.Name == next {
+										a.statGroupLeadClass = class.ID
+										break
+									}
+								}
+							}
+						})
+						a.dialogField(c, "stat-group-target", locales.ExamStatGroupTarget(), "", func() {
+							numberField(c, &a.statGroupTarget, 0, 10000, 1, locales.ExamStatGroupTarget())
+						})
+					})
 				})
 			})
 			ui.Column(c).Gap(t.Space(1)).Children(func() {
@@ -993,8 +1030,7 @@ func (a *app) statGroupModal(c *ui.Context, p uiPalette) {
 								a.statGroupMembers = map[int64]bool{}
 							}
 							checked := a.statGroupMembers[group.ID]
-							ui.Checkbox(c, &checked, group.Name+" · "+group.ClassNames).
-								Label(group.Name)
+							checkboxField(c, &checked, group.Name+" · "+group.ClassNames)
 							a.statGroupMembers[group.ID] = checked
 						}
 					})
@@ -1003,15 +1039,13 @@ func (a *app) statGroupModal(c *ui.Context, p uiPalette) {
 			if a.statGroupError != "" {
 				notice(c, p, noticeDanger, a.statGroupError)
 			}
-			ui.Row(c).Justify(ui.End).Gap(t.Space(2)).Children(func() {
-				if ui.Button(c, locales.PlanCancel()).Clicked() {
-					a.statGroupOpen = false
-					a.statGroupError = ""
-				}
-				if ui.PrimaryButton(c, locales.Save()).Clicked() {
-					a.saveStatGroup()
-				}
-			})
 		})
-	})
+	}) {
+		a.saveStatGroup()
+		return
+	}
+	if !open {
+		a.statGroupOpen = false
+		a.statGroupError = ""
+	}
 }

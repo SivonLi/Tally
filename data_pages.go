@@ -3,10 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"strconv"
+	"path/filepath"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/lobehub/lobe-mygo/pkg/field"
 
 	"tally/internal/importer"
 	"tally/internal/store"
@@ -69,7 +70,7 @@ func (a *app) studentsPage(c *ui.Context, p uiPalette) {
 					}
 				}
 				if len(a.students) == 0 {
-					emptyState(c, p, iconStudents, locales.NoDataYet(), locales.StudentsEmpty(), func() {
+					emptyState(c, p, iconStudents, locales.StudentsEmpty(), locales.StudentsEmptyHint(), func() {
 						if labelledButton(c, locales.ImportStudents(), iconImports, true).Clicked() {
 							a.openImportWizard(importer.KindStudents)
 						}
@@ -95,7 +96,7 @@ func (a *app) studentsPage(c *ui.Context, p uiPalette) {
 						if student.TotalScore == nil {
 							ui.Text(c, "-").TextColor(p.muted)
 						} else {
-							ui.Textf(c, "%.1f", *student.TotalScore).FontFeatures("tnum")
+							ui.Text(c, formatDecimal(*student.TotalScore, 1)).FontFeatures("tnum")
 						}
 					}
 				}).Label(locales.NavStudents()).Grow(1).FillWidth()
@@ -126,7 +127,9 @@ func (a *app) studentFilters(c *ui.Context, p uiPalette) {
 	ui.Row(c).FillWidth().Wrap().AlignItems(ui.End).Gap(t.Space(2)).Children(func() {
 		ui.Column(c).Width(t.Space(56)).Gap(0).Children(func() {
 			nextQuery := a.dataQuery
-			ui.SearchField(c, &nextQuery).Label(locales.DataSearchStudents())
+			field.SearchBar(c, &nextQuery, field.SearchBarProps{
+				Placeholder: locales.DataSearchStudents(),
+			}).Label(locales.DataSearchStudents())
 			if nextQuery != a.dataQuery {
 				a.dataQuery = nextQuery
 				a.selectedStudentID = 0
@@ -142,7 +145,7 @@ func (a *app) studentFilters(c *ui.Context, p uiPalette) {
 			}
 		}
 		nextClass := chosenClass
-		ui.Select(c, &nextClass, labels).Label(locales.DataFilterClass()).Width(t.Space(28))
+		selectField(c, &nextClass, labels, locales.DataFilterClass()).Width(t.Space(28))
 		if nextClass != chosenClass {
 			for index, label := range labels {
 				if label == nextClass {
@@ -162,7 +165,7 @@ func (a *app) studentFilters(c *ui.Context, p uiPalette) {
 			}
 		}
 		nextTrack := chosenTrack
-		ui.Select(c, &nextTrack, trackLabels).Label(locales.DataFilterTrack()).Width(t.Space(24))
+		selectField(c, &nextTrack, trackLabels, locales.DataFilterTrack()).Width(t.Space(24))
 		if nextTrack != chosenTrack {
 			a.dataTrackFilter = ""
 			for index, track := range a.tracks {
@@ -184,7 +187,7 @@ func (a *app) studentFilters(c *ui.Context, p uiPalette) {
 			}
 		}
 		nextStatus := chosenStatus
-		ui.Select(c, &nextStatus, statusLabels).Label(locales.DataFilterStatus()).Width(t.Space(24))
+		selectField(c, &nextStatus, statusLabels, locales.DataFilterStatus()).Width(t.Space(24))
 		if nextStatus != chosenStatus {
 			for index, label := range statusLabels {
 				if label == nextStatus {
@@ -196,7 +199,7 @@ func (a *app) studentFilters(c *ui.Context, p uiPalette) {
 			a.reloadStudents(context.Background())
 		}
 		ui.Spacer(c)
-		ui.Textf(c, locales.DataStudentCount(), a.studentsTotal).FontSize(captionSize(t)).
+		ui.Textf(c, locales.DataStudentCount(), formatInt(a.studentsTotal)).FontSize(captionSize(t)).
 			TextColor(p.muted).FontFeatures("tnum")
 	})
 }
@@ -233,7 +236,7 @@ func (a *app) studentPanel(c *ui.Context, p uiPalette) {
 				if student.TotalScore != nil {
 					a.detailRow(c, p, locales.ColumnTotal(), fmt.Sprintf("%.1f", *student.TotalScore))
 				}
-				ui.Divider(c)
+				rule(c)
 				ui.Text(c, locales.StudentTeachingGroups()).FontSize(captionSize(t)).
 					TextColor(p.muted)
 				if len(student.TeachingGroups) == 0 {
@@ -248,11 +251,11 @@ func (a *app) studentPanel(c *ui.Context, p uiPalette) {
 					}
 					ui.Text(c, label).FontSize(bodySize(t))
 				}
-				ui.Divider(c)
+				rule(c)
 				ui.Text(c, locales.StudentSource()).FontSize(captionSize(t)).TextColor(p.muted)
 				ui.Text(c, a.studentSource(student)).FontSize(bodySize(t)).
 					TextColor(p.inkSecondary).Selectable().Pretty()
-				if ui.Button(c, locales.StudentCloseDetail()).Clicked() {
+				if plainButton(c, locales.StudentCloseDetail()).Clicked() {
 					a.studentDetailOpen = false
 					a.selectedStudentID = 0
 				}
@@ -283,7 +286,7 @@ func (a *app) facultyPage(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
 		pageHeading(c, p, locales.NavFaculty(), locales.FacultyPageSubtitle(), func() {
-			teacherButton := ui.Button(c, locales.ImportTeachers())
+			teacherButton := plainButton(c, locales.ImportTeachers())
 			teacherButton.Disabled(a.dataBusy || !a.stageEditable())
 			if teacherButton.Clicked() {
 				a.openImportWizard(importer.KindTeachers)
@@ -311,8 +314,9 @@ func (a *app) facultyPage(c *ui.Context, p uiPalette) {
 			notice(c, p, noticeSuccess, a.dataMessage)
 		}
 		ui.Row(c).Children(func() {
-			ui.Segmented(c, &a.facultyTab, locales.FacultyTabTeachers(), locales.FacultyTabAssignments()).
-				Label(locales.FacultyViewLabel())
+			segmentedField(c, &a.facultyTab,
+				[]string{locales.FacultyTabTeachers(), locales.FacultyTabAssignments()},
+				locales.FacultyViewLabel())
 		})
 		a.facultyFilters(c, p)
 		if a.facultyTab == 1 {
@@ -320,7 +324,7 @@ func (a *app) facultyPage(c *ui.Context, p uiPalette) {
 			return
 		}
 		if len(a.teachers) == 0 {
-			emptyState(c, p, iconFaculty, locales.NoDataYet(), locales.FacultyEmpty(), nil)
+			emptyState(c, p, iconFaculty, locales.FacultyEmpty(), locales.FacultyEmptyHint(), nil)
 			return
 		}
 		columns := []ui.TableColumn{
@@ -341,9 +345,9 @@ func (a *app) facultyPage(c *ui.Context, p uiPalette) {
 			case 2:
 				ui.Text(c, a.subjectName(teacher.Subject, teacher.Subject)).SingleLine()
 			case 3:
-				ui.Textf(c, "%d", teacher.Groups).FontFeatures("tnum")
+				ui.Text(c, formatInt(teacher.Groups)).FontFeatures("tnum")
 			case 4:
-				ui.Textf(c, "%d", teacher.Assignments).FontFeatures("tnum")
+				ui.Text(c, formatInt(teacher.Assignments)).FontFeatures("tnum")
 			case 5:
 				ui.Text(c, dataSourceLabel(teacher.ImportRunID, teacher.SourceSheet, teacher.SourceRow)).
 					TextColor(p.muted).SingleLine()
@@ -358,7 +362,9 @@ func (a *app) facultyFilters(c *ui.Context, p uiPalette) {
 		ui.Column(c).Width(t.Space(56)).Children(func() {
 			if a.facultyTab == 1 {
 				nextQuery := a.groupQuery
-				ui.SearchField(c, &nextQuery).Label(locales.DataSearchGroups())
+				field.SearchBar(c, &nextQuery, field.SearchBarProps{
+					Placeholder: locales.DataSearchGroups(),
+				}).Label(locales.DataSearchGroups())
 				if nextQuery != a.groupQuery {
 					a.groupQuery = nextQuery
 					a.reloadDataPages(context.Background())
@@ -366,7 +372,9 @@ func (a *app) facultyFilters(c *ui.Context, p uiPalette) {
 				return
 			}
 			nextQuery := a.teacherQuery
-			ui.SearchField(c, &nextQuery).Label(locales.DataSearchFaculty())
+			field.SearchBar(c, &nextQuery, field.SearchBarProps{
+				Placeholder: locales.DataSearchFaculty(),
+			}).Label(locales.DataSearchFaculty())
 			if nextQuery != a.teacherQuery {
 				a.teacherQuery = nextQuery
 				a.reloadDataPages(context.Background())
@@ -374,10 +382,10 @@ func (a *app) facultyFilters(c *ui.Context, p uiPalette) {
 		})
 		ui.Spacer(c)
 		if a.facultyTab == 1 {
-			ui.Textf(c, locales.DataRecordCount(), len(a.teachingGroups)).FontSize(captionSize(t)).
+			ui.Textf(c, locales.DataRecordCount(), formatInt(len(a.teachingGroups))).FontSize(captionSize(t)).
 				TextColor(p.muted).FontFeatures("tnum")
 		} else {
-			ui.Textf(c, locales.DataRecordCount(), len(a.teachers)).FontSize(captionSize(t)).
+			ui.Textf(c, locales.DataRecordCount(), formatInt(len(a.teachers))).FontSize(captionSize(t)).
 				TextColor(p.muted).FontFeatures("tnum")
 		}
 	})
@@ -385,7 +393,7 @@ func (a *app) facultyFilters(c *ui.Context, p uiPalette) {
 
 func (a *app) teachingGroupTable(c *ui.Context, p uiPalette, label string) {
 	if len(a.teachingGroups) == 0 {
-		emptyState(c, p, iconGroups, locales.NoDataYet(), locales.GroupsEmpty(), nil)
+		emptyState(c, p, iconGroups, locales.GroupsEmpty(), locales.GroupsEmptyHint(), nil)
 		return
 	}
 	a.groupTableWith(c, p, label, a.teachingGroups)
@@ -409,17 +417,17 @@ func (a *app) groupsPage(c *ui.Context, p uiPalette) {
 			notice(c, p, noticeSuccess, a.dataMessage)
 		}
 		if len(a.teachingGroups) == 0 {
-			emptyState(c, p, iconGroups, locales.NoDataYet(), locales.GroupsEmpty(), nil)
+			emptyState(c, p, iconGroups, locales.GroupsEmpty(), locales.GroupsEmptyHint(), nil)
 			return
 		}
 		a.groupFilters(c, p)
 		groups := a.visibleTeachingGroups()
 		if len(groups) == 0 {
-			emptyState(c, p, iconGroups, locales.NoDataYet(), locales.GroupsEmpty(), nil)
+			emptyState(c, p, iconGroups, locales.GroupsEmpty(), locales.GroupsEmptyHint(), nil)
 			return
 		}
 		ui.Row(c).AlignItems(ui.Center).Children(func() {
-			ui.Textf(c, locales.GroupsCount(), len(groups)).FontSize(bodySize(t)).
+			ui.Textf(c, locales.GroupsCount(), formatInt(len(groups))).FontSize(bodySize(t)).
 				TextColor(p.muted)
 		})
 		a.groupTableWith(c, p, locales.NavGroups(), groups)
@@ -448,7 +456,7 @@ func (a *app) groupFilters(c *ui.Context, p uiPalette) {
 			}
 		}
 		next := chosen
-		ui.Select(c, &next, labels).Label(locales.DataFilterSubject()).Width(t.Space(28))
+		selectField(c, &next, labels, locales.DataFilterSubject()).Width(t.Space(28))
 		if next != chosen {
 			for index, label := range labels {
 				if label == next {
@@ -495,7 +503,7 @@ func (a *app) groupTableWith(c *ui.Context, p uiPalette, label string, groups []
 		case 3:
 			ui.Text(c, group.Teachers).TextColor(p.muted).SingleLine()
 		case 4:
-			ui.Textf(c, "%d", group.Students).FontFeatures("tnum")
+			ui.Text(c, formatInt(group.Students)).FontFeatures("tnum")
 		case 5:
 			ui.Text(c, dataSourceLabel(group.ImportRunID, group.SourceSheet, group.SourceRow)).
 				TextColor(p.muted).SingleLine()
@@ -531,7 +539,7 @@ func (a *app) baselinePage(c *ui.Context, p uiPalette) {
 		}
 		a.baselineFilters(c, p)
 		if len(a.baselines) == 0 {
-			emptyState(c, p, iconBaseline, locales.NoDataYet(), locales.BaselineEmpty(), nil)
+			emptyState(c, p, iconBaseline, locales.BaselineEmpty(), locales.BaselineEmptyHint(), nil)
 			return
 		}
 		columns := []ui.TableColumn{
@@ -551,11 +559,11 @@ func (a *app) baselinePage(c *ui.Context, p uiPalette) {
 			case 1:
 				ui.Text(c, a.subjectName(item.Subject, item.Subject)).SingleLine()
 			case 2:
-				ui.Textf(c, "%.2f", item.Average).FontFeatures("tnum")
+				ui.Text(c, formatDecimal(item.Average, 2)).FontFeatures("tnum")
 			case 3:
-				ui.Textf(c, "%d", item.Count).FontFeatures("tnum")
+				ui.Text(c, formatInt(item.Count)).FontFeatures("tnum")
 			case 4:
-				ui.Textf(c, "%.3f", item.Ratio).FontFeatures("tnum")
+				ui.Text(c, formatRatio(item.Ratio)).FontFeatures("tnum")
 			case 5:
 				ui.Text(c, item.SetName).TextColor(p.muted).SingleLine()
 			case 6:
@@ -571,7 +579,9 @@ func (a *app) baselineFilters(c *ui.Context, p uiPalette) {
 	ui.Row(c).FillWidth().Wrap().AlignItems(ui.End).Gap(t.Space(2)).Children(func() {
 		ui.Column(c).Width(t.Space(56)).Children(func() {
 			nextQuery := a.baselineQuery
-			ui.SearchField(c, &nextQuery).Label(locales.DataSearchBaseline())
+			field.SearchBar(c, &nextQuery, field.SearchBarProps{
+				Placeholder: locales.DataSearchBaseline(),
+			}).Label(locales.DataSearchBaseline())
 			if nextQuery != a.baselineQuery {
 				a.baselineQuery = nextQuery
 				a.reloadDataPages(context.Background())
@@ -586,7 +596,7 @@ func (a *app) baselineFilters(c *ui.Context, p uiPalette) {
 			}
 		}
 		next := chosen
-		ui.Select(c, &next, labels).Label(locales.DataFilterClass()).Width(t.Space(28))
+		selectField(c, &next, labels, locales.DataFilterClass()).Width(t.Space(28))
 		if next != chosen {
 			for index, label := range labels {
 				if label == next {
@@ -597,7 +607,7 @@ func (a *app) baselineFilters(c *ui.Context, p uiPalette) {
 			}
 		}
 		ui.Spacer(c)
-		ui.Textf(c, locales.DataRecordCount(), len(a.baselines)).FontSize(captionSize(t)).
+		ui.Textf(c, locales.DataRecordCount(), formatInt(len(a.baselines))).FontSize(captionSize(t)).
 			TextColor(p.muted).FontFeatures("tnum")
 	})
 }
@@ -619,44 +629,37 @@ func (a *app) importsPage(c *ui.Context, p uiPalette) {
 		a.importFilters(c, p)
 		runs := a.visibleImportRuns()
 		if len(runs) == 0 {
-			emptyState(c, p, iconImports, locales.NoDataYet(), locales.ImportsEmpty(), nil)
+			emptyState(c, p, iconImports, locales.ImportsEmpty(), locales.ImportsEmptyHint(), nil)
 			return
 		}
 		ui.Row(c).Grow(1).Gap(t.Space(3)).Children(func() {
 			ui.Scroll(c).Grow(1).Children(func() {
-				ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
+				ui.Column(c).FillWidth().Gap(0).Dividers(1, p.border).Children(func() {
 					for _, run := range runs {
 						run := run
-						panel(c, p).FillWidth().Padding(t.Space(4)).Gap(t.Space(2)).Children(func() {
-							ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
-								ui.Text(c, importFileLabel(run)).FontSize(bodySize(t)).Bold().Grow(1).
-									SingleLine()
-								badge(c, p, importKindName(run.DataKind), toneAccent)
-								if run.ScopeType == "exam" {
-									badge(c, p, locales.ImportScopeExam(), toneNeutral)
-								}
-								badge(c, p, fmt.Sprintf(locales.ImportRowCount(), run.RowCount), toneNeutral)
-								if run.Warnings > 0 {
-									badge(c, p, fmt.Sprintf(locales.ImportWarningCount(), run.Warnings), toneWarning)
-								}
-								if run.Status == "undone" {
-									badge(c, p, locales.ImportStatusUndone(), toneNeutral)
-								}
-								detailButton := ui.Button(c, locales.ImportViewDetail())
-								detailButton.Label(locales.ImportViewDetail() + " " + importKindName(run.DataKind))
-								if detailButton.Clicked() {
-									a.selectImportRun(run.ID)
-								}
+						ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).
+							Padding(t.Space(3), 0).Children(func() {
+							ui.Column(c).Grow(1).MinWidth(0).Gap(t.Space(0.5)).Children(func() {
+								ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+									ui.Text(c, importFileLabel(run)).FontSize(bodySize(t)).
+										FontWeight(500).SingleLine().Shrink(1).MinWidth(0)
+									badge(c, p, importKindName(run.DataKind), toneNeutral)
+									if run.Status == "undone" {
+										badge(c, p, locales.ImportStatusUndone(), toneNeutral)
+									}
+								})
+								ui.Textf(c, locales.ImportRunMeta(), formatTime(run.CreatedAt),
+									formatInt(run.RowCount)).FontSize(captionSize(t)).
+									TextColor(p.muted).FontFeatures("tnum").SingleLine()
 							})
-							ui.Text(c, formatTime(run.CreatedAt)).FontSize(captionSize(t)).
-								TextColor(p.muted).FontFeatures("tnum")
-							if run.RelativePath != "" {
-								ui.Text(c, run.RelativePath).FontSize(captionSize(t)).
-									TextColor(p.inkSecondary).Selectable().SingleLine()
+							if run.Warnings > 0 {
+								ui.Textf(c, locales.ImportWarningCount(), formatInt(run.Warnings)).
+									FontSize(captionSize(t)).TextColor(p.warning).Shrink(0)
 							}
-							for _, sheet := range run.Sheets {
-								ui.Textf(c, locales.ImportSheetRow(), sheet.Name, sheet.Role, sheet.Rows).
-									FontSize(bodySize(t)).TextColor(p.inkSecondary)
+							detailButton := plainButton(c, locales.ImportViewDetail()).
+								Label(locales.ImportViewDetail() + " " + importKindName(run.DataKind))
+							if detailButton.Clicked() {
+								a.selectImportRun(run.ID)
 							}
 						})
 					}
@@ -695,7 +698,7 @@ func (a *app) importDetailPanel(c *ui.Context, p uiPalette) {
 				a.detailRow(c, p, locales.ImportDetailFile(), importFileLabel(detail.Run))
 				a.detailRow(c, p, locales.ImportDetailStatus(),
 					importStatusName(detail.Run.Status))
-				a.detailRow(c, p, locales.ImportDetailRows(), strconv.Itoa(detail.Run.RowCount))
+				a.detailRow(c, p, locales.ImportDetailRows(), formatInt(detail.Run.RowCount))
 				if detail.Run.RelativePath != "" {
 					a.detailRow(c, p, locales.ImportSourcePath(), detail.Run.RelativePath)
 				}
@@ -703,7 +706,7 @@ func (a *app) importDetailPanel(c *ui.Context, p uiPalette) {
 					ui.Textf(c, locales.ImportSheetRow(), sheet.Name, sheet.Role, sheet.Rows).
 						FontSize(captionSize(t)).TextColor(p.inkSecondary)
 				}
-				ui.Divider(c)
+				rule(c)
 				if len(detail.Issues) == 0 {
 					ui.Text(c, locales.ImportWizardNoIssues()).FontSize(bodySize(t)).
 						TextColor(p.muted)
@@ -717,7 +720,7 @@ func (a *app) importDetailPanel(c *ui.Context, p uiPalette) {
 							TextColor(p.muted).FontFeatures("tnum")
 					})
 				}
-				ui.Divider(c)
+				rule(c)
 				button := labelledButton(c, locales.ImportUndo(), iconAlert, false)
 				button.Disabled(!canUndo)
 				if button.Clicked() {
@@ -734,7 +737,7 @@ func (a *app) importDetailPanel(c *ui.Context, p uiPalette) {
 					}
 					ui.Text(c, text).FontSize(captionSize(t)).TextColor(p.muted).Pretty()
 				}
-				if ui.Button(c, locales.Close()).Clicked() {
+				if plainButton(c, locales.Close()).Clicked() {
 					a.importRunID = 0
 					a.importDetail = nil
 				}
@@ -757,13 +760,15 @@ func (a *app) importFilters(c *ui.Context, p uiPalette) {
 	ui.Row(c).FillWidth().AlignItems(ui.End).Gap(t.Space(2)).Children(func() {
 		ui.Column(c).Width(t.Space(56)).Children(func() {
 			nextQuery := a.importQuery
-			ui.SearchField(c, &nextQuery).Label(locales.DataSearchImports())
+			field.SearchBar(c, &nextQuery, field.SearchBarProps{
+				Placeholder: locales.DataSearchImports(),
+			}).Label(locales.DataSearchImports())
 			if nextQuery != a.importQuery {
 				a.importQuery = nextQuery
 			}
 		})
 		ui.Spacer(c)
-		ui.Textf(c, locales.DataRecordCount(), len(a.visibleImportRuns())).
+		ui.Textf(c, locales.DataRecordCount(), formatInt(len(a.visibleImportRuns()))).
 			FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum")
 	})
 }
@@ -799,13 +804,35 @@ func dataSourceLabel(runID int64, sheet string, row int) string {
 }
 
 func importFileLabel(run store.ImportRun) string {
-	if run.StoredPath != "" {
-		parts := strings.Split(strings.ReplaceAll(run.StoredPath, "\\", "/"), "/")
-		return parts[len(parts)-1]
-	}
 	if run.RelativePath != "" {
 		parts := strings.Split(strings.ReplaceAll(run.RelativePath, "\\", "/"), "/")
 		return parts[len(parts)-1]
 	}
-	return strconv.FormatInt(run.ID, 10)
+	if run.StoredPath != "" {
+		parts := strings.Split(strings.ReplaceAll(run.StoredPath, "\\", "/"), "/")
+		if base := parts[len(parts)-1]; !hashFileName(base) {
+			return base
+		}
+	}
+	// 归档文件按内容哈希命名，显示它对读者没有意义，改用工作表名。
+	for _, sheet := range run.Sheets {
+		if sheet.Name != "" {
+			return sheet.Name
+		}
+	}
+	return importKindName(run.DataKind)
+}
+
+// hashFileName 判断文件名是否只是 64 位内容哈希，例如归档后的导入文件。
+func hashFileName(name string) bool {
+	base := strings.TrimSuffix(name, filepath.Ext(name))
+	if len(base) != 64 {
+		return false
+	}
+	for _, char := range base {
+		if !strings.ContainsRune("0123456789abcdef", char) {
+			return false
+		}
+	}
+	return true
 }

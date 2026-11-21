@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/lobehub/lobe-mygo/pkg/nav"
 
 	"tally/internal/excel"
 	"tally/internal/importer"
@@ -92,6 +94,11 @@ func (a *app) wizardFields() []importer.Field {
 	if a.importWizard == nil {
 		return nil
 	}
+	if a.importWizard.Workbook != nil && a.importWizard.Sheet != "" {
+		if table, ok := a.importWizard.Workbook.Sheet(a.importWizard.Sheet); ok {
+			return importer.FieldsForTable(a.importWizard.Kind, table, a.subjects, a.wizardTierKeys())
+		}
+	}
 	return importer.FieldsFor(a.importWizard.Kind, a.subjects, a.wizardTierKeys())
 }
 
@@ -100,6 +107,14 @@ func (a *app) wizardSelectKind(kind string) {
 	a.importWizard.Step = wizardStepFile
 	a.importWizard.Workbook = nil
 	a.importWizard.Error = ""
+}
+
+// wizardGrade 返回当前导入所属的阶段年级。考试导入没有阶段，返回空。
+func (a *app) wizardGrade() string {
+	if a.importWizard == nil || a.importWizard.ExamID != 0 {
+		return ""
+	}
+	return a.displayStage().GradeLevel
 }
 
 func (a *app) wizardContinueKind(kind string) {
@@ -198,8 +213,8 @@ func (a *app) wizardParse() bool {
 		wizard.Error = locales.ImportWizardSheetMissing()
 		return false
 	}
-	data, issues, err := importer.ParseSheetFor(wizard.Workbook, wizard.Sheet, wizard.Kind,
-		wizard.Mapping, a.subjects, a.wizardTierKeys())
+	data, issues, err := importer.ParseSheetForGrade(wizard.Workbook, wizard.Sheet, wizard.Kind,
+		wizard.Mapping, a.subjects, a.wizardTierKeys(), a.wizardGrade())
 	if err != nil {
 		wizard.Error = err.Error()
 		return false
@@ -369,7 +384,7 @@ func (a *app) importWizardPage(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
-			if ui.Button(c, "").Label(locales.Back()).Children(func() {
+			if textButton(c, locales.Back()).Children(func() {
 				ui.Icon(c, iconArrowLeft).FontSize(t.Space(4))
 				ui.Text(c, locales.Back()).FontSize(bodySize(t))
 			}).Clicked() {
@@ -408,27 +423,15 @@ func (a *app) importWizardPage(c *ui.Context, p uiPalette) {
 }
 
 func (a *app) wizardSteps(c *ui.Context, p uiPalette) {
-	t := p.theme
 	labels := []string{
 		locales.ImportStepItem(), locales.ImportStepFile(), locales.ImportStepSheet(),
 		locales.ImportStepMapping(), locales.ImportStepValidate(), locales.ImportStepResult(),
 	}
-	ui.Row(c).FillWidth().Wrap().Gap(t.Space(1.5)).Children(func() {
-		for index, label := range labels {
-			index := index
-			tone := toneNeutral
-			if index == a.importWizard.Step {
-				tone = toneAccent
-			} else if index < a.importWizard.Step {
-				tone = toneSuccess
-			}
-			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(1)).Children(func() {
-				badge(c, p, fmt.Sprint(index+1), tone)
-				ui.Text(c, label).FontSize(captionSize(t)).
-					TextColor(p.inkSecondary)
-			})
-		}
-	})
+	items := make([]nav.StepItem, 0, len(labels))
+	for _, label := range labels {
+		items = append(items, nav.StepItem{Title: label})
+	}
+	nav.Steps(c, nav.StepsProps{Items: items, Current: a.importWizard.Step})
 }
 
 func (a *app) wizardItemStep(c *ui.Context, p uiPalette) {
@@ -456,13 +459,14 @@ func (a *app) wizardItemStep(c *ui.Context, p uiPalette) {
 			}
 			for _, kind := range kinds {
 				kind := kind
-				panel(c, p).FillWidth().Padding(t.Space(3)).Gap(t.Space(1)).Children(func() {
+				rule(c)
+				ui.Column(c).FillWidth().Padding(t.Space(3), 0).Gap(t.Space(1)).Children(func() {
 					ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
 						ui.Column(c).Grow(1).Gap(0).Children(func() {
 							ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
 								ui.Text(c, importKindName(kind)).FontSize(bodySize(t)).Bold()
 								if a.importKindCount(kind) > 0 {
-									badge(c, p, locales.ReadinessReady(), toneSuccess)
+									badge(c, p, locales.ReadinessReady(), toneNeutral)
 								} else {
 									badge(c, p, locales.ReadinessMissing(), toneNeutral)
 								}
@@ -493,7 +497,7 @@ func (a *app) wizardFileStep(c *ui.Context, p uiPalette) {
 			if labelledButton(c, locales.ImportWizardChooseFile(), iconImports, true).Clicked() {
 				a.wizardChooseFile()
 			}
-			if ui.Button(c, locales.ImportWizardDownloadTemplate()).Clicked() {
+			if plainButton(c, locales.ImportWizardDownloadTemplate()).Clicked() {
 				a.wizardDownloadTemplate()
 			}
 		})
@@ -516,12 +520,12 @@ func (a *app) wizardSheetStep(c *ui.Context, p uiPalette) {
 	panel(c, p).FillWidth().Padding(t.Space(4)).Gap(t.Space(3)).Children(func() {
 		ui.Text(c, locales.ImportWizardSheetHint()).FontSize(bodySize(t)).TextColor(p.muted).Pretty()
 		next := chosen
-		ui.Select(c, &next, names).Label(locales.ImportWizardSheetLabel()).Width(t.Space(70))
+		selectField(c, &next, names, locales.ImportWizardSheetLabel()).Width(t.Space(70))
 		if next != chosen {
 			a.wizardChooseSheet(next)
 		}
 		if table, ok := wizard.Workbook.Sheet(wizard.Sheet); ok {
-			ui.Textf(c, locales.ImportWizardSheetRows(), len(table.Rows), len(table.Headers)).
+			ui.Textf(c, locales.ImportWizardSheetRows(), formatInt(len(table.Rows)), formatInt(len(table.Headers))).
 				FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum")
 			headers := table.Headers
 			if len(headers) > 12 {
@@ -582,7 +586,7 @@ func (a *app) wizardMappingStep(c *ui.Context, p uiPalette) {
 						chosen = labels[0]
 					}
 					next := chosen
-					ui.Select(c, &next, labels).Label(label).Grow(1)
+					selectField(c, &next, labels, label).Grow(1)
 					if next != chosen {
 						if next == labels[0] {
 							delete(wizard.Mapping, field.Key)
@@ -593,7 +597,7 @@ func (a *app) wizardMappingStep(c *ui.Context, p uiPalette) {
 				})
 			}
 			if missing > 0 {
-				notice(c, p, noticeWarning, fmt.Sprintf(locales.ImportWizardMissingColumns(), missing))
+				notice(c, p, noticeWarning, fmt.Sprintf(locales.ImportWizardMissingColumns(), formatInt(missing)))
 			}
 			ui.Row(c).Gap(t.Space(2)).Children(func() {
 				button := labelledButton(c, locales.ImportWizardCheck(), iconArrowRight, true)
@@ -609,18 +613,18 @@ func (a *app) wizardMappingStep(c *ui.Context, p uiPalette) {
 func (a *app) wizardValidateStep(c *ui.Context, p uiPalette) {
 	wizard := a.importWizard
 	t := p.theme
-	panel(c, p).FillWidth().Padding(t.Space(4)).Gap(t.Space(3)).Children(func() {
+	panel(c, p).FillWidth().Grow(1).Shrink(1).MinHeight(0).Padding(t.Space(4)).Gap(t.Space(3)).Children(func() {
 		ui.Row(c).Gap(t.Space(2)).Wrap().Children(func() {
-			badge(c, p, fmt.Sprintf(locales.ImportWizardNew(), wizard.Preview.New), toneAccent)
-			badge(c, p, fmt.Sprintf(locales.ImportWizardUpdate(), wizard.Preview.Update), toneSuccess)
-			badge(c, p, fmt.Sprintf(locales.ImportWizardSkip(), wizard.Preview.Skip), toneNeutral)
-			badge(c, p, fmt.Sprintf(locales.ImportWizardBlocking(), wizard.Preview.Blocking), toneDanger)
-			badge(c, p, fmt.Sprintf(locales.ImportWizardWarnings(), wizard.Preview.Warnings), toneWarning)
+			badge(c, p, fmt.Sprintf(locales.ImportWizardNew(), formatInt(wizard.Preview.New)), toneAccent)
+			badge(c, p, fmt.Sprintf(locales.ImportWizardUpdate(), formatInt(wizard.Preview.Update)), toneSuccess)
+			badge(c, p, fmt.Sprintf(locales.ImportWizardSkip(), formatInt(wizard.Preview.Skip)), toneNeutral)
+			badge(c, p, fmt.Sprintf(locales.ImportWizardBlocking(), formatInt(wizard.Preview.Blocking)), toneDanger)
+			badge(c, p, fmt.Sprintf(locales.ImportWizardWarnings(), formatInt(wizard.Preview.Warnings)), toneWarning)
 		})
 		if len(wizard.Issues) == 0 {
 			ui.Text(c, locales.ImportWizardNoIssues()).FontSize(bodySize(t)).TextColor(p.muted)
 		} else {
-			ui.Scroll(c).Grow(1).Children(func() {
+			ui.Scroll(c).Grow(1).Shrink(1).MinHeight(0).Children(func() {
 				ui.Column(c).FillWidth().Gap(t.Space(1)).Children(func() {
 					for _, issue := range wizard.Issues {
 						issue := issue
@@ -633,9 +637,11 @@ func (a *app) wizardValidateStep(c *ui.Context, p uiPalette) {
 								Background(tone)
 							ui.Column(c).Grow(1).Gap(0).Children(func() {
 								ui.Text(c, a.importIssueText(issue)).FontSize(bodySize(t)).Pretty()
-								ui.Textf(c, locales.ImportIssueLocation(), issue.Row,
-									a.importColumnName(issue.Column)).FontSize(captionSize(t)).
-									TextColor(p.muted).FontFeatures("tnum")
+								if issue.Row > 0 {
+									ui.Textf(c, locales.ImportIssueLocation(), issue.Row,
+										a.importColumnName(issue.Column)).FontSize(captionSize(t)).
+										TextColor(p.muted).FontFeatures("tnum")
+								}
 							})
 						})
 					}
@@ -643,15 +649,15 @@ func (a *app) wizardValidateStep(c *ui.Context, p uiPalette) {
 			})
 		}
 		ui.Row(c).Gap(t.Space(2)).Children(func() {
-			if ui.Button(c, locales.ImportWizardBackToMapping()).Clicked() {
+			if plainButton(c, locales.ImportWizardBackToMapping()).Clicked() {
 				wizard.Step = wizardStepMapping
 			}
 			if wizard.Preview.Warnings > 0 {
-				ui.Checkbox(c, &wizard.ConfirmedWarnings,
-					fmt.Sprintf(locales.ImportWizardConfirmWarnings(), wizard.Preview.Warnings))
+				checkboxField(c, &wizard.ConfirmedWarnings,
+					fmt.Sprintf(locales.ImportWizardConfirmWarnings(), formatInt(wizard.Preview.Warnings)))
 			}
 			button := labelledButton(c,
-				fmt.Sprintf(locales.ImportWizardImportRows(), wizard.Preview.New+wizard.Preview.Update),
+				fmt.Sprintf(locales.ImportWizardImportRows(), formatInt(wizard.Preview.New+wizard.Preview.Update)),
 				iconCheck, true)
 			button.Disabled(wizard.Preview.Blocking > 0 || wizard.Busy ||
 				(wizard.Preview.Warnings > 0 && !wizard.ConfirmedWarnings))
@@ -679,7 +685,7 @@ func (a *app) wizardResultStep(c *ui.Context, p uiPalette) {
 			}
 		}
 		ui.Row(c).Wrap().Gap(t.Space(2)).Children(func() {
-			if ui.Button(c, locales.ImportWizardViewData()).Clicked() {
+			if plainButton(c, locales.ImportWizardViewData()).Clicked() {
 				a.page = importKindPage(wizard.Kind)
 				a.closeImportWizard()
 			}
@@ -689,7 +695,7 @@ func (a *app) wizardResultStep(c *ui.Context, p uiPalette) {
 					a.wizardContinueKind(next)
 				}
 			}
-			if ui.Button(c, locales.ImportWizardDone()).Clicked() {
+			if plainButton(c, locales.ImportWizardDone()).Clicked() {
 				a.closeImportWizard()
 			}
 		})
@@ -934,6 +940,13 @@ func (a *app) importIssueText(issue store.ImportIssue) string {
 		}
 		return ""
 	}
+	numberArg := func(index int) int {
+		value, err := strconv.Atoi(arg(index))
+		if err != nil {
+			return 0
+		}
+		return value
+	}
 	switch issue.Code {
 	case "missing_field":
 		return fmt.Sprintf(locales.ImportIssueMissingField(), a.importFieldLabel(issue.Column))
@@ -959,8 +972,8 @@ func (a *app) importIssueText(issue store.ImportIssue) string {
 		return fmt.Sprintf(locales.ImportIssueUnknownSubject(), arg(0))
 	case "duplicate_assignment":
 		return fmt.Sprintf(locales.ImportIssueDuplicateAssignment(), arg(0), arg(1), arg(2))
-	case "class_created":
-		return fmt.Sprintf(locales.ImportIssueClassCreated(), arg(0))
+	case "classes_created":
+		return fmt.Sprintf(locales.ImportIssueClassesCreated(), formatInt(numberArg(0)))
 	case "unknown_class":
 		return fmt.Sprintf(locales.ImportIssueUnknownClass(), arg(0))
 	case "score_out_of_range":
@@ -1001,30 +1014,30 @@ func (a *app) importIssueText(issue store.ImportIssue) string {
 func importResultText(kind string, summary *store.ImportSummary) string {
 	switch kind {
 	case importer.KindClasses:
-		return fmt.Sprintf(locales.ImportResultClasses(), summary.Inserted+summary.Updated,
-			summary.Classes)
+		return fmt.Sprintf(locales.ImportResultClasses(), formatInt(summary.Inserted+summary.Updated),
+			formatInt(summary.Classes))
 	case importer.KindStudents:
-		return fmt.Sprintf(locales.ImportResultStudents(), summary.Inserted+summary.Updated,
-			summary.Classes)
+		return fmt.Sprintf(locales.ImportResultStudents(), formatInt(summary.Inserted+summary.Updated),
+			formatInt(summary.Classes))
 	case importer.KindTeachers:
-		return fmt.Sprintf(locales.ImportResultTeachers(), summary.Inserted+summary.Updated,
-			summary.Teachers)
+		return fmt.Sprintf(locales.ImportResultTeachers(), formatInt(summary.Inserted+summary.Updated),
+			formatInt(summary.Teachers))
 	case importer.KindAssignments:
-		return fmt.Sprintf(locales.ImportResultAssignments(), summary.Inserted+summary.Updated,
-			summary.TeachingGroups, summary.Assignments)
+		return fmt.Sprintf(locales.ImportResultAssignments(), formatInt(summary.Inserted+summary.Updated),
+			formatInt(summary.TeachingGroups), formatInt(summary.Assignments))
 	case importer.KindBaselines:
-		return fmt.Sprintf(locales.ImportResultBaselines(), summary.Inserted+summary.Updated,
-			summary.Baselines)
+		return fmt.Sprintf(locales.ImportResultBaselines(), formatInt(summary.Inserted+summary.Updated),
+			formatInt(summary.Baselines))
 	case importer.KindRoster:
-		return fmt.Sprintf(locales.ImportResultRoster(), summary.Inserted+summary.Updated,
-			summary.Students)
+		return fmt.Sprintf(locales.ImportResultRoster(), formatInt(summary.Inserted+summary.Updated),
+			formatInt(summary.Students))
 	case importer.KindScores:
-		return fmt.Sprintf(locales.ImportResultScores(), summary.Inserted+summary.Updated)
+		return fmt.Sprintf(locales.ImportResultScores(), formatInt(summary.Inserted+summary.Updated))
 	case importer.KindCutoffs:
-		return fmt.Sprintf(locales.ImportResultCutoffs(), summary.SubjectCutoffs,
-			summary.TierCutoffs)
+		return fmt.Sprintf(locales.ImportResultCutoffs(), formatInt(summary.SubjectCutoffs),
+			formatInt(summary.TierCutoffs))
 	case importer.KindTargets:
-		return fmt.Sprintf(locales.ImportResultTargets(), summary.ClassTargets)
+		return fmt.Sprintf(locales.ImportResultTargets(), formatInt(summary.ClassTargets))
 	default:
 		return ""
 	}

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/egoist/mygo/ui"
+	"github.com/lobehub/lobe-mygo/pkg/feedback"
+	"github.com/lobehub/lobe-mygo/pkg/theme"
 
 	"tally/internal/importer"
 	"tally/locales"
@@ -45,81 +45,75 @@ func (a *app) prepPage(c *ui.Context, p uiPalette) {
 		}
 	}
 	editable := a.stageEditable()
-	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
+	ui.Column(c).Fill().Gap(t.Space(5)).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
-			if ui.Button(c, "").Label(locales.Back()).Children(func() {
-				ui.Icon(c, iconArrowLeft).FontSize(t.Space(4))
+			back := textButton(c, locales.Back()).Padding(t.Space(1.5)).
+				Radius(t.Space(1.5)).Background(ui.Transparent)
+			back.Children(func() {
+				ui.Icon(c, iconArrowLeft).FontSize(t.Space(4)).TextColor(p.ink)
 				ui.Text(c, locales.Back()).FontSize(bodySize(t))
-			}).Clicked() {
+			})
+			if back.Clicked() {
 				a.prepOpen = false
 			}
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
-				ui.Text(c, locales.PrepTitle()).FontSize(titleSize(t)).Bold().
+				ui.Text(c, locales.PrepTitle()).FontSize(titleSize(t)).FontWeight(700).
+					LetterSpacing(-0.4).
 					Role(ui.RoleHeading).Level(1)
 				ui.Text(c, locales.PrepSubtitle()).FontSize(bodySize(t)).TextColor(p.muted)
 			})
-			ui.Textf(c, locales.ReadinessProgress(), done, len(steps)).FontSize(bodySize(t)).
+			ui.Textf(c, locales.ReadinessProgress(), formatInt(done), formatInt(len(steps))).FontSize(bodySize(t)).
 				TextColor(p.inkSecondary).FontFeatures("tnum")
 		})
-		ui.Progress(c, float64(done)/float64(len(steps))).
-			TextColor(p.accent).Background(p.panelMuted).FillWidth().
-			Label(locales.ReadinessTitle())
+		feedback.Progress(c, float32(done)/float32(len(steps))*100, feedback.ProgressProps{
+			Label: locales.ReadinessTitle(),
+			Size:  theme.Middle,
+		}).FillWidth()
 		if !editable {
 			notice(c, p, noticeInfo, locales.StageReadOnly())
 		}
 		ui.Scroll(c).Fill().Children(func() {
-			ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
+			ui.Column(c).FillWidth().Gap(0).Children(func() {
 				for index, step := range steps {
 					index := index
 					step := step
-					panel(c, p).FillWidth().Padding(t.Space(3)).Gap(t.Space(1)).Children(func() {
-						ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
-							if step.Count > 0 {
-								badge(c, p, fmtInt(index+1), toneSuccess)
-							} else if index == next {
-								badge(c, p, fmtInt(index+1), toneAccent)
-							} else {
-								badge(c, p, fmtInt(index+1), toneNeutral)
-							}
-							ui.Column(c).Grow(1).Gap(0).Children(func() {
-								ui.Text(c, step.Title).FontSize(bodySize(t)).Bold()
-								ui.Text(c, step.Body).FontSize(captionSize(t)).TextColor(p.muted).Pretty()
-							})
-							if step.Count > 0 {
-								badge(c, p, locales.ReadinessReady(), toneSuccess)
-								view := ui.Button(c, locales.PrepView())
-								view.Label(locales.PrepView() + " " + step.Title)
-								if view.Clicked() {
-									a.prepOpen = false
-									a.page = step.Page
-								}
-								return
-							}
-							if !editable {
-								badge(c, p, locales.ReadinessMissing(), toneNeutral)
-								return
-							}
-							primary := index == next
-							button := labelledButton(c, locales.PrepImport(), iconImports, primary)
-							button.Label(locales.PrepImport() + " " + step.Title)
-							if button.Clicked() {
-								a.openImportWizard(step.Kind)
-							}
-						})
-					})
+					a.prepRow(c, p, step, index, next, editable)
 				}
 			})
 		})
-		if editable && next >= 0 {
-			ui.Row(c).Children(func() {
-				if labelledButton(c, locales.PrepContinueNext(), iconArrowRight, true).Clicked() {
-					a.openImportWizard(steps[next].Kind)
-				}
-			})
-		}
 	})
 }
 
-func fmtInt(value int) string {
-	return fmt.Sprintf("%d", value)
+func (a *app) prepRow(c *ui.Context, p uiPalette, step prepStep, index, next int, editable bool) {
+	t := p.theme
+	rule(c)
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).
+		Padding(t.Space(3.5), 0).Children(func() {
+		ui.Textf(c, "%d", index+1).FontSize(captionSize(t)).
+			TextColor(p.muted).FontFeatures("tnum").Width(t.Space(4))
+		ui.Column(c).Grow(1).MinWidth(0).Gap(t.Space(0.5)).Children(func() {
+			ui.Text(c, step.Title).FontSize(bodySize(t)).FontWeight(600)
+			ui.Text(c, step.Body).FontSize(captionSize(t)).TextColor(p.muted).Pretty()
+		})
+		switch {
+		case step.Count > 0:
+			ui.Text(c, formatInt(step.Count)).FontSize(captionSize(t)).
+				TextColor(p.muted).FontFeatures("tnum")
+			view := plainButton(c, locales.PrepView())
+			view.Label(locales.PrepView() + " " + step.Title)
+			if view.Clicked() {
+				a.prepOpen = false
+				a.page = step.Page
+			}
+		case !editable:
+			ui.Text(c, locales.ReadinessMissing()).FontSize(captionSize(t)).TextColor(p.muted)
+		default:
+			primary := index == next
+			button := labelledButton(c, locales.PrepImport(), iconImports, primary)
+			button.Label(locales.PrepImport() + " " + step.Title)
+			if button.Clicked() {
+				a.openImportWizard(step.Kind)
+			}
+		}
+	})
 }

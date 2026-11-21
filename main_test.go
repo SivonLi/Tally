@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -73,14 +72,66 @@ func TestViewShowsDefaultPlan(t *testing.T) {
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
-	for _, text := range []string{"Assessment plans", "Built-in", "Versions", "Published"} {
+	for _, text := range []string{"Assessment plans", "Built-in", "Indicators", "Save"} {
 		if !tt.HasText(text) {
 			t.Errorf("missing %q in %q", text, tt.Texts())
 		}
 	}
+	for _, text := range []string{"Versions", "Rules (JSON)", "Update this plan", "Save as new plan"} {
+		if tt.HasText(text) {
+			t.Errorf("unexpected %q in %q", text, tt.Texts())
+		}
+	}
 }
 
-func TestSidebarChangesPlan(t *testing.T) {
+func TestSaveDialogAsksUpdateOrNewPlan(t *testing.T) {
+	a := newTestApp(t)
+	tt := ui.NewTester(a.view, 1280, 800)
+	tt.SetLocale("en")
+	tt.Frame()
+	if err := tt.Click("Save"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	for _, text := range []string{"Save changes", "Update this plan", "Save as new plan", "Cancel"} {
+		if !tt.HasText(text) {
+			t.Errorf("missing %q in %q", text, tt.Texts())
+		}
+	}
+	if err := tt.Click("Cancel"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.planSaveChoice != planSaveNone {
+		t.Fatalf("planSaveChoice = %v", a.planSaveChoice)
+	}
+	if tt.HasText("Update this plan") {
+		t.Errorf("dialog still open: %q", tt.Texts())
+	}
+}
+
+func TestSaveAsNewPlanRejectsTakenName(t *testing.T) {
+	a := newTestApp(t)
+	tt := ui.NewTester(a.view, 1280, 800)
+	tt.SetLocale("en")
+	tt.Frame()
+	if err := tt.Click("Save"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if err := tt.Click("Save as new plan"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.planError != locales.PlanNameTaken() {
+		t.Fatalf("planError = %q", a.planError)
+	}
+	if len(a.plans) != 1 {
+		t.Fatalf("plans = %+v", a.plans)
+	}
+}
+
+func TestPlanSelectorChangesPlan(t *testing.T) {
 	ctx := context.Background()
 	a := newTestApp(t)
 	config := assessment.DefaultConfig()
@@ -99,6 +150,11 @@ func TestSidebarChangesPlan(t *testing.T) {
 	a.reloadPlans(ctx)
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
+	tt.Frame()
+	if err := tt.Click("Plan"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
 	if err := tt.Click("派生方案"); err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +166,7 @@ func TestSidebarChangesPlan(t *testing.T) {
 	}
 }
 
-func TestPublishAndRetireVersion(t *testing.T) {
+func TestDerivedPlanVersionIsPublishedOnSave(t *testing.T) {
 	ctx := context.Background()
 	a := newTestApp(t)
 	config := assessment.DefaultConfig()
@@ -128,30 +184,27 @@ func TestPublishAndRetireVersion(t *testing.T) {
 	}
 	a.reloadPlans(ctx)
 	a.selectedPlanID = strconv.FormatInt(plan.ID, 10)
-	a.versionIndex = 0
+	a.versionIndex = -1
 	a.reloadVersions(ctx)
+	a.planConfigVersionID = 0
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
-	if err := tt.Click("Publish"); err != nil {
+	tt.Frame()
+	a.planConfig.Ranking.TieMode = "ordinal"
+	tt.Frame()
+	if err := tt.Click("Save"); err != nil {
 		t.Fatal(err)
-	}
-	version, err := a.store.GetVersion(ctx, draft.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if version.Status != "published" {
-		t.Fatalf("status = %q", version.Status)
 	}
 	tt.Frame()
-	if err := tt.Click("Retire"); err != nil {
+	if err := tt.Click("Update this plan"); err != nil {
 		t.Fatal(err)
 	}
-	version, err = a.store.GetVersion(ctx, draft.ID)
+	latest, err := a.store.LatestPublished(ctx, plan.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if version.Status != "retired" {
-		t.Fatalf("status = %q", version.Status)
+	if latest.Version != draft.Version+1 || latest.Config.Ranking.TieMode != "ordinal" {
+		t.Fatalf("latest = %+v", latest)
 	}
 }
 
@@ -159,14 +212,15 @@ func TestLanguageSwitch(t *testing.T) {
 	a := newTestApp(t)
 	i18n.SetLocaleFunc(func() string { return a.language })
 	t.Cleanup(func() { i18n.SetLocaleFunc(nil) })
-	tt := ui.NewTester(a.view, 1280, 800)
+	a.settingsPageID = "appearance"
+	tt := ui.NewTester(a.settingsView, 760, 620)
 	if err := tt.Click(i18n.Autonym("zh-Hans")); err != nil {
 		t.Fatal(err)
 	}
 	if a.language != "zh-Hans" {
 		t.Fatalf("language = %q", a.language)
 	}
-	if !tt.HasText("考核方案") {
+	if !tt.HasText("外观") {
 		t.Errorf("texts = %q", tt.Texts())
 	}
 	if err := tt.Click(i18n.Autonym("en")); err != nil {
@@ -175,7 +229,7 @@ func TestLanguageSwitch(t *testing.T) {
 	if a.language != "en" {
 		t.Fatalf("language = %q", a.language)
 	}
-	if !tt.HasText("Assessment plans") {
+	if !tt.HasText("Appearance") {
 		t.Errorf("texts = %q", tt.Texts())
 	}
 }
@@ -191,7 +245,7 @@ func TestNavigationSwitchesPages(t *testing.T) {
 	if a.page != pageAssessments {
 		t.Fatalf("page = %q", a.page)
 	}
-	if !tt.HasText("No assessment batches yet.") {
+	if !tt.HasText("No exams yet") {
 		t.Errorf("texts = %q", tt.Texts())
 	}
 	if err := tt.Click("Assessment plans"); err != nil {
@@ -202,20 +256,20 @@ func TestNavigationSwitchesPages(t *testing.T) {
 	}
 }
 
-func TestEmptyBatchStateAtMinimumSize(t *testing.T) {
+func TestAssessmentEmptyStateAtMinimumSize(t *testing.T) {
 	a := newTestApp(t)
 	a.page = pageAssessments
 	tt := ui.NewTester(a.view, 1024, 640)
 	tt.SetLocale("en")
 	tt.Frame()
-	if !tt.HasText("No assessment batches yet.") {
+	if !tt.HasText("No exams yet") {
 		t.Errorf("texts = %q", tt.Texts())
 	}
-	if err := tt.Click("New batch"); err != nil {
+	if err := tt.Click("New exam"); err != nil {
 		t.Fatal(err)
 	}
-	if !a.newBatchOpen {
-		t.Fatal("new batch dialog not open")
+	if !a.newExamOpen {
+		t.Fatal("new exam dialog not open")
 	}
 }
 
@@ -225,7 +279,7 @@ func TestDarkThemeRendersPlanPage(t *testing.T) {
 	tt.SetLocale("en")
 	tt.SetDark(true)
 	tt.Frame()
-	for _, text := range []string{"Assessment plans", "Built-in", "Versions"} {
+	for _, text := range []string{"Assessment plans", "Built-in", "Indicators", "Ranking and tiers"} {
 		if !tt.HasText(text) {
 			t.Errorf("missing %q in %q", text, tt.Texts())
 		}
@@ -237,7 +291,7 @@ func TestPlanPageAtMinimumSize(t *testing.T) {
 	tt := ui.NewTester(a.view, 1024, 640)
 	tt.SetLocale("en")
 	tt.Frame()
-	for _, text := range []string{"Built-in", "Versions", "Update this plan", "Save as new plan"} {
+	for _, text := range []string{"Built-in", "Plan name", "Save"} {
 		box, ok := tt.Find(text)
 		if !ok {
 			t.Fatalf("missing box for %q", text)
@@ -246,38 +300,35 @@ func TestPlanPageAtMinimumSize(t *testing.T) {
 			t.Fatalf("%q is outside the window: %+v", text, box)
 		}
 	}
+	tt.Scroll(600, 400, 0, 900)
+	tt.Frame()
+	if !tt.HasText("Indicators") {
+		t.Fatalf("texts = %q", tt.Texts())
+	}
 }
 
-func TestUpdateSystemPlanFromEditor(t *testing.T) {
+func TestUpdateSystemPlanFromConfigPage(t *testing.T) {
 	a := newTestApp(t)
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
+	a.planConfig.Ranking.TieMode = "dense"
+	tt.Frame()
+	if err := tt.Click("Save"); err != nil {
+		t.Fatal(err)
+	}
+	if a.planSaveChoice != planSaveAsking {
+		t.Fatal("save dialog not open")
+	}
+	tt.Frame()
 	if err := tt.Click("Update this plan"); err != nil {
 		t.Fatal(err)
-	}
-	if !a.planEditOpen {
-		t.Fatal("editor not open")
-	}
-	config := a.versions[a.versionIndex].Config
-	config.Ranking.TieMode = "dense"
-	data, err := json.Marshal(config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	a.planEditDraft = string(data)
-	a.savePlanUpdate()
-	if a.planEditError != "" {
-		t.Fatal(a.planEditError)
-	}
-	if a.planEditOpen {
-		t.Fatal("editor still open")
 	}
 	if a.loadError != "" || a.planError != "" {
 		t.Fatalf("loadError=%q planError=%q", a.loadError, a.planError)
 	}
-	if want := fmt.Sprintf(locales.PlanUpdateSaved(), 2); a.planMessage != want {
-		t.Fatalf("message = %q", a.planMessage)
+	if !tt.HasText(locales.PlanSavedToast()) {
+		t.Fatalf("texts = %q", tt.Texts())
 	}
 	latest, err := a.store.LatestPublished(context.Background(), a.versions[a.versionIndex].PlanID)
 	if err != nil {
@@ -291,25 +342,22 @@ func TestUpdateSystemPlanFromEditor(t *testing.T) {
 	}
 }
 
-func TestSaveAsNewPlanFromEditor(t *testing.T) {
+func TestSaveAsNewPlanFromConfigPage(t *testing.T) {
 	a := newTestApp(t)
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
+	a.planConfig.Name = "Derived plan"
+	a.planConfig.Ranking.TieMode = "dense"
+	tt.Frame()
+	if err := tt.Click("Save"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
 	if err := tt.Click("Save as new plan"); err != nil {
 		t.Fatal(err)
 	}
-	if !a.planEditOpen {
-		t.Fatal("editor not open")
-	}
-	a.planEditName = "Derived plan"
-	a.savePlanAsNew()
-	if a.planEditError != "" {
-		t.Fatal(a.planEditError)
-	}
-	if a.planEditOpen {
-		t.Fatal("editor still open")
-	}
+	tt.Frame()
 	if a.loadError != "" || a.planError != "" {
 		t.Fatalf("loadError=%q planError=%q", a.loadError, a.planError)
 	}
@@ -320,27 +368,10 @@ func TestSaveAsNewPlanFromEditor(t *testing.T) {
 	if selected == nil || selected.Name != "Derived plan" || selected.Kind != "user" {
 		t.Fatalf("selected = %+v", selected)
 	}
-	if len(a.versions) != 1 || a.versions[0].Status != "draft" {
+	if len(a.versions) != 1 || a.versions[0].Status != "published" {
 		t.Fatalf("versions = %+v", a.versions)
 	}
-	if want := fmt.Sprintf(locales.PlanSavedAsNew(), "Derived plan", 1); a.planMessage != want {
-		t.Fatalf("message = %q", a.planMessage)
-	}
-}
-
-func TestRetireSystemPlanKeepsPlanPageUsable(t *testing.T) {
-	a := newTestApp(t)
-	a.retireSelected()
-	if a.planError != locales.PlanSystemCannotRetire() {
-		t.Fatalf("planError = %q", a.planError)
-	}
-	if a.loadError != "" {
-		t.Fatalf("loadError = %q", a.loadError)
-	}
-	tt := ui.NewTester(a.view, 1280, 800)
-	tt.SetLocale("en")
-	tt.Frame()
-	if !tt.HasText("Assessment plans") {
+	if want := fmt.Sprintf(locales.PlanSavedNewToast(), "Derived plan"); !tt.HasText(want) {
 		t.Fatalf("texts = %q", tt.Texts())
 	}
 }

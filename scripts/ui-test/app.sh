@@ -23,6 +23,8 @@ require_stopped() {
 wait_for_window() {
   local deadline=$((SECONDS + ${1:-20}))
   while (( SECONDS < deadline )); do
+    # 显示器休眠时辅助功能接口不返回窗口，先唤醒再读取。
+    caffeinate -u -t 2 > /dev/null 2>&1 || true
     if osascript -l JavaScript "$root/scripts/ui-test/ax.js" wait 2 > /dev/null 2>&1; then
       return 0
     fi

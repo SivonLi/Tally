@@ -6,6 +6,14 @@ function systemEvents() {
   return Application("System Events");
 }
 
+// wake 唤醒显示器与辅助功能接口。显示器休眠时窗口列表为空，截图也是黑屏。
+function wake() {
+  var app = Application.currentApplication();
+  app.includeStandardAdditions = true;
+  app.doShellScript("/usr/bin/caffeinate -u -t 2 >/dev/null 2>&1 || true");
+  delay(0.3);
+}
+
 function tapp() {
   var proc = systemEvents().processes.byName(APP);
   if (!proc.exists()) throw new Error("Tally 未运行");
@@ -45,10 +53,13 @@ function allWindows() {
 function standardWindow() {
   var list = allWindows();
   for (var i = 0; i < list.length; i++) {
-    if (subroleOf(list[i]) === "AXStandardWindow") return list[i];
+    if (nameOf(list[i]) === APP && subroleOf(list[i]) === "AXStandardWindow") return list[i];
   }
   for (var j = 0; j < list.length; j++) {
-    if (nameOf(list[j]) === APP) return list[j];
+    if (subroleOf(list[j]) === "AXStandardWindow" && nameOf(list[j]) !== "设置") return list[j];
+  }
+  for (var k = 0; k < list.length; k++) {
+    if (nameOf(list[k]) === APP) return list[k];
   }
   throw new Error("没有找到 Tally 主窗口");
 }
@@ -411,6 +422,7 @@ function main(argv) {
     }
   }
   var action = args[0];
+  wake();
   if (action === "windows") {
     var list = allWindows();
     var lines = [];
@@ -451,6 +463,15 @@ function main(argv) {
   if (action === "press") {
     var win = dialog ? dialogWindow() : standardWindow();
     var element = findElement(win, args[1], args[2], 0, depth);
+    if (!element && !dialog) {
+      var list = allWindows();
+      for (var w = 0; w < list.length; w++) {
+        if (subroleOf(list[w]) === "AXStandardWindow" && list[w] !== win) {
+          element = findElement(list[w], args[1], args[2], 0, depth);
+          if (element) break;
+        }
+      }
+    }
     if (!element) throw new Error("没有找到 " + args[1] + " " + args[2]);
     element.actions.byName("AXPress").perform();
     delay(0.4);

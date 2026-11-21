@@ -125,7 +125,7 @@ func TestExamPagesShowRosterScoresAndStatistics(t *testing.T) {
 			t.Fatalf("missing %q in %q", text, tt.Texts())
 		}
 	}
-	if !tt.HasText("1班 · 105.0 (2)") {
+	if !tt.HasText("1班 · average 105.0 · 2 students") {
 		t.Fatalf("texts = %q", tt.Texts())
 	}
 }
