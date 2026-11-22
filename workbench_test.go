@@ -157,7 +157,7 @@ func TestAssessmentPageShowsWorkflow(t *testing.T) {
 			t.Fatalf("missing %q in %q", text, tt.Texts())
 		}
 	}
-	if err := tt.Click("Calculate"); err != nil {
+	if err := tt.Click("Calculate final results"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
@@ -271,5 +271,155 @@ func TestAssessmentZeroTargetFill(t *testing.T) {
 	}
 	if len(a.assessmentRows) != 2 {
 		t.Fatalf("result rows = %d", len(a.assessmentRows))
+	}
+}
+
+func TestAssessmentTrialKeepsOfficialState(t *testing.T) {
+	fixture := newAssessmentPageFixture(t, false)
+	a := fixture.App
+	a.startAssessmentTrial()
+	if a.assessmentError != "" {
+		t.Fatal(a.assessmentError)
+	}
+	if len(a.assessmentRuns) != 1 || a.assessmentRuns[0].IsOfficial {
+		t.Fatalf("runs = %+v", a.assessmentRuns)
+	}
+	overview := a.selectedAssessmentOverview()
+	if overview == nil || overview.Status != "draft" {
+		t.Fatalf("status = %+v", overview)
+	}
+	if a.officialExportReady() {
+		t.Fatal("export ready without an official run")
+	}
+	tt := ui.NewTester(a.view, 1280, 800)
+	tt.SetLocale("en")
+	tt.Frame()
+	for _, text := range []string{"Test results", "Test calculation finished"} {
+		if !tt.HasText(text) {
+			t.Fatalf("missing %q in %q", text, tt.Texts())
+		}
+	}
+}
+
+func TestAssessmentStaleMarksOfficialRun(t *testing.T) {
+	fixture := newAssessmentPageFixture(t, false)
+	a := fixture.App
+	a.startAssessmentCalculate()
+	if a.assessmentError != "" {
+		t.Fatal(a.assessmentError)
+	}
+	if a.assessmentOfficialStale {
+		t.Fatal("official run stale right after calculation")
+	}
+	if !a.officialExportReady() {
+		t.Fatal("export not ready after calculation")
+	}
+	ctx := context.Background()
+	cohort := a.selectedCohort()
+	if _, err := a.store.ApplyExamImport(ctx, store.ExamImportRequest{
+		ExamID: fixture.ExamID, CohortID: cohort.ID, Kind: store.ExamImportScores,
+		Report: store.ImportReport{
+			FileHash: "scores-v2", Path: "scores-v2.xlsx", RowCount: 3,
+			StoredPath: filepath.Join(a.dataDir, "files", "scores-v2.xlsx"),
+			Sheets:     []store.ImportSheet{{Name: "成绩", Role: "scores", HeaderRow: 1, Rows: 3}},
+		},
+		Data: store.ImportData{Students: []store.ImportStudent{
+			{StudentNo: "001", Scores: map[string]float64{"chinese": 95, "math": 88}, Flags: map[string]string{}},
+			{StudentNo: "002", Scores: map[string]float64{"chinese": 85, "math": 75}, Flags: map[string]string{}},
+			{StudentNo: "003", Scores: map[string]float64{"chinese": 75, "math": 65}, Flags: map[string]string{}},
+		}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	a.reloadAssessments(ctx)
+	if !a.assessmentOfficialStale {
+		t.Fatal("official run not stale after data change")
+	}
+	if len(a.assessmentOfficialStaleItems) != 1 || a.assessmentOfficialStaleItems[0] != "scores" {
+		t.Fatalf("stale items = %q", a.assessmentOfficialStaleItems)
+	}
+	if a.officialExportReady() {
+		t.Fatal("export ready while results are stale")
+	}
+	tt := ui.NewTester(a.view, 1280, 800)
+	tt.SetLocale("en")
+	tt.Frame()
+	for _, text := range []string{"Needs recalculation", "Data has changed: Scores"} {
+		if !tt.HasText(text) {
+			t.Fatalf("missing %q in %q", text, tt.Texts())
+		}
+	}
+}
+
+func TestAssessmentRowClickOpensDetail(t *testing.T) {
+	fixture := newAssessmentPageFixture(t, false)
+	a := fixture.App
+	a.startAssessmentCalculate()
+	if a.assessmentError != "" {
+		t.Fatal(a.assessmentError)
+	}
+	tt := ui.NewTester(a.view, 1280, 800)
+	tt.SetLocale("en")
+	tt.Frame()
+	if err := tt.Click("Chinese"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if !a.resultDetailOpen {
+		t.Fatalf("detail not open, selection = %d", a.resultSelection.Len())
+	}
+	detail := a.resultDetail
+	if detail.Row.Subject != "chinese" {
+		t.Fatalf("row = %+v", detail.Row)
+	}
+	if len(detail.Students) == 0 || len(detail.Formulas) == 0 {
+		t.Fatalf("detail = %+v", detail)
+	}
+	for _, text := range []string{
+		"Result details", "Indicator breakdown", "Class average", "Participating students", "甲",
+	} {
+		if !tt.HasText(text) {
+			t.Fatalf("missing %q in %q", text, tt.Texts())
+		}
+	}
+}
+
+func TestAssessmentRunSelectorSwitchesRuns(t *testing.T) {
+	fixture := newAssessmentPageFixture(t, false)
+	a := fixture.App
+	a.startAssessmentTrial()
+	if a.assessmentError != "" {
+		t.Fatal(a.assessmentError)
+	}
+	a.startAssessmentCalculate()
+	if a.assessmentError != "" {
+		t.Fatal(a.assessmentError)
+	}
+	if len(a.assessmentRuns) != 2 {
+		t.Fatalf("runs = %+v", a.assessmentRuns)
+	}
+	if !a.assessmentRun.IsOfficial {
+		t.Fatalf("displayed run = %+v", a.assessmentRun)
+	}
+	tt := ui.NewTester(a.view, 1280, 800)
+	tt.SetLocale("en")
+	tt.Frame()
+	if !tt.HasText("Final results") {
+		t.Fatalf("texts = %q", tt.Texts())
+	}
+	if err := tt.Click("Result version"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	trialLabel := a.runOptionLabelForID(a.assessmentRuns[1].ID)
+	if err := tt.Click(trialLabel); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.assessmentRun.IsOfficial {
+		t.Fatal("still on the official run after switching")
+	}
+	if !tt.HasText("Test results") {
+		t.Fatalf("texts = %q", tt.Texts())
 	}
 }

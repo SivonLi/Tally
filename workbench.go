@@ -13,6 +13,7 @@ import (
 	"github.com/lobehub/lobe-mygo/pkg/feedback"
 	"github.com/lobehub/lobe-mygo/pkg/nav"
 
+	"tally/internal/assessment"
 	"tally/internal/calc"
 	"tally/internal/pipeline"
 	"tally/internal/store"
@@ -82,6 +83,38 @@ func (a *app) labelForVersionID(id int64) string {
 	return ""
 }
 
+// runOptionLabel 是一条核算记录在下拉里的文字：类型、时间、方案版本。
+func (a *app) runOptionLabel(run store.AssessmentRunSummary) string {
+	kind := locales.AssessmentRunTrial()
+	if run.IsOfficial {
+		kind = locales.AssessmentRunOfficial()
+	}
+	return fmt.Sprintf("%s · %s · %s", kind, formatTime(run.CreatedAt), a.labelForVersionID(run.PlanVersionID))
+}
+
+func (a *app) runOptions() []string {
+	options := make([]string, 0, len(a.assessmentRuns))
+	for _, run := range a.assessmentRuns {
+		options = append(options, a.runOptionLabel(run))
+	}
+	return options
+}
+
+func (a *app) runIDForLabel(label string) (int64, bool) {
+	for _, run := range a.assessmentRuns {
+		if a.runOptionLabel(run) == label {
+			return run.ID, true
+		}
+	}
+	return 0, false
+}
+
+func (a *app) selectAssessmentRun(id int64) {
+	a.assessmentRunChosen = true
+	a.assessmentRunID = id
+	a.loadAssessmentDetail(context.Background())
+}
+
 func (a *app) reloadAssessments(ctx context.Context) {
 	if a.store == nil {
 		return
@@ -126,6 +159,9 @@ func (a *app) selectAssessment(id int64) {
 	a.selectedAssessmentID = id
 	a.assessmentError = ""
 	a.assessmentMessage = ""
+	a.assessmentRunChosen = false
+	a.assessmentRunID = 0
+	a.closeResultDetail()
 	a.loadAssessmentDetail(context.Background())
 }
 
@@ -144,20 +180,135 @@ func (a *app) loadAssessmentDetail(ctx context.Context) {
 			a.calculateVersion = label
 		}
 	}
-	run, rows, personal, err := a.store.LatestAssessmentRun(ctx, a.selectedAssessmentID)
+	a.assessmentRuns, err = a.store.ListAssessmentRuns(ctx, a.selectedAssessmentID)
+	if err != nil {
+		a.assessmentError = err.Error()
+		return
+	}
+	if !a.assessmentRunChosen || !a.runExists(a.assessmentRunID) {
+		a.assessmentRunChosen = false
+		a.assessmentRunID = a.defaultRunID()
+	}
+	a.closeResultDetail()
+	if a.assessmentRunID == 0 {
+		a.assessmentRun = store.ResultRun{}
+		a.assessmentRows = nil
+		a.assessmentPersonal = nil
+		a.assessmentOfficialStale = false
+		a.assessmentOfficialStaleItems = nil
+		return
+	}
+	run, rows, personal, err := a.store.AssessmentRunDetail(ctx, a.selectedAssessmentID, a.assessmentRunID)
 	if err != nil {
 		if !errors.Is(err, store.ErrNotFound) {
 			a.assessmentError = err.Error()
 			return
 		}
+		a.assessmentRunChosen = false
+		a.assessmentRunID = 0
+		a.assessmentRuns = nil
 		a.assessmentRun = store.ResultRun{}
 		a.assessmentRows = nil
 		a.assessmentPersonal = nil
+		a.assessmentOfficialStale = false
+		a.assessmentOfficialStaleItems = nil
 		return
 	}
 	a.assessmentRun = run
 	a.assessmentRows = rows
 	a.assessmentPersonal = personal
+	a.loadAssessmentStaleness(ctx)
+}
+
+// defaultRunID 默认显示的核算：最近一次正式核算，没有正式核算时取最近一次试算。
+func (a *app) defaultRunID() int64 {
+	for _, run := range a.assessmentRuns {
+		if run.IsOfficial {
+			return run.ID
+		}
+	}
+	if len(a.assessmentRuns) > 0 {
+		return a.assessmentRuns[0].ID
+	}
+	return 0
+}
+
+func (a *app) latestOfficialRun() store.AssessmentRunSummary {
+	for _, run := range a.assessmentRuns {
+		if run.IsOfficial {
+			return run
+		}
+	}
+	return store.AssessmentRunSummary{}
+}
+
+func (a *app) runExists(id int64) bool {
+	for _, run := range a.assessmentRuns {
+		if run.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+// loadAssessmentStaleness 对比当前数据与最新正式核算的输入摘要，
+// 得到需要重新计算时的提示数据项。
+func (a *app) loadAssessmentStaleness(ctx context.Context) {
+	a.assessmentOfficialStale = false
+	a.assessmentOfficialStaleItems = nil
+	official := a.latestOfficialRun()
+	if official.ID == 0 {
+		return
+	}
+	var officialItems []string
+	var officialStale bool
+	var err error
+	if official.ID == a.assessmentRun.ID {
+		officialItems, officialStale, err = a.staleInputItems(ctx, a.assessmentRun)
+	} else {
+		detail, _, _, detailErr := a.store.AssessmentRunDetail(ctx, a.selectedAssessmentID, official.ID)
+		if detailErr != nil {
+			a.assessmentError = detailErr.Error()
+			return
+		}
+		officialItems, officialStale, err = a.staleInputItems(ctx, detail)
+	}
+	if err != nil {
+		a.assessmentError = err.Error()
+		return
+	}
+	a.assessmentOfficialStale = officialStale
+	a.assessmentOfficialStaleItems = officialItems
+}
+
+// staleInputItems 对比一次核算保存的输入摘要与当前数据，
+// 返回变化的数据项与是否需要重新计算；
+// 旧运行没有摘要时回退整体哈希对比，此时没有数据项清单。
+func (a *app) staleInputItems(ctx context.Context, run store.ResultRun) ([]string, bool, error) {
+	version, err := a.store.GetVersion(ctx, run.PlanVersionID)
+	if err != nil {
+		return nil, false, err
+	}
+	data, err := a.store.LoadAssessmentData(ctx, a.selectedAssessmentID)
+	if err != nil {
+		return nil, false, err
+	}
+	if strings.TrimSpace(run.InputSummary) != "" {
+		summary, err := store.InputSummary(version.Config, data)
+		if err != nil {
+			return nil, false, err
+		}
+		changed, err := store.ChangedInputItems(run.InputSummary, summary)
+		if err != nil {
+			return nil, false, err
+		}
+		return changed, len(changed) > 0, nil
+	}
+	hash, err := store.InputHash(version.Config, data)
+	if err != nil {
+		return nil, false, err
+	}
+	return nil, run.InputHash != hash, nil
 }
 
 func (a *app) assessmentPage(c *ui.Context, p uiPalette) {
@@ -188,6 +339,7 @@ func (a *app) assessmentPage(c *ui.Context, p uiPalette) {
 		}).Grow(1)
 	})
 	a.zeroModal(c, p)
+	a.resultDetailModal(c, p)
 	a.newExamModal(c, p)
 }
 
@@ -269,7 +421,7 @@ func (a *app) assessmentDetail(c *ui.Context, p uiPalette) {
 		stage = 0
 	case !a.assessmentReady(*overview):
 		stage = 0
-	case overview.Status == "calculated":
+	case overview.Status == "calculated" && !a.assessmentOfficialStale:
 		stage = 2
 	default:
 		stage = 1
@@ -288,7 +440,8 @@ func (a *app) assessmentDetail(c *ui.Context, p uiPalette) {
 					a.examTermName(overview.Term), overview.ExamDate).FontSize(captionSize(t)).
 					TextColor(p.muted).FontFeatures("tnum")
 			})
-			statusBadge(c, p, overview.Status, a.assessmentStatusLabel(overview.Status))
+			status, statusLabel := a.assessmentStatusDisplay(*overview)
+			statusBadge(c, p, status, statusLabel)
 		})
 		a.assessmentSteps(c, p, stage)
 		a.assessmentActions(c, p, *overview)
@@ -310,13 +463,61 @@ func (a *app) assessmentSteps(c *ui.Context, p uiPalette, current int) {
 	nav.Steps(c, nav.StepsProps{Items: items, Current: current})
 }
 
-func (a *app) assessmentStatusLabel(status string) string {
-	switch status {
-	case "calculated":
-		return locales.AssessmentStatusCalculated()
-	default:
-		return locales.AssessmentStatusDraft()
+// assessmentStatusDisplay 返回状态徽标的取值与文字；
+// 已核算但数据已变化时显示「需要重新计算」。
+func (a *app) assessmentStatusDisplay(overview store.AssessmentOverview) (string, string) {
+	if overview.Status == "calculated" {
+		if a.assessmentOfficialStale {
+			return "stale", locales.AssessmentStatusStale()
+		}
+		return "calculated", locales.AssessmentStatusCalculated()
 	}
+	return "draft", locales.AssessmentStatusDraft()
+}
+
+// staleItemLabel 把输入摘要的数据项标识映射为界面名称。
+func (a *app) staleItemLabel(key string) string {
+	switch key {
+	case "roster":
+		return locales.ExamTabRoster()
+	case "scores":
+		return locales.ExamTabScores()
+	case "cutoffs":
+		return locales.ExamTabCutoffs()
+	case "targets":
+		return locales.ExamTabTargets()
+	case "groups":
+		return locales.ExamTabGroups()
+	case "baseline":
+		return locales.AssessmentItemBaseline()
+	case "assignments":
+		return locales.AssessmentItemAssignments()
+	case "classes":
+		return locales.AssessmentItemClasses()
+	case "exclusions":
+		return locales.AssessmentItemExclusions()
+	default:
+		return key
+	}
+}
+
+// staleNoticeText 生成「需要重新计算」提示；
+// 能定位到变化数据项时把名称列出来。
+func (a *app) staleNoticeText() string {
+	labels := make([]string, 0, len(a.assessmentOfficialStaleItems))
+	for _, key := range a.assessmentOfficialStaleItems {
+		labels = append(labels, a.staleItemLabel(key))
+	}
+	if len(labels) == 0 {
+		return locales.AssessmentStaleNotice()
+	}
+	return fmt.Sprintf(locales.AssessmentStaleItems(), strings.Join(labels, locales.ListSeparator()))
+}
+
+// officialExportReady 判断能否导出：
+// 存在最新正式核算，且它相对当前数据仍然新鲜。
+func (a *app) officialExportReady() bool {
+	return a.latestOfficialRun().ID != 0 && !a.assessmentOfficialStale
 }
 
 func (a *app) assessmentChecklist(c *ui.Context, p uiPalette, overview store.AssessmentOverview) {
@@ -387,6 +588,9 @@ func (a *app) assessmentActions(c *ui.Context, p uiPalette, overview store.Asses
 			notice(c, p, noticeWarning, fmt.Sprintf(locales.AssessmentPrepareRequired(),
 				strings.Join(missing, locales.ListSeparator())))
 		}
+		if a.assessmentOfficialStale {
+			notice(c, p, noticeWarning, a.staleNoticeText())
+		}
 		ui.Row(c).Wrap().AlignItems(ui.End).Gap(t.Space(3)).Children(func() {
 			ui.Column(c).Width(t.Space(56)).MinWidth(0).Gap(t.Space(1)).Children(func() {
 				ui.Text(c, locales.AssessmentPlanVersion()).FontSize(captionSize(t)).TextColor(p.muted)
@@ -403,6 +607,12 @@ func (a *app) assessmentActions(c *ui.Context, p uiPalette, overview store.Asses
 					iconExams, false).Clicked() {
 					a.openExamTab(overview, 0)
 				}
+				trial := labelledButton(c, locales.AssessmentTrial(), iconCalculate, false)
+				trial.Disabled(a.assessmentBusy || len(a.published) == 0 ||
+					!a.assessmentReady(overview))
+				if trial.Clicked() {
+					a.startAssessmentTrial()
+				}
 				calculate := labelledButton(c, locales.AssessmentCalculate(), iconCalculate, true)
 				calculate.Disabled(a.assessmentBusy || len(a.published) == 0 ||
 					!a.assessmentReady(overview))
@@ -410,7 +620,7 @@ func (a *app) assessmentActions(c *ui.Context, p uiPalette, overview store.Asses
 					a.startAssessmentCalculate()
 				}
 				export := labelledButton(c, locales.AssessmentExport(), iconExport, false)
-				export.Disabled(a.assessmentBusy || len(a.assessmentRows) == 0)
+				export.Disabled(a.assessmentBusy || !a.officialExportReady())
 				if export.Clicked() {
 					a.chooseAssessmentExport()
 				}
@@ -435,14 +645,7 @@ func (a *app) assessmentActions(c *ui.Context, p uiPalette, overview store.Asses
 func (a *app) assessmentResults(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Children(func() {
-			sectionHeading(c, p, locales.AssessmentResults(), len(a.assessmentRows))
-			ui.Spacer(c)
-			if a.assessmentRun.ID != 0 {
-				ui.Textf(c, locales.AssessmentRunMeta(), formatTime(a.assessmentRun.CreatedAt)).
-					FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum")
-			}
-		})
+		a.assessmentResultsHeader(c, p)
 		if len(a.assessmentRows) == 0 {
 			ui.Text(c, locales.AssessmentNoResults()).FontSize(bodySize(t)).TextColor(p.muted)
 			return
@@ -451,6 +654,7 @@ func (a *app) assessmentResults(c *ui.Context, p uiPalette) {
 		a.resultTable.Key = func(row int) any {
 			return fmt.Sprintf("%d:%s", rows[row].StatGroupID, rows[row].Subject)
 		}
+		a.resultTable.Selection = &a.resultSelection
 		a.resultTable.RowHeight = t.Space(8)
 		columns := []ui.TableColumn{
 			{Title: locales.ColumnClass(), Width: t.Space(18)},
@@ -484,10 +688,150 @@ func (a *app) assessmentResults(c *ui.Context, p uiPalette) {
 				ui.Text(c, formatDecimal(item.Points, 1)).FontFeatures("tnum")
 			}
 		}).Label(locales.AssessmentResults()).FillWidth()
+		a.consumeResultRowSelection()
 	})
 }
 
+func (a *app) assessmentResultsHeader(c *ui.Context, p uiPalette) {
+	t := p.theme
+	ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+		sectionHeading(c, p, locales.AssessmentResults(), len(a.assessmentRows))
+		if a.assessmentRun.ID != 0 {
+			kind := locales.AssessmentTrialResults()
+			tone := toneNeutral
+			if a.assessmentRun.IsOfficial {
+				kind = locales.AssessmentOfficialResults()
+				tone = toneAccent
+			}
+			badge(c, p, kind, tone)
+		}
+		if len(a.assessmentRuns) > 1 {
+			chosen := a.runOptionLabelForID(a.assessmentRunID)
+			next := chosen
+			selectField(c, "workbench-runs", &next, a.runOptions(), locales.AssessmentRunSelect()).
+				Width(t.Space(40)).Label(locales.AssessmentRunSelect())
+			if next != chosen {
+				if id, ok := a.runIDForLabel(next); ok {
+					a.selectAssessmentRun(id)
+				}
+			}
+		}
+		ui.Spacer(c)
+		if a.assessmentRun.ID != 0 {
+			ui.Textf(c, locales.AssessmentRunMeta(), formatTime(a.assessmentRun.CreatedAt)).
+				FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum")
+		}
+	})
+}
+
+func (a *app) runOptionLabelForID(id int64) string {
+	for _, run := range a.assessmentRuns {
+		if run.ID == id {
+			return a.runOptionLabel(run)
+		}
+	}
+	return ""
+}
+
+// consumeResultRowSelection 消费行点击产生的选中：
+// 选中在下一帧出现，这里打开对应行的详情并清空选中。
+func (a *app) consumeResultRowSelection() {
+	if a.resultDetailOpen || a.resultSelection.Len() == 0 {
+		return
+	}
+	for key := range a.resultSelection.All() {
+		row := a.resultRowByKey(key)
+		if row != nil {
+			a.openResultDetail(*row)
+		}
+		break
+	}
+}
+
+func (a *app) resultRowByKey(key string) *store.StoredResultRow {
+	idText, subject, ok := strings.Cut(key, ":")
+	if !ok {
+		return nil
+	}
+	id, err := strconv.ParseInt(idText, 10, 64)
+	if err != nil {
+		return nil
+	}
+	for index := range a.assessmentRows {
+		row := &a.assessmentRows[index]
+		if row.StatGroupID == id && row.Subject == subject {
+			return row
+		}
+	}
+	return nil
+}
+
+// resultDetail 是一条结果行详情弹窗的展示数据，
+// 打开时同步查好，弹窗构建不再访问存储。
+type resultDetail struct {
+	Row       store.StoredResultRow
+	PlanLabel string
+	Formulas  map[string]string
+	Group     store.ExamStatGroup
+	Students  []store.ResultRowStudent
+}
+
+func (a *app) closeResultDetail() {
+	a.resultDetailOpen = false
+	a.resultDetail = resultDetail{}
+	a.resultSelection.Clear()
+}
+
+// openResultDetail 为一条结果行收集详情并打开弹窗。
+func (a *app) openResultDetail(row store.StoredResultRow) {
+	a.resultSelection.Clear()
+	if a.store == nil || a.assessmentRun.ID == 0 {
+		return
+	}
+	ctx := context.Background()
+	version, err := a.store.GetVersion(ctx, a.assessmentRun.PlanVersionID)
+	if err != nil {
+		a.assessmentError = err.Error()
+		return
+	}
+	groups, err := a.store.ListExamStatGroups(ctx, a.selectedAssessmentID)
+	if err != nil {
+		a.assessmentError = err.Error()
+		return
+	}
+	var group store.ExamStatGroup
+	for _, item := range groups {
+		if item.ID == row.StatGroupID {
+			group = item
+			break
+		}
+	}
+	students, err := a.store.AssessmentRowStudents(ctx, a.assessmentRun.ID, row.StatGroupID, row.Subject)
+	if err != nil {
+		a.assessmentError = err.Error()
+		return
+	}
+	a.resultDetail = resultDetail{
+		Row:       row,
+		PlanLabel: a.labelForVersionID(version.ID),
+		Formulas:  assessment.EffectiveFormulas(version.Config, a.assessmentContext.Exam.ExamType, a.assessmentContext.Grade),
+		Group:     group,
+		Students:  students,
+	}
+	a.resultDetailOpen = true
+}
+
+// startAssessmentTrial 用当前考核数据试算：
+// 结果按非正式保存，不改变考核状态与正式结果。
+func (a *app) startAssessmentTrial() {
+	a.runAssessmentCalculate(true)
+}
+
 func (a *app) startAssessmentCalculate() {
+	a.runAssessmentCalculate(false)
+}
+
+func (a *app) runAssessmentCalculate(trial bool) {
 	if a.store == nil || a.selectedAssessmentID == 0 {
 		return
 	}
@@ -499,18 +843,26 @@ func (a *app) startAssessmentCalculate() {
 	assessmentID := a.selectedAssessmentID
 	a.assessmentBusy = true
 	a.assessmentError = ""
+	if trial {
+		a.zeroMode = "trial"
+	} else {
+		a.zeroMode = "official"
+	}
 	work := func() (calc.Result, error) {
 		ctx := context.Background()
+		if trial {
+			return pipeline.TrialAssessment(ctx, a.store, assessmentID, version.Version.ID)
+		}
 		return pipeline.CalculateAssessment(ctx, a.store, assessmentID, version.Version.ID)
 	}
 	run := func() {
 		result, err := work()
 		if a.win == nil {
-			a.finishAssessmentCalculate(result, err)
+			a.finishAssessmentCalculate(result, err, trial)
 			return
 		}
 		a.win.Update(func() {
-			a.finishAssessmentCalculate(result, err)
+			a.finishAssessmentCalculate(result, err, trial)
 		})
 	}
 	if a.win == nil {
@@ -520,7 +872,7 @@ func (a *app) startAssessmentCalculate() {
 	go run()
 }
 
-func (a *app) finishAssessmentCalculate(result calc.Result, err error) {
+func (a *app) finishAssessmentCalculate(result calc.Result, err error, trial bool) {
 	a.assessmentBusy = false
 	if err != nil {
 		if zero, ok := err.(*calc.ZeroTargetError); ok {
@@ -538,7 +890,12 @@ func (a *app) finishAssessmentCalculate(result calc.Result, err error) {
 	}
 	a.zeroOpen = false
 	a.assessmentError = ""
-	a.assessmentMessage = fmt.Sprintf(locales.AssessmentCalculated(), len(result.Rows), len(result.Personal))
+	if trial {
+		a.assessmentMessage = fmt.Sprintf(locales.AssessmentTrialCalculated(), len(result.Rows), len(result.Personal))
+	} else {
+		a.assessmentMessage = fmt.Sprintf(locales.AssessmentCalculated(), len(result.Rows), len(result.Personal))
+	}
+	a.assessmentRunChosen = false
 	a.reloadAssessments(context.Background())
 }
 
@@ -708,6 +1065,143 @@ type targetAdjustment struct {
 	value   float64
 }
 
+// detailOperand 是指标明细里的一行操作数。
+type detailOperand struct {
+	Label string
+	Value string
+}
+
+// resultDetailModal 是一条结果行的详情弹窗：
+// 指标明细、计算依据、合并组与参与学生。
+func (a *app) resultDetailModal(c *ui.Context, p uiPalette) {
+	if !a.resultDetailOpen {
+		return
+	}
+	t := p.theme
+	detail := a.resultDetail
+	open := true
+	feedback.Modal(c, &open, feedback.ModalProps{
+		Title:  locales.AssessmentDetailTitle(),
+		OkText: locales.Close(),
+		Width:  t.Space(160),
+	}, func() {
+		row := detail.Row
+		ui.Column(c).Width(t.Space(160)).Gap(t.Space(3)).Children(func() {
+			ui.Row(c).Gap(t.Space(1)).Children(func() {
+				badge(c, p, row.LeadClassName, toneNeutral)
+				badge(c, p, subjectLabel(row.Subject), toneNeutral)
+				badge(c, p, row.StatGroupName, toneNeutral)
+			})
+			sectionHeading(c, p, locales.AssessmentDetailIndicators(), -1)
+			rule(c)
+			a.detailIndicator(c, p, locales.PlanIndicatorImprovement(), detail.Formulas["improvement"],
+				[]detailOperand{
+					{Label: locales.AssessmentDetailClassAverage(), Value: formatDecimal(row.ClassAverage, 1)},
+					{Label: locales.AssessmentDetailGradeAverage(), Value: formatDecimal(row.GradeAverage, 1)},
+					{Label: locales.AssessmentDetailBaselineRatio(), Value: formatRatio(row.BaselineRatio)},
+				},
+				formatDecimal(row.ImprovementRaw, 1), formatDecimal(row.ImprovementScore, 1))
+			a.detailIndicator(c, p, locales.PlanIndicatorPass(), detail.Formulas["pass"],
+				[]detailOperand{
+					{Label: locales.AssessmentDetailPassCount(), Value: formatInt(row.PassCount)},
+					{Label: locales.AssessmentDetailPassTarget(), Value: formatDecimal(row.PassTarget, 0)},
+				},
+				formatDecimal(row.PassRaw, 1), formatDecimal(row.PassScore, 1))
+			if row.CompletionParticipate {
+				a.detailIndicator(c, p, locales.PlanIndicatorCompletion(), detail.Formulas["completion"],
+					[]detailOperand{
+						{Label: locales.AssessmentDetailCompletionActual(), Value: formatDecimal(row.CompletionActual, 1)},
+						{Label: locales.AssessmentDetailCompletionBase(), Value: formatDecimal(row.CompletionBase, 1)},
+					},
+					formatDecimal(row.CompletionRaw, 1), formatDecimal(row.CompletionScore, 1))
+			} else {
+				ui.Row(c).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, locales.PlanIndicatorCompletion()).FontSize(bodySize(t))
+					ui.Spacer(c)
+					ui.Text(c, locales.AssessmentDetailNoCompletion()).FontSize(bodySize(t)).TextColor(p.muted)
+				})
+			}
+			ui.Row(c).AlignItems(ui.Center).Children(func() {
+				ui.Text(c, locales.AssessmentDetailBasis()).FontSize(captionSize(t)).TextColor(p.muted)
+				ui.Spacer(c)
+				ui.Text(c, detail.PlanLabel).FontSize(bodySize(t)).SingleLine()
+			})
+			ui.Row(c).AlignItems(ui.Center).Children(func() {
+				ui.Text(c, locales.AssessmentDetailGroup()).FontSize(captionSize(t)).TextColor(p.muted)
+				ui.Spacer(c)
+				ui.Text(c, a.detailGroupMembers(detail)).FontSize(bodySize(t)).SingleLine()
+			})
+			ui.Row(c).AlignItems(ui.Center).Children(func() {
+				ui.Text(c, locales.AssessmentDetailLeadClass()).FontSize(captionSize(t)).TextColor(p.muted)
+				ui.Spacer(c)
+				ui.Text(c, row.LeadClassName).FontSize(bodySize(t)).SingleLine()
+			})
+			ui.Row(c).AlignItems(ui.Center).Children(func() {
+				ui.Text(c, locales.AssessmentDetailTeachers()).FontSize(captionSize(t)).TextColor(p.muted)
+				ui.Spacer(c)
+				ui.Text(c, decodeNames(row.TeacherNames)).FontSize(bodySize(t)).SingleLine()
+			})
+			sectionHeading(c, p, locales.AssessmentDetailStudents(), len(detail.Students))
+			rule(c)
+			ui.Scroll(c).MaxHeight(t.Space(48)).FillWidth().Children(func() {
+				ui.Column(c).FillWidth().Gap(t.Space(1)).Children(func() {
+					for _, student := range detail.Students {
+						student := student
+						ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+							ui.Text(c, student.StudentNo).FontSize(captionSize(t)).TextColor(p.muted).
+								Width(t.Space(14)).FontFeatures("tnum")
+							ui.Text(c, student.Name).FontSize(bodySize(t)).SingleLine()
+						})
+					}
+				})
+			})
+		})
+	})
+	if !open {
+		a.closeResultDetail()
+	}
+}
+
+// detailIndicator 渲染一个指标的公式、操作数、未封顶值与得分。
+func (a *app) detailIndicator(c *ui.Context, p uiPalette, name, formulaText string,
+	operands []detailOperand, raw, score string) {
+	t := p.theme
+	panel(c, p).Background(p.panelMuted).Padding(t.Space(3)).Gap(t.Space(1.5)).Children(func() {
+		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+			ui.Text(c, name).FontSize(bodySize(t)).FontWeight(600).Grow(1).SingleLine()
+			ui.Text(c, locales.AssessmentDetailUncapped()).FontSize(captionSize(t)).TextColor(p.muted)
+			ui.Text(c, raw).FontSize(bodySize(t)).FontFeatures("tnum")
+			ui.Text(c, locales.AssessmentDetailScore()).FontSize(captionSize(t)).TextColor(p.muted)
+			ui.Text(c, score).FontSize(bodySize(t)).FontWeight(600).FontFeatures("tnum")
+		})
+		if formulaText != "" {
+			ui.Text(c, formulaText).FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
+		}
+		for _, operand := range operands {
+			operand := operand
+			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+				ui.Text(c, operand.Label).FontSize(captionSize(t)).TextColor(p.muted).Grow(1).SingleLine()
+				ui.Text(c, operand.Value).FontSize(captionSize(t)).FontFeatures("tnum")
+			})
+		}
+	})
+}
+
+// detailGroupMembers 返回合并组名称与组内教学班名称。
+func (a *app) detailGroupMembers(detail resultDetail) string {
+	if detail.Group.ID == 0 {
+		return detail.Row.StatGroupName
+	}
+	names := make([]string, 0, len(detail.Group.Members))
+	for _, member := range detail.Group.Members {
+		names = append(names, member.Name)
+	}
+	if len(names) == 0 {
+		return detail.Group.Name
+	}
+	return detail.Group.Name + " (" + strings.Join(names, locales.ListSeparator()) + ")"
+}
+
 func (a *app) startFillZero() {
 	reason := strings.TrimSpace(a.zeroReason)
 	if reason == "" {
@@ -772,7 +1266,11 @@ func (a *app) runZeroWork(work func(ctx context.Context, assessmentID int64) err
 		err := work(ctx, assessmentID)
 		var result calc.Result
 		if err == nil {
-			result, err = pipeline.CalculateAssessment(ctx, a.store, assessmentID, version.Version.ID)
+			if a.zeroMode == "trial" {
+				result, err = pipeline.TrialAssessment(ctx, a.store, assessmentID, version.Version.ID)
+			} else {
+				result, err = pipeline.CalculateAssessment(ctx, a.store, assessmentID, version.Version.ID)
+			}
 		}
 		if a.win == nil {
 			a.finishZeroWork(result, err)
@@ -805,7 +1303,12 @@ func (a *app) finishZeroWork(result calc.Result, err error) {
 	a.zeroOpen = false
 	a.zeroError = ""
 	a.assessmentError = ""
-	a.assessmentMessage = fmt.Sprintf(locales.AssessmentCalculated(), len(result.Rows), len(result.Personal))
+	if a.zeroMode == "trial" {
+		a.assessmentMessage = fmt.Sprintf(locales.AssessmentTrialCalculated(), len(result.Rows), len(result.Personal))
+	} else {
+		a.assessmentMessage = fmt.Sprintf(locales.AssessmentCalculated(), len(result.Rows), len(result.Personal))
+	}
+	a.assessmentRunChosen = false
 	a.reloadAssessments(context.Background())
 }
 
@@ -814,13 +1317,16 @@ func (a *app) resultsPage(c *ui.Context, p uiPalette) {
 	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
 		pageHeading(c, p, locales.NavResults(), locales.ResultsSubtitle(), func() {
 			export := labelledButton(c, locales.AssessmentExport(), iconExport, false)
-			export.Disabled(a.assessmentBusy || len(a.assessmentRows) == 0)
+			export.Disabled(a.assessmentBusy || !a.officialExportReady())
 			if export.Clicked() {
 				a.chooseAssessmentExport()
 			}
 		})
 		if a.assessmentError != "" {
 			notice(c, p, noticeDanger, a.assessmentError)
+		}
+		if a.assessmentOfficialStale {
+			notice(c, p, noticeWarning, a.staleNoticeText())
 		}
 		if a.assessmentMessage != "" {
 			notice(c, p, noticeSuccess, a.assessmentMessage)
@@ -863,4 +1369,5 @@ func (a *app) resultsPage(c *ui.Context, p uiPalette) {
 		}
 		a.assessmentResults(c, p)
 	})
+	a.resultDetailModal(c, p)
 }

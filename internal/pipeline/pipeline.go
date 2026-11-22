@@ -56,33 +56,47 @@ func BuildInput(ctx context.Context, storage *store.Store, batchID int64, plan a
 	return input, data, hash, nil
 }
 
-// BuildAssessmentInput 读取本次考核的数据并生成计算引擎输入。
-func BuildAssessmentInput(ctx context.Context, storage *store.Store, assessmentID int64, plan assessment.Config) (calc.Input, store.BatchData, string, error) {
+// BuildAssessmentInput 读取本次考核的数据并生成计算引擎输入与输入摘要。
+func BuildAssessmentInput(ctx context.Context, storage *store.Store, assessmentID int64, plan assessment.Config) (calc.Input, store.BatchData, string, map[string]string, error) {
 	data, err := storage.LoadAssessmentData(ctx, assessmentID)
 	if err != nil {
-		return calc.Input{}, store.BatchData{}, "", err
+		return calc.Input{}, store.BatchData{}, "", nil, err
 	}
 	input, issues := build(data, plan)
 	if len(issues) > 0 {
-		return calc.Input{}, data, "", &ValidationError{Issues: issues}
+		return calc.Input{}, data, "", nil, &ValidationError{Issues: issues}
 	}
 	hash, err := store.InputHash(plan, data)
 	if err != nil {
-		return calc.Input{}, data, "", err
+		return calc.Input{}, data, "", nil, err
 	}
-	return input, data, hash, nil
+	summary, err := store.InputSummary(plan, data)
+	if err != nil {
+		return calc.Input{}, data, "", nil, err
+	}
+	return input, data, hash, summary, nil
 }
 
-// CalculateAssessment 按选定的方案版本核算本次考核并保存结果。
+// CalculateAssessment 按选定的方案版本正式核算本次考核并保存结果。
 func CalculateAssessment(ctx context.Context, storage *store.Store, assessmentID, versionID int64) (calc.Result, error) {
+	return calculateAssessment(ctx, storage, assessmentID, versionID, true)
+}
+
+// TrialAssessment 按选定的方案版本试算本次考核：结果按非正式保存，
+// 不改变考核状态和当前正式结果。
+func TrialAssessment(ctx context.Context, storage *store.Store, assessmentID, versionID int64) (calc.Result, error) {
+	return calculateAssessment(ctx, storage, assessmentID, versionID, false)
+}
+
+func calculateAssessment(ctx context.Context, storage *store.Store, assessmentID, versionID int64, official bool) (calc.Result, error) {
 	version, err := storage.GetVersion(ctx, versionID)
 	if err != nil {
 		return calc.Result{}, err
 	}
 	if version.Status != "published" {
-		return calc.Result{}, fmt.Errorf("正式核算只能选择已发布的方案版本")
+		return calc.Result{}, fmt.Errorf("核算只能选择已发布的方案版本")
 	}
-	input, data, hash, err := BuildAssessmentInput(ctx, storage, assessmentID, version.Config)
+	input, data, hash, summary, err := BuildAssessmentInput(ctx, storage, assessmentID, version.Config)
 	if err != nil {
 		return calc.Result{}, err
 	}
@@ -94,15 +108,15 @@ func CalculateAssessment(ctx context.Context, storage *store.Store, assessmentID
 	if err != nil {
 		return calc.Result{}, err
 	}
-	if _, err := storage.SaveAssessmentRun(ctx, assessmentID, versionID, hash, result); err != nil {
+	if _, err := storage.SaveAssessmentRun(ctx, assessmentID, versionID, hash, summary, result, official); err != nil {
 		return calc.Result{}, err
 	}
 	return result, nil
 }
 
-// ExportAssessment 把本次考核最新的核算结果写成工作簿，并记录导出文件。
+// ExportAssessment 把本次考核最新的正式核算结果写成工作簿，并记录导出文件。
 func ExportAssessment(ctx context.Context, storage *store.Store, assessmentID int64, path string) error {
-	run, rows, personal, err := storage.LatestAssessmentRun(ctx, assessmentID)
+	run, rows, personal, err := storage.LatestOfficialAssessmentRun(ctx, assessmentID)
 	if err != nil {
 		return err
 	}
@@ -114,7 +128,7 @@ func ExportAssessment(ctx context.Context, storage *store.Store, assessmentID in
 	if err != nil {
 		return err
 	}
-	_, _, currentHash, err := BuildAssessmentInput(ctx, storage, assessmentID, version.Config)
+	_, _, currentHash, _, err := BuildAssessmentInput(ctx, storage, assessmentID, version.Config)
 	if err != nil {
 		return err
 	}

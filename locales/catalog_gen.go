@@ -8114,11 +8114,11 @@ func (msgs Messages) AssessmentOpenExam() string {
 	return Catalog.Format(msgs.locale, "assessmentOpenExam", nil)
 }
 
-// AssessmentCalculate says "Calculate"
+// AssessmentCalculate says "Calculate final results"
 // in the language the app shows.
 func AssessmentCalculate() string { return In(i18n.Locale()).AssessmentCalculate() }
 
-// AssessmentCalculate says "Calculate"
+// AssessmentCalculate says "Calculate final results"
 // in the language of msgs.
 func (msgs Messages) AssessmentCalculate() string {
 	return Catalog.Format(msgs.locale, "assessmentCalculate", nil)
@@ -8342,4 +8342,318 @@ func AssessmentOpen() string { return In(i18n.Locale()).AssessmentOpen() }
 // in the language of msgs.
 func (msgs Messages) AssessmentOpen() string {
 	return Catalog.Format(msgs.locale, "assessmentOpen", nil)
+}
+
+// AssessmentTrial says "Start a test calculation"
+// in the language the app shows.
+func AssessmentTrial() string { return In(i18n.Locale()).AssessmentTrial() }
+
+// AssessmentTrial says "Start a test calculation"
+// in the language of msgs.
+func (msgs Messages) AssessmentTrial() string {
+	return Catalog.Format(msgs.locale, "assessmentTrial", nil)
+}
+
+// AssessmentTrialCalculated says "Test calculation finished: %d result rows. The official results stay unchanged."
+// in the language the app shows.
+func AssessmentTrialCalculated() string { return In(i18n.Locale()).AssessmentTrialCalculated() }
+
+// AssessmentTrialCalculated says "Test calculation finished: %d result rows. The official results stay unchanged."
+// in the language of msgs.
+func (msgs Messages) AssessmentTrialCalculated() string {
+	return Catalog.Format(msgs.locale, "assessmentTrialCalculated", nil)
+}
+
+// AssessmentStaleNotice says "Data has changed. Recalculate to refresh the official results."
+// in the language the app shows.
+func AssessmentStaleNotice() string { return In(i18n.Locale()).AssessmentStaleNotice() }
+
+// AssessmentStaleNotice says "Data has changed. Recalculate to refresh the official results."
+// in the language of msgs.
+func (msgs Messages) AssessmentStaleNotice() string {
+	return Catalog.Format(msgs.locale, "assessmentStaleNotice", nil)
+}
+
+// AssessmentStaleItems says "Data has changed: %s. Recalculate to refresh the official results."
+// in the language the app shows.
+func AssessmentStaleItems() string { return In(i18n.Locale()).AssessmentStaleItems() }
+
+// AssessmentStaleItems says "Data has changed: %s. Recalculate to refresh the official results."
+// in the language of msgs.
+func (msgs Messages) AssessmentStaleItems() string {
+	return Catalog.Format(msgs.locale, "assessmentStaleItems", nil)
+}
+
+// AssessmentStatusStale says "Needs recalculation"
+// in the language the app shows.
+func AssessmentStatusStale() string { return In(i18n.Locale()).AssessmentStatusStale() }
+
+// AssessmentStatusStale says "Needs recalculation"
+// in the language of msgs.
+func (msgs Messages) AssessmentStatusStale() string {
+	return Catalog.Format(msgs.locale, "assessmentStatusStale", nil)
+}
+
+// AssessmentRunSelect says "Result version"
+// in the language the app shows.
+func AssessmentRunSelect() string { return In(i18n.Locale()).AssessmentRunSelect() }
+
+// AssessmentRunSelect says "Result version"
+// in the language of msgs.
+func (msgs Messages) AssessmentRunSelect() string {
+	return Catalog.Format(msgs.locale, "assessmentRunSelect", nil)
+}
+
+// AssessmentRunOfficial says "Final"
+// in the language the app shows.
+func AssessmentRunOfficial() string { return In(i18n.Locale()).AssessmentRunOfficial() }
+
+// AssessmentRunOfficial says "Final"
+// in the language of msgs.
+func (msgs Messages) AssessmentRunOfficial() string {
+	return Catalog.Format(msgs.locale, "assessmentRunOfficial", nil)
+}
+
+// AssessmentRunTrial says "Test"
+// in the language the app shows.
+func AssessmentRunTrial() string { return In(i18n.Locale()).AssessmentRunTrial() }
+
+// AssessmentRunTrial says "Test"
+// in the language of msgs.
+func (msgs Messages) AssessmentRunTrial() string {
+	return Catalog.Format(msgs.locale, "assessmentRunTrial", nil)
+}
+
+// AssessmentOfficialResults says "Final results"
+// in the language the app shows.
+func AssessmentOfficialResults() string { return In(i18n.Locale()).AssessmentOfficialResults() }
+
+// AssessmentOfficialResults says "Final results"
+// in the language of msgs.
+func (msgs Messages) AssessmentOfficialResults() string {
+	return Catalog.Format(msgs.locale, "assessmentOfficialResults", nil)
+}
+
+// AssessmentTrialResults says "Test results"
+// in the language the app shows.
+func AssessmentTrialResults() string { return In(i18n.Locale()).AssessmentTrialResults() }
+
+// AssessmentTrialResults says "Test results"
+// in the language of msgs.
+func (msgs Messages) AssessmentTrialResults() string {
+	return Catalog.Format(msgs.locale, "assessmentTrialResults", nil)
+}
+
+// AssessmentItemBaseline says "Entry scores"
+// in the language the app shows.
+func AssessmentItemBaseline() string { return In(i18n.Locale()).AssessmentItemBaseline() }
+
+// AssessmentItemBaseline says "Entry scores"
+// in the language of msgs.
+func (msgs Messages) AssessmentItemBaseline() string {
+	return Catalog.Format(msgs.locale, "assessmentItemBaseline", nil)
+}
+
+// AssessmentItemAssignments says "Teaching assignments"
+// in the language the app shows.
+func AssessmentItemAssignments() string { return In(i18n.Locale()).AssessmentItemAssignments() }
+
+// AssessmentItemAssignments says "Teaching assignments"
+// in the language of msgs.
+func (msgs Messages) AssessmentItemAssignments() string {
+	return Catalog.Format(msgs.locale, "assessmentItemAssignments", nil)
+}
+
+// AssessmentItemClasses says "Classes"
+// in the language the app shows.
+func AssessmentItemClasses() string { return In(i18n.Locale()).AssessmentItemClasses() }
+
+// AssessmentItemClasses says "Classes"
+// in the language of msgs.
+func (msgs Messages) AssessmentItemClasses() string {
+	return Catalog.Format(msgs.locale, "assessmentItemClasses", nil)
+}
+
+// AssessmentItemExclusions says "Completion exclusions"
+// in the language the app shows.
+func AssessmentItemExclusions() string { return In(i18n.Locale()).AssessmentItemExclusions() }
+
+// AssessmentItemExclusions says "Completion exclusions"
+// in the language of msgs.
+func (msgs Messages) AssessmentItemExclusions() string {
+	return Catalog.Format(msgs.locale, "assessmentItemExclusions", nil)
+}
+
+// AssessmentDetailTitle says "Result details"
+// in the language the app shows.
+func AssessmentDetailTitle() string { return In(i18n.Locale()).AssessmentDetailTitle() }
+
+// AssessmentDetailTitle says "Result details"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailTitle() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailTitle", nil)
+}
+
+// AssessmentDetailIndicators says "Indicator breakdown"
+// in the language the app shows.
+func AssessmentDetailIndicators() string { return In(i18n.Locale()).AssessmentDetailIndicators() }
+
+// AssessmentDetailIndicators says "Indicator breakdown"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailIndicators() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailIndicators", nil)
+}
+
+// AssessmentDetailUncapped says "Before cap"
+// in the language the app shows.
+func AssessmentDetailUncapped() string { return In(i18n.Locale()).AssessmentDetailUncapped() }
+
+// AssessmentDetailUncapped says "Before cap"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailUncapped() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailUncapped", nil)
+}
+
+// AssessmentDetailScore says "Score"
+// in the language the app shows.
+func AssessmentDetailScore() string { return In(i18n.Locale()).AssessmentDetailScore() }
+
+// AssessmentDetailScore says "Score"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailScore() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailScore", nil)
+}
+
+// AssessmentDetailBasis says "Calculation basis"
+// in the language the app shows.
+func AssessmentDetailBasis() string { return In(i18n.Locale()).AssessmentDetailBasis() }
+
+// AssessmentDetailBasis says "Calculation basis"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailBasis() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailBasis", nil)
+}
+
+// AssessmentDetailGroup says "Merged group"
+// in the language the app shows.
+func AssessmentDetailGroup() string { return In(i18n.Locale()).AssessmentDetailGroup() }
+
+// AssessmentDetailGroup says "Merged group"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailGroup() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailGroup", nil)
+}
+
+// AssessmentDetailLeadClass says "Lead class"
+// in the language the app shows.
+func AssessmentDetailLeadClass() string { return In(i18n.Locale()).AssessmentDetailLeadClass() }
+
+// AssessmentDetailLeadClass says "Lead class"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailLeadClass() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailLeadClass", nil)
+}
+
+// AssessmentDetailTeachers says "Teachers"
+// in the language the app shows.
+func AssessmentDetailTeachers() string { return In(i18n.Locale()).AssessmentDetailTeachers() }
+
+// AssessmentDetailTeachers says "Teachers"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailTeachers() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailTeachers", nil)
+}
+
+// AssessmentDetailStudents says "Participating students"
+// in the language the app shows.
+func AssessmentDetailStudents() string { return In(i18n.Locale()).AssessmentDetailStudents() }
+
+// AssessmentDetailStudents says "Participating students"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailStudents() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailStudents", nil)
+}
+
+// AssessmentDetailNoCompletion says "Does not participate in completion"
+// in the language the app shows.
+func AssessmentDetailNoCompletion() string { return In(i18n.Locale()).AssessmentDetailNoCompletion() }
+
+// AssessmentDetailNoCompletion says "Does not participate in completion"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailNoCompletion() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailNoCompletion", nil)
+}
+
+// AssessmentDetailClassAverage says "Class average"
+// in the language the app shows.
+func AssessmentDetailClassAverage() string { return In(i18n.Locale()).AssessmentDetailClassAverage() }
+
+// AssessmentDetailClassAverage says "Class average"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailClassAverage() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailClassAverage", nil)
+}
+
+// AssessmentDetailGradeAverage says "Grade average"
+// in the language the app shows.
+func AssessmentDetailGradeAverage() string { return In(i18n.Locale()).AssessmentDetailGradeAverage() }
+
+// AssessmentDetailGradeAverage says "Grade average"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailGradeAverage() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailGradeAverage", nil)
+}
+
+// AssessmentDetailBaselineRatio says "Baseline ratio"
+// in the language the app shows.
+func AssessmentDetailBaselineRatio() string { return In(i18n.Locale()).AssessmentDetailBaselineRatio() }
+
+// AssessmentDetailBaselineRatio says "Baseline ratio"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailBaselineRatio() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailBaselineRatio", nil)
+}
+
+// AssessmentDetailPassCount says "Students at or above the cutoff"
+// in the language the app shows.
+func AssessmentDetailPassCount() string { return In(i18n.Locale()).AssessmentDetailPassCount() }
+
+// AssessmentDetailPassCount says "Students at or above the cutoff"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailPassCount() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailPassCount", nil)
+}
+
+// AssessmentDetailPassTarget says "Target"
+// in the language the app shows.
+func AssessmentDetailPassTarget() string { return In(i18n.Locale()).AssessmentDetailPassTarget() }
+
+// AssessmentDetailPassTarget says "Target"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailPassTarget() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailPassTarget", nil)
+}
+
+// AssessmentDetailCompletionActual says "Weighted actual"
+// in the language the app shows.
+func AssessmentDetailCompletionActual() string {
+	return In(i18n.Locale()).AssessmentDetailCompletionActual()
+}
+
+// AssessmentDetailCompletionActual says "Weighted actual"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailCompletionActual() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailCompletionActual", nil)
+}
+
+// AssessmentDetailCompletionBase says "Weighted base"
+// in the language the app shows.
+func AssessmentDetailCompletionBase() string {
+	return In(i18n.Locale()).AssessmentDetailCompletionBase()
+}
+
+// AssessmentDetailCompletionBase says "Weighted base"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailCompletionBase() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailCompletionBase", nil)
 }

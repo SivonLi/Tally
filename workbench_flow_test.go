@@ -42,13 +42,13 @@ func TestAssessmentWorkflowAtMinimumSize(t *testing.T) {
 	tt.SetLocale("en")
 	tt.Frame()
 	for _, text := range []string{
-		"Assessments", "Data", "Calculate", "Export", "Data for this assessment", "Export results",
+		"Assessments", "Data", "Calculate final results", "Export", "Data for this assessment", "Export results",
 	} {
 		if !tt.HasText(text) {
 			t.Fatalf("missing %q in %q", text, tt.Texts())
 		}
 	}
-	for _, text := range []string{"Calculate", "Export results"} {
+	for _, text := range []string{"Calculate final results", "Export results"} {
 		box, ok := tt.Find(text)
 		if !ok {
 			t.Fatalf("missing box for %q", text)
@@ -57,7 +57,7 @@ func TestAssessmentWorkflowAtMinimumSize(t *testing.T) {
 			t.Fatalf("%q is outside the window: %+v", text, box)
 		}
 	}
-	if err := tt.Click("Calculate"); err != nil {
+	if err := tt.Click("Calculate final results"); err != nil {
 		t.Fatal(err)
 	}
 	if a.assessmentError != "" {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/egoist/mygo/plugins/sqlite"
@@ -297,33 +298,43 @@ type ResultRun struct {
 	BatchID       int64
 	PlanVersionID int64
 	InputHash     string
-	IsOfficial    bool
-	CreatedAt     time.Time
+	// InputSummary 是运行时的输入摘要 JSON，数据项标识对应哈希；
+	// 旧版本运行没有摘要，为空。
+	InputSummary string
+	IsOfficial   bool
+	CreatedAt    time.Time
 }
 
 // StoredResultRow 是一条保存下来的核算结果。
 type StoredResultRow struct {
-	StatGroupID      int64
-	StatGroupName    string
-	Subject          string
-	LeadClassID      int64
-	LeadClassName    string
-	TeacherNames     string
-	ClassCount       int
-	ClassAverage     float64
-	GradeAverage     float64
-	BaselineAverage  float64
-	BaselineRatio    float64
-	ImprovementScore float64
-	PassCount        int
-	PassTarget       float64
-	PassScore        float64
-	CompletionScore  float64
-	Total            float64
-	Rank             int
-	TierIndex        int
-	Points           float64
-	IndicatorJSON    string
+	ID                    int64
+	StatGroupID           int64
+	StatGroupName         string
+	Subject               string
+	LeadClassID           int64
+	LeadClassName         string
+	TeacherNames          string
+	ClassCount            int
+	ClassAverage          float64
+	GradeAverage          float64
+	BaselineAverage       float64
+	BaselineRatio         float64
+	ImprovementRaw        float64
+	ImprovementScore      float64
+	PassCount             int
+	PassTarget            float64
+	PassRaw               float64
+	PassScore             float64
+	CompletionActual      float64
+	CompletionBase        float64
+	CompletionRaw         float64
+	CompletionParticipate bool
+	CompletionScore       float64
+	Total                 float64
+	Rank                  int
+	TierIndex             int
+	Points                float64
+	IndicatorJSON         string
 }
 
 // StoredPersonalScore 是一条保存下来的教师个人得分。
@@ -1580,6 +1591,159 @@ func InputHash(plan assessment.Config, data BatchData) (string, error) {
 	}
 	sum := sha256.Sum256(encoded)
 	return hex.EncodeToString(sum[:]), nil
+}
+
+// 输入摘要里数据项的展示顺序。
+var inputItemOrder = []string{
+	"roster", "scores", "cutoffs", "targets", "groups",
+	"baseline", "assignments", "classes", "exclusions",
+}
+
+// InputSummary 分别计算方案与每个数据项的哈希，保存在核算运行记录里，
+// 之后按项对比找出哪些数据变化过。
+func InputSummary(plan assessment.Config, data BatchData) (map[string]string, error) {
+	summary := map[string]string{}
+	hash := func(key string, value any) error {
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return err
+		}
+		sum := sha256.Sum256(encoded)
+		summary[key] = hex.EncodeToString(sum[:])
+		return nil
+	}
+	if err := hash("plan", plan); err != nil {
+		return nil, err
+	}
+	type rosterEntry struct {
+		ID       int64  `json:"id"`
+		No       string `json:"no"`
+		Name     string `json:"name"`
+		ClassID  int64  `json:"class_id"`
+		Track    string `json:"track"`
+		Elective string `json:"elective"`
+		Japanese bool   `json:"japanese"`
+		Walking  bool   `json:"walking"`
+		Status   string `json:"status"`
+	}
+	type scoreEntry struct {
+		ID      int64    `json:"id"`
+		Subject string   `json:"subject"`
+		Score   *float64 `json:"score"`
+		Flag    string   `json:"flag"`
+		Total   *float64 `json:"total"`
+	}
+	roster := make([]rosterEntry, 0, len(data.Students))
+	scores := []scoreEntry{}
+	for _, student := range data.Students {
+		roster = append(roster, rosterEntry{
+			ID: student.ID, No: student.StudentNo, Name: student.Name, ClassID: student.ClassID,
+			Track: student.Track, Elective: student.Elective, Japanese: student.Japanese,
+			Walking: student.Walking, Status: student.Status,
+		})
+		if student.TotalScore != nil {
+			scores = append(scores, scoreEntry{ID: student.ID, Total: student.TotalScore})
+		}
+		subjects := make([]string, 0, len(student.Scores))
+		for subject := range student.Scores {
+			subjects = append(subjects, subject)
+		}
+		sort.Strings(subjects)
+		for _, subject := range subjects {
+			value := student.Scores[subject]
+			scores = append(scores, scoreEntry{
+				ID: student.ID, Subject: subject, Score: &value, Flag: student.ScoreFlags[subject],
+			})
+		}
+	}
+	type groupTarget struct {
+		ID     int64   `json:"id"`
+		Target float64 `json:"target"`
+	}
+	type groupShape struct {
+		ID      int64   `json:"id"`
+		Subject string  `json:"subject"`
+		Name    string  `json:"name"`
+		Lead    int64   `json:"lead"`
+		Members []int64 `json:"members"`
+	}
+	groupTargets := make([]groupTarget, 0, len(data.StatGroups))
+	groupShapes := make([]groupShape, 0, len(data.StatGroups))
+	for _, group := range data.StatGroups {
+		groupTargets = append(groupTargets, groupTarget{ID: group.ID, Target: group.Target})
+		groupShapes = append(groupShapes, groupShape{
+			ID: group.ID, Subject: group.Subject, Name: group.Name,
+			Lead: group.LeadClassID, Members: group.MemberGroupIDs,
+		})
+	}
+	excluded := make([]string, 0, len(data.ExcludedCompletionClasses))
+	for classID := range data.ExcludedCompletionClasses {
+		excluded = append(excluded, strconv.FormatInt(classID, 10))
+	}
+	sort.Strings(excluded)
+	items := map[string]any{
+		"roster": roster,
+		"scores": scores,
+		"cutoffs": struct {
+			Subject []SubjectCutoff `json:"subject"`
+			Tier    []TierCutoff    `json:"tier"`
+		}{Subject: data.SubjectCutoffs, Tier: data.TierCutoffs},
+		"targets": struct {
+			Class []ClassTarget `json:"class"`
+			Group []groupTarget `json:"group"`
+		}{Class: data.ClassTargets, Group: groupTargets},
+		"groups": groupShapes,
+		"baseline": struct {
+			Class map[string]map[string]float64 `json:"class"`
+			Ratio map[string]map[string]float64 `json:"ratio"`
+			Grade map[string]float64            `json:"grade"`
+		}{Class: data.ClassBaselines, Ratio: data.ClassBaselineRatios, Grade: data.GradeBaselines},
+		"assignments": data.Assignments,
+		"classes":     data.Classes,
+		"exclusions":  excluded,
+	}
+	keys := append([]string(nil), inputItemOrder...)
+	keys = append(keys, "plan")
+	for _, key := range keys {
+		value := any(plan)
+		if key != "plan" {
+			value = items[key]
+		}
+		if err := hash(key, value); err != nil {
+			return nil, err
+		}
+	}
+	return summary, nil
+}
+
+// ChangedInputItems 对比运行时保存的输入摘要与当前摘要，
+// 返回变化的数据项标识，按 inputItemOrder 排序。
+// 保存的摘要为空时返回 nil，调用方回退到整体哈希对比。
+func ChangedInputItems(storedJSON string, current map[string]string) ([]string, error) {
+	stored := map[string]string{}
+	if strings.TrimSpace(storedJSON) != "" {
+		if err := json.Unmarshal([]byte(storedJSON), &stored); err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, nil
+	}
+	changed := map[string]bool{}
+	for key, value := range current {
+		if key == "plan" {
+			continue
+		}
+		if stored[key] != value {
+			changed[key] = true
+		}
+	}
+	result := make([]string, 0, len(changed))
+	for _, key := range inputItemOrder {
+		if changed[key] {
+			result = append(result, key)
+		}
+	}
+	return result, nil
 }
 
 func batchFromRow(row []any) (Batch, error) {

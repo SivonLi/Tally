@@ -17,6 +17,7 @@ func calculateRow(input Input, group StatGroup, classes map[string]AdminClass, t
 	count := 0
 	sum := 0.0
 	passCount := 0
+	var participants []Participant
 	reference := input.References[group.Subject]
 	for _, student := range input.Students {
 		if !studentValid(student, input.Plan.Data) {
@@ -35,6 +36,7 @@ func calculateRow(input Input, group StatGroup, classes map[string]AdminClass, t
 		}
 		count++
 		sum += score
+		participants = append(participants, Participant{StudentNo: student.ID, Name: student.Name})
 		cutoff := reference.Cutoff
 		if value, ok := reference.Cutoffs[student.Track]; ok {
 			cutoff = value
@@ -178,6 +180,7 @@ func calculateRow(input Input, group StatGroup, classes map[string]AdminClass, t
 		CompletionScore:         values["completion"],
 		CompletionParticipating: completionParticipating,
 		MemberCount:             len(group.MemberTeachingGroupIDs),
+		Participants:            participants,
 		IndicatorValues:         values,
 	}
 	if !completionParticipating {

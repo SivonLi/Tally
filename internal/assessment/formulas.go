@@ -74,3 +74,32 @@ func (c Config) ValidateFormulas() error {
 	}
 	return nil
 }
+
+// EffectiveFormulas 返回各项指标在给定考试类型与级下实际使用的公式，
+// 匹配条件的专项规则覆盖指标公式。
+func EffectiveFormulas(c Config, examType, grade string) map[string]string {
+	result := make(map[string]string, len(c.Indicators))
+	for _, indicator := range c.Indicators {
+		source := indicator.Formula
+		for _, program := range c.Programs {
+			if !programMatches(program.When, examType, grade) {
+				continue
+			}
+			if override, ok := program.IndicatorOverrides[indicator.Key]; ok && override.Formula != "" {
+				source = override.Formula
+			}
+		}
+		result[indicator.Key] = source
+	}
+	return result
+}
+
+func programMatches(when ProgramWhen, examType, grade string) bool {
+	if when.ExamType != "" && when.ExamType != examType {
+		return false
+	}
+	if when.Grade != "" && when.Grade != grade {
+		return false
+	}
+	return when.Cohort == ""
+}

@@ -140,7 +140,7 @@ func statusBadge(c *ui.Context, p uiPalette, status string, label string) {
 		badge(c, p, label, toneSuccess)
 	case "imported":
 		badge(c, p, label, toneAccent)
-	case "draft", "pending":
+	case "draft", "pending", "stale":
 		badge(c, p, label, toneWarning)
 	default:
 		badge(c, p, label, toneNeutral)

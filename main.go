@@ -39,24 +39,33 @@ type app struct {
 	planFieldSeq        int
 	dialogFormHost      *form.Form[struct{}]
 
-	published            []publishedVersion
-	assessments          []store.AssessmentOverview
-	selectedAssessmentID int64
-	assessmentContext    store.AssessmentContext
-	assessmentRun        store.ResultRun
-	assessmentRows       []store.StoredResultRow
-	assessmentPersonal   []store.StoredPersonalScore
-	assessmentBusy       bool
-	assessmentMessage    string
-	assessmentError      string
-	batchSidebarWidth    float32
-	resultTable          ui.ListState
-	calculateVersion     string
-	zeroOpen             bool
-	zeroIssues           []calc.ZeroTargetIssue
-	zeroValues           map[string]*float64
-	zeroReason           string
-	zeroError            string
+	published                    []publishedVersion
+	assessments                  []store.AssessmentOverview
+	selectedAssessmentID         int64
+	assessmentContext            store.AssessmentContext
+	assessmentRun                store.ResultRun
+	assessmentRows               []store.StoredResultRow
+	assessmentPersonal           []store.StoredPersonalScore
+	assessmentBusy               bool
+	assessmentMessage            string
+	assessmentError              string
+	batchSidebarWidth            float32
+	resultTable                  ui.ListState
+	assessmentRuns               []store.AssessmentRunSummary
+	assessmentRunID              int64
+	assessmentRunChosen          bool
+	assessmentOfficialStale      bool
+	assessmentOfficialStaleItems []string
+	resultSelection              ui.Selection[string]
+	resultDetailOpen             bool
+	resultDetail                 resultDetail
+	calculateVersion             string
+	zeroOpen                     bool
+	zeroIssues                   []calc.ZeroTargetIssue
+	zeroValues                   map[string]*float64
+	zeroReason                   string
+	zeroError                    string
+	zeroMode                     string
 
 	now                  func() time.Time
 	page                 pageID
