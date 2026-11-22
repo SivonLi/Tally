@@ -4,14 +4,15 @@
 
 ## 目标与边界
 
-系统是一个单机桌面应用，运行在 Windows 与 macOS，界面由 MyGo 原生控件绘制。产品重构第一至第四阶段完成应用外壳、级与阶段切换、总览、基础数据组织、数据页面、设置与备份、引导式导入、年级准备清单、阶段复制与核对、考试与本次考核、报名名单、成绩、分数线、目标、合并组与数据质量；第五阶段已完成本次考核工作台、方案配置页、核算与导出。核算从考试结构读取数据；界面不再提供旧批次工作台，旧批次表与 pipeline 的批次函数保留。数据保存在本机 SQLite，不依赖网络。
+系统是一个单机桌面应用，运行在 Windows 与 macOS，界面由 MyGo 原生控件绘制。产品重构第一至第四阶段完成应用外壳、级与阶段切换、总览、基础数据组织、数据页面、设置与备份、引导式导入、年级准备清单、阶段复制与核对、考试与本次考核、报名名单、成绩、分数线、目标、合并组与数据质量；第五阶段已完成本次考核工作台、方案配置页、核算与导出、试算、重新计算标记与结果行级详情。核算从考试结构读取数据；界面不再提供旧批次工作台，旧批次表与 pipeline 的批次函数保留。数据保存在本机 SQLite，不依赖网络。
 
 当前已经实现：
 
 - 左侧导航、顶栏、级选择、阶段切换、当前学年、总览与新建年级。
 - `internal/school` 从系统日期、入学年份和学年推导级、届与阶段。
-- 数据库版本 5 的 `cohorts`、`cohort_stages`、`app_settings`、学校档案、行政班、学生、教师、教学班、任课关系、入口成绩、导入记录、数据修订和审计日志。
-- 考试结构：`exams`、`exam_cohorts`、`exam_subjects`、`exam_rosters`、`exam_scores`、`exam_subject_cutoffs`、`exam_tier_cutoffs`，以及本次考核的 `assessments`、`assessment_class_targets`、`assessment_stat_groups`、`assessment_stat_group_members`、`assessment_stat_group_targets`、`assessment_target_adjustments`。
+- 数据库版本 4 的 `cohorts`、`cohort_stages`、`app_settings`、学校档案、行政班、学生、教师、教学班、任课关系、入口成绩、导入记录、数据修订和审计日志。
+- 数据库版本 6 的考试结构：`exams`、`exam_cohorts`、`exam_subjects`、`exam_rosters`、`exam_scores`、`exam_subject_cutoffs`、`exam_tier_cutoffs`，以及本次考核的 `assessments`、`assessment_class_targets`、`assessment_stat_groups`、`assessment_stat_group_members`、`assessment_stat_group_targets`、`assessment_target_adjustments`。
+- 数据库版本 7 的核算运行逐项输入摘要、结果行封顶前数值与 `result_row_students` 参与学生表。
 - 旧数据库在迁移前自动备份；只在数据库版本低于当前版本时备份，迁移失败时恢复备份。
 - 工作簿按内容哈希复制到 `files/`，导入记录保存应用内副本路径与用户选择时的源路径。
 - 学生、教师、教学班、入口成绩与导入记录页面支持浏览、搜索、筛选和查看来源。
@@ -25,10 +26,10 @@
 - 考试数据导入沿用六步向导，支持报名名单、成绩、分数线和目标；导入记录保存来源工作表、来源行和问题参数。成绩导入把单科 0 分按未参加该科处理并在校验页显示数量；报名名单之外的考生可以补建学生并加入本场考试报名名单，也可以从本次导入中跳过；问题清单可以导出为 Excel。
 - 数据质量页面按阻断与提醒筛选，按数据项筛选；导入记录筛选只列质量问题实际引用的记录，文件名重复时按数据项区分，没有任何引用时隐藏；问题按数据项分组，点击问题跳转到对应考试、页签和学生查询。
 - 考试准备清单显示报名名单、成绩、分数线和目标的数量与完成状态。
-- 本次考核工作台：按考试与级列出考核，详情显示数据、计算、导出三步流程、准备清单、方案版本选择、核算和零目标窗口；核算从考试结构读取数据，输入摘要与运行不一致时导出被拒绝。
-- 结果页：选择考核查看结果行，导出结果工作簿。
+- 本次考核工作台：按考试与级列出考核，详情显示数据、计算、导出三步流程、准备清单、方案版本选择、试算与正式计算、输入变化后的「需要重新计算」标记（列出变化数据项）、结果版本选择、零目标窗口和结果表；核算从考试结构读取数据，输入摘要与运行不一致时导出被拒绝。
+- 结果页：选择考核查看结果行，点击结果行打开结果详情，导出结果工作簿。
 - 分析页：选择考核按班级、教师和学科汇总统计组数、均分、达线与人数。
-- 方案配置页：分节表单覆盖全部配置项，顶部下拉切换方案，保存时选择更新当前方案或保存为新的方案。
+- 方案配置页：分节表单覆盖全部配置项，顶部下拉切换方案，保存时选择更新当前方案或保存为新的方案；指标公式、比例模式分档边界和完成率覆盖用公式选项表单修改。
 - 「档案纸与靛墨」设计变量，浅色与深色主题，默认窗口 1280 × 800、最小窗口 1024 × 640。
 - 内置默认考核方案、派生方案数据模型、方案版本发布与停用。
 - 读取 `.xlsx`，通过 LibreOffice 转换并读取 `.xls`。
@@ -41,10 +42,6 @@
 当前没有实现：
 
 - 跨行政班的走班归属与高考专项完整流程。
-- 试算：试算结果与正式结果分开保存的完整流程。
-- 公式编辑器：变量提示、函数、编译错误定位与试算结果；公式目前是单行文本输入，保存时整体编译检查。
-- 输入变化后的「需要重新计算」标记：列出变化的数据项，导出按钮随状态联动；输入变化后考核状态保持已核算，直到重新核算。
-- 结果行级详情：分子、分母、入口成绩、目标、公式、方案版本和参与计算的学生名单；结果表只有汇总行。
 - 方案对比界面。
 - WebDAV 同步、数据包加密、结果归档模式。
 - 分班、分考场、教务统计等后续阶段。
@@ -267,7 +264,7 @@ sequenceDiagram
 
 派生方案通过 `store.CreatePlan` 写入完整配置，版本 1 为草稿；`store.CreateDraft` 在已有方案下追加草稿版本；`store.UpdatePlan` 在当前方案下追加版本，内置方案直接发布，派生方案保存为草稿；`Publish` 发布草稿；`Retire` 停用派生方案的已发布版本，收到内置方案时返回 `ErrSystemPlanRetire`。内置方案通过事务追加已发布版本，旧版本保留，当前版本在新版本写入前保持有效。
 
-方案页顶部是方案下拉框，下面是方案信息、适用范围、数据口径、走班口径、指标、档位、排名与分档、个人得分、专项规则和校验的完整表单，全部配置项直接可改。指标公式、分档边界和专项覆盖公式使用单行文本输入，保存时整体编译检查。底部只有一个「保存」按钮，点击后询问更新当前方案还是保存为新的方案；两种选择都会校验配置和公式，写入后立即发布，界面不显示版本号、版本状态和停用操作。
+方案页顶部是方案下拉框，下面是方案信息、适用范围、数据口径、走班口径、指标、档位、排名与分档、个人得分、专项规则和校验的完整表单，全部配置项直接可改。指标公式、比例模式分档边界和完成率覆盖使用公式选项表单：下拉框选择形状，数字框填写均等份数或权重，下方句子预览当前公式的含义；选择编译成原公式文本写回 `assessment.Config`，保存时仍然整体编译检查。当前公式匹配某个形状时选中对应选项，没有匹配的形状时以「自定义表达式」只读回显，重新选择后覆盖。底部只有一个「保存」按钮，点击后询问更新当前方案还是保存为新的方案；两种选择都会校验配置和公式，写入后立即发布，界面不显示版本号、版本状态和停用操作。
 
 核算时 `pipeline.CalculateAssessment` 读取版本并检查状态，只接受 `published`。考核保存 `plan_version_id` 与 `current_run_id`，结果运行记录保存实际使用的 `plan_version_id`。同一考核重新核算时，旧运行记录保留，`is_official` 被清零，新记录标记为正式结果。版本下拉框默认选中当前考核上次使用的版本，该版本不可用时回退到第一个已发布版本。
 
@@ -411,7 +408,9 @@ sequenceDiagram
 
 本次考核工作台走独立入口，与批次路径共用输入构建、阻断检查和计算引擎。`pipeline.CalculateAssessment` 先读取方案版本并检查 `published` 状态，再调用 `pipeline.BuildAssessmentInput`。`store.LoadAssessmentData` 从考试结构读取核算输入：行政班与班级阶段信息、报名名单、成绩、单科线与档位线、班级目标、补录与不参与记录、合并组、入口成绩与任课关系，转换为 `BatchData`。`store.SaveAssessmentRun` 保存运行、结果行与个人得分，把考核状态改为 `calculated`。`pipeline.ExportAssessment` 导出前重新构建输入摘要，与运行摘要不一致时返回「数据或者方案已经变化，需要重新核算」错误。
 
-界面没有「需要重新计算」标记：输入变化后考核状态保持 `calculated`，直到用户重新核算；变化是否发生由导出时的摘要复核判断。
+试算走 `pipeline.TrialAssessment`，结果按非正式运行保存，不改变考核状态，也不影响正式结果。界面提供「开始试算」「正式计算」和「导出」三个动作；只有存在最新正式运行且该运行未标记需要重新计算时导出可用（`officialExportReady`）。
+
+「需要重新计算」标记以最新正式运行为准：界面取该运行保存的输入摘要，与当前数据按数据项对比（`store.ChangedInputItems`），有数据项变化时详情显示「需要重新计算」状态徽标和列出变化数据项的警告提示；没有摘要的运行（迁移来的旧运行）回退到整体 `InputHash` 对比，此时不显示数据项清单。试算不改变该标记。
 
 ### 单项指标
 
@@ -464,13 +463,15 @@ sequenceDiagram
 
 ### 结果保存
 
-`SaveRun` 先把该批次所有旧运行标记为非正式，再插入新的正式运行，然后写入结果行和个人得分，把批次状态改为 `calculated`。`SaveAssessmentRun` 对考核做同样的事，旧运行的范围是同一考核。结果行保存学科、统计组、承担统计职责的班级、任课教师、三项指标得分、总分、排名、档次、赋分和 `indicator_values_json`。
+`SaveRun` 先把该批次所有旧运行标记为非正式，再插入新的正式运行，然后写入结果行和个人得分，把批次状态改为 `calculated`。`SaveAssessmentRun` 对考核做同样的事，旧运行的范围是同一考核。运行保存 `input_hash` 与逐项的 `input_summary_json`。结果行保存学科、统计组、承担统计职责的班级、任课教师、三项指标得分、总分、排名、档次、赋分、`indicator_values_json`，以及封顶前的数值与分子分母（`improvement_raw`、`pass_raw`、`completion_actual`、`completion_base`、`completion_raw`、`completion_participate`）。`result_row_students` 按名次保存每条结果行的参与学生，供结果详情显示参与学生名单。
 
 当前保存分为两次事务：运行记录与旧记录状态一次，结果行与批次状态一次。写入结果行失败时会留下一条没有明细的正式运行记录。后续需要在同一事务中完成运行记录、结果行、个人得分和批次状态更新。
 
 ### 输入摘要
 
 `store.InputHash` 对方案配置和 `BatchData` 做 JSON 编码后计算 SHA-256。计算前把批次的 `Status`、`Revision`、`CurrentPlanVersionID`、`CreatedAt` 清零，避免核算本身改变摘要。导入、方案变化、目标补录或者班级排除都会改变摘要。
+
+`store.InputSummary` 分别对方案与每个数据项（报名名单、成绩、单科线、档位线、目标、合并组、入口成绩、任课关系）计算哈希，保存在运行记录的 `input_summary_json` 里；`store.ChangedInputItems` 对比运行保存的摘要与当前摘要，返回变化数据项的标识。保存的摘要为空时（迁移来的旧运行）返回空，调用方回退到整体 `InputHash` 对比。
 
 ## 导出设计
 
@@ -558,6 +559,7 @@ erDiagram
   BATCHES ||--o{ RESULT_RUNS : produces
   PLAN_VERSIONS ||--o{ RESULT_RUNS : uses
   RESULT_RUNS ||--o{ RESULT_ROWS : contains
+  RESULT_RUNS ||--o{ RESULT_ROW_STUDENTS : lists
   RESULT_RUNS ||--o{ PERSONAL_SCORES : contains
   RESULT_RUNS ||--o{ EXPORTS : records
 ```
@@ -665,11 +667,12 @@ erDiagram
 
 | 表 | 关键字段 | 约束 |
 |---|---|---|
-| `result_runs` | `id`、`batch_id`、`plan_version_id`、`input_hash`、`is_official`、`created_at` | 每次核算新增一条，旧记录保留 |
-| `result_rows` | `id`、`run_id`、`stat_group_id`、`stat_group_name`、`subject`、`lead_class_id`、`lead_class_name`、`teacher_names`、`class_count`、`class_average`、`grade_average`、`baseline_average`、`baseline_ratio`、`improvement_score`、`pass_count`、`pass_target`、`pass_score`、`completion_score`、`total`、`rank`、`tier_index`、`points`、`indicator_values_json` | 一个统计组一条 |
+| `result_runs` | `id`、`batch_id`、`assessment_id`、`plan_version_id`、`input_hash`、`input_summary_json`、`is_official`、`created_at` | 每次核算新增一条，旧记录保留；本次考核的运行 `batch_id` 为空 |
+| `result_rows` | `id`、`run_id`、`stat_group_id`、`stat_group_name`、`subject`、`lead_class_id`、`lead_class_name`、`teacher_names`、`class_count`、`class_average`、`grade_average`、`baseline_average`、`baseline_ratio`、`improvement_raw`、`improvement_score`、`pass_count`、`pass_target`、`pass_raw`、`pass_score`、`completion_actual`、`completion_base`、`completion_raw`、`completion_participate`、`completion_score`、`total`、`rank`、`tier_index`、`points`、`indicator_values_json` | 一个统计组一条 |
+| `result_row_students` | `id`、`run_id`、`stat_group_id`、`subject`、`position`、`student_no`、`name` | 索引 `(run_id, stat_group_id, subject)`；保存结果行的参与学生 |
 | `personal_scores` | `id`、`run_id`、`teacher_id`、`teacher_name`、`grade`、`subject`、`group_points_json`、`score` | 一个教师一个学科一条 |
 | `exports` | `id`、`run_id`、`path`、`file_hash`、`created_at` | 索引 `(run_id)` |
-| `schema_migrations` | `version`、`applied_at` | 当前写入版本 1、3、4 和版本 5 |
+| `schema_migrations` | `version`、`applied_at` | 当前写入版本 1、3、4、6 和 7 |
 
 ### 一致性规则
 
@@ -692,13 +695,15 @@ erDiagram
 
 ### 迁移与存储位置
 
-`store.Open` 先以只读方式读取 `schema_migrations`。版本高于 5 时拒绝打开；版本低于 5 时关闭连接，备份 `tally.db` 与 `files/`，再打开并执行迁移。迁移失败时关闭连接，把数据库和 `files/` 恢复到迁移前备份，并返回失败原因。数据库版本已经是 5 时不创建备份。
+`store.Open` 先以只读方式读取 `schema_migrations`。版本高于 7 时拒绝打开；版本低于 7 时关闭连接，备份 `tally.db` 与 `files/`，再打开并执行迁移。迁移失败时关闭连接，把数据库和 `files/` 恢复到迁移前备份，并返回失败原因。数据库版本已经是 7 时不创建备份。
 
 版本 4 迁移先执行预检：`terms.academic_year` 与 `batches.grade` 必须可以解析，旧学生归属必须指向存在的旧班级，教师工号不能重复。预检通过后改名旧表、创建新表、写入学校档案、迁移组织数据和入口成绩、迁移导入记录、初始化数据修订，最后写入版本 4。
 
-版本 5 迁移建立考试、报名名单、成绩、分数线、本次考核、班级目标、合并组、合并组成员、合并组目标和调整记录表。迁移逐条读取旧 `batches` 与 `terms`，把学年和年级解析为级与阶段，按学年、学期和考试类型归并考试；旧批次的成绩、分数线和目标写入对应的考试与级；报名名单从 `student_stage_memberships` 生成，`subjects_json` 从 `student_teaching_groups` 按学科排序生成；缺少班级阶段信息时按学生阶段归属补写 `class_stage_info`。结果运行增加 `assessment_id`，并关联到对应的本次考核。
+版本 6 迁移建立考试、报名名单、成绩、分数线、本次考核、班级目标、合并组、合并组成员、合并组目标和调整记录表。迁移逐条读取旧 `batches` 与 `terms`，把学年和年级解析为级与阶段，按学年、学期和考试类型归并考试；旧批次的成绩、分数线和目标写入对应的考试与级；报名名单从 `student_stage_memberships` 生成，`subjects_json` 从 `student_teaching_groups` 按学科排序生成；缺少班级阶段信息时按学生阶段归属补写 `class_stage_info`。结果运行增加 `assessment_id`，并关联到对应的本次考核。
 
-版本 5 迁移在学年、年级、级或阶段无法解析时直接返回错误，由迁移前备份恢复数据库，不跳过失败记录。迁移使用 `INSERT OR IGNORE` 和明确的重复检查，重复打开数据库不会重复写入报名名单、合并组、目标和调整记录。
+版本 6 迁移在学年、年级、级或阶段无法解析时直接返回错误，由迁移前备份恢复数据库，不跳过失败记录。迁移使用 `INSERT OR IGNORE` 和明确的重复检查，重复打开数据库不会重复写入报名名单、合并组、目标和调整记录。
+
+版本 7 迁移给 `result_runs` 增加 `input_summary_json` 列，给 `result_rows` 增加封顶前数值与分子分母列，并新建 `result_row_students` 表与索引。迁移来的旧运行没有输入摘要，按项对比时回退到整体哈希。
 
 迁移由多次 `Transaction` 组成，不是单个原子操作。失败恢复依靠迁移前备份；预检失败时数据库没有被修改。旧版本应用遇到更高版本数据库时拒绝打开。
 
@@ -714,7 +719,7 @@ erDiagram
 
 `files/` 保存按内容哈希命名的导入工作簿副本，`backups/` 保存最近二十份数据库与文件副本，`converted/` 保存 `.xls` 转换后的 `.xlsx`。导出文件路径由用户在保存对话框中选择，不写入固定的 `exports/` 目录。
 
-版本 4 迁移覆盖组织数据：级、阶段、班级、学生、教师、教学班、任课关系、入口成绩和导入记录。版本 5 迁移覆盖考试、报名名单、成绩、分数线、班级目标、合并组、合并组目标和结果关联。旧 `batches`、`scores`、`result_runs` 和结果行继续保留，核算从考试结构读取数据。
+版本 4 迁移覆盖组织数据：级、阶段、班级、学生、教师、教学班、任课关系、入口成绩和导入记录。版本 6 迁移覆盖考试、报名名单、成绩、分数线、班级目标、合并组、合并组目标和结果关联。版本 7 迁移覆盖核算运行的逐项输入摘要、结果行封顶前数值和参与学生名单。旧 `batches`、`scores`、`result_runs` 和结果行继续保留，核算从考试结构读取数据。
 
 ## 界面设计
 
@@ -737,8 +742,8 @@ erDiagram
 - 考试准备清单：显示报名名单、成绩、分数线和目标的数量与完成状态，已完成的项可以跳转到对应页签。
 - 数据质量：按阻断和提醒筛选，按数据项筛选；导入记录筛选只列被质量问题引用的记录，没有引用时隐藏；问题按数据项分组，点击问题跳到对应考试页签，学生问题同时带上学生查询。
 - 设置：当前学年、学科名称与满分、选科类别、立即备份、备份列表、恢复确认和语言。
-- 考核方案：顶部方案下拉框和类型标签，下方是分节的可视化配置表单，底部固定一个保存按钮；保存时选择更新当前方案或保存为新的方案。
-- 本次考核：左侧考核列表，右侧是详情：数据、计算、导出三步流程、准备清单、方案版本选择、核算、导出和结果表。
+- 考核方案：顶部方案下拉框和类型标签，下方是分节的可视化配置表单，底部固定一个保存按钮；保存时选择更新当前方案或保存为新的方案。指标公式、比例模式分档边界和完成率覆盖用公式选项表单修改：下拉框选择形状、数字框填写份数或权重、句子预览公式含义，选择编译成原公式文本写回配置。
+- 本次考核：左侧考核列表，右侧是详情：数据、计算、导出三步流程、准备清单、方案版本选择、「开始试算」「正式计算」与「导出」动作、输入变化后的「需要重新计算」标记（列出变化数据项）、结果版本下拉（正式与试算运行）和结果表；点击结果行打开结果详情弹窗，显示各指标的公式、操作数、封顶前与得分值、计算依据、合并组、承担班级、任课教师和参与学生。
 - 结果：选择考核查看结果行，页头提供导出；没有结果时提供进入本次考核的入口。
 - 分析：选择考核后按班级、教师和学科三个维度汇总统计组数、均分、达线与人数，附偏差标记。
 
@@ -752,7 +757,7 @@ erDiagram
 
 主导航使用 `ui.Sidebar` 与 `ui.SidebarSection`，表格使用 `ui.Table`，对话框使用 `ui.Modal` 与 `ui.AlertDialog`，表单使用 `ui.Form` 与 `ui.Field`，搜索使用 `ui.SearchField`，筛选使用 `ui.Select`。应用栏与主体分别设置 `RoleBanner` 与 `RoleMain`，详情面板设置 `RoleComplementary`。结果表和学生表使用稳定的 `Key`，表格的选中状态保存在 `ui.ListState`。
 
-窗口默认尺寸为 1280×800，最小尺寸为 1024×640。测试覆盖默认尺寸、最小尺寸、深色主题、中英文切换、数据页面搜索与筛选、备份恢复确认和批次流程。
+窗口默认尺寸为 1280×800，最小尺寸为 1024×640。测试覆盖默认尺寸、最小尺寸、深色主题、中英文切换、数据页面搜索与筛选（含下拉框的读屏名称与当前值）、备份恢复确认、方案公式选项表单、试算与重新计算标记、结果版本切换与结果详情和批次流程。
 
 ## 错误处理
 
@@ -778,7 +783,7 @@ erDiagram
 
 导入、核算和导出都在后台执行。核算一次读取批次数据到内存，计算复杂度主要随学生数、统计组数和学科数增长。真实高一期中工作簿的试算规模是 966 名学生、140 个统计组、140 条结果和 73 条个人得分。
 
-当前 macOS 应用包为 20.3 MB，质量上限为 30 MB。主要体积来源是 MyGo、SQLite 插件和 excelize。
+当前 macOS 应用包为 20.4 MB，质量上限为 30 MB。主要体积来源是 MyGo、SQLite 插件和 excelize。
 
 ## 测试设计
 
@@ -792,7 +797,7 @@ erDiagram
 | 存储 | `internal/store/exam_store_test.go`、`exam_migration_test.go`、`assessment_data_test.go` | 考试、报名名单、成绩、分数线、目标、合并组、准备清单、问题记录、来源行、重新导入、本次考核数据读取与结果保存和旧考试数据迁移 |
 | 导入 | `internal/importer/importer_test.go`、`guided_test.go` | 合并说明、班级别名、单科 0 分、工作表识别、列名映射、模板和教师身份校验 |
 | Excel | `internal/excel/*_test.go` | 工作簿读取、工作表检查、合并区域、LibreOffice 往返 |
-| 界面 | `main_test.go`、`shell_test.go`、`data_pages_test.go`、`import_wizard_test.go`、`exam_pages_test.go`、`workbench_test.go`、`workbench_flow_test.go` | 外壳、语言切换、数据页面搜索与筛选、来源、最小窗口、备份恢复、六步导入、提醒确认、同工作簿继续导入、考试列表与详情、成绩分布、目标保存、合并组删除确认、数据质量筛选与跳转、考试准备清单、阶段核对、历史阶段只读、新建考试、本次考核核算与导出、零目标补齐、结果表 |
+| 界面 | `main_test.go`、`shell_test.go`、`data_pages_test.go`、`import_wizard_test.go`、`exam_pages_test.go`、`plan_page_test.go`、`workbench_test.go`、`workbench_flow_test.go` | 外壳、语言切换、数据页面搜索与筛选、下拉框读屏名称与当前值、来源、最小窗口、备份恢复、六步导入、提醒确认、同工作簿继续导入、考试列表与详情、成绩分布、目标保存、合并组删除确认、数据质量筛选与跳转、考试准备清单、阶段核对、历史阶段只读、新建考试、方案公式选项表单、本次考核试算与正式计算、重新计算标记、结果版本切换、结果详情、零目标补齐、结果表 |
 
 界面测试使用 `ui.NewTester` 驱动真实视图函数，语言通过 `i18n.SetLocaleFunc` 与 `tt.SetLocale` 固定。质量要求见 `CONSTRAINTS.md`。LibreOffice 集成测试使用 `-tags integration`，验证旧版文件转换后可以被 excelize 打开。
 
@@ -803,6 +808,7 @@ erDiagram
 | 本地存储 | MyGo SQLite 插件 | 单机使用，无需安装数据库，支持事务和索引 | 多端同步需要另行设计 |
 | Excel 读写 | excelize；`.xls` 使用 LibreOffice | 不手写文件格式解析，复用成熟库 | 旧版文件依赖本机 LibreOffice |
 | 方案配置 | JSON 加 `schemaVersion`，界面用配置项表单 | 规则集中管理，版本可追溯，用户不需要接触配置文件 | 结构变化需要迁移设计 |
+| 公式编辑 | 选项表单：下拉框选形状、数字框填份数与权重，选择编译成公式文本写回配置 | 用户看不懂代码，界面不要求理解表达式；公式文本仍统一保存，引擎与校验复用 | 超出既有形状的规则需要为表单增加选项行 |
 | 统计组 | 教学班组合成统计组 | 单科达线率可以按合并组计算一次 | 需要维护成员和目标 |
 | 核算触发 | 用户点击「开始核算」 | 导入数据可能分多次完成，自动核算会产生中间结果 | 输入变化后需要用户重新核算 |
 | 输入摘要 | 方案配置加批次数据的 SHA-256 | 导出前可以判断结果是否仍然有效 | 任何相关数据变化都会使导出被阻止 |
@@ -812,7 +818,7 @@ erDiagram
 
 ## 已知限制
 
-- 方案页提供覆盖全部配置项的分节表单、方案下拉切换和保存后询问更新当前方案或保存为新的方案；公式编辑器还没有界面，版本记录只在数据库里供已有核算结果引用。
+- 方案页提供覆盖全部配置项的分节表单、方案下拉切换和保存后询问更新当前方案或保存为新的方案；公式使用选项表单修改，超出既有形状的规则只能以自定义表达式只读回显；版本记录只在数据库里供已有核算结果引用。
 - 引导式导入支持班级、学生、教师、任课关系、入口成绩、报名名单、成绩、分数线和班级目标；合并组通过考试页面的合并组编辑器维护。
 - 入口成绩当前按班级和学科导入汇总值，逐学生的入口成绩与来源明细尚未接入向导。
 - 工作簿版本标记（新、旧、修改）尚未写入；工作表角色由名称、表头和用户选择确定。
@@ -821,7 +827,7 @@ erDiagram
 - 教学班按行政班建立，跨行政班的走班教学班归属尚未实现；合并组页面已经支持手动建立成员与目标。
 - 单科 0 分按导入规则固定处理，尚未做成方案开关。
 - 核算结果保存分为两次事务，跨事务失败会留下空运行记录。
-- 版本 5 迁移覆盖考试、报名名单、成绩、分数线、目标、合并组和结果关联；旧批次表与旧核算链路暂不删除。
+- 版本 6 迁移覆盖考试、报名名单、成绩、分数线、目标、合并组和结果关联；旧批次表与旧核算链路暂不删除。
 - 迁移由多次事务组成，失败恢复依赖迁移前备份；没有逐条迁移报告页面。
 - 学生、教师、教学班和入口成绩页面只提供列表、搜索和筛选，单条编辑与批量编辑尚未实现。
 - 数据页面分页固定读取前 200 条，滚动加载更多尚未接入。
@@ -841,14 +847,15 @@ erDiagram
 | `exam_state.go` | 考试列表、当前考试与级、考试数据读取、新建考试、报名名单生成、目标保存、合并组编辑 |
 | `exam_pages.go` | 考试列表、考试详情六个页签、考试准备清单 |
 | `quality_page.go` | 数据质量汇总、严重程度与数据项筛选、引用导入记录筛选、问题跳转 |
-| `plan_page.go` | 方案配置页：分节表单、方案切换、保存新方案或更新本方案 |
+| `plan_page.go` | 方案配置页：分节表单、方案切换、公式选项表单、保存新方案或更新本方案 |
 | `settings_school.go` | 学科与选科类别保存、立即备份、恢复备份 |
-| `workbench.go` | 本次考核列表与详情、准备清单、方案版本选择、核算、零目标窗口、导出、结果表、结果页 |
+| `workbench.go` | 本次考核列表与详情、准备清单、方案版本选择、试算与正式计算、重新计算标记、零目标窗口、导出、结果版本选择、结果详情弹窗、结果表、结果页 |
 | `analysis_page.go` | 分析页：按班级、教师、学科汇总结果 |
 | `workbench_test.go`、`workbench_flow_test.go` | 本次考核流程与界面交互测试 |
 | `internal/assessment/config.go` | 方案结构、严格解析、语义校验 |
 | `internal/assessment/default.go` | 内置默认方案 |
 | `internal/assessment/formulas.go` | 方案公式编译与依赖检查 |
+| `internal/assessment/formula_options.go` | 公式选项：形状清单、形状匹配、分档均等份数生成、完成率权重解析 |
 | `internal/formula/` | 受限表达式语言 |
 | `internal/calc/engine.go` | 核算入口、有效考生、零目标检查 |
 | `internal/calc/row.go` | 单项指标计算 |
@@ -864,7 +871,7 @@ erDiagram
 | `internal/store/backup.go` | 数据库与原始文件备份、列出备份、恢复备份 |
 | `internal/store/exam_store.go` | 考试、报名名单、成绩、分数线、目标、合并组、准备清单与数据质量查询 |
 | `internal/store/exam_import.go` | 考试数据校验、事务写入、来源行与问题记录、名单外考生补建 |
-| `internal/store/exam_migration.go` | 版本 5 旧考试、成绩、分数线和目标迁移 |
+| `internal/store/exam_migration.go` | 版本 6 旧考试、成绩、分数线和目标迁移 |
 | `internal/store/assessment_data.go` | 本次考核上下文、数据读取、结果保存、概览与调整记录 |
 | `internal/store/batch.go` | 批次、导入、结果、导出记录、输入摘要 |
 | `internal/importer/importer.go` | 工作表识别与导入解析 |

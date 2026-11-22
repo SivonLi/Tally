@@ -89,17 +89,17 @@
 | 数据口径 | `data.validStudent`、`excludeFlags`、`excludeStatus`、`baselineSource`、`gradeAverage` | 下拉框、多选 | 取值在枚举内，剔除清单不重复 |
 | 走班口径 | `data.walking.countIn`、`adminClassDoubleCount`、`japanese.englishStatistics`、`japanese.totalScore`、`japanese.rankGroup`、`artSports.rankGroup` | 下拉框、开关 | 取值在枚举内 |
 | 指标列表 | `indicators[].key`、`indicators[].points`、`indicators[].cap` | 指标列表、数字输入、可选上下限 | 指标键唯一，分值合计为 100，上限大于下限 |
-| 指标公式 | `indicators[].formula` | 公式编辑器 | 语法、变量、类型、依赖、字面除零和节点上限 |
+| 指标公式 | `indicators[].formula` | 公式选项表单（形状选择、句子预览，不匹配时只读回显自定义表达式） | 语法、变量、类型、依赖、字面除零和节点上限 |
 | 合并组算法 | `indicators[].merge.numerator`、`denominator`、`resultRow`、`leadClass` | 下拉框 | 取值在枚举内，合并组目标存在 |
 | 档位 | `tiers[].key`、`label`、`weight` | 可增删、可排序的表格 | 档位键唯一，权重为大于零的有限数值 |
 | 排名分组 | `ranking.groupBy`、`ranking.tieMode` | 多选、下拉框 | 至少选择一个分组字段，并列规则在枚举内 |
 | 分档模式 | `ranking.boundary.mode` | 下拉框 | `ratio` 或 `manual` |
-| 分档公式 | `ranking.boundary.first`、`ranking.boundary.second` | 公式编辑器 | 返回整数名次，边界递增，覆盖 1 到参评数量 |
+| 分档公式 | `ranking.boundary.first`、`ranking.boundary.second` | 公式选项表单（均等份数数字框、句子预览，不匹配时只读回显自定义表达式） | 返回整数名次，边界递增，覆盖 1 到参评数量 |
 | 学科例外 | `ranking.boundary.overrides[]` | 可增删的表格 | 学科存在，参评数量为正整数，边界连续 |
 | 人工区间 | `ranking.boundary.manual[]` | 可增删的表格 | 学科存在，区间连续且覆盖全部名次 |
 | 赋分 | `ranking.points[]` | 可增删的数字列表 | 每档一个分值，数量与档次一致 |
 | 个人得分 | `personal.mode`、`personal.scope` | 下拉框 | 取值在枚举内 |
-| 专项规则 | `programs[].when`、`indicatorOverrides` | 可增删的条件行、指标选择和公式编辑器 | 条件取值合法，覆盖的指标存在，覆盖公式通过编译 |
+| 专项规则 | `programs[].when`、`indicatorOverrides` | 可增删的条件行、指标选择和公式选项表单 | 条件取值合法，覆盖的指标存在，覆盖公式通过编译 |
 | 校验规则 | `validation.blocking`、`validation.warning` | 多选 | 取值在问题代码枚举内 |
 | 零目标 | `validation.zeroTarget.action`、`allowNotParticipating`、`recomputeAfterFill`、`audit`、`recheckBeforeExport` | 下拉框、开关 | 动作在枚举内 |
 

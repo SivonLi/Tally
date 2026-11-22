@@ -1,6 +1,6 @@
 # 后续功能与数据层设计
 
-本文档记录数据层目标模型和后续能力。阶段一至四的系统结构、真实表结构、界面状态与限制见 `docs/system-design.md`，两者冲突时以当前实现文档为准。阶段划分以 `docs/product-redesign.md` 第 9 节为准，本文档下面的旧阶段名称只保留为早期方案记录。阶段五已完成本次考核工作台、方案配置页、核算与导出，剩余试算、公式编辑器与重新计算标记；阶段六、WebDAV 同步、结果归档和自动触发核算尚未实现。
+本文档记录数据层目标模型和后续能力。阶段一至四的系统结构、真实表结构、界面状态与限制见 `docs/system-design.md`，两者冲突时以当前实现文档为准。阶段划分以 `docs/product-redesign.md` 第 9 节为准，本文档下面的旧阶段名称只保留为早期方案记录。阶段五已完成本次考核工作台、方案配置页、核算与导出、试算、重新计算标记、结果行级详情与公式选项表单；阶段六、WebDAV 同步、结果归档和自动触发核算尚未实现。
 
 ## 阶段划分
 
@@ -270,7 +270,7 @@ excelize 只支持 `.xlsx`。`.xls` 文件在导入时通过 LibreOffice 无界�
 
 ### 主要数据表
 
-当前真实表结构以 `docs/system-design.md` 为准。数据库版本 5 已经建立 `cohorts`、`cohort_stages`、`subjects`、`tracks`、`grade_levels`、`classes`、`class_stage_info`、`student_cohorts`、`student_stage_memberships`、`student_teaching_groups`、`teachers`、`teaching_groups`、`assignments`、`baseline_sets`、`baseline_subjects`、`baseline_scores`、`baseline_aggregates`、`import_runs`、`import_sheets`、`import_columns`、`import_issues`、`import_changes`、`data_revisions`、`audit_log`、`app_settings`、`exams`、`exam_cohorts`、`exam_subjects`、`exam_rosters`、`exam_scores`、`exam_subject_cutoffs`、`exam_tier_cutoffs`、`assessments`、`assessment_class_targets`、`assessment_stat_groups`、`assessment_stat_group_members`、`assessment_stat_group_targets` 和 `assessment_target_adjustments`。下面这些表尚未建立：`sync_state`、`saved_views`。
+当前真实表结构以 `docs/system-design.md` 为准。数据库版本 6 已经建立 `cohorts`、`cohort_stages`、`subjects`、`tracks`、`grade_levels`、`classes`、`class_stage_info`、`student_cohorts`、`student_stage_memberships`、`student_teaching_groups`、`teachers`、`teaching_groups`、`assignments`、`baseline_sets`、`baseline_subjects`、`baseline_scores`、`baseline_aggregates`、`import_runs`、`import_sheets`、`import_columns`、`import_issues`、`import_changes`、`data_revisions`、`audit_log`、`app_settings`、`exams`、`exam_cohorts`、`exam_subjects`、`exam_rosters`、`exam_scores`、`exam_subject_cutoffs`、`exam_tier_cutoffs`、`assessments`、`assessment_class_targets`、`assessment_stat_groups`、`assessment_stat_group_members`、`assessment_stat_group_targets` 和 `assessment_target_adjustments`。下面这些表尚未建立：`sync_state`、`saved_views`。
 
 | 表 | 内容 |
 |---|---|
@@ -518,7 +518,7 @@ excelize 只支持 `.xlsx`。`.xls` 文件在导入时通过 LibreOffice 无界�
 
 ### 数据库升级
 
-数据库带版本号。应用启动时检查版本，低于当前版本时先备份数据库与原始文件，再按顺序执行迁移。迁移失败时恢复迁移前备份。当前版本为 5：版本 4 迁移组织数据，版本 5 迁移考试、报名名单、成绩、分数线、班级目标、合并组、合并组目标与结果关联。
+数据库带版本号。应用启动时检查版本，低于当前版本时先备份数据库与原始文件，再按顺序执行迁移。迁移失败时恢复迁移前备份。当前版本为 7：版本 4 迁移组织数据，版本 6 迁移考试、报名名单、成绩、分数线、班级目标、合并组、合并组目标与结果关联，版本 7 迁移核算运行的逐项输入摘要、结果行封顶前数值与参与学生名单。
 
 迁移脚本随应用发布，只做向前迁移。降级安装旧版本时，应用检测到数据库版本高于自身支持的版本，拒绝打开并提示，避免写坏数据。
 
