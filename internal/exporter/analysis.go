@@ -63,13 +63,14 @@ func ExportTeacherTrend(path string, data store.TeacherTrendResult) error {
 	detailSheet := "历次明细"
 	_, _ = workbook.NewSheet(detailSheet)
 	detailRows := [][]any{
-		{"考试名称", "考试日期", "班级", "学科", "统计组", "班级均分", "年级均分", "提升率得分", "达线率得分", "完成率得分", "量化总分", "名次", "档次", "赋分"},
+		{"考试名称", "考试日期", "班级", "学科", "统计组", "班级均分", "年级均分", "基数均分", "基数比值", "提升率得分", "达线率得分", "完成率得分", "量化总分", "名次", "档次", "赋分"},
 	}
 	for _, pt := range data.Points {
 		for _, r := range pt.Rows {
 			detailRows = append(detailRows, []any{
 				pt.ExamName, pt.ExamDate, r.LeadClassName, r.Subject, r.StatGroupName,
-				r.ClassAverage, r.GradeAverage, r.ImprovementScore, r.PassRateScore,
+				r.ClassAverage, r.GradeAverage, r.BaselineAverage, r.BaselineRatio,
+				r.ImprovementScore, r.PassRateScore,
 				r.CompletionScore, r.Total, r.Rank, r.Tier, r.Points,
 			})
 		}
@@ -77,7 +78,7 @@ func ExportTeacherTrend(path string, data store.TeacherTrendResult) error {
 	if err := writeTable(workbook, detailSheet, detailRows, headerStyle, bodyStyle); err != nil {
 		return err
 	}
-	_ = workbook.SetColWidth(detailSheet, "A", "N", 16)
+	_ = workbook.SetColWidth(detailSheet, "A", "P", 16)
 
 	return saveAtomic(workbook, path)
 }
@@ -109,7 +110,7 @@ func ExportClassTrend(path string, data store.ClassTrendResult) error {
 		{"平均完成率得分", fmt.Sprintf("%.2f", data.AverageCompletionScore)},
 		{"导出时间", time.Now().Format("2006-01-02 15:04:05")},
 		{},
-		{"考试名称", "考试日期", "学年学期", "学科", "任课教师", "班级均分", "年级均分", "提升率得分", "达线率得分", "完成率得分", "总分", "名次", "档位", "赋分"},
+		{"考试名称", "考试日期", "学年学期", "学科", "任课教师", "班级均分", "年级均分", "基数均分", "基数比值", "提升率得分", "达线率得分", "完成率得分", "总分", "名次", "档位", "赋分"},
 	}
 
 	for _, pt := range data.Points {
@@ -117,7 +118,8 @@ func ExportClassTrend(path string, data store.ClassTrendResult) error {
 			rows = append(rows, []any{
 				pt.ExamName, pt.ExamDate, pt.AcademicYear + " " + pt.Semester,
 				r.Subject, strings.Join(r.TeacherNames, "、"),
-				r.ClassAverage, r.GradeAverage, r.ImprovementScore, r.PassRateScore,
+				r.ClassAverage, r.GradeAverage, r.BaselineAverage, r.BaselineRatio,
+				r.ImprovementScore, r.PassRateScore,
 				r.CompletionScore, r.Total, r.Rank, r.Tier, r.Points,
 			})
 		}
@@ -126,7 +128,7 @@ func ExportClassTrend(path string, data store.ClassTrendResult) error {
 	if err := writeTable(workbook, "班级趋势", rows, headerStyle, bodyStyle); err != nil {
 		return err
 	}
-	_ = workbook.SetColWidth("班级趋势", "A", "N", 16)
+	_ = workbook.SetColWidth("班级趋势", "A", "P", 16)
 
 	return saveAtomic(workbook, path)
 }
@@ -162,13 +164,14 @@ func ExportSubjectComparison(path string, data store.SubjectComparisonResult) er
 		{"平均达线率得分", fmt.Sprintf("%.2f", data.AveragePassRate)},
 		{"导出时间", time.Now().Format("2006-01-02 15:04:05")},
 		{},
-		{"名次", "班级", "任课教师", "统计组", "班级均分", "年级均分", "提升率得分", "达线率得分", "完成率得分", "教学量化总分", "档位", "赋分"},
+		{"名次", "班级", "任课教师", "统计组", "班级均分", "年级均分", "基数均分", "基数比值", "提升率得分", "达线率得分", "完成率得分", "教学量化总分", "档位", "赋分"},
 	}
 
 	for _, g := range data.Groups {
 		rows = append(rows, []any{
 			g.Rank, g.LeadClassName, strings.Join(g.TeacherNames, "、"), g.StatGroupName,
-			g.ClassAverage, g.GradeAverage, g.ImprovementScore, g.PassRateScore,
+			g.ClassAverage, g.GradeAverage, g.BaselineAverage, g.BaselineRatio,
+			g.ImprovementScore, g.PassRateScore,
 			g.CompletionScore, g.Total, g.Tier, g.Points,
 		})
 	}
@@ -176,7 +179,7 @@ func ExportSubjectComparison(path string, data store.SubjectComparisonResult) er
 	if err := writeTable(workbook, "学科对比", rows, headerStyle, bodyStyle); err != nil {
 		return err
 	}
-	_ = workbook.SetColWidth("学科对比", "A", "L", 16)
+	_ = workbook.SetColWidth("学科对比", "A", "N", 16)
 
 	return saveAtomic(workbook, path)
 }

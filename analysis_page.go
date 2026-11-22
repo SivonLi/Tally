@@ -339,6 +339,9 @@ func (a *app) analysisTeacherTrendTab(c *ui.Context, p uiPalette) {
 						ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
 							ui.Text(c, r.LeadClassName+" "+a.subjectName(r.Subject, r.Subject)).FontSize(captionSize(t)).TextColor(p.muted).Width(t.Space(28))
 							ui.Textf(c, "%s: %s", locales.AnalysisClassAvg(), formatDecimal(r.ClassAverage, 1)).FontSize(captionSize(t)).TextColor(p.muted)
+							if r.BaselineRatio > 0 {
+								ui.Textf(c, "%s: %s", locales.AnalysisBaselineRatio(), formatDecimal(r.BaselineRatio, 4)).FontSize(captionSize(t)).TextColor(p.muted)
+							}
 							ui.Textf(c, "%s: %s", locales.AnalysisImprovementScore(), formatDecimal(r.ImprovementScore, 1)).FontSize(captionSize(t)).TextColor(p.muted)
 							ui.Textf(c, "%s: %s", locales.AnalysisPassScore(), formatDecimal(r.PassRateScore, 1)).FontSize(captionSize(t)).TextColor(p.muted)
 							ui.Textf(c, "%s: %s", locales.AnalysisCompletionScore(), formatDecimal(r.CompletionScore, 1)).FontSize(captionSize(t)).TextColor(p.muted)
@@ -411,6 +414,9 @@ func (a *app) analysisClassTrendTab(c *ui.Context, p uiPalette) {
 							ui.Text(c, a.subjectName(r.Subject, r.Subject)).FontSize(bodySize(t)).Width(t.Space(20))
 							ui.Text(c, strings.Join(r.TeacherNames, "、")).FontSize(captionSize(t)).TextColor(p.muted).Width(t.Space(24))
 							ui.Textf(c, "%s: %s", locales.AnalysisClassAvg(), formatDecimal(r.ClassAverage, 1)).FontSize(captionSize(t)).TextColor(p.muted)
+							if r.BaselineRatio > 0 {
+								ui.Textf(c, "%s: %s", locales.AnalysisBaselineRatio(), formatDecimal(r.BaselineRatio, 4)).FontSize(captionSize(t)).TextColor(p.muted)
+							}
 							ui.Textf(c, "%s: %s", locales.AnalysisImprovementScore(), formatDecimal(r.ImprovementScore, 1)).FontSize(captionSize(t)).TextColor(p.muted)
 							ui.Textf(c, "%s: %s", locales.AnalysisPassScore(), formatDecimal(r.PassRateScore, 1)).FontSize(captionSize(t)).TextColor(p.muted)
 							ui.Spacer(c)
@@ -470,6 +476,9 @@ func (a *app) analysisSubjectComparisonTab(c *ui.Context, p uiPalette) {
 					ui.Text(c, g.LeadClassName).FontSize(bodySize(t)).Width(t.Space(18))
 					ui.Text(c, strings.Join(g.TeacherNames, "、")).FontSize(captionSize(t)).TextColor(p.muted).Grow(1)
 					ui.Textf(c, "%s: %s", locales.AnalysisClassAvg(), formatDecimal(g.ClassAverage, 1)).FontSize(captionSize(t)).TextColor(p.muted)
+					if g.BaselineRatio > 0 {
+						ui.Textf(c, "%s: %s", locales.AnalysisBaselineRatio(), formatDecimal(g.BaselineRatio, 4)).FontSize(captionSize(t)).TextColor(p.muted)
+					}
 					ui.Textf(c, "%s: %s", locales.AnalysisPassScore(), formatDecimal(g.PassRateScore, 1)).FontSize(captionSize(t)).TextColor(p.muted)
 					ui.Textf(c, "%s: %s", locales.AnalysisCompletionScore(), formatDecimal(g.CompletionScore, 1)).FontSize(captionSize(t)).TextColor(p.muted)
 					ui.Text(c, formatDecimal(g.Total, 1)).FontSize(bodySize(t)).FontFeatures("tnum").FontWeight(600).Width(t.Space(12)).TextAlign(ui.End)

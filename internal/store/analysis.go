@@ -29,6 +29,8 @@ type TeacherTrendRow struct {
 	Subject          string  `json:"subject"`
 	ClassAverage     float64 `json:"classAverage"`
 	GradeAverage     float64 `json:"gradeAverage"`
+	BaselineAverage  float64 `json:"baselineAverage"`
+	BaselineRatio    float64 `json:"baselineRatio"`
 	ImprovementScore float64 `json:"improvementScore"`
 	PassRateScore    float64 `json:"passRateScore"`
 	CompletionScore  float64 `json:"completionScore"`
@@ -67,6 +69,8 @@ type ClassTrendRow struct {
 	StatGroupName    string   `json:"statGroupName"`
 	ClassAverage     float64  `json:"classAverage"`
 	GradeAverage     float64  `json:"gradeAverage"`
+	BaselineAverage  float64  `json:"baselineAverage"`
+	BaselineRatio    float64  `json:"baselineRatio"`
 	ImprovementScore float64  `json:"improvementScore"`
 	PassRateScore    float64  `json:"passRateScore"`
 	CompletionScore  float64  `json:"completionScore"`
@@ -94,6 +98,8 @@ type SubjectComparisonGroup struct {
 	TeacherNames     []string `json:"teacherNames"`
 	ClassAverage     float64  `json:"classAverage"`
 	GradeAverage     float64  `json:"gradeAverage"`
+	BaselineAverage  float64  `json:"baselineAverage"`
+	BaselineRatio    float64  `json:"baselineRatio"`
 	ImprovementScore float64  `json:"improvementScore"`
 	PassRateScore    float64  `json:"passRateScore"`
 	CompletionScore  float64  `json:"completionScore"`
@@ -243,14 +249,14 @@ func (s *Store) QueryTeacherTrends(ctx context.Context, cohortID int64, teacherN
 
 		// 查询教师任课统计组行
 		rRows, err := s.db.Query(ctx, `SELECT stat_group_id, stat_group_name, lead_class_name, subject,
-			class_average, grade_average, improvement_score, pass_score, completion_score,
+			class_average, grade_average, baseline_average, baseline_ratio, improvement_score, pass_score, completion_score,
 			total, rank, tier_index, points, teacher_names
 			FROM result_rows WHERE run_id = ? AND (teacher_names LIKE ? OR teacher_names = ?)
 			ORDER BY subject, stat_group_name`,
 			runID, "%"+teacherName+"%", teacherName)
 		if err == nil {
 			for _, r := range rRows.Values {
-				teachers, _ := r[13].(string)
+				teachers, _ := r[15].(string)
 				// 严格确认姓名在任课教师列表中
 				found := false
 				for _, name := range strings.Split(teachers, "、") {
@@ -269,13 +275,15 @@ func (s *Store) QueryTeacherTrends(ctx context.Context, cohortID int64, teacherN
 				subj, _ := r[3].(string)
 				clsAvg, _ := r[4].(float64)
 				grdAvg, _ := r[5].(float64)
-				impSc, _ := r[6].(float64)
-				passSc, _ := r[7].(float64)
-				compSc, _ := r[8].(float64)
-				tot, _ := r[9].(float64)
-				rankVal, _ := r[10].(int64)
-				tierVal, _ := r[11].(int64)
-				ptsVal, _ := r[12].(float64)
+				baseAvg, _ := r[6].(float64)
+				baseRatio, _ := r[7].(float64)
+				impSc, _ := r[8].(float64)
+				passSc, _ := r[9].(float64)
+				compSc, _ := r[10].(float64)
+				tot, _ := r[11].(float64)
+				rankVal, _ := r[12].(int64)
+				tierVal, _ := r[13].(int64)
+				ptsVal, _ := r[14].(float64)
 
 				if result.Subject == "" && subj != "" {
 					result.Subject = subj
@@ -291,6 +299,8 @@ func (s *Store) QueryTeacherTrends(ctx context.Context, cohortID int64, teacherN
 					Subject:          subj,
 					ClassAverage:     clsAvg,
 					GradeAverage:     grdAvg,
+					BaselineAverage:  baseAvg,
+					BaselineRatio:    baseRatio,
 					ImprovementScore: impSc,
 					PassRateScore:    passSc,
 					CompletionScore:  compSc,
@@ -380,7 +390,7 @@ func (s *Store) QueryClassTrends(ctx context.Context, cohortID int64, classID in
 		}
 
 		rRows, err := s.db.Query(ctx, `SELECT subject, stat_group_name, class_average, grade_average,
-			improvement_score, pass_score, completion_score, total, rank, tier_index, points, teacher_names
+			baseline_average, baseline_ratio, improvement_score, pass_score, completion_score, total, rank, tier_index, points, teacher_names
 			FROM result_rows WHERE run_id = ? AND (lead_class_id = ? OR lead_class_name = ?)
 			ORDER BY subject`,
 			runID, classID, className)
@@ -390,14 +400,16 @@ func (s *Store) QueryClassTrends(ctx context.Context, cohortID int64, classID in
 				sgName, _ := r[1].(string)
 				clsAvg, _ := r[2].(float64)
 				grdAvg, _ := r[3].(float64)
-				impSc, _ := r[4].(float64)
-				passSc, _ := r[5].(float64)
-				compSc, _ := r[6].(float64)
-				tot, _ := r[7].(float64)
-				rankVal, _ := r[8].(int64)
-				tierVal, _ := r[9].(int64)
-				ptsVal, _ := r[10].(float64)
-				tNames, _ := r[11].(string)
+				baseAvg, _ := r[4].(float64)
+				baseRatio, _ := r[5].(float64)
+				impSc, _ := r[6].(float64)
+				passSc, _ := r[7].(float64)
+				compSc, _ := r[8].(float64)
+				tot, _ := r[9].(float64)
+				rankVal, _ := r[10].(int64)
+				tierVal, _ := r[11].(int64)
+				ptsVal, _ := r[12].(float64)
+				tNames, _ := r[13].(string)
 
 				if point.CompletionScore == 0 && compSc > 0 {
 					point.CompletionScore = compSc
@@ -421,6 +433,8 @@ func (s *Store) QueryClassTrends(ctx context.Context, cohortID int64, classID in
 					StatGroupName:    sgName,
 					ClassAverage:     clsAvg,
 					GradeAverage:     grdAvg,
+					BaselineAverage:  baseAvg,
+					BaselineRatio:    baseRatio,
 					ImprovementScore: impSc,
 					PassRateScore:    passSc,
 					CompletionScore:  compSc,
@@ -503,6 +517,8 @@ func (s *Store) QuerySubjectComparison(ctx context.Context, assessmentID int64, 
 			TeacherNames:     teachers,
 			ClassAverage:     row.ClassAverage,
 			GradeAverage:     row.GradeAverage,
+			BaselineAverage:  row.BaselineAverage,
+			BaselineRatio:    row.BaselineRatio,
 			ImprovementScore: row.ImprovementScore,
 			PassRateScore:    row.PassScore,
 			CompletionScore:  row.CompletionScore,

@@ -4320,6 +4320,16 @@ func (msgs Messages) AnalysisGradeAvg() string {
 	return Catalog.Format(msgs.locale, "analysisGradeAvg", nil)
 }
 
+// AnalysisBaselineRatio says "Baseline ratio"
+// in the language the app shows.
+func AnalysisBaselineRatio() string { return In(i18n.Locale()).AnalysisBaselineRatio() }
+
+// AnalysisBaselineRatio says "Baseline ratio"
+// in the language of msgs.
+func (msgs Messages) AnalysisBaselineRatio() string {
+	return Catalog.Format(msgs.locale, "analysisBaselineRatio", nil)
+}
+
 // AnalysisImprovementScore says "Improvement score"
 // in the language the app shows.
 func AnalysisImprovementScore() string { return In(i18n.Locale()).AnalysisImprovementScore() }

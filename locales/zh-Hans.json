@@ -428,6 +428,7 @@
   "analysisPoints": "赋分",
   "analysisClassAvg": "班级均分",
   "analysisGradeAvg": "年级均分",
+  "analysisBaselineRatio": "基数比值",
   "analysisImprovementScore": "提升率得分",
   "analysisPassScore": "达线率得分",
   "analysisCompletionScore": "完成率得分",

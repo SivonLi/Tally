@@ -437,6 +437,7 @@
   "analysisPoints": "Points",
   "analysisClassAvg": "Class avg",
   "analysisGradeAvg": "Grade avg",
+  "analysisBaselineRatio": "Baseline ratio",
   "analysisImprovementScore": "Improvement score",
   "analysisPassScore": "Pass score",
   "analysisCompletionScore": "Completion score",
