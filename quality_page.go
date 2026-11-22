@@ -50,9 +50,46 @@ func (a *app) reloadQuality(ctx context.Context) {
 	for _, run := range runs {
 		a.qualityImports[run.ID] = importFileLabel(run)
 	}
+	a.qualityImportOptions = a.qualityImportFilterOptions(overviews, runs)
+	if a.qualityImportRun != 0 && a.qualityImportOptions[a.qualityImportRun] == "" {
+		a.qualityImportRun = 0
+	}
 	a.qualityExams = overviews
 	a.qualityLoaded = true
 	a.qualityError = ""
+}
+
+// qualityImportFilterOptions 构造数据质量页的导入记录选项：
+// 只列质量问题实际引用的记录，文件名重复时按数据项区分；
+// 没有任何问题引用导入记录时返回 nil，页面上隐藏这个筛选。
+func (a *app) qualityImportFilterOptions(overviews []qualityExamOverview, runs []store.ImportRun) map[int64]string {
+	byID := make(map[int64]store.ImportRun, len(runs))
+	for _, run := range runs {
+		byID[run.ID] = run
+	}
+	referenced := map[int64]bool{}
+	for _, overview := range overviews {
+		for _, issue := range overview.Issues {
+			if issue.ImportRunID > 0 {
+				referenced[issue.ImportRunID] = true
+			}
+		}
+	}
+	if len(referenced) == 0 {
+		return nil
+	}
+	labels := make(map[int64]string, len(referenced))
+	counts := map[string]int{}
+	for id := range referenced {
+		labels[id] = importFileLabel(byID[id])
+		counts[labels[id]]++
+	}
+	for id, label := range labels {
+		if counts[label] > 1 {
+			labels[id] = fmt.Sprintf(locales.LabelQualifier(), label, importKindName(byID[id].DataKind))
+		}
+	}
+	return labels
 }
 
 func (a *app) qualityPage(c *ui.Context, p uiPalette) {
@@ -88,7 +125,9 @@ func (a *app) qualityPage(c *ui.Context, p uiPalette) {
 				[]string{locales.ExamQualityAll(), locales.ExamQualityBlocking(),
 					locales.ExamQualityWarnings()}, locales.ExamQualitySeverity())
 			a.qualityItemFilter(c, p)
-			a.qualityImportFilter(c, p)
+			if a.qualityImportOptions != nil {
+				a.qualityImportFilter(c, p)
+			}
 			ui.Spacer(c)
 			badge(c, p, fmt.Sprintf(locales.ExamQualityBlockingCount(), blocking), toneDanger)
 			badge(c, p, fmt.Sprintf(locales.ExamQualityWarningCount(), warnings), toneWarning)
@@ -166,19 +205,20 @@ func (a *app) qualityItemFilter(c *ui.Context, p uiPalette) {
 
 func (a *app) qualityImportFilter(c *ui.Context, p uiPalette) {
 	t := p.theme
-	ids := []int64{0}
-	for id := range a.qualityImports {
+	ids := make([]int64, 0, len(a.qualityImportOptions))
+	for id := range a.qualityImportOptions {
 		ids = append(ids, id)
 	}
-	sort.Slice(ids[1:], func(i, j int) bool { return ids[i+1] < ids[j+1] })
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 	labels := []string{locales.ExamQualityAllImports()}
-	for _, id := range ids[1:] {
-		labels = append(labels, a.qualityImports[id])
+	for _, id := range ids {
+		labels = append(labels, a.qualityImportOptions[id])
 	}
-	chosen := labels[0]
-	for index, id := range ids {
+	chosen := locales.ExamQualityAllImports()
+	for _, id := range ids {
 		if id == a.qualityImportRun {
-			chosen = labels[index]
+			chosen = a.qualityImportOptions[id]
+			break
 		}
 	}
 	next := chosen
@@ -186,7 +226,11 @@ func (a *app) qualityImportFilter(c *ui.Context, p uiPalette) {
 	if next != chosen {
 		for index, label := range labels {
 			if label == next {
-				a.qualityImportRun = ids[index]
+				if index == 0 {
+					a.qualityImportRun = 0
+				} else {
+					a.qualityImportRun = ids[index-1]
+				}
 				break
 			}
 		}

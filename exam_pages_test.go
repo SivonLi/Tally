@@ -337,15 +337,15 @@ func TestExamCohortSwitchAndQualityImportFilter(t *testing.T) {
 	f.App.qualityLoaded = false
 	f.App.qualityImportRun = 0
 	tt.Frame()
-	if len(f.App.qualityImports) == 0 {
-		t.Fatalf("imports = %+v", f.App.qualityImports)
+	if len(f.App.qualityImportOptions) == 0 {
+		t.Fatalf("import options = %+v", f.App.qualityImportOptions)
 	}
 	if err := tt.Click("All import records"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
 	firstLabel := ""
-	for _, label := range f.App.qualityImports {
+	for _, label := range f.App.qualityImportOptions {
 		firstLabel = label
 		break
 	}
@@ -362,6 +362,33 @@ func TestExamCohortSwitchAndQualityImportFilter(t *testing.T) {
 				t.Fatalf("issue from another import: %+v", issue)
 			}
 		}
+	}
+}
+
+// 考试数据没有导入记录引用时，数据质量页不显示导入记录筛选。
+func TestQualityImportFilterHiddenWithoutReferencedRuns(t *testing.T) {
+	a := newTestApp(t)
+	addCohort(t, a, 2026)
+	seedStageData(t, a)
+	ctx := context.Background()
+	cohort := a.selectedCohort()
+	_, err := a.store.CreateExam(ctx, store.CreateExamInput{
+		AcademicYearStart: 2026, Term: store.ExamTermFirst, ExamType: store.ExamMidterm,
+		Name: "期中考试", ExamDate: "2026-11-10", CohortIDs: []int64{cohort.ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.reloadExams(ctx)
+	a.page = pageQuality
+	tt := ui.NewTester(a.view, 1280, 900)
+	tt.SetLocale("en")
+	tt.Frame()
+	if a.qualityImportOptions != nil {
+		t.Fatalf("import options = %+v", a.qualityImportOptions)
+	}
+	if tt.HasText("All import records") {
+		t.Fatalf("import filter shown: %q", tt.Texts())
 	}
 }
 
