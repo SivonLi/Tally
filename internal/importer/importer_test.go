@@ -27,14 +27,14 @@ func TestParseMergeNotesReadsEveryNoteInARow(t *testing.T) {
 		bySubject[group.Subject] = group
 	}
 	geography := bySubject["geography"]
-	if geography.Name != "卓越+鹭宁" || geography.LeadClassName != "卓越" || geography.Target != 18 {
+	if geography.Name != "卓越+鹭宁" || geography.LeadClassName != "鹭宁" || geography.Target != 18 {
 		t.Errorf("geography = %+v", geography)
 	}
 	if len(geography.MemberClasses) != 2 || geography.MemberClasses[0] != "卓越" || geography.MemberClasses[1] != "鹭宁" {
 		t.Errorf("geography members = %v", geography.MemberClasses)
 	}
 	politics := bySubject["politics"]
-	if politics.Name != "546+鹭宁" || politics.LeadClassName != "546" || politics.Target != 14 {
+	if politics.Name != "546+鹭宁" || politics.LeadClassName != "鹭宁" || politics.Target != 14 {
 		t.Errorf("politics = %+v", politics)
 	}
 }

@@ -375,7 +375,14 @@ func build(data store.BatchData, plan assessment.Config) (calc.Input, []Issue) {
 		baseline := group.BaselineAverage
 		ratio := group.BaselineRatio
 		if baseline <= 0 && ratio <= 0 {
-			baseline = statGroupBaseline(data, group)
+			leadKey := strconv.FormatInt(group.LeadClassID, 10)
+			if r, ok := data.ClassBaselineRatios[group.Subject][leadKey]; ok && r > 0 {
+				ratio = r
+			} else if b, ok := data.ClassBaselines[group.Subject][leadKey]; ok && b > 0 {
+				baseline = b
+			} else {
+				baseline = statGroupBaseline(data, group)
+			}
 		}
 		if baseline <= 0 && ratio <= 0 {
 			add("missing_stat_baseline", fmt.Sprintf("统计组 %s %s 缺少基数均分", group.Subject, group.Name))
@@ -615,10 +622,10 @@ func normalizeTrack(student store.Student) string {
 	if student.Track == "physics" || student.Track == "history" {
 		return student.Track
 	}
-	if strings.Contains(student.Elective, "历史") {
+	if strings.Contains(student.Elective, "历史") || strings.Contains(student.Elective, "史") || strings.Contains(student.Elective, "历") {
 		return "history"
 	}
-	if strings.Contains(student.Elective, "物理") {
+	if strings.Contains(student.Elective, "物理") || strings.Contains(student.Elective, "物") {
 		return "physics"
 	}
 	if student.Track != "" {

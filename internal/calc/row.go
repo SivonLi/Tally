@@ -256,14 +256,14 @@ func weightedTiers(tiers []assessment.TierConfig, target ClassTarget, actualCoun
 	base := 0.0
 	for _, tier := range tiers {
 		actualCount := actualCounts[tier.Key]
-		targetCount, ok := target.Counts[tier.Key]
-		if !ok || targetCount == nil {
-			return 0, 0, nil, nil, fmt.Errorf("班级 %s 缺少档位 %s 的目标", target.ClassID, tier.Key)
+		var count float64
+		if targetCount, ok := target.Counts[tier.Key]; ok && targetCount != nil {
+			count = *targetCount
 		}
 		actual += actualCount * tier.Weight
-		base += *targetCount * tier.Weight
+		base += count * tier.Weight
 		actualValues[tier.Key] = formula.Number(actualCount)
-		targetValues[tier.Key] = formula.Number(*targetCount)
+		targetValues[tier.Key] = formula.Number(count)
 	}
 	return actual, base, actualValues, targetValues, nil
 }

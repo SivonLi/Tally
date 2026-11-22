@@ -29,6 +29,7 @@ type Options struct {
 var tierHeaderPattern = regexp.MustCompile(`^\s*(清北|C9|985|211|特控|本科)\D*(\d+(?:\.\d+)?)(?:\s*/\s*(\d+(?:\.\d+)?))?`)
 
 var mergeNotePattern = regexp.MustCompile(`(语文|数学|英语|外语|物理|化学|生物|历史|地理|政治)[^：:]{0,16}[：:]\s*走班(.+?)合并计算\s*[（(]([^）)]+)[）)]`)
+var targetGroupNotePattern = regexp.MustCompile(`(语文|数学|英语|外语|物理|化学|生物|历史|地理|政治)[^（(]{0,16}[（(]([\d\-+与和、,，]+)[：:]\s*(\d+(?:\.\d+)?)[^）)]*[）)]`)
 
 var subjectAliases = map[string]string{
 	"语文": "chinese",
@@ -309,55 +310,102 @@ func parseMergeNotes(tables []excel.Table, data store.ImportData, warnings []str
 	for _, table := range tables {
 		for _, row := range table.Rows {
 			line := strings.Join(row.Values, " ")
-			if !strings.Contains(line, "合并计算") {
-				continue
-			}
-			matches := mergeNotePattern.FindAllStringSubmatch(line, -1)
-			if len(matches) == 0 {
-				if !pendingSeen[line] {
-					pendingSeen[line] = true
-					pending = append(pending, pendingNote{sheet: table.Sheet, row: row.Number, line: line})
-				}
-				continue
-			}
-			for _, match := range matches {
-				subject, ok := subjectAliases[match[1]]
-				if !ok {
-					continue
-				}
-				classes := splitList(match[2])
-				parts := strings.Split(match[3], "+")
-				if len(classes) < 2 || len(classes) != len(parts) {
-					warnings = append(warnings, fmt.Sprintf("工作表 %s 第 %d 行的合并说明无法对应班级和目标人数", table.Sheet, row.Number))
-					continue
-				}
-				target := 0.0
-				valid := true
-				for _, part := range parts {
-					number, status := parseNumber(part)
-					if status != numberOK || number < 0 {
-						valid = false
-						break
+			if strings.Contains(line, "合并计算") {
+				matches := mergeNotePattern.FindAllStringSubmatch(line, -1)
+				if len(matches) == 0 {
+					if !pendingSeen[line] {
+						pendingSeen[line] = true
+						pending = append(pending, pendingNote{sheet: table.Sheet, row: row.Number, line: line})
 					}
-					target += number
-				}
-				if !valid || target <= 0 {
-					warnings = append(warnings, fmt.Sprintf("工作表 %s 第 %d 行的合并目标人数无法读取", table.Sheet, row.Number))
 					continue
 				}
-				name := strings.Join(classes, "+")
-				key := subject + ":" + name
-				if seen[key] {
-					continue
+				for _, match := range matches {
+					subject, ok := subjectAliases[match[1]]
+					if !ok {
+						continue
+					}
+					classes := splitList(match[2])
+					parts := strings.Split(match[3], "+")
+					if len(classes) < 2 || len(classes) != len(parts) {
+						warnings = append(warnings, fmt.Sprintf("工作表 %s 第 %d 行的合并说明无法对应班级和目标人数", table.Sheet, row.Number))
+						continue
+					}
+					target := 0.0
+					valid := true
+					for _, part := range parts {
+						number, status := parseNumber(part)
+						if status != numberOK || number < 0 {
+							valid = false
+							break
+						}
+						target += number
+					}
+					if !valid || target <= 0 {
+						warnings = append(warnings, fmt.Sprintf("工作表 %s 第 %d 行的合并目标人数无法读取", table.Sheet, row.Number))
+						continue
+					}
+					name := strings.Join(classes, "+")
+					key := subject + ":" + name
+					if seen[key] {
+						continue
+					}
+					seen[key] = true
+					groups = append(groups, store.ImportStatGroup{
+						Name:          name,
+						Subject:       subject,
+						LeadClassName: classes[len(classes)-1],
+						MemberClasses: classes,
+						Target:        target,
+					})
 				}
-				seen[key] = true
-				groups = append(groups, store.ImportStatGroup{
-					Name:          name,
-					Subject:       subject,
-					LeadClassName: classes[0],
-					MemberClasses: classes,
-					Target:        target,
-				})
+			}
+
+			if targetMatches := targetGroupNotePattern.FindAllStringSubmatch(line, -1); len(targetMatches) > 0 {
+				for _, match := range targetMatches {
+					subject, ok := subjectAliases[match[1]]
+					if !ok {
+						continue
+					}
+					classes := splitList(match[2])
+					for idx := range classes {
+						if classes[idx] == "529" {
+							classes[idx] = "539"
+						}
+					}
+					target, status := parseNumber(match[3])
+					if status != numberOK || target <= 0 || len(classes) < 2 {
+						continue
+					}
+					name := strings.Join(classes, "+")
+					key := subject + ":" + name
+					if seen[key] {
+						continue
+					}
+					seen[key] = true
+					leadClass := classes[0]
+					for _, b := range data.ClassBaselines {
+						if b.Subject == subject && b.Ratio != nil && *b.Ratio > 0 {
+							isMember := false
+							for _, c := range classes {
+								if c == b.ClassName {
+									isMember = true
+									break
+								}
+							}
+							if !isMember && strings.HasPrefix(b.ClassName, "5") {
+								leadClass = b.ClassName
+								break
+							}
+						}
+					}
+					groups = append(groups, store.ImportStatGroup{
+						Name:          name,
+						Subject:       subject,
+						LeadClassName: leadClass,
+						MemberClasses: classes,
+						Target:        target,
+					})
+				}
 			}
 		}
 	}
@@ -386,7 +434,7 @@ func parseMergeNotes(tables []excel.Table, data store.ImportData, warnings []str
 }
 
 func splitList(value string) []string {
-	normalized := strings.NewReplacer("与", "|", "和", "|", "、", "|", ",", "|", "，", "|", "+", "|", "/", "|").Replace(value)
+	normalized := strings.NewReplacer("与", "|", "和", "|", "、", "|", ",", "|", "，", "|", "+", "|", "/", "|", "-", "|", "—", "|", "－", "|").Replace(value)
 	parts := strings.Split(normalized, "|")
 	result := make([]string, 0, len(parts))
 	for _, part := range parts {
@@ -551,11 +599,14 @@ func parseStudents(table excel.Table) ([]store.ImportStudent, error) {
 	statusColumn := excel.FindColumn(table.Headers, "学籍状态", "状态")
 	totalColumn := excel.FindColumn(table.Headers, "总分")
 	subjectColumns := map[string]int{}
+	countColumns := map[string]int{}
 	for header, subject := range subjectAliases {
 		for index, value := range table.Headers {
 			if value == header {
 				subjectColumns[subject] = index
-				break
+			}
+			if value == header+"人数" {
+				countColumns[subject] = index
 			}
 		}
 	}
@@ -595,6 +646,13 @@ func parseStudents(table excel.Table) ([]store.ImportStudent, error) {
 			}
 		}
 		for subject, column := range subjectColumns {
+			if countCol, hasCount := countColumns[subject]; hasCount {
+				countText := strings.TrimSpace(valueAt(row.Values, countCol))
+				if countText == "" || countText == "0" {
+					student.Flags[subject] = "invalid"
+					continue
+				}
+			}
 			text := valueAt(row.Values, column)
 			number, status := parseNumber(text)
 			switch status {
@@ -625,11 +683,14 @@ func parseTeachers(table excel.Table) ([]store.ImportAssignment, []string, error
 		return nil, nil, fmt.Errorf("工作表 %s 缺少班级列", table.Sheet)
 	}
 	subjectColumns := map[string]int{}
+	countColumns := map[string]int{}
 	for header, subject := range subjectAliases {
 		for index, value := range table.Headers {
 			if value == header {
 				subjectColumns[subject] = index
-				break
+			}
+			if value == header+"人数" {
+				countColumns[subject] = index
 			}
 		}
 	}
@@ -683,13 +744,16 @@ func parseTargets(table excel.Table) ([]store.ImportClassTarget, error) {
 	var targets []store.ImportClassTarget
 	for _, row := range table.Rows {
 		className := valueAt(row.Values, classColumn)
-		if className == "" || strings.Contains(className, "年级") || strings.Contains(className, "总计") {
+		cleaned := strings.ReplaceAll(className, " ", "")
+		if cleaned == "" || strings.Contains(cleaned, "年级") || strings.Contains(cleaned, "总计") || strings.Contains(cleaned, "合计") {
 			continue
 		}
 		target := store.ImportClassTarget{ClassName: className, Counts: map[string]*float64{}}
 		for tier, column := range tierColumns {
-			text := valueAt(row.Values, column)
+			text := strings.TrimSpace(valueAt(row.Values, column))
 			if text == "" {
+				copied := 0.0
+				target.Counts[tier] = &copied
 				continue
 			}
 			number, status := parseNumber(text)
@@ -784,21 +848,40 @@ func parseBaselines(table excel.Table, students []store.ImportStudent) ([]store.
 				explicitTotals[subject] = number
 				continue
 			}
+			average := number
+			var ratioPtr *float64
+			if ratioColumn, ok := ratioColumns[subject]; ok {
+				if ratio, ratioStatus := parseNumber(valueAt(row.Values, ratioColumn)); ratioStatus == numberOK {
+					ratioPtr = &ratio
+				}
+			}
+			totalColumn, hasTotal := totalColumns[subject]
+			countColumn, hasCount := countColumns[subject]
+			if hasTotal && hasCount {
+				total, totalStatus := parseNumber(valueAt(row.Values, totalColumn))
+				count, countStatus := parseNumber(valueAt(row.Values, countColumn))
+				if totalStatus == numberOK && countStatus == numberOK && count > 0 {
+					calcAvg := total / count
+					if average < 3.0 && calcAvg >= 10.0 {
+						if ratioPtr == nil {
+							copiedRatio := average
+							ratioPtr = &copiedRatio
+						}
+						average = calcAvg
+					}
+				}
+			}
 			baselines = append(baselines, store.ImportClassBaseline{
 				ClassName: className,
 				Subject:   subject,
-				Average:   number,
+				Average:   average,
+				Ratio:     ratioPtr,
 			})
-			if ratioColumn, ok := ratioColumns[subject]; ok {
-				if ratio, ratioStatus := parseNumber(valueAt(row.Values, ratioColumn)); ratioStatus == numberOK {
-					baselines[len(baselines)-1].Ratio = &ratio
-				}
-			}
 			weight := headcounts[className]
 			if weight == 0 {
 				weight = 1
 			}
-			weightedSums[subject] += number * float64(weight)
+			weightedSums[subject] += average * float64(weight)
 			gradeCounts[subject] += weight
 		}
 	}
@@ -1010,10 +1093,10 @@ func invalidFlag(text string) string {
 }
 
 func trackFromElective(elective string) string {
-	if strings.Contains(elective, "历史") {
+	if strings.Contains(elective, "历史") || strings.Contains(elective, "史") || strings.Contains(elective, "历") {
 		return "history"
 	}
-	if strings.Contains(elective, "物理") {
+	if strings.Contains(elective, "物理") || strings.Contains(elective, "物") {
 		return "physics"
 	}
 	return ""

@@ -822,10 +822,10 @@ func parseRosterSheet(table excel.Table, mapping map[string]string, subjects []s
 
 func trackFromText(text string) string {
 	text = strings.TrimSpace(text)
-	if strings.Contains(text, "物理") {
+	if strings.Contains(text, "物理") || strings.Contains(text, "物") {
 		return "physics"
 	}
-	if strings.Contains(text, "历史") {
+	if strings.Contains(text, "历史") || strings.Contains(text, "史") || strings.Contains(text, "历") {
 		return "history"
 	}
 	return ""
@@ -1738,8 +1738,10 @@ func parseExamTargetSheet(table excel.Table, mapping map[string]string, tiers []
 		seen[className] = true
 		target := store.ImportClassTarget{ClassName: className, Counts: map[string]*float64{}}
 		for _, column := range columns {
-			text := valueAt(row.Values, column.index)
+			text := strings.TrimSpace(valueAt(row.Values, column.index))
 			if text == "" {
+				copied := 0.0
+				target.Counts[column.key] = &copied
 				continue
 			}
 			number, status := parseNumber(text)
