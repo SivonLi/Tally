@@ -79,6 +79,58 @@ func planIndicatorLabel(key string) string {
 	return key
 }
 
+// planFormulaShapeOther 是公式形状下拉里的自定义形状代码。
+const planFormulaShapeOther = "other"
+
+// planFormulaShapeLabel 是公式形状在下拉与预览里的文字。
+func (a *app) planFormulaShapeLabel(key, code string) string {
+	switch key + "." + code {
+	case "improvement.class_grade_baseline":
+		return locales.PlanFormulaClassGradeBaseline()
+	case "improvement.class_grade":
+		return locales.PlanFormulaClassGrade()
+	case "improvement.class_baseline":
+		return locales.PlanFormulaClassBaseline()
+	case "pass.pass_target":
+		return locales.PlanFormulaPassTarget()
+	case "pass.pass_members":
+		return locales.PlanFormulaPassMembers()
+	case "completion.tier_weighted":
+		return locales.PlanFormulaTierWeighted()
+	}
+	return code
+}
+
+// planFormulaShapeField 是指标公式的选项表单：
+// 下拉选择公式形状，公式文本由形状生成；
+// 自定义表达式只读回显，重选形状后覆盖。
+func (a *app) planFormulaShapeField(c *ui.Context, p uiPalette, key string, formula *string) {
+	t := p.theme
+	shapes := assessment.IndicatorFormulaShapes(key)
+	code := assessment.FormulaShapeFor(key, *formula)
+	options := make([]planOption, 0, len(shapes)+1)
+	for _, shape := range shapes {
+		options = append(options, planOption{code: shape.Code, label: a.planFormulaShapeLabel(key, shape.Code)})
+	}
+	if code == "" {
+		options = append(options, planOption{code: planFormulaShapeOther, label: locales.PlanFormulaCustom()})
+		code = planFormulaShapeOther
+	}
+	a.codeSelect(c, &code, options, locales.PlanFormulaLabel(), func(value string) {
+		if value == planFormulaShapeOther {
+			return
+		}
+		if text := assessment.FormulaForShape(key, value); text != "" {
+			*formula = text
+		}
+	})
+	if code == planFormulaShapeOther {
+		ui.Text(c, *formula).FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
+		return
+	}
+	ui.Text(c, a.planFormulaShapeLabel(key, code)).FontSize(captionSize(t)).TextColor(p.muted)
+}
+
 // planPage 是方案页：顶部的配置切换，下面是全部可编辑的配置项，末尾一个保存按钮。
 func (a *app) planPage(c *ui.Context, p uiPalette) {
 	t := p.theme
@@ -370,8 +422,7 @@ func (a *app) planIndicatorsSection(c *ui.Context, p uiPalette) {
 						}).Label(locales.PlanPointsLabel()).MaxWidth(t.Space(32))
 					})
 					a.planField(c, locales.PlanFormulaLabel(), "", func() {
-						field.Input(c, &indicator.Formula, field.InputProps{}).
-							Label(locales.PlanFormulaLabel())
+						a.planFormulaShapeField(c, p, key, &indicator.Formula)
 					})
 				})
 				if indicator.Merge != nil {
@@ -543,17 +594,7 @@ func (a *app) planRankingSection(c *ui.Context, p uiPalette) {
 			})
 		})
 		if a.planConfig.Ranking.Boundary.Mode == "ratio" {
-			ui.Grid(c).ColumnTracks(ui.Fr(1).Min(t.Space(55)), ui.Fr(1).Min(t.Space(55))).
-				Gap(t.Space(4)).Children(func() {
-				a.planField(c, locales.PlanBoundaryFirstLabel(), "", func() {
-					field.Input(c, &a.planConfig.Ranking.Boundary.First, field.InputProps{}).
-						Label(locales.PlanBoundaryFirstLabel())
-				})
-				a.planField(c, locales.PlanBoundarySecondLabel(), "", func() {
-					field.Input(c, &a.planConfig.Ranking.Boundary.Second, field.InputProps{}).
-						Label(locales.PlanBoundarySecondLabel())
-				})
-			})
+			a.planBoundaryRatioField(c, p)
 			a.planOverrides(c, p)
 		} else {
 			a.planManualBoundaries(c, p)
@@ -571,6 +612,39 @@ func (a *app) planRankingSection(c *ui.Context, p uiPalette) {
 			}
 		})
 	})
+}
+
+// planBoundaryRatioField 是比例模式分档边界的选项表单：
+// 输入均等份数生成一档与二档边界表达式；
+// 自定义表达式只读回显，改动份数后覆盖。
+func (a *app) planBoundaryRatioField(c *ui.Context, p uiPalette) {
+	t := p.theme
+	boundary := &a.planConfig.Ranking.Boundary
+	matched := assessment.BoundaryRatioParts(boundary.First, boundary.Second)
+	display := matched
+	if display == 0 {
+		display = 3
+	}
+	if matched == 0 {
+		ui.Column(c).FillWidth().Gap(t.Space(1)).Children(func() {
+			ui.Text(c, locales.PlanBoundaryCustomEcho()).FontSize(captionSize(t)).TextColor(p.muted)
+			ui.Row(c).Gap(t.Space(3)).Children(func() {
+				ui.Text(c, boundary.First).FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
+				ui.Text(c, boundary.Second).FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
+			})
+		})
+	}
+	a.planField(c, locales.PlanBoundaryPartsLabel(), "", func() {
+		original := float64(display)
+		value := original
+		field.InputNumber(c, &value, field.InputNumberProps{Min: 2, Max: 10, Step: 1}).
+			Label(locales.PlanBoundaryPartsLabel()).MaxWidth(t.Space(20))
+		if value != original {
+			boundary.First, boundary.Second = assessment.BoundaryRatioFormulas(int(value))
+		}
+	})
+	ui.Text(c, fmt.Sprintf(locales.PlanBoundaryPartsPreview(), display, display, display-1, display)).
+		FontSize(captionSize(t)).TextColor(p.muted)
 }
 
 func (a *app) planOverrides(c *ui.Context, p uiPalette) {
@@ -737,21 +811,11 @@ func (a *app) planProgramsSection(c *ui.Context, p uiPalette) {
 				for _, key := range []string{"improvement", "pass", "completion"} {
 					key := key
 					a.planField(c, planIndicatorLabel(key), "", func() {
-						formula := ""
-						if program.IndicatorOverrides != nil {
-							formula = program.IndicatorOverrides[key].Formula
+						if key == "completion" {
+							a.planCompletionOverrideField(c, p, program)
+							return
 						}
-						field.Input(c, &formula, field.InputProps{}).Label(planIndicatorLabel(key))
-						formula = strings.TrimSpace(formula)
-						switch {
-						case formula == "" && program.IndicatorOverrides != nil:
-							delete(program.IndicatorOverrides, key)
-						case formula != "":
-							if program.IndicatorOverrides == nil {
-								program.IndicatorOverrides = map[string]assessment.IndicatorOverride{}
-							}
-							program.IndicatorOverrides[key] = assessment.IndicatorOverride{Formula: formula}
-						}
+						a.planProgramOverrideField(c, program, key)
 					})
 				}
 			})
@@ -773,6 +837,98 @@ func (a *app) planProgramExamType(c *ui.Context, p uiPalette, program *assessmen
 	options := append([]planOption{{"", locales.PlanProgramAny()}}, planExamTypeChoices()...)
 	a.planField(c, locales.PlanProgramExamType(), "", func() {
 		a.codeField(c, &program.When.ExamType, options, locales.PlanProgramExamType())
+	})
+}
+
+// planProgramOverrideField 是提升率与达线率覆盖表达式的原始输入。
+func (a *app) planProgramOverrideField(c *ui.Context, program *assessment.ProgramConfig, key string) {
+	formula := ""
+	if program.IndicatorOverrides != nil {
+		formula = program.IndicatorOverrides[key].Formula
+	}
+	field.Input(c, &formula, field.InputProps{}).Label(planIndicatorLabel(key))
+	a.setProgramOverride(program, key, formula)
+}
+
+// setProgramOverride 把覆盖表达式写入专项规则；空表达式移除该指标的覆盖。
+func (a *app) setProgramOverride(program *assessment.ProgramConfig, key, formula string) {
+	formula = strings.TrimSpace(formula)
+	switch {
+	case formula == "" && program.IndicatorOverrides != nil:
+		delete(program.IndicatorOverrides, key)
+	case formula != "":
+		if program.IndicatorOverrides == nil {
+			program.IndicatorOverrides = map[string]assessment.IndicatorOverride{}
+		}
+		program.IndicatorOverrides[key] = assessment.IndicatorOverride{Formula: formula}
+	}
+}
+
+// planCompletionOverrideField 是完成率覆盖表达式的选项表单：
+// 目标完成率与本科达线率按权重合成；
+// 自定义表达式只读回显，重选形状后覆盖。
+func (a *app) planCompletionOverrideField(c *ui.Context, p uiPalette, program *assessment.ProgramConfig) {
+	t := p.theme
+	formula := ""
+	if program.IndicatorOverrides != nil {
+		formula = program.IndicatorOverrides["completion"].Formula
+	}
+	weights, weighted := assessment.ParseCompletionWeights(formula)
+	code := "none"
+	switch {
+	case formula != "" && weighted:
+		code = "weighted"
+	case formula != "":
+		code = planFormulaShapeOther
+	}
+	options := []planOption{
+		{code: "none", label: locales.PlanProgramOverrideNone()},
+		{code: "weighted", label: locales.PlanCompletionWeightedLabel()},
+	}
+	if code == planFormulaShapeOther {
+		options = append(options, planOption{code: planFormulaShapeOther, label: locales.PlanFormulaCustom()})
+	}
+	ui.Column(c).FillWidth().Gap(t.Space(1.5)).Children(func() {
+		a.codeSelect(c, &code, options, planIndicatorLabel("completion"), func(value string) {
+			switch value {
+			case "none":
+				a.setProgramOverride(program, "completion", "")
+			case "weighted":
+				a.setProgramOverride(program, "completion", assessment.CompletionWeightsFormula(0.6, 0.4))
+			}
+		})
+		if code == planFormulaShapeOther {
+			ui.Text(c, formula).FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
+			return
+		}
+		if code != "weighted" {
+			return
+		}
+		originalTarget := weights.TargetCompletion
+		originalUndergraduate := weights.Undergraduate
+		targetWeight := originalTarget
+		undergraduateWeight := originalUndergraduate
+		ui.Grid(c).ColumnTracks(ui.Fr(1).Min(t.Space(28)), ui.Fr(1).Min(t.Space(28))).
+			Gap(t.Space(3)).Children(func() {
+			a.planWeightInput(c, p, locales.PlanCompletionWeightCompletion(), &targetWeight)
+			a.planWeightInput(c, p, locales.PlanCompletionWeightUndergraduate(), &undergraduateWeight)
+		})
+		if targetWeight != originalTarget || undergraduateWeight != originalUndergraduate {
+			a.setProgramOverride(program, "completion",
+				assessment.CompletionWeightsFormula(targetWeight, undergraduateWeight))
+		}
+		ui.Text(c, fmt.Sprintf(locales.PlanCompletionWeightedPreview(),
+			assessment.FormatWeight(targetWeight), assessment.FormatWeight(undergraduateWeight))).
+			FontSize(captionSize(t)).TextColor(p.muted)
+	})
+}
+
+// planWeightInput 是 0 到 1 的权重输入，标签在控件上方。
+func (a *app) planWeightInput(c *ui.Context, p uiPalette, label string, value *float64) {
+	t := p.theme
+	ui.Column(c).FillWidth().Gap(t.Space(0.5)).Children(func() {
+		ui.Text(c, label).FontSize(captionSize(t)).TextColor(p.muted)
+		field.InputNumber(c, value, field.InputNumberProps{Min: 0, Max: 1, Step: 0.05}).Label(label)
 	})
 }
 

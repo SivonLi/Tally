@@ -1108,26 +1108,6 @@ func (msgs Messages) PlanBoundaryManual() string {
 	return Catalog.Format(msgs.locale, "planBoundaryManual", nil)
 }
 
-// PlanBoundaryFirstLabel says "Tier 1 ends at"
-// in the language the app shows.
-func PlanBoundaryFirstLabel() string { return In(i18n.Locale()).PlanBoundaryFirstLabel() }
-
-// PlanBoundaryFirstLabel says "Tier 1 ends at"
-// in the language of msgs.
-func (msgs Messages) PlanBoundaryFirstLabel() string {
-	return Catalog.Format(msgs.locale, "planBoundaryFirstLabel", nil)
-}
-
-// PlanBoundarySecondLabel says "Tier 2 ends at"
-// in the language the app shows.
-func PlanBoundarySecondLabel() string { return In(i18n.Locale()).PlanBoundarySecondLabel() }
-
-// PlanBoundarySecondLabel says "Tier 2 ends at"
-// in the language of msgs.
-func (msgs Messages) PlanBoundarySecondLabel() string {
-	return Catalog.Format(msgs.locale, "planBoundarySecondLabel", nil)
-}
-
 // PlanOverridesLabel says "Subject exceptions"
 // in the language the app shows.
 func PlanOverridesLabel() string { return In(i18n.Locale()).PlanOverridesLabel() }
@@ -8656,4 +8636,158 @@ func AssessmentDetailCompletionBase() string {
 // in the language of msgs.
 func (msgs Messages) AssessmentDetailCompletionBase() string {
 	return Catalog.Format(msgs.locale, "assessmentDetailCompletionBase", nil)
+}
+
+// PlanFormulaCustom says "Custom expression"
+// in the language the app shows.
+func PlanFormulaCustom() string { return In(i18n.Locale()).PlanFormulaCustom() }
+
+// PlanFormulaCustom says "Custom expression"
+// in the language of msgs.
+func (msgs Messages) PlanFormulaCustom() string {
+	return Catalog.Format(msgs.locale, "planFormulaCustom", nil)
+}
+
+// PlanFormulaClassGradeBaseline says "Class average ÷ grade average ÷ baseline ratio"
+// in the language the app shows.
+func PlanFormulaClassGradeBaseline() string { return In(i18n.Locale()).PlanFormulaClassGradeBaseline() }
+
+// PlanFormulaClassGradeBaseline says "Class average ÷ grade average ÷ baseline ratio"
+// in the language of msgs.
+func (msgs Messages) PlanFormulaClassGradeBaseline() string {
+	return Catalog.Format(msgs.locale, "planFormulaClassGradeBaseline", nil)
+}
+
+// PlanFormulaClassGrade says "Class average ÷ grade average"
+// in the language the app shows.
+func PlanFormulaClassGrade() string { return In(i18n.Locale()).PlanFormulaClassGrade() }
+
+// PlanFormulaClassGrade says "Class average ÷ grade average"
+// in the language of msgs.
+func (msgs Messages) PlanFormulaClassGrade() string {
+	return Catalog.Format(msgs.locale, "planFormulaClassGrade", nil)
+}
+
+// PlanFormulaClassBaseline says "Class average ÷ entry score average"
+// in the language the app shows.
+func PlanFormulaClassBaseline() string { return In(i18n.Locale()).PlanFormulaClassBaseline() }
+
+// PlanFormulaClassBaseline says "Class average ÷ entry score average"
+// in the language of msgs.
+func (msgs Messages) PlanFormulaClassBaseline() string {
+	return Catalog.Format(msgs.locale, "planFormulaClassBaseline", nil)
+}
+
+// PlanFormulaPassTarget says "Students at or above the cutoff ÷ target"
+// in the language the app shows.
+func PlanFormulaPassTarget() string { return In(i18n.Locale()).PlanFormulaPassTarget() }
+
+// PlanFormulaPassTarget says "Students at or above the cutoff ÷ target"
+// in the language of msgs.
+func (msgs Messages) PlanFormulaPassTarget() string {
+	return Catalog.Format(msgs.locale, "planFormulaPassTarget", nil)
+}
+
+// PlanFormulaPassMembers says "Students at or above the cutoff ÷ group size"
+// in the language the app shows.
+func PlanFormulaPassMembers() string { return In(i18n.Locale()).PlanFormulaPassMembers() }
+
+// PlanFormulaPassMembers says "Students at or above the cutoff ÷ group size"
+// in the language of msgs.
+func (msgs Messages) PlanFormulaPassMembers() string {
+	return Catalog.Format(msgs.locale, "planFormulaPassMembers", nil)
+}
+
+// PlanFormulaTierWeighted says "Weighted actual ÷ weighted target base"
+// in the language the app shows.
+func PlanFormulaTierWeighted() string { return In(i18n.Locale()).PlanFormulaTierWeighted() }
+
+// PlanFormulaTierWeighted says "Weighted actual ÷ weighted target base"
+// in the language of msgs.
+func (msgs Messages) PlanFormulaTierWeighted() string {
+	return Catalog.Format(msgs.locale, "planFormulaTierWeighted", nil)
+}
+
+// PlanBoundaryPartsLabel says "Equal parts"
+// in the language the app shows.
+func PlanBoundaryPartsLabel() string { return In(i18n.Locale()).PlanBoundaryPartsLabel() }
+
+// PlanBoundaryPartsLabel says "Equal parts"
+// in the language of msgs.
+func (msgs Messages) PlanBoundaryPartsLabel() string {
+	return Catalog.Format(msgs.locale, "planBoundaryPartsLabel", nil)
+}
+
+// PlanBoundaryPartsPreview says "Split the count into %d equal parts: the first boundary is the integer part of count ÷ %d, the second boundary is th…"
+// in the language the app shows.
+func PlanBoundaryPartsPreview() string { return In(i18n.Locale()).PlanBoundaryPartsPreview() }
+
+// PlanBoundaryPartsPreview says "Split the count into %d equal parts: the first boundary is the integer part of count ÷ %d, the second boundary is th…"
+// in the language of msgs.
+func (msgs Messages) PlanBoundaryPartsPreview() string {
+	return Catalog.Format(msgs.locale, "planBoundaryPartsPreview", nil)
+}
+
+// PlanBoundaryCustomEcho says "The boundary expressions are custom. Changing the parts overwrites them."
+// in the language the app shows.
+func PlanBoundaryCustomEcho() string { return In(i18n.Locale()).PlanBoundaryCustomEcho() }
+
+// PlanBoundaryCustomEcho says "The boundary expressions are custom. Changing the parts overwrites them."
+// in the language of msgs.
+func (msgs Messages) PlanBoundaryCustomEcho() string {
+	return Catalog.Format(msgs.locale, "planBoundaryCustomEcho", nil)
+}
+
+// PlanProgramOverrideNone says "No override"
+// in the language the app shows.
+func PlanProgramOverrideNone() string { return In(i18n.Locale()).PlanProgramOverrideNone() }
+
+// PlanProgramOverrideNone says "No override"
+// in the language of msgs.
+func (msgs Messages) PlanProgramOverrideNone() string {
+	return Catalog.Format(msgs.locale, "planProgramOverrideNone", nil)
+}
+
+// PlanCompletionWeightedLabel says "Blend completion and undergraduate pass"
+// in the language the app shows.
+func PlanCompletionWeightedLabel() string { return In(i18n.Locale()).PlanCompletionWeightedLabel() }
+
+// PlanCompletionWeightedLabel says "Blend completion and undergraduate pass"
+// in the language of msgs.
+func (msgs Messages) PlanCompletionWeightedLabel() string {
+	return Catalog.Format(msgs.locale, "planCompletionWeightedLabel", nil)
+}
+
+// PlanCompletionWeightCompletion says "Completion weight"
+// in the language the app shows.
+func PlanCompletionWeightCompletion() string {
+	return In(i18n.Locale()).PlanCompletionWeightCompletion()
+}
+
+// PlanCompletionWeightCompletion says "Completion weight"
+// in the language of msgs.
+func (msgs Messages) PlanCompletionWeightCompletion() string {
+	return Catalog.Format(msgs.locale, "planCompletionWeightCompletion", nil)
+}
+
+// PlanCompletionWeightUndergraduate says "Undergraduate pass weight"
+// in the language the app shows.
+func PlanCompletionWeightUndergraduate() string {
+	return In(i18n.Locale()).PlanCompletionWeightUndergraduate()
+}
+
+// PlanCompletionWeightUndergraduate says "Undergraduate pass weight"
+// in the language of msgs.
+func (msgs Messages) PlanCompletionWeightUndergraduate() string {
+	return Catalog.Format(msgs.locale, "planCompletionWeightUndergraduate", nil)
+}
+
+// PlanCompletionWeightedPreview says "Completion × %s + undergraduate pass × %s"
+// in the language the app shows.
+func PlanCompletionWeightedPreview() string { return In(i18n.Locale()).PlanCompletionWeightedPreview() }
+
+// PlanCompletionWeightedPreview says "Completion × %s + undergraduate pass × %s"
+// in the language of msgs.
+func (msgs Messages) PlanCompletionWeightedPreview() string {
+	return Catalog.Format(msgs.locale, "planCompletionWeightedPreview", nil)
 }
