@@ -525,7 +525,7 @@ func (a *app) wizardSheetStep(c *ui.Context, p uiPalette) {
 	panel(c, p).FillWidth().Padding(t.Space(4)).Gap(t.Space(3)).Children(func() {
 		ui.Text(c, locales.ImportWizardSheetHint()).FontSize(bodySize(t)).TextColor(p.muted).Pretty()
 		next := chosen
-		selectField(c, &next, names, locales.ImportWizardSheetLabel()).Width(t.Space(70))
+		selectField(c, "wizard-sheet", &next, names, locales.ImportWizardSheetLabel()).Width(t.Space(70))
 		if next != chosen {
 			a.wizardChooseSheet(next)
 		}
@@ -591,7 +591,7 @@ func (a *app) wizardMappingStep(c *ui.Context, p uiPalette) {
 						chosen = labels[0]
 					}
 					next := chosen
-					selectField(c, &next, labels, label).Grow(1)
+					selectField(c, "wizard-map-"+field.Key, &next, labels, label).Grow(1)
 					if next != chosen {
 						if next == labels[0] {
 							delete(wizard.Mapping, field.Key)

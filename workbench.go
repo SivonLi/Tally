@@ -398,7 +398,7 @@ func (a *app) assessmentActions(c *ui.Context, p uiPalette, overview store.Asses
 					ui.Text(c, locales.BatchSelectVersion()).FontSize(bodySize(t)).TextColor(p.warning)
 					return
 				}
-				selectField(c, &a.calculateVersion, a.versionOptions(), locales.AssessmentPlanVersion()).
+				selectField(c, "workbench-version", &a.calculateVersion, a.versionOptions(), locales.AssessmentPlanVersion()).
 					Width(t.Space(56)).Label(locales.AssessmentPlanVersion())
 			})
 			ui.Spacer(c)
@@ -848,7 +848,7 @@ func (a *app) resultsPage(c *ui.Context, p uiPalette) {
 			}
 		}
 		next := chosen
-		selectField(c, &next, labels, locales.AssessmentResultsSelect()).Width(t.Space(72))
+		selectField(c, "workbench-results", &next, labels, locales.AssessmentResultsSelect()).Width(t.Space(72))
 		if next != chosen {
 			for _, item := range a.assessments {
 				if a.assessmentOverviewLabel(item) == next {

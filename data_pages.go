@@ -145,7 +145,7 @@ func (a *app) studentFilters(c *ui.Context, p uiPalette) {
 			}
 		}
 		nextClass := chosenClass
-		selectField(c, &nextClass, labels, locales.DataFilterClass()).Width(t.Space(28))
+		selectField(c, "students-class", &nextClass, labels, locales.DataFilterClass()).Width(t.Space(28))
 		if nextClass != chosenClass {
 			for index, label := range labels {
 				if label == nextClass {
@@ -165,7 +165,7 @@ func (a *app) studentFilters(c *ui.Context, p uiPalette) {
 			}
 		}
 		nextTrack := chosenTrack
-		selectField(c, &nextTrack, trackLabels, locales.DataFilterTrack()).Width(t.Space(24))
+		selectField(c, "students-track", &nextTrack, trackLabels, locales.DataFilterTrack()).Width(t.Space(24))
 		if nextTrack != chosenTrack {
 			a.dataTrackFilter = ""
 			for index, track := range a.tracks {
@@ -187,7 +187,7 @@ func (a *app) studentFilters(c *ui.Context, p uiPalette) {
 			}
 		}
 		nextStatus := chosenStatus
-		selectField(c, &nextStatus, statusLabels, locales.DataFilterStatus()).Width(t.Space(24))
+		selectField(c, "students-status", &nextStatus, statusLabels, locales.DataFilterStatus()).Width(t.Space(24))
 		if nextStatus != chosenStatus {
 			for index, label := range statusLabels {
 				if label == nextStatus {
@@ -456,7 +456,7 @@ func (a *app) groupFilters(c *ui.Context, p uiPalette) {
 			}
 		}
 		next := chosen
-		selectField(c, &next, labels, locales.DataFilterSubject()).Width(t.Space(28))
+		selectField(c, "groups-subject", &next, labels, locales.DataFilterSubject()).Width(t.Space(28))
 		if next != chosen {
 			for index, label := range labels {
 				if label == next {
@@ -596,7 +596,7 @@ func (a *app) baselineFilters(c *ui.Context, p uiPalette) {
 			}
 		}
 		next := chosen
-		selectField(c, &next, labels, locales.DataFilterClass()).Width(t.Space(28))
+		selectField(c, "baseline-class", &next, labels, locales.DataFilterClass()).Width(t.Space(28))
 		if next != chosen {
 			for index, label := range labels {
 				if label == next {

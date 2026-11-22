@@ -153,7 +153,7 @@ func (a *app) qualityItemFilter(c *ui.Context, p uiPalette) {
 		}
 	}
 	next := chosen
-	selectField(c, &next, labels, locales.ExamQualityDataItem()).Width(t.Space(32))
+	selectField(c, "quality-data-item", &next, labels, locales.ExamQualityDataItem()).Width(t.Space(32))
 	if next != chosen {
 		for index, label := range labels {
 			if label == next {
@@ -182,7 +182,7 @@ func (a *app) qualityImportFilter(c *ui.Context, p uiPalette) {
 		}
 	}
 	next := chosen
-	selectField(c, &next, labels, locales.ExamQualityImport()).Width(t.Space(40))
+	selectField(c, "quality-import", &next, labels, locales.ExamQualityImport()).Width(t.Space(40))
 	if next != chosen {
 		for index, label := range labels {
 			if label == next {

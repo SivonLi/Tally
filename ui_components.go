@@ -2,6 +2,7 @@ package main
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/i18n"
@@ -13,6 +14,9 @@ import (
 	"github.com/lobehub/lobe-mygo/pkg/field"
 	"github.com/lobehub/lobe-mygo/pkg/form"
 	"github.com/lobehub/lobe-mygo/pkg/layout"
+	"github.com/lobehub/lobe-mygo/pkg/lucide"
+	"github.com/lobehub/lobe-mygo/pkg/motion"
+	"github.com/lobehub/lobe-mygo/pkg/theme"
 
 	"tally/locales"
 )
@@ -256,7 +260,10 @@ func rule(c *ui.Context) {
 }
 
 // selectField 是 Lobe MyGo 的下拉选择，选项文字同时作为取值。
-func selectField(c *ui.Context, value *string, labels []string, label string) ui.Element {
+// key 必须全应用唯一：弹窗 overlay 节点按位置继承保留状态，后打开的下拉会占用
+// 先关闭下拉留下的 panel 节点，带着它正在进行的过渡和上次的尺寸，把选项裁掉。
+// 给 panel 上独立的 Key 后每个下拉的弹窗是全新节点，按自己的内容布局。
+func selectField(c *ui.Context, key string, value *string, labels []string, label string) ui.Element {
 	chosen := 0
 	for index, item := range labels {
 		if item == *value {
@@ -264,16 +271,61 @@ func selectField(c *ui.Context, value *string, labels []string, label string) ui
 		}
 	}
 	current := strconv.Itoa(chosen)
-	options := make([]field.SelectOption, 0, len(labels))
-	for index, item := range labels {
-		options = append(options, field.SelectOption{Value: strconv.Itoa(index), Label: item})
-	}
-	trigger := field.Select(c, &current, field.SelectProps{Options: options}).Label(label)
+	tk := theme.TokensOf(c)
+	sel := ui.SelectBase(c, &current)
+	trigger := sel.Trigger.MinHeight(32).Padding(4, 11).Gap(8).Radius(tk.BorderRadius).FontSize(14).
+		AlignItems(ui.Center).TextColor(tk.Text).Cursor(ui.CursorPointer).Unselectable().
+		Transition(selectTransition).Background(tk.BgContainer).Border(1, ui.Transparent)
+	trigger.Children(func() {
+		ui.Row(c).Grow(1).MinWidth(0).Gap(8).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, labels[chosen]).SingleLine()
+		})
+		turn := float32(0)
+		if sel.Open() {
+			turn = 180
+		}
+		arrow := ui.Icon(c, lucide.ChevronDown()).FontSize(16).TextColor(tk.TextSecondary).Shrink(0)
+		arrow.Rotate(arrow.AnimateTo("turn", turn, selectArrowTurn))
+	})
+	width := trigger.Bounds().W
+	sel.Popup(func(panel ui.Element) {
+		panel.Key(key)
+		panel.Margin(4, 0, 0, 0).Padding(4).Radius(tk.BorderRadius).MinWidth(width).
+			Background(tk.BgElevated).Transition(motion.Popup()).AttachedOrigin()
+		tk.Elevate(panel, theme.BoxShadowSecondary)
+		// 选项多时滚动，避免列表超出窗口。
+		ui.Scroll(c).MaxHeight(256).Children(func() {
+			ui.Column(c).FillWidth().Children(func() {
+				for index, item := range labels {
+					index := index
+					selected := index == chosen
+					opt := sel.Item(strconv.Itoa(index)).Label(item).Padding(6, 12).MinHeight(32).Gap(8).
+						AlignItems(ui.Center).Radius(tk.BorderRadiusSM).AlignSelf(ui.Stretch).FontSize(14).
+						TextColor(tk.Text)
+					if opt.Highlighted() {
+						opt.Background(tk.FillTertiary)
+					}
+					opt.Children(func() {
+						ui.Text(c, item).Grow(1).SingleLine()
+						if selected {
+							ui.Icon(c, lucide.Check()).FontSize(14).TextColor(tk.Primary).
+								Margin(0, 0, 0, 8)
+						}
+					})
+				}
+			})
+		})
+	})
 	if index, err := strconv.Atoi(current); err == nil && index != chosen && index < len(labels) {
 		*value = labels[index]
 	}
 	return trigger
 }
+
+var (
+	selectTransition = ui.ElementTransition{Duration: 150 * time.Millisecond, Ease: motion.EaseOut, Colors: true}
+	selectArrowTurn  = ui.Animation{Duration: 150 * time.Millisecond, Ease: motion.EaseOut}
+)
 
 // textField 是 Lobe MyGo 的单行输入框。
 func textField(c *ui.Context, value *string, label, placeholder string) ui.Element {

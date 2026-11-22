@@ -128,7 +128,7 @@ func (a *app) examDetailPage(c *ui.Context, p uiPalette) {
 				}
 			}
 			next := chosen
-			selectField(c, &next, labels, locales.ExamCohortSelect()).Width(t.Space(72))
+			selectField(c, "exam-cohort", &next, labels, locales.ExamCohortSelect()).Width(t.Space(72))
 			if next != chosen {
 				for index, label := range labels {
 					if label == next {
@@ -235,7 +235,7 @@ func (a *app) examRosterTab(c *ui.Context, p uiPalette) {
 				chosenTrack = trackLabels[0]
 			}
 			nextTrack := chosenTrack
-			selectField(c, &nextTrack, trackLabels, locales.ExamDefaultTrack()).Width(t.Space(24))
+			selectField(c, "exam-default-track", &nextTrack, trackLabels, locales.ExamDefaultTrack()).Width(t.Space(24))
 			if nextTrack != chosenTrack {
 				for index, label := range trackLabels {
 					if label == nextTrack {
@@ -308,7 +308,7 @@ func (a *app) examScoresTab(c *ui.Context, p uiPalette) {
 				}
 			}
 			nextSubject := chosenSubject
-			selectField(c, &nextSubject, subjectLabels, locales.DataFilterSubject()).Width(t.Space(24))
+			selectField(c, "exam-data-subject", &nextSubject, subjectLabels, locales.DataFilterSubject()).Width(t.Space(24))
 			if nextSubject != chosenSubject {
 				for index, label := range subjectLabels {
 					if label == nextSubject {
@@ -326,7 +326,7 @@ func (a *app) examScoresTab(c *ui.Context, p uiPalette) {
 				}
 			}
 			nextClass := chosenClass
-			selectField(c, &nextClass, classLabels, locales.DataFilterClass()).Width(t.Space(24))
+			selectField(c, "exam-data-class", &nextClass, classLabels, locales.DataFilterClass()).Width(t.Space(24))
 			if nextClass != chosenClass {
 				for index, label := range classLabels {
 					if label == nextClass {
@@ -849,7 +849,7 @@ func (a *app) newExamModal(c *ui.Context, p uiPalette) {
 								chosen = a.newExamTerm
 							}
 							next := labels[chosen]
-							selectField(c, &next, labels, locales.ExamTerm())
+							selectField(c, "new-exam-term", &next, labels, locales.ExamTerm())
 							if next != labels[chosen] {
 								for index, label := range labels {
 									if label == next {
@@ -868,7 +868,7 @@ func (a *app) newExamModal(c *ui.Context, p uiPalette) {
 								chosen = a.newExamType
 							}
 							next := labels[chosen]
-							selectField(c, &next, labels, locales.ExamType())
+							selectField(c, "new-exam-type", &next, labels, locales.ExamType())
 							if next != labels[chosen] {
 								for index, label := range labels {
 									if label == next {
@@ -975,7 +975,7 @@ func (a *app) statGroupModal(c *ui.Context, p uiPalette) {
 								codes = append(codes, subject.Key)
 							}
 							next := chosen
-							selectField(c, &next, labels, locales.ExamStatGroupSubject())
+							selectField(c, "exam-stat-group-subject", &next, labels, locales.ExamStatGroupSubject())
 							if next != chosen {
 								for index, label := range labels {
 									if label == next {
@@ -1000,7 +1000,7 @@ func (a *app) statGroupModal(c *ui.Context, p uiPalette) {
 								labels = append(labels, class.Name)
 							}
 							next := chosen
-							selectField(c, &next, labels, locales.ExamStatGroupLead())
+							selectField(c, "exam-stat-group-lead", &next, labels, locales.ExamStatGroupLead())
 							if next != chosen {
 								for _, class := range a.examClasses {
 									if class.Name == next {

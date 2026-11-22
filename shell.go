@@ -163,6 +163,7 @@ func (a *app) cohortSwitcher(c *ui.Context, p uiPalette) {
 	})
 	selectedCohort := a.selectedCohort()
 	sel.Popup(func(panel ui.Element) {
+		panel.Key("cohort-switcher")
 		panel.Margin(6, 0, 0, 0).Padding(5).Gap(1).MinWidth(180).MaxWidth(sidebarWidth+60).
 			Radius(12).Background(p.panel).Border(0.5, p.border).
 			Shadow(0, 8, 24, -4, ui.RGBA(0, 0, 0, 0.35))

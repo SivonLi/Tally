@@ -58,7 +58,7 @@ func (a *app) analysisAssessmentSelect(c *ui.Context, p uiPalette) {
 		}
 	}
 	next := chosen
-	selectField(c, &next, labels, locales.AssessmentResultsSelect()).Width(t.Space(72))
+	selectField(c, "analysis-results", &next, labels, locales.AssessmentResultsSelect()).Width(t.Space(72))
 	if next != chosen {
 		for _, item := range a.assessments {
 			if a.assessmentOverviewLabel(item) == next {

@@ -420,7 +420,7 @@ func (a *app) academicYearSelect(c *ui.Context, p uiPalette) {
 		labels = append(labels, chosen)
 	}
 	next := chosen
-	selectField(c, &next, labels, locales.SettingsAcademicYear()).Width(t.Space(52))
+	selectField(c, "settings-academic-year", &next, labels, locales.SettingsAcademicYear()).Width(t.Space(52))
 	if next != chosen {
 		start, err := school.ParseAcademicYearStart(next)
 		if err == nil {
