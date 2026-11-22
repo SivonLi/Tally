@@ -5268,16 +5268,6 @@ func (msgs Messages) ImportWizardConfirmWarnings() string {
 	return Catalog.Format(msgs.locale, "importWizardConfirmWarnings", nil)
 }
 
-// ImportWizardElapsed says "Finished in %s"
-// in the language the app shows.
-func ImportWizardElapsed() string { return In(i18n.Locale()).ImportWizardElapsed() }
-
-// ImportWizardElapsed says "Finished in %s"
-// in the language of msgs.
-func (msgs Messages) ImportWizardElapsed() string {
-	return Catalog.Format(msgs.locale, "importWizardElapsed", nil)
-}
-
 // ImportWizardZeroScores says "%d single-subject zero scores are treated as not taken; the total score is kept."
 // in the language the app shows.
 func ImportWizardZeroScores() string { return In(i18n.Locale()).ImportWizardZeroScores() }

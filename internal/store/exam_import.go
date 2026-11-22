@@ -67,6 +67,144 @@ func (s *Store) ValidateExamImport(ctx context.Context, req ExamImportRequest) (
 	return preview, nil
 }
 
+// AddExamRosterStudents 把成绩单里不在报名名单的考生补建为学生并加入本场考试报名名单。
+// 已有阶段归属的学生沿用原有班级与类别；返回新增人数与因缺少班级或姓名跳过的人数。
+func (s *Store) AddExamRosterStudents(ctx context.Context, examCohort ExamCohort, entries []ImportStudent) (int, int, error) {
+	roster, err := s.examRosterUserIndex(ctx, examCohort)
+	if err != nil {
+		return 0, 0, err
+	}
+	classes, err := s.stageClassMap(ctx, examCohort.StageID)
+	if err != nil {
+		return 0, 0, err
+	}
+	now := s.now().Format(time.RFC3339Nano)
+	var statements []sqlite.Statement
+	added := 0
+	skipped := 0
+	createdClass := map[string]bool{}
+	for _, entry := range entries {
+		if entry.StudentNo == "" || entry.Name == "" {
+			skipped++
+			continue
+		}
+		if _, ok := roster.byStudentNo[entry.StudentNo]; ok {
+			continue
+		}
+		className := normalizeClassName(entry.ClassName)
+		if className == "" {
+			skipped++
+			continue
+		}
+		membership, err := s.stageMembershipRow(ctx, examCohort.StageID, entry.StudentNo)
+		if err != nil {
+			return 0, 0, err
+		}
+		if membership != nil {
+			statements = append(statements, s.rosterAddExistingStudentStatements(examCohort, entry, membership)...)
+			added++
+			continue
+		}
+		if id, ok := classes[className]; !ok || id == 0 {
+			if !createdClass[className] {
+				statements = append(statements,
+					sqlite.Statement{
+						SQL: `INSERT INTO classes(cohort_id, name, created_at)
+							VALUES (?, ?, ?)`,
+						Args: []any{examCohort.CohortID, className, now},
+					},
+					sqlite.Statement{
+						SQL: `INSERT INTO class_stage_info(class_id, stage_id, status)
+							SELECT id, ?, 'active' FROM classes WHERE cohort_id = ? AND name = ?`,
+						Args: []any{examCohort.StageID, examCohort.CohortID, className},
+					})
+				createdClass[className] = true
+			}
+		}
+		statements = append(statements, s.rosterAddNewStudentStatements(examCohort, entry, className, now)...)
+		added++
+	}
+	if len(statements) > 0 {
+		if _, err := s.db.Transaction(ctx, statements); err != nil {
+			return 0, 0, err
+		}
+	}
+	return added, skipped, nil
+}
+
+type stageMembershipRow struct {
+	Track    string
+	Elective string
+}
+
+// stageMembershipRow 返回学生在当前阶段的归属，不存在时返回 nil。
+func (s *Store) stageMembershipRow(ctx context.Context, stageID int64, studentNo string) (*stageMembershipRow, error) {
+	rows, err := s.db.Query(ctx, `SELECT m.track, m.elective FROM student_stage_memberships m
+		JOIN students s ON s.id = m.student_id WHERE s.student_no = ? AND m.stage_id = ?`,
+		studentNo, stageID)
+	if err != nil {
+		return nil, err
+	}
+	if len(rows.Values) == 0 {
+		return nil, nil
+	}
+	track, _ := rows.Values[0][0].(string)
+	elective, _ := rows.Values[0][1].(string)
+	return &stageMembershipRow{Track: track, Elective: elective}, nil
+}
+
+// rosterAddExistingStudentStatements 为已有阶段归属的考生生成报名名单语句，沿用原班级与类别。
+func (s *Store) rosterAddExistingStudentStatements(examCohort ExamCohort, entry ImportStudent, membership *stageMembershipRow) []sqlite.Statement {
+	subjects := electiveSubjects(membership.Elective)
+	subjectsJSON, _ := json.Marshal(subjects)
+	return []sqlite.Statement{
+		{
+			SQL: `INSERT INTO exam_rosters(exam_id, cohort_id, student_id, class_id, track, status, subjects_json, source_sheet, source_row)
+				SELECT ?, ?, m.student_id, m.class_id, m.track, 'active', ?, ?, ?
+				FROM student_stage_memberships m JOIN students s ON s.id = m.student_id
+				WHERE s.student_no = ? AND m.stage_id = ?`,
+			Args: []any{examCohort.ExamID, examCohort.CohortID, string(subjectsJSON),
+				entry.SourceSheet, entry.SourceRow, entry.StudentNo, examCohort.StageID},
+		},
+	}
+}
+
+// rosterAddNewStudentStatements 为不在学生名单的考生生成建学生、归属与报名名单的语句。
+func (s *Store) rosterAddNewStudentStatements(examCohort ExamCohort, entry ImportStudent, className, now string) []sqlite.Statement {
+	subjects := electiveSubjects(entry.Elective)
+	subjectsJSON, _ := json.Marshal(subjects)
+	return []sqlite.Statement{
+		{
+			SQL: `INSERT INTO students(student_no, name, created_at, source_sheet, source_row)
+				VALUES (?, ?, ?, ?, ?)
+				ON CONFLICT(student_no) DO UPDATE SET name = excluded.name`,
+			Args: []any{entry.StudentNo, entry.Name, now, entry.SourceSheet, entry.SourceRow},
+		},
+		{
+			SQL: `INSERT INTO student_cohorts(student_id, cohort_id, status)
+				SELECT id, ?, 'active' FROM students WHERE student_no = ?
+				ON CONFLICT(student_id, cohort_id) DO NOTHING`,
+			Args: []any{examCohort.CohortID, entry.StudentNo},
+		},
+		{
+			SQL: `INSERT INTO student_stage_memberships(student_id, stage_id, class_id, status, track, elective)
+				SELECT s.id, ?, c.id, 'active', ?, ? FROM students s, classes c
+				WHERE s.student_no = ? AND c.cohort_id = ? AND c.name = ?
+				ON CONFLICT(student_id, stage_id) DO NOTHING`,
+			Args: []any{examCohort.StageID, entry.Track, entry.Elective,
+				entry.StudentNo, examCohort.CohortID, className},
+		},
+		{
+			SQL: `INSERT INTO exam_rosters(exam_id, cohort_id, student_id, class_id, track, status, subjects_json, source_sheet, source_row)
+				SELECT ?, ?, s.id, c.id, ?, 'active', ?, ?, ? FROM students s, classes c
+				WHERE s.student_no = ? AND c.cohort_id = ? AND c.name = ?`,
+			Args: []any{examCohort.ExamID, examCohort.CohortID, entry.Track,
+				string(subjectsJSON), entry.SourceSheet, entry.SourceRow,
+				entry.StudentNo, examCohort.CohortID, className},
+		},
+	}
+}
+
 // ApplyExamImport 写入考试数据，阻断问题存在时返回 ErrImportBlocked。
 func (s *Store) ApplyExamImport(ctx context.Context, req ExamImportRequest) (ImportSummary, error) {
 	preview, err := s.ValidateExamImport(ctx, req)

@@ -91,7 +91,12 @@ func (s *Store) validateRosterImport(ctx context.Context, stage migrationBatch, 
 	if err != nil {
 		return err
 	}
+	classes, err := s.stageClassNameSet(ctx, stage.StageID)
+	if err != nil {
+		return err
+	}
 	seen := map[string]bool{}
+	newClasses := map[string]bool{}
 	for _, student := range req.Data.Students {
 		switch {
 		case student.StudentNo == "":
@@ -103,6 +108,9 @@ func (s *Store) validateRosterImport(ctx context.Context, stage migrationBatch, 
 		case student.ClassName == "":
 			preview.Issues = append(preview.Issues, missingIssue(student.SourceRow, "class_name"))
 			continue
+		}
+		if !classes[student.ClassName] {
+			newClasses[student.ClassName] = true
 		}
 		if seen[student.StudentNo] {
 			preview.Issues = append(preview.Issues, ImportIssue{
@@ -117,6 +125,12 @@ func (s *Store) validateRosterImport(ctx context.Context, stage migrationBatch, 
 		} else {
 			preview.New++
 		}
+	}
+	if len(newClasses) > 0 {
+		preview.Issues = append(preview.Issues, ImportIssue{
+			Severity: "warning", Column: "class_name",
+			Code: "classes_created", Args: []string{strconv.Itoa(len(newClasses))},
+		})
 	}
 	return nil
 }
@@ -315,7 +329,7 @@ func (s *Store) validateBaselineImport(ctx context.Context, stage migrationBatch
 			preview.Issues = append(preview.Issues, ImportIssue{
 				Severity: "blocking", Row: baseline.SourceRow, Column: "subject",
 				Code: "score_out_of_range",
-				Args: []string{baseline.Subject, fmt.Sprintf("%.1f", fullMark)},
+				Args: []string{className, baseline.Subject, formatFullMark(fullMark)},
 			})
 			continue
 		}
@@ -346,6 +360,11 @@ func (s *Store) validateBaselineImport(ctx context.Context, stage migrationBatch
 
 func missingIssue(row int, column string) ImportIssue {
 	return ImportIssue{Severity: "blocking", Row: row, Column: column, Code: "missing_field"}
+}
+
+// formatFullMark 去掉整数满分的小数点，例如 150.0 显示为 150。
+func formatFullMark(value float64) string {
+	return strconv.FormatFloat(value, 'f', -1, 64)
 }
 
 func (s *Store) stageClassNameSet(ctx context.Context, stageID int64) (map[string]bool, error) {

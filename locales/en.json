@@ -532,7 +532,6 @@
   "importWizardAlreadyImported": "This file has already been imported for this data item.",
   "importWizardRequiredColumns": "Required columns: %s",
   "importWizardConfirmWarnings": "I have reviewed the warnings (%s).",
-  "importWizardElapsed": "Finished in %s",
   "importWizardZeroScores": "%d single-subject zero scores are treated as not taken; the total score is kept.",
   "importWizardRosterSkipped": "Skipped %d rows for students not in the roster.",
   "importWizardAddToRoster": "Add %s students to the roster",

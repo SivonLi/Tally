@@ -116,3 +116,74 @@ func WriteTemplate(kind string, subjects []store.Subject, path string) error {
 	}
 	return nil
 }
+
+// WriteIssueList 把导入问题清单写出为 Excel，交给年级组修改后重新导入。
+func WriteIssueList(path string, header []string, rows [][]string) error {
+	if path == "" {
+		return fmt.Errorf("问题清单保存路径不能为空")
+	}
+	workbook := excel.New()
+	defer workbook.Close()
+	if err := workbook.SetSheetName("Sheet1", "问题清单"); err != nil {
+		return err
+	}
+	headerStyle, err := workbook.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: true},
+		Fill:      excelize.Fill{Type: "pattern", Pattern: 1, Color: []string{"#E8E4DA"}},
+		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
+		Border: []excelize.Border{
+			{Type: "left", Color: "#B9B1A1", Style: 1},
+			{Type: "right", Color: "#B9B1A1", Style: 1},
+			{Type: "top", Color: "#B9B1A1", Style: 1},
+			{Type: "bottom", Color: "#B9B1A1", Style: 1},
+		},
+	})
+	if err != nil {
+		return err
+	}
+	textStyle, err := workbook.NewStyle(&excelize.Style{
+		NumFmt: 49,
+		Border: []excelize.Border{
+			{Type: "left", Color: "#D8D2C4", Style: 1},
+			{Type: "right", Color: "#D8D2C4", Style: 1},
+			{Type: "top", Color: "#D8D2C4", Style: 1},
+			{Type: "bottom", Color: "#D8D2C4", Style: 1},
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if err := workbook.SetSheetRow("问题清单", "A1", &header); err != nil {
+		return err
+	}
+	last, err := excelize.CoordinatesToCellName(len(header), 1)
+	if err != nil {
+		return err
+	}
+	if err := workbook.SetCellStyle("问题清单", "A1", last, headerStyle); err != nil {
+		return err
+	}
+	for index, row := range rows {
+		cell, err := excelize.CoordinatesToCellName(1, index+2)
+		if err != nil {
+			return err
+		}
+		if err := workbook.SetSheetRow("问题清单", cell, &row); err != nil {
+			return err
+		}
+		last, err := excelize.CoordinatesToCellName(len(row), index+2)
+		if err != nil {
+			return err
+		}
+		if err := workbook.SetCellStyle("问题清单", cell, last, textStyle); err != nil {
+			return err
+		}
+	}
+	if err := workbook.SetPanes("问题清单", &excelize.Panes{Freeze: true, YSplit: 1, TopLeftCell: "A2", ActivePane: "bottom" + "Left"}); err != nil {
+		return err
+	}
+	if err := workbook.SaveAs(path); err != nil {
+		return err
+	}
+	return nil
+}

@@ -523,7 +523,6 @@
   "importWizardAlreadyImported": "这份文件已经导入过这类数据。",
   "importWizardRequiredColumns": "必需列：%s",
   "importWizardConfirmWarnings": "我已经查看 %s 条提醒。",
-  "importWizardElapsed": "耗时 %s",
   "importWizardZeroScores": "%d 个单科 0 分按未参加该科处理，总分保留。",
   "importWizardRosterSkipped": "已跳过 %d 行不在报名名单中的成绩。",
   "importWizardAddToRoster": "把这 %s 名学生加入报名名单",

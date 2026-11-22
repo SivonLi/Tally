@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -108,6 +109,10 @@ func TestGuidedImportWizardRunsFromFileToResult(t *testing.T) {
 	if !tt.HasText("New 2") || !tt.HasText("Blocking 0") {
 		t.Fatalf("validation texts = %q", tt.Texts())
 	}
+	if err := tt.Click("I have reviewed the warnings (1)."); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
 	if err := tt.Click("Import 2 records"); err != nil {
 		t.Fatal(err)
 	}
@@ -134,6 +139,113 @@ func TestGuidedImportWizardRunsFromFileToResult(t *testing.T) {
 	}
 	if !tt.HasText("任课关系") || !tt.HasText("Teacher") {
 		t.Fatalf("continued wizard texts = %q", tt.Texts())
+	}
+}
+
+// manySheetsWorkbook 生成 count 张工作表的工作簿，第一张是学生名单。
+func manySheetsWorkbook(t *testing.T, count int) string {
+	t.Helper()
+	dir := t.TempDir()
+	workbook := excelize.NewFile()
+	defer workbook.Close()
+	if err := workbook.SetSheetRow("Sheet1", "A1", &[]any{"学号", "姓名", "行政班"}); err != nil {
+		t.Fatal(err)
+	}
+	for i := 2; i <= count; i++ {
+		if _, err := workbook.NewSheet(fmt.Sprintf("S%02d", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	path := filepath.Join(dir, "many-sheets.xlsx")
+	if err := workbook.SaveAs(path); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// 工作表很多时，下拉只露出一部分，其余靠滚动到达并能选中。
+func TestGuidedImportSheetDropdownScrollsLongList(t *testing.T) {
+	a := newTestApp(t)
+	addCohort(t, a, 2026)
+	a.page = pageOverview
+	a.openImportWizard(importer.KindStudents)
+	tt := ui.NewTester(a.view, 1280, 800)
+	tt.SetLocale("en")
+	tt.Frame()
+	a.loadWizardFile(a.importWizard, manySheetsWorkbook(t, 24))
+	tt.Frame()
+	first := a.importWizard.Sheet
+	if first == "" {
+		t.Fatal("no sheet auto selected")
+	}
+	if err := tt.Click(first); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	last := "S24"
+	lastBox, ok := tt.Find(last)
+	if !ok {
+		t.Fatalf("dropdown missing the last option: %q", tt.Texts())
+	}
+	if lastBox.W > 0 && lastBox.H > 0 {
+		t.Fatal("the last sheet shows without scrolling")
+	}
+	box, ok := tt.Find(first)
+	if !ok {
+		t.Fatalf("dropdown option missing: %q", tt.Texts())
+	}
+	t.Log("trigger:", box)
+	s02, _ := tt.Find("S02")
+	t.Log("S02 before:", s02)
+	t.Log("S24 before:", lastBox)
+	tt.Scroll(box.X+box.W/2, box.Y+40, 0, 800)
+	tt.Frame()
+	s02, _ = tt.Find("S02")
+	s24, _ := tt.Find(last)
+	t.Log("S02 after:", s02)
+	t.Log("S24 after:", s24)
+	if lastBox, ok = tt.Find(last); !ok || lastBox.W <= 0 || lastBox.H <= 0 {
+		t.Fatalf("last sheet still hidden after scroll: %+v %v", lastBox, ok)
+	}
+	if err := tt.Click(last); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.importWizard.Sheet != last {
+		t.Fatalf("sheet = %q", a.importWizard.Sheet)
+	}
+}
+
+func TestGuidedImportWizardBackFromValidationClosesWizard(t *testing.T) {
+	a := newTestApp(t)
+	addCohort(t, a, 2026)
+	a.page = pageOverview
+	a.openImportWizard(importer.KindStudents)
+	tt := ui.NewTester(a.view, 1280, 800)
+	tt.SetLocale("en")
+	tt.Frame()
+	a.loadWizardFile(a.importWizard, guidedImportWorkbook(t))
+	tt.Frame()
+	if err := tt.Click("Next"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if err := tt.Click("Check the data"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.importWizard.Step != wizardStepValidate {
+		t.Fatalf("step = %d", a.importWizard.Step)
+	}
+	if err := tt.Click("Back"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.importWizard != nil {
+		t.Fatal("wizard is still open after Back")
+	}
+	if !tt.HasText("Overview") {
+		t.Fatalf("texts after back = %q", tt.Texts())
 	}
 }
 
