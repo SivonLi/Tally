@@ -265,6 +265,9 @@ func rule(c *ui.Context) {
 // 先关闭下拉留下的 panel 节点，带着它正在进行的过渡和上次的尺寸，把选项裁掉。
 // 给 panel 上独立的 Key 后每个下拉的弹窗是全新节点，按自己的内容布局。
 func selectField(c *ui.Context, key string, value *string, labels []string, label string) ui.Element {
+	if len(labels) == 0 {
+		labels = []string{""}
+	}
 	chosen := 0
 	for index, item := range labels {
 		if item == *value {

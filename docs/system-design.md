@@ -13,6 +13,9 @@
 - 数据库版本 4 的 `cohorts`、`cohort_stages`、`app_settings`、学校档案、行政班、学生、教师、教学班、任课关系、入口成绩、导入记录、数据修订和审计日志。
 - 数据库版本 6 的考试结构：`exams`、`exam_cohorts`、`exam_subjects`、`exam_rosters`、`exam_scores`、`exam_subject_cutoffs`、`exam_tier_cutoffs`，以及本次考核的 `assessments`、`assessment_class_targets`、`assessment_stat_groups`、`assessment_stat_group_members`、`assessment_stat_group_targets`、`assessment_target_adjustments`。
 - 数据库版本 7 的核算运行逐项输入摘要、结果行封顶前数值与 `result_row_students` 参与学生表。
+- 数据库版本 8 的保存视图 `saved_views`，支持多维分析与工作台各页面的筛选条件序列化、切换与恢复。
+- 多维教学数据分析工作台（阶段六）：支持教师趋势、班级趋势、学科对比、学生跟踪、考核对比五大维度，包含柱状图与均分基准线、历次表现下钻、单科小胶囊、跨方案差异提醒与多选考核并排卡片；支持保存视图（Saved Views）与删除；五大维度分别支持针对性的专业 Excel 分析报表导出（`exporter.Export*`）。
+- 性能与规格审计：万行成绩导入与解析实测 305ms（指标 ≤ 3s），万行学生（90,000 科次成绩）单次核算实测 88ms（指标 ≤ 1s），macOS 应用包体积 20.5 MB（指标 ≤ 30 MB）。
 - 旧数据库在迁移前自动备份；只在数据库版本低于当前版本时备份，迁移失败时恢复备份。
 - 工作簿按内容哈希复制到 `files/`，导入记录保存应用内副本路径与用户选择时的源路径。
 - 学生、教师、教学班、入口成绩与导入记录页面支持浏览、搜索、筛选和查看来源。
@@ -28,7 +31,7 @@
 - 考试准备清单显示报名名单、成绩、分数线和目标的数量与完成状态。
 - 本次考核工作台：按考试与级列出考核，详情显示数据、计算、导出三步流程、准备清单、方案版本选择、试算与正式计算、输入变化后的「需要重新计算」标记（列出变化数据项）、结果版本选择、零目标窗口和结果表；核算从考试结构读取数据，输入摘要与运行不一致时导出被拒绝。
 - 结果页：选择考核查看结果行，点击结果行打开结果详情，导出结果工作簿。
-- 分析页：选择考核按班级、教师和学科汇总统计组数、均分、达线与人数。
+- 分析页：五大维度教学数据多维分析（教师趋势、班级趋势、学科对比、学生跟踪、考核对比），支持保存视图（Saved Views）、快速恢复与各维度针对性 Excel 报表导出。
 - 方案配置页：分节表单覆盖全部配置项，顶部下拉切换方案，保存时选择更新当前方案或保存为新的方案；指标公式、比例模式分档边界和完成率覆盖用公式选项表单修改。
 - 「档案纸与靛墨」设计变量，浅色与深色主题，默认窗口 1280 × 800、最小窗口 1024 × 640。
 - 内置默认考核方案、派生方案数据模型、方案版本发布与停用。
@@ -141,6 +144,13 @@ flowchart LR
 | `store.LoadAssessmentData(ctx, assessmentID)` | 本次考核 | 从考试结构读取核算输入，转换为 `BatchData` |
 | `store.SaveAssessmentRun(ctx, assessmentID, versionID, hash, result)` | 核算结果 | 保存运行、结果行与个人得分，考核状态改为 `calculated` |
 | `store.LatestAssessmentRun(ctx, assessmentID)` | 本次考核 | 返回最新运行、结果行与个人得分 |
+| `store.QueryTeacherTrends(ctx, cohortID, teacher, planID)` | 级、教师姓名与可选方案 | 返回教师历次考核得分点、指标明细与多方案标记 |
+| `store.QueryClassTrends(ctx, cohortID, classID, subject, planID)` | 级、班级标识与可选学科/方案 | 返回班级历次考核完成率、各科均分与进退步 |
+| `store.QuerySubjectComparison(ctx, assessmentID, subject)` | 本次考核与学科 | 返回学科在各教学组/行政班的均分、达线与对比 |
+| `store.QueryStudentTracking(ctx, cohortID, studentID, track)` | 级、学生标识与选科 | 返回学生历次总分变动、年级排名与各科成绩胶囊 |
+| `store.QueryAssessmentComparison(ctx, assessmentIDs)` | 多个考核标识 | 并排对比参考人数、班均、提升率、达线数与方案差异 |
+| `store.SaveView(ctx, view)`、`store.ListViews(ctx, page)`、`store.DeleteView(ctx, id)` | 视图参数、页面名称与标识 | 保存、列出与删除自定义视图（`saved_views`） |
+| `exporter.ExportTeacherTrend` 等分析导出 | 文件路径与对应分析结果模型 | 生成 5 大维度针对性的专业 Excel 报表 |
 | `school.AcademicYearStart(t)` | 日期，返回学年起点 | 9 月 1 日进入新学年 |
 | `school.StageIndex(enrollment, start)` | 入学年份与学年起点 | 1 到 3 为高一到高三，4 为已毕业 |
 | `store.EnsureDefaultPlan(ctx)` | 无参数，返回 `PlanVersion` | 没有内置方案时写入并发布；已有方案时返回最新已发布版本 |

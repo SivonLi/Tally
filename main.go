@@ -67,6 +67,25 @@ type app struct {
 	zeroError                    string
 	zeroMode                     string
 
+	analysisTabIndex                int
+	analysisTeacherName             string
+	analysisClassID                 int64
+	analysisSubject                 string
+	analysisStudentID               int64
+	analysisSelectedExamIDs         map[int64]bool
+	analysisComparisonAssessmentIDs map[int64]bool
+	analysisTeacherResult           store.TeacherTrendResult
+	analysisClassResult             store.ClassTrendResult
+	analysisSubjectResult           store.SubjectComparisonResult
+	analysisStudentResult           store.StudentTrackResult
+	analysisComparisonResult        store.AssessmentComparisonResult
+	analysisSavedViews              []store.SavedView
+	analysisSelectedViewID          int64
+	analysisSaveViewOpen            bool
+	analysisSaveViewName            string
+	analysisMessage                 string
+	analysisError                   string
+
 	now                  func() time.Time
 	page                 pageID
 	systemAcademicYear   int

@@ -285,6 +285,9 @@ func (a *app) navItem(c *ui.Context, p uiPalette, page pageID, icon *ui.SVG, lab
 	})
 	if b.Clicked() {
 		a.page = page
+		if page == pageAnalysis {
+			a.reloadAnalysis(context.Background())
+		}
 	}
 }
 

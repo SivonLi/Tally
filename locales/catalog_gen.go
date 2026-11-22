@@ -3948,6 +3948,508 @@ func (msgs Messages) AnalysisTeacherMeta() string {
 	return Catalog.Format(msgs.locale, "analysisTeacherMeta", nil)
 }
 
+// AnalysisTabTeacherTrend says "Teacher trends"
+// in the language the app shows.
+func AnalysisTabTeacherTrend() string { return In(i18n.Locale()).AnalysisTabTeacherTrend() }
+
+// AnalysisTabTeacherTrend says "Teacher trends"
+// in the language of msgs.
+func (msgs Messages) AnalysisTabTeacherTrend() string {
+	return Catalog.Format(msgs.locale, "analysisTabTeacherTrend", nil)
+}
+
+// AnalysisTabClassTrend says "Class trends"
+// in the language the app shows.
+func AnalysisTabClassTrend() string { return In(i18n.Locale()).AnalysisTabClassTrend() }
+
+// AnalysisTabClassTrend says "Class trends"
+// in the language of msgs.
+func (msgs Messages) AnalysisTabClassTrend() string {
+	return Catalog.Format(msgs.locale, "analysisTabClassTrend", nil)
+}
+
+// AnalysisTabSubjectComparison says "Subject breakdown"
+// in the language the app shows.
+func AnalysisTabSubjectComparison() string { return In(i18n.Locale()).AnalysisTabSubjectComparison() }
+
+// AnalysisTabSubjectComparison says "Subject breakdown"
+// in the language of msgs.
+func (msgs Messages) AnalysisTabSubjectComparison() string {
+	return Catalog.Format(msgs.locale, "analysisTabSubjectComparison", nil)
+}
+
+// AnalysisTabStudentTrack says "Student tracking"
+// in the language the app shows.
+func AnalysisTabStudentTrack() string { return In(i18n.Locale()).AnalysisTabStudentTrack() }
+
+// AnalysisTabStudentTrack says "Student tracking"
+// in the language of msgs.
+func (msgs Messages) AnalysisTabStudentTrack() string {
+	return Catalog.Format(msgs.locale, "analysisTabStudentTrack", nil)
+}
+
+// AnalysisTabAssessmentComparison says "Assessment comparison"
+// in the language the app shows.
+func AnalysisTabAssessmentComparison() string {
+	return In(i18n.Locale()).AnalysisTabAssessmentComparison()
+}
+
+// AnalysisTabAssessmentComparison says "Assessment comparison"
+// in the language of msgs.
+func (msgs Messages) AnalysisTabAssessmentComparison() string {
+	return Catalog.Format(msgs.locale, "analysisTabAssessmentComparison", nil)
+}
+
+// AnalysisFilterCohort says "Cohort"
+// in the language the app shows.
+func AnalysisFilterCohort() string { return In(i18n.Locale()).AnalysisFilterCohort() }
+
+// AnalysisFilterCohort says "Cohort"
+// in the language of msgs.
+func (msgs Messages) AnalysisFilterCohort() string {
+	return Catalog.Format(msgs.locale, "analysisFilterCohort", nil)
+}
+
+// AnalysisFilterStage says "Grade stage"
+// in the language the app shows.
+func AnalysisFilterStage() string { return In(i18n.Locale()).AnalysisFilterStage() }
+
+// AnalysisFilterStage says "Grade stage"
+// in the language of msgs.
+func (msgs Messages) AnalysisFilterStage() string {
+	return Catalog.Format(msgs.locale, "analysisFilterStage", nil)
+}
+
+// AnalysisFilterSubject says "Subject"
+// in the language the app shows.
+func AnalysisFilterSubject() string { return In(i18n.Locale()).AnalysisFilterSubject() }
+
+// AnalysisFilterSubject says "Subject"
+// in the language of msgs.
+func (msgs Messages) AnalysisFilterSubject() string {
+	return Catalog.Format(msgs.locale, "analysisFilterSubject", nil)
+}
+
+// AnalysisFilterTeacher says "Teacher"
+// in the language the app shows.
+func AnalysisFilterTeacher() string { return In(i18n.Locale()).AnalysisFilterTeacher() }
+
+// AnalysisFilterTeacher says "Teacher"
+// in the language of msgs.
+func (msgs Messages) AnalysisFilterTeacher() string {
+	return Catalog.Format(msgs.locale, "analysisFilterTeacher", nil)
+}
+
+// AnalysisFilterClass says "Class"
+// in the language the app shows.
+func AnalysisFilterClass() string { return In(i18n.Locale()).AnalysisFilterClass() }
+
+// AnalysisFilterClass says "Class"
+// in the language of msgs.
+func (msgs Messages) AnalysisFilterClass() string {
+	return Catalog.Format(msgs.locale, "analysisFilterClass", nil)
+}
+
+// AnalysisFilterStudent says "Student"
+// in the language the app shows.
+func AnalysisFilterStudent() string { return In(i18n.Locale()).AnalysisFilterStudent() }
+
+// AnalysisFilterStudent says "Student"
+// in the language of msgs.
+func (msgs Messages) AnalysisFilterStudent() string {
+	return Catalog.Format(msgs.locale, "analysisFilterStudent", nil)
+}
+
+// AnalysisFilterExams says "Exams"
+// in the language the app shows.
+func AnalysisFilterExams() string { return In(i18n.Locale()).AnalysisFilterExams() }
+
+// AnalysisFilterExams says "Exams"
+// in the language of msgs.
+func (msgs Messages) AnalysisFilterExams() string {
+	return Catalog.Format(msgs.locale, "analysisFilterExams", nil)
+}
+
+// AnalysisAllSubjects says "All subjects"
+// in the language the app shows.
+func AnalysisAllSubjects() string { return In(i18n.Locale()).AnalysisAllSubjects() }
+
+// AnalysisAllSubjects says "All subjects"
+// in the language of msgs.
+func (msgs Messages) AnalysisAllSubjects() string {
+	return Catalog.Format(msgs.locale, "analysisAllSubjects", nil)
+}
+
+// AnalysisAllTeachers says "Select a teacher"
+// in the language the app shows.
+func AnalysisAllTeachers() string { return In(i18n.Locale()).AnalysisAllTeachers() }
+
+// AnalysisAllTeachers says "Select a teacher"
+// in the language of msgs.
+func (msgs Messages) AnalysisAllTeachers() string {
+	return Catalog.Format(msgs.locale, "analysisAllTeachers", nil)
+}
+
+// AnalysisAllClasses says "Select a class"
+// in the language the app shows.
+func AnalysisAllClasses() string { return In(i18n.Locale()).AnalysisAllClasses() }
+
+// AnalysisAllClasses says "Select a class"
+// in the language of msgs.
+func (msgs Messages) AnalysisAllClasses() string {
+	return Catalog.Format(msgs.locale, "analysisAllClasses", nil)
+}
+
+// AnalysisAllStudents says "Select a student"
+// in the language the app shows.
+func AnalysisAllStudents() string { return In(i18n.Locale()).AnalysisAllStudents() }
+
+// AnalysisAllStudents says "Select a student"
+// in the language of msgs.
+func (msgs Messages) AnalysisAllStudents() string {
+	return Catalog.Format(msgs.locale, "analysisAllStudents", nil)
+}
+
+// AnalysisSelectExamHint says "Select exams to compare"
+// in the language the app shows.
+func AnalysisSelectExamHint() string { return In(i18n.Locale()).AnalysisSelectExamHint() }
+
+// AnalysisSelectExamHint says "Select exams to compare"
+// in the language of msgs.
+func (msgs Messages) AnalysisSelectExamHint() string {
+	return Catalog.Format(msgs.locale, "analysisSelectExamHint", nil)
+}
+
+// AnalysisPlanDifferent says "Assessment plans differ across exams; overall composite scores cannot be compared directly."
+// in the language the app shows.
+func AnalysisPlanDifferent() string { return In(i18n.Locale()).AnalysisPlanDifferent() }
+
+// AnalysisPlanDifferent says "Assessment plans differ across exams; overall composite scores cannot be compared directly."
+// in the language of msgs.
+func (msgs Messages) AnalysisPlanDifferent() string {
+	return Catalog.Format(msgs.locale, "analysisPlanDifferent", nil)
+}
+
+// AnalysisNeedMoreExams says "At least two exams are required to show trend comparisons."
+// in the language the app shows.
+func AnalysisNeedMoreExams() string { return In(i18n.Locale()).AnalysisNeedMoreExams() }
+
+// AnalysisNeedMoreExams says "At least two exams are required to show trend comparisons."
+// in the language of msgs.
+func (msgs Messages) AnalysisNeedMoreExams() string {
+	return Catalog.Format(msgs.locale, "analysisNeedMoreExams", nil)
+}
+
+// AnalysisSelectTargetHint says "Select a target to view detailed trends and history."
+// in the language the app shows.
+func AnalysisSelectTargetHint() string { return In(i18n.Locale()).AnalysisSelectTargetHint() }
+
+// AnalysisSelectTargetHint says "Select a target to view detailed trends and history."
+// in the language of msgs.
+func (msgs Messages) AnalysisSelectTargetHint() string {
+	return Catalog.Format(msgs.locale, "analysisSelectTargetHint", nil)
+}
+
+// AnalysisNoStudentData says "No exam score records found for this student."
+// in the language the app shows.
+func AnalysisNoStudentData() string { return In(i18n.Locale()).AnalysisNoStudentData() }
+
+// AnalysisNoStudentData says "No exam score records found for this student."
+// in the language of msgs.
+func (msgs Messages) AnalysisNoStudentData() string {
+	return Catalog.Format(msgs.locale, "analysisNoStudentData", nil)
+}
+
+// AnalysisNoTrendData says "No assessment history found for the selected filter."
+// in the language the app shows.
+func AnalysisNoTrendData() string { return In(i18n.Locale()).AnalysisNoTrendData() }
+
+// AnalysisNoTrendData says "No assessment history found for the selected filter."
+// in the language of msgs.
+func (msgs Messages) AnalysisNoTrendData() string {
+	return Catalog.Format(msgs.locale, "analysisNoTrendData", nil)
+}
+
+// AnalysisSavedViews says "Saved views"
+// in the language the app shows.
+func AnalysisSavedViews() string { return In(i18n.Locale()).AnalysisSavedViews() }
+
+// AnalysisSavedViews says "Saved views"
+// in the language of msgs.
+func (msgs Messages) AnalysisSavedViews() string {
+	return Catalog.Format(msgs.locale, "analysisSavedViews", nil)
+}
+
+// AnalysisSaveCurrentView says "Save view"
+// in the language the app shows.
+func AnalysisSaveCurrentView() string { return In(i18n.Locale()).AnalysisSaveCurrentView() }
+
+// AnalysisSaveCurrentView says "Save view"
+// in the language of msgs.
+func (msgs Messages) AnalysisSaveCurrentView() string {
+	return Catalog.Format(msgs.locale, "analysisSaveCurrentView", nil)
+}
+
+// AnalysisSaveViewPrompt says "Enter a name for this view"
+// in the language the app shows.
+func AnalysisSaveViewPrompt() string { return In(i18n.Locale()).AnalysisSaveViewPrompt() }
+
+// AnalysisSaveViewPrompt says "Enter a name for this view"
+// in the language of msgs.
+func (msgs Messages) AnalysisSaveViewPrompt() string {
+	return Catalog.Format(msgs.locale, "analysisSaveViewPrompt", nil)
+}
+
+// AnalysisSaveViewBtn says "Save"
+// in the language the app shows.
+func AnalysisSaveViewBtn() string { return In(i18n.Locale()).AnalysisSaveViewBtn() }
+
+// AnalysisSaveViewBtn says "Save"
+// in the language of msgs.
+func (msgs Messages) AnalysisSaveViewBtn() string {
+	return Catalog.Format(msgs.locale, "analysisSaveViewBtn", nil)
+}
+
+// AnalysisCancelBtn says "Cancel"
+// in the language the app shows.
+func AnalysisCancelBtn() string { return In(i18n.Locale()).AnalysisCancelBtn() }
+
+// AnalysisCancelBtn says "Cancel"
+// in the language of msgs.
+func (msgs Messages) AnalysisCancelBtn() string {
+	return Catalog.Format(msgs.locale, "analysisCancelBtn", nil)
+}
+
+// AnalysisViewSaved says "View saved"
+// in the language the app shows.
+func AnalysisViewSaved() string { return In(i18n.Locale()).AnalysisViewSaved() }
+
+// AnalysisViewSaved says "View saved"
+// in the language of msgs.
+func (msgs Messages) AnalysisViewSaved() string {
+	return Catalog.Format(msgs.locale, "analysisViewSaved", nil)
+}
+
+// AnalysisDeleteView says "Delete view"
+// in the language the app shows.
+func AnalysisDeleteView() string { return In(i18n.Locale()).AnalysisDeleteView() }
+
+// AnalysisDeleteView says "Delete view"
+// in the language of msgs.
+func (msgs Messages) AnalysisDeleteView() string {
+	return Catalog.Format(msgs.locale, "analysisDeleteView", nil)
+}
+
+// AnalysisDefaultView says "Default view"
+// in the language the app shows.
+func AnalysisDefaultView() string { return In(i18n.Locale()).AnalysisDefaultView() }
+
+// AnalysisDefaultView says "Default view"
+// in the language of msgs.
+func (msgs Messages) AnalysisDefaultView() string {
+	return Catalog.Format(msgs.locale, "analysisDefaultView", nil)
+}
+
+// AnalysisExport says "Export analysis"
+// in the language the app shows.
+func AnalysisExport() string { return In(i18n.Locale()).AnalysisExport() }
+
+// AnalysisExport says "Export analysis"
+// in the language of msgs.
+func (msgs Messages) AnalysisExport() string {
+	return Catalog.Format(msgs.locale, "analysisExport", nil)
+}
+
+// AnalysisExportSuccess says "Analysis exported to %s"
+// in the language the app shows.
+func AnalysisExportSuccess() string { return In(i18n.Locale()).AnalysisExportSuccess() }
+
+// AnalysisExportSuccess says "Analysis exported to %s"
+// in the language of msgs.
+func (msgs Messages) AnalysisExportSuccess() string {
+	return Catalog.Format(msgs.locale, "analysisExportSuccess", nil)
+}
+
+// AnalysisRank says "Rank"
+// in the language the app shows.
+func AnalysisRank() string { return In(i18n.Locale()).AnalysisRank() }
+
+// AnalysisRank says "Rank"
+// in the language of msgs.
+func (msgs Messages) AnalysisRank() string {
+	return Catalog.Format(msgs.locale, "analysisRank", nil)
+}
+
+// AnalysisTier says "Tier"
+// in the language the app shows.
+func AnalysisTier() string { return In(i18n.Locale()).AnalysisTier() }
+
+// AnalysisTier says "Tier"
+// in the language of msgs.
+func (msgs Messages) AnalysisTier() string {
+	return Catalog.Format(msgs.locale, "analysisTier", nil)
+}
+
+// AnalysisPoints says "Points"
+// in the language the app shows.
+func AnalysisPoints() string { return In(i18n.Locale()).AnalysisPoints() }
+
+// AnalysisPoints says "Points"
+// in the language of msgs.
+func (msgs Messages) AnalysisPoints() string {
+	return Catalog.Format(msgs.locale, "analysisPoints", nil)
+}
+
+// AnalysisClassAvg says "Class avg"
+// in the language the app shows.
+func AnalysisClassAvg() string { return In(i18n.Locale()).AnalysisClassAvg() }
+
+// AnalysisClassAvg says "Class avg"
+// in the language of msgs.
+func (msgs Messages) AnalysisClassAvg() string {
+	return Catalog.Format(msgs.locale, "analysisClassAvg", nil)
+}
+
+// AnalysisGradeAvg says "Grade avg"
+// in the language the app shows.
+func AnalysisGradeAvg() string { return In(i18n.Locale()).AnalysisGradeAvg() }
+
+// AnalysisGradeAvg says "Grade avg"
+// in the language of msgs.
+func (msgs Messages) AnalysisGradeAvg() string {
+	return Catalog.Format(msgs.locale, "analysisGradeAvg", nil)
+}
+
+// AnalysisImprovementScore says "Improvement score"
+// in the language the app shows.
+func AnalysisImprovementScore() string { return In(i18n.Locale()).AnalysisImprovementScore() }
+
+// AnalysisImprovementScore says "Improvement score"
+// in the language of msgs.
+func (msgs Messages) AnalysisImprovementScore() string {
+	return Catalog.Format(msgs.locale, "analysisImprovementScore", nil)
+}
+
+// AnalysisPassScore says "Pass score"
+// in the language the app shows.
+func AnalysisPassScore() string { return In(i18n.Locale()).AnalysisPassScore() }
+
+// AnalysisPassScore says "Pass score"
+// in the language of msgs.
+func (msgs Messages) AnalysisPassScore() string {
+	return Catalog.Format(msgs.locale, "analysisPassScore", nil)
+}
+
+// AnalysisCompletionScore says "Completion score"
+// in the language the app shows.
+func AnalysisCompletionScore() string { return In(i18n.Locale()).AnalysisCompletionScore() }
+
+// AnalysisCompletionScore says "Completion score"
+// in the language of msgs.
+func (msgs Messages) AnalysisCompletionScore() string {
+	return Catalog.Format(msgs.locale, "analysisCompletionScore", nil)
+}
+
+// AnalysisTotalScore says "Total score"
+// in the language the app shows.
+func AnalysisTotalScore() string { return In(i18n.Locale()).AnalysisTotalScore() }
+
+// AnalysisTotalScore says "Total score"
+// in the language of msgs.
+func (msgs Messages) AnalysisTotalScore() string {
+	return Catalog.Format(msgs.locale, "analysisTotalScore", nil)
+}
+
+// AnalysisStudentScore says "Student score"
+// in the language the app shows.
+func AnalysisStudentScore() string { return In(i18n.Locale()).AnalysisStudentScore() }
+
+// AnalysisStudentScore says "Student score"
+// in the language of msgs.
+func (msgs Messages) AnalysisStudentScore() string {
+	return Catalog.Format(msgs.locale, "analysisStudentScore", nil)
+}
+
+// AnalysisGradeRank says "Grade rank"
+// in the language the app shows.
+func AnalysisGradeRank() string { return In(i18n.Locale()).AnalysisGradeRank() }
+
+// AnalysisGradeRank says "Grade rank"
+// in the language of msgs.
+func (msgs Messages) AnalysisGradeRank() string {
+	return Catalog.Format(msgs.locale, "analysisGradeRank", nil)
+}
+
+// AnalysisTotalStudents says "Total students"
+// in the language the app shows.
+func AnalysisTotalStudents() string { return In(i18n.Locale()).AnalysisTotalStudents() }
+
+// AnalysisTotalStudents says "Total students"
+// in the language of msgs.
+func (msgs Messages) AnalysisTotalStudents() string {
+	return Catalog.Format(msgs.locale, "analysisTotalStudents", nil)
+}
+
+// AnalysisGroupDistribution says "Tier distribution"
+// in the language the app shows.
+func AnalysisGroupDistribution() string { return In(i18n.Locale()).AnalysisGroupDistribution() }
+
+// AnalysisGroupDistribution says "Tier distribution"
+// in the language of msgs.
+func (msgs Messages) AnalysisGroupDistribution() string {
+	return Catalog.Format(msgs.locale, "analysisGroupDistribution", nil)
+}
+
+// AnalysisHistoryDetails says "Exam history"
+// in the language the app shows.
+func AnalysisHistoryDetails() string { return In(i18n.Locale()).AnalysisHistoryDetails() }
+
+// AnalysisHistoryDetails says "Exam history"
+// in the language of msgs.
+func (msgs Messages) AnalysisHistoryDetails() string {
+	return Catalog.Format(msgs.locale, "analysisHistoryDetails", nil)
+}
+
+// AnalysisRankings says "Rankings"
+// in the language the app shows.
+func AnalysisRankings() string { return In(i18n.Locale()).AnalysisRankings() }
+
+// AnalysisRankings says "Rankings"
+// in the language of msgs.
+func (msgs Messages) AnalysisRankings() string {
+	return Catalog.Format(msgs.locale, "analysisRankings", nil)
+}
+
+// AnalysisLatestScore says "Latest score"
+// in the language the app shows.
+func AnalysisLatestScore() string { return In(i18n.Locale()).AnalysisLatestScore() }
+
+// AnalysisLatestScore says "Latest score"
+// in the language of msgs.
+func (msgs Messages) AnalysisLatestScore() string {
+	return Catalog.Format(msgs.locale, "analysisLatestScore", nil)
+}
+
+// AnalysisAvgScore says "Average score"
+// in the language the app shows.
+func AnalysisAvgScore() string { return In(i18n.Locale()).AnalysisAvgScore() }
+
+// AnalysisAvgScore says "Average score"
+// in the language of msgs.
+func (msgs Messages) AnalysisAvgScore() string {
+	return Catalog.Format(msgs.locale, "analysisAvgScore", nil)
+}
+
+// AnalysisExamsCount says "%d exams"
+// in the language the app shows.
+func AnalysisExamsCount() string { return In(i18n.Locale()).AnalysisExamsCount() }
+
+// AnalysisExamsCount says "%d exams"
+// in the language of msgs.
+func (msgs Messages) AnalysisExamsCount() string {
+	return Catalog.Format(msgs.locale, "analysisExamsCount", nil)
+}
+
 // ResultsSubtitle says "Review the result rows and export the workbook."
 // in the language the app shows.
 func ResultsSubtitle() string { return In(i18n.Locale()).ResultsSubtitle() }
