@@ -260,6 +260,7 @@ func rule(c *ui.Context) {
 }
 
 // selectField 是 Lobe MyGo 的下拉选择，选项文字同时作为取值。
+// label 是下拉的控件级名称，读屏软件随当前选中的选项一起读出。
 // key 必须全应用唯一：弹窗 overlay 节点按位置继承保留状态，后打开的下拉会占用
 // 先关闭下拉留下的 panel 节点，带着它正在进行的过渡和上次的尺寸，把选项裁掉。
 // 给 panel 上独立的 Key 后每个下拉的弹窗是全新节点，按自己的内容布局。
@@ -275,7 +276,8 @@ func selectField(c *ui.Context, key string, value *string, labels []string, labe
 	sel := ui.SelectBase(c, &current)
 	trigger := sel.Trigger.MinHeight(32).Padding(4, 11).Gap(8).Radius(tk.BorderRadius).FontSize(14).
 		AlignItems(ui.Center).TextColor(tk.Text).Cursor(ui.CursorPointer).Unselectable().
-		Transition(selectTransition).Background(tk.BgContainer).Border(1, ui.Transparent)
+		Transition(selectTransition).Background(tk.BgContainer).Border(1, ui.Transparent).
+		Label(label).Value(labels[chosen])
 	trigger.Children(func() {
 		ui.Row(c).Grow(1).MinWidth(0).Gap(8).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, labels[chosen]).SingleLine()
