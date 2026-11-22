@@ -222,11 +222,18 @@ func (a *app) qualityIssueRow(c *ui.Context, p uiPalette, issue store.ExamQualit
 
 func (a *app) qualityIssueMeta(issue store.ExamQualityIssue) string {
 	parts := make([]string, 0, 4)
-	if issue.StudentNo != "" {
-		parts = append(parts, issue.StudentNo)
-	}
-	if issue.ClassName != "" {
-		parts = append(parts, issue.ClassName)
+	switch issue.Code {
+	case "missing_track", "missing_scores", "score_out_of_range":
+		// 学号已在标签里，meta 不再重复。
+	case "zero_class_target":
+		// 班级名已在标签里，meta 不再重复。
+	default:
+		if issue.StudentNo != "" {
+			parts = append(parts, issue.StudentNo)
+		}
+		if issue.ClassName != "" {
+			parts = append(parts, issue.ClassName)
+		}
 	}
 	if issue.ImportRunID != 0 {
 		if label := a.qualityImports[issue.ImportRunID]; label != "" {
@@ -239,7 +246,7 @@ func (a *app) qualityIssueMeta(issue store.ExamQualityIssue) string {
 	result := ""
 	for index, part := range parts {
 		if index > 0 {
-			result += " · "
+			result += locales.ListSeparator()
 		}
 		result += part
 	}

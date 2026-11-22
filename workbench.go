@@ -160,15 +160,6 @@ func (a *app) loadAssessmentDetail(ctx context.Context) {
 	a.assessmentPersonal = personal
 }
 
-func (a *app) assessmentLabel() string {
-	detail := a.assessmentContext
-	if detail.Assessment.ID == 0 {
-		return ""
-	}
-	return fmt.Sprintf("%s · %s · %s", a.examBatchLabel(detail.Exam),
-		a.cohortName(detail.Cohort.EnrollmentYear), a.stageName(detail.Stage.GradeLevel))
-}
-
 func (a *app) assessmentPage(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
@@ -238,7 +229,7 @@ func (a *app) assessmentList(c *ui.Context, p uiPalette) {
 }
 
 func (a *app) assessmentOverviewLabel(item store.AssessmentOverview) string {
-	return fmt.Sprintf("%s · %s", a.examTypeName(item.ExamType), item.CohortName)
+	return fmt.Sprintf(locales.AssessmentOption(), item.CohortName, a.examTypeName(item.ExamType))
 }
 
 func (a *app) assessmentMissingItems(overview store.AssessmentOverview) []string {
@@ -286,8 +277,13 @@ func (a *app) assessmentDetail(c *ui.Context, p uiPalette) {
 	ui.Column(c).Fill().Gap(t.Space(3)).Children(func() {
 		ui.Row(c).AlignItems(ui.Start).Gap(t.Space(3)).Children(func() {
 			ui.Column(c).Grow(1).Gap(t.Space(1)).Children(func() {
-				ui.Text(c, a.assessmentLabel()).FontSize(titleSize(t)).FontWeight(600).
+				ui.Text(c, overview.ExamName).FontSize(titleSize(t)).FontWeight(600).
 					LetterSpacing(-0.2).Role(ui.RoleHeading).Level(1)
+				ui.Row(c).Gap(t.Space(1)).Children(func() {
+					badge(c, p, a.examTypeName(overview.ExamType), toneAccent)
+					badge(c, p, overview.CohortName, toneNeutral)
+					badge(c, p, a.stageName(overview.GradeLevel), toneNeutral)
+				})
 				ui.Textf(c, locales.AssessmentDetailMeta(), a.academicYearLabel(overview.AcademicYearStart),
 					a.examTermName(overview.Term), overview.ExamDate).FontSize(captionSize(t)).
 					TextColor(p.muted).FontFeatures("tnum")
@@ -549,7 +545,7 @@ func (a *app) finishAssessmentCalculate(result calc.Result, err error) {
 func (a *app) chooseAssessmentExport() {
 	name := "Tally.xlsx"
 	if overview := a.selectedAssessmentOverview(); overview != nil {
-		name = a.assessmentOverviewLabel(*overview) + ".xlsx"
+		name = overview.CohortName + a.examTypeName(overview.ExamType) + ".xlsx"
 	}
 	go func() {
 		path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{

@@ -113,19 +113,19 @@ func (f examPageFixture) open(t *testing.T, page pageID) *ui.Tester {
 func TestExamPagesShowRosterScoresAndStatistics(t *testing.T) {
 	f := newExamPageFixture(t)
 	tt := f.open(t, pageExams)
-	for _, text := range []string{"Midterm · 期中考试", "Roster", "Scores", "001", "002"} {
+	for _, text := range []string{"期中考试", "Midterm", "Roster", "Scores", "001", "002"} {
 		if !tt.HasText(text) {
 			t.Fatalf("missing %q in %q", text, tt.Texts())
 		}
 	}
 	f.App.examTab = 1
 	tt.Frame()
-	for _, text := range []string{"120.0", "90.0", "Absent", "Score distribution · 语文"} {
+	for _, text := range []string{"120.0", "90.0", "Absent", "Score distribution: 语文"} {
 		if !tt.HasText(text) {
 			t.Fatalf("missing %q in %q", text, tt.Texts())
 		}
 	}
-	if !tt.HasText("1班 · average 105.0 · 2 students") {
+	if !tt.HasText("1班 average 105.0 (2 students)") {
 		t.Fatalf("texts = %q", tt.Texts())
 	}
 }
@@ -150,7 +150,7 @@ func TestExamTargetsSaveAndStatGroupDeleteConfirm(t *testing.T) {
 	tt.Frame()
 	f.App.statGroupName = "语文合并组"
 	tt.Frame()
-	if err := tt.Click("1班 · 1班"); err != nil {
+	if err := tt.Click("1班 (1班)"); err != nil {
 		t.Fatal(err)
 	}
 	if err := tt.Click("Save"); err != nil {
@@ -206,7 +206,7 @@ func TestExamQualityPageGroupsAndNavigates(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if err := tt.Click("003 · 丙 has no scores."); err != nil {
+	if err := tt.Click("丙 (003) has no scores."); err != nil {
 		t.Fatal(err)
 	}
 	if f.App.page != pageExams || f.App.examTab != 1 || f.App.examScoreQuery != "003" {
@@ -267,7 +267,7 @@ func TestNewExamDateInputAndMarks(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	for _, text := range []string{"Create an exam", "Exam date", "2026 cohort · Class of 2029"} {
+	for _, text := range []string{"Create an exam", "Exam date", "2026 cohort (Class of 2029)"} {
 		if !tt.HasText(text) {
 			t.Fatalf("missing %q in %q", text, tt.Texts())
 		}

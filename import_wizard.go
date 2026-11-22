@@ -457,9 +457,8 @@ func (a *app) wizardItemStep(c *ui.Context, p uiPalette) {
 				}
 			} else if cohort := a.selectedCohort(); cohort != nil {
 				stage := a.displayStage()
-				ui.Text(c, a.cohortName(cohort.EnrollmentYear)+" · "+
-					a.stageName(stage.GradeLevel)+" · "+
-					a.classOfName(cohort.GraduationYear)).
+				ui.Textf(c, locales.CohortContext(), a.cohortName(cohort.EnrollmentYear),
+					a.stageName(stage.GradeLevel), a.classOfName(cohort.GraduationYear)).
 					FontSize(captionSize(t)).TextColor(p.muted)
 			}
 			for _, kind := range kinds {
@@ -479,9 +478,7 @@ func (a *app) wizardItemStep(c *ui.Context, p uiPalette) {
 							ui.Text(c, importKindPurpose(kind)).FontSize(captionSize(t)).
 								TextColor(p.muted).Pretty()
 						})
-						button := labelledButton(c, locales.ImportWizardStart(), iconArrowRight, false)
-						button.Label(locales.ImportWizardStart() + " " + importKindName(kind))
-						if button.Clicked() {
+						if labelledButton(c, locales.PrepImport(), iconArrowRight, false).Clicked() {
 							a.wizardSelectKind(kind)
 						}
 					})
@@ -536,7 +533,7 @@ func (a *app) wizardSheetStep(c *ui.Context, p uiPalette) {
 			if len(headers) > 12 {
 				headers = headers[:12]
 			}
-			ui.Text(c, strings.Join(headers, " · ")).FontSize(captionSize(t)).
+			ui.Text(c, strings.Join(headers, locales.ListSeparator())).FontSize(captionSize(t)).
 				TextColor(p.inkSecondary)
 		}
 		ui.Row(c).Gap(t.Space(2)).Children(func() {
@@ -952,6 +949,12 @@ func (a *app) importIssueText(issue store.ImportIssue) string {
 		}
 		return value
 	}
+	subjectOrTier := func(text string) string {
+		if label := a.tierLabel(text); label != text {
+			return label
+		}
+		return a.subjectName(text, text)
+	}
 	switch issue.Code {
 	case "missing_field":
 		return fmt.Sprintf(locales.ImportIssueMissingField(), a.importFieldLabel(issue.Column))
@@ -982,11 +985,13 @@ func (a *app) importIssueText(issue store.ImportIssue) string {
 	case "unknown_class":
 		return fmt.Sprintf(locales.ImportIssueUnknownClass(), arg(0))
 	case "score_out_of_range":
-		return fmt.Sprintf(locales.ImportIssueScoreOutOfRange(), arg(0), arg(1))
+		return fmt.Sprintf(locales.ImportIssueScoreOutOfRange(), arg(0),
+			a.subjectName(arg(1), arg(1)), arg(2))
 	case "ratio_not_positive":
 		return locales.ImportIssueRatioNotPositive()
 	case "duplicate_baseline":
-		return fmt.Sprintf(locales.ImportIssueDuplicateBaseline(), arg(0), arg(1))
+		return fmt.Sprintf(locales.ImportIssueDuplicateBaseline(), arg(0),
+			a.subjectName(arg(1), arg(1)))
 	case "unknown_student":
 		return fmt.Sprintf(locales.ImportIssueUnknownStudent(), arg(0))
 	case "duplicate_exam_no":
@@ -998,17 +1003,23 @@ func (a *app) importIssueText(issue store.ImportIssue) string {
 	case "no_scores":
 		return fmt.Sprintf(locales.ImportIssueNoScores(), arg(0))
 	case "unknown_exam_subject":
-		return fmt.Sprintf(locales.ImportIssueUnknownExamSubject(), arg(0))
+		return fmt.Sprintf(locales.ImportIssueUnknownExamSubject(), a.subjectName(arg(0), arg(0)))
 	case "unknown_track":
-		return fmt.Sprintf(locales.ImportIssueUnknownTrack(), arg(0))
+		return fmt.Sprintf(locales.ImportIssueUnknownTrack(), a.trackName(arg(0), arg(0)))
 	case "cutoff_not_positive":
-		return fmt.Sprintf(locales.ImportIssueCutoffNotPositive(), arg(0), arg(1))
+		return fmt.Sprintf(locales.ImportIssueCutoffNotPositive(), subjectOrTier(arg(0)),
+			a.trackName(arg(1), arg(1)))
 	case "duplicate_cutoff":
-		return fmt.Sprintf(locales.ImportIssueDuplicateCutoff(), arg(0), arg(1))
+		return fmt.Sprintf(locales.ImportIssueDuplicateCutoff(),
+			subjectOrTier(arg(0)), a.trackName(arg(1), arg(1)))
+	case "cutoff_zero":
+		return fmt.Sprintf(locales.ImportIssueCutoffZero(), arg(0), a.trackName(arg(1), arg(1)))
+	case "cutoff_subject_skipped":
+		return fmt.Sprintf(locales.ImportIssueCutoffSubjectSkipped(), arg(0))
 	case "unknown_tier":
-		return fmt.Sprintf(locales.ImportIssueUnknownTier(), arg(0))
+		return fmt.Sprintf(locales.ImportIssueUnknownTier(), a.tierLabel(arg(0)))
 	case "negative_target":
-		return fmt.Sprintf(locales.ImportIssueNegativeTarget(), arg(0), arg(1))
+		return fmt.Sprintf(locales.ImportIssueNegativeTarget(), arg(0), a.tierLabel(arg(1)))
 	case "duplicate_target":
 		return fmt.Sprintf(locales.ImportIssueDuplicateTarget(), arg(0))
 	default:

@@ -164,16 +164,18 @@ func (a *app) stageReviewModal(c *ui.Context, p uiPalette) {
 
 func (a *app) copiedStageLabel(stage store.CohortStage) string {
 	if stage.CopiedFromStageID == nil {
-		return a.stageName(stage.GradeLevel) + " · " + a.academicYearLabel(stage.AcademicYearStart)
+		return fmt.Sprintf(locales.StageOption(), a.stageName(stage.GradeLevel),
+			a.academicYearLabel(stage.AcademicYearStart))
 	}
 	for _, previous := range a.cohortStages {
 		if previous.ID != *stage.CopiedFromStageID {
 			continue
 		}
-		return a.stageName(previous.GradeLevel) + " · " +
-			a.academicYearLabel(previous.AcademicYearStart)
+		return fmt.Sprintf(locales.StageOption(), a.stageName(previous.GradeLevel),
+			a.academicYearLabel(previous.AcademicYearStart))
 	}
-	return a.stageName(stage.GradeLevel) + " · " + a.academicYearLabel(stage.AcademicYearStart)
+	return fmt.Sprintf(locales.StageOption(), a.stageName(stage.GradeLevel),
+		a.academicYearLabel(stage.AcademicYearStart))
 }
 
 func (a *app) readinessPanel(c *ui.Context, p uiPalette) {

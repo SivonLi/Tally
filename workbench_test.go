@@ -150,7 +150,7 @@ func TestAssessmentPageShowsWorkflow(t *testing.T) {
 	tt.SetLocale("en")
 	tt.Frame()
 	for _, text := range []string{
-		"Assessments", "Midterm · 期中考试 · 2026 cohort · Grade 10",
+		"Assessments", "期中考试", "Midterm", "2026级", "Grade 10",
 		"Data", "Data for this assessment", "Roster", "Scores", "Cutoffs", "Targets",
 	} {
 		if !tt.HasText(text) {

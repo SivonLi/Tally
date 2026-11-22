@@ -99,7 +99,7 @@ func (a *app) examDetailPage(c *ui.Context, p uiPalette) {
 			}
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-					ui.Text(c, a.examBatchLabel(a.exam)).FontSize(titleSize(t)).FontWeight(600).
+					ui.Text(c, a.exam.Name).FontSize(titleSize(t)).FontWeight(600).
 						Role(ui.RoleHeading).Level(1)
 					badge(c, p, a.examTypeName(a.exam.ExamType), toneAccent)
 				})
@@ -629,7 +629,7 @@ func (a *app) examStatGroupsTab(c *ui.Context, p uiPalette) {
 						for _, member := range group.Members {
 							label := member.Name
 							if member.ClassNames != "" {
-								label += " · " + member.ClassNames
+								label = fmt.Sprintf(locales.LabelQualifier(), member.Name, member.ClassNames)
 							}
 							members = append(members, label)
 						}
@@ -720,11 +720,11 @@ func (a *app) examQualityText(issue store.ExamQualityIssue) string {
 	case "no_roster":
 		return locales.ExamIssueNoRoster()
 	case "missing_track":
-		return fmt.Sprintf(locales.ExamIssueMissingTrack(), issue.StudentNo, issue.Name)
+		return fmt.Sprintf(locales.ExamIssueMissingTrack(), issue.Name, issue.StudentNo)
 	case "missing_scores":
-		return fmt.Sprintf(locales.ExamIssueMissingScores(), issue.StudentNo, issue.Name)
+		return fmt.Sprintf(locales.ExamIssueMissingScores(), issue.Name, issue.StudentNo)
 	case "score_out_of_range":
-		return fmt.Sprintf(locales.ExamIssueScoreOutOfRange(), issue.StudentNo, issue.Name,
+		return fmt.Sprintf(locales.ExamIssueScoreOutOfRange(), issue.Name, issue.StudentNo,
 			a.subjectName(issue.Subject, issue.Subject), arg(0), arg(1))
 	case "score_without_roster":
 		return fmt.Sprintf(locales.ExamIssueScoreWithoutRoster(), arg(0))
@@ -899,8 +899,8 @@ func (a *app) newExamModal(c *ui.Context, p uiPalette) {
 						a.newExamCohorts = map[int64]bool{}
 					}
 					checked := a.newExamCohorts[cohort.ID]
-					checkboxField(c, &checked, a.cohortName(cohort.EnrollmentYear)+" · "+
-						a.classOfName(cohort.GraduationYear))
+					checkboxField(c, &checked, fmt.Sprintf(locales.LabelQualifier(),
+						a.cohortName(cohort.EnrollmentYear), a.classOfName(cohort.GraduationYear)))
 					a.newExamCohorts[cohort.ID] = checked
 					if !checked {
 						continue
@@ -1030,7 +1030,7 @@ func (a *app) statGroupModal(c *ui.Context, p uiPalette) {
 								a.statGroupMembers = map[int64]bool{}
 							}
 							checked := a.statGroupMembers[group.ID]
-							checkboxField(c, &checked, group.Name+" · "+group.ClassNames)
+							checkboxField(c, &checked, fmt.Sprintf(locales.LabelQualifier(), group.Name, group.ClassNames))
 							a.statGroupMembers[group.ID] = checked
 						}
 					})

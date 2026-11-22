@@ -323,7 +323,7 @@ func (a *app) tierName(key string) string {
 }
 
 func (a *app) examCohortLabel(cohort store.ExamCohort) string {
-	return fmt.Sprintf("%s · %s · %s", cohort.CohortName,
+	return fmt.Sprintf(locales.CohortContext(), cohort.CohortName,
 		a.stageName(cohort.GradeLevelAtExam), a.classOfName(cohort.GraduationYear))
 }
 
@@ -469,5 +469,5 @@ func (a *app) examCohortStageName() string {
 }
 
 func (a *app) examBatchLabel(exam store.Exam) string {
-	return fmt.Sprintf("%s · %s", a.examTypeName(exam.ExamType), exam.Name)
+	return fmt.Sprintf(locales.LabelQualifier(), exam.Name, a.examTypeName(exam.ExamType))
 }

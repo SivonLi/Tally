@@ -4878,11 +4878,11 @@ func (msgs Messages) SettingsBackups() string {
 	return Catalog.Format(msgs.locale, "settingsBackups", nil)
 }
 
-// SettingsBackupNow says "Back up now"
+// SettingsBackupNow says "Back up"
 // in the language the app shows.
 func SettingsBackupNow() string { return In(i18n.Locale()).SettingsBackupNow() }
 
-// SettingsBackupNow says "Back up now"
+// SettingsBackupNow says "Back up"
 // in the language of msgs.
 func (msgs Messages) SettingsBackupNow() string {
 	return Catalog.Format(msgs.locale, "settingsBackupNow", nil)
@@ -4978,6 +4978,16 @@ func (msgs Messages) ListSeparator() string {
 	return Catalog.Format(msgs.locale, "listSeparator", nil)
 }
 
+// LabelQualifier says "%s (%s)"
+// in the language the app shows.
+func LabelQualifier() string { return In(i18n.Locale()).LabelQualifier() }
+
+// LabelQualifier says "%s (%s)"
+// in the language of msgs.
+func (msgs Messages) LabelQualifier() string {
+	return Catalog.Format(msgs.locale, "labelQualifier", nil)
+}
+
 // ImportClasses says "Import classes"
 // in the language the app shows.
 func ImportClasses() string { return In(i18n.Locale()).ImportClasses() }
@@ -5016,16 +5026,6 @@ func ImportWizardChooseFile() string { return In(i18n.Locale()).ImportWizardChoo
 // in the language of msgs.
 func (msgs Messages) ImportWizardChooseFile() string {
 	return Catalog.Format(msgs.locale, "importWizardChooseFile", nil)
-}
-
-// ImportWizardStart says "Start"
-// in the language the app shows.
-func ImportWizardStart() string { return In(i18n.Locale()).ImportWizardStart() }
-
-// ImportWizardStart says "Start"
-// in the language of msgs.
-func (msgs Messages) ImportWizardStart() string {
-	return Catalog.Format(msgs.locale, "importWizardStart", nil)
 }
 
 // ImportWizardSelectedFile says "Selected file: %s"
@@ -5088,11 +5088,11 @@ func (msgs Messages) ImportWizardSheetMissing() string {
 	return Catalog.Format(msgs.locale, "importWizardSheetMissing", nil)
 }
 
-// ImportWizardUnmapped says "Not mapped"
+// ImportWizardUnmapped says "Skip"
 // in the language the app shows.
 func ImportWizardUnmapped() string { return In(i18n.Locale()).ImportWizardUnmapped() }
 
-// ImportWizardUnmapped says "Not mapped"
+// ImportWizardUnmapped says "Skip"
 // in the language of msgs.
 func (msgs Messages) ImportWizardUnmapped() string {
 	return Catalog.Format(msgs.locale, "importWizardUnmapped", nil)
@@ -5276,6 +5276,66 @@ func ImportWizardElapsed() string { return In(i18n.Locale()).ImportWizardElapsed
 // in the language of msgs.
 func (msgs Messages) ImportWizardElapsed() string {
 	return Catalog.Format(msgs.locale, "importWizardElapsed", nil)
+}
+
+// ImportWizardZeroScores says "%d single-subject zero scores are treated as not taken; the total score is kept."
+// in the language the app shows.
+func ImportWizardZeroScores() string { return In(i18n.Locale()).ImportWizardZeroScores() }
+
+// ImportWizardZeroScores says "%d single-subject zero scores are treated as not taken; the total score is kept."
+// in the language of msgs.
+func (msgs Messages) ImportWizardZeroScores() string {
+	return Catalog.Format(msgs.locale, "importWizardZeroScores", nil)
+}
+
+// ImportWizardRosterSkipped says "Skipped %d rows for students not in the roster."
+// in the language the app shows.
+func ImportWizardRosterSkipped() string { return In(i18n.Locale()).ImportWizardRosterSkipped() }
+
+// ImportWizardRosterSkipped says "Skipped %d rows for students not in the roster."
+// in the language of msgs.
+func (msgs Messages) ImportWizardRosterSkipped() string {
+	return Catalog.Format(msgs.locale, "importWizardRosterSkipped", nil)
+}
+
+// ImportWizardAddToRoster says "Add %s students to the roster"
+// in the language the app shows.
+func ImportWizardAddToRoster() string { return In(i18n.Locale()).ImportWizardAddToRoster() }
+
+// ImportWizardAddToRoster says "Add %s students to the roster"
+// in the language of msgs.
+func (msgs Messages) ImportWizardAddToRoster() string {
+	return Catalog.Format(msgs.locale, "importWizardAddToRoster", nil)
+}
+
+// ImportWizardSkipRows says "Skip these %s rows"
+// in the language the app shows.
+func ImportWizardSkipRows() string { return In(i18n.Locale()).ImportWizardSkipRows() }
+
+// ImportWizardSkipRows says "Skip these %s rows"
+// in the language of msgs.
+func (msgs Messages) ImportWizardSkipRows() string {
+	return Catalog.Format(msgs.locale, "importWizardSkipRows", nil)
+}
+
+// ImportWizardExportIssues says "Export the issue list"
+// in the language the app shows.
+func ImportWizardExportIssues() string { return In(i18n.Locale()).ImportWizardExportIssues() }
+
+// ImportWizardExportIssues says "Export the issue list"
+// in the language of msgs.
+func (msgs Messages) ImportWizardExportIssues() string {
+	return Catalog.Format(msgs.locale, "importWizardExportIssues", nil)
+}
+
+// ImportWizardAutoColumns says "Columns are matched automatically."
+// in the language the app shows.
+func ImportWizardAutoColumns() string { return In(i18n.Locale()).ImportWizardAutoColumns() }
+
+// ImportWizardAutoColumns says "Columns are matched automatically."
+// in the language of msgs.
+func (msgs Messages) ImportWizardAutoColumns() string {
+	return Catalog.Format(msgs.locale, "importWizardAutoColumns", nil)
 }
 
 // ImportStepItem says "Data item"
@@ -5722,11 +5782,11 @@ func (msgs Messages) ImportIssueUnknownClass() string {
 	return Catalog.Format(msgs.locale, "importIssueUnknownClass", nil)
 }
 
-// ImportIssueScoreOutOfRange says "%s is outside the full mark of %s."
+// ImportIssueScoreOutOfRange says "%s's %s score is above the full mark of %s."
 // in the language the app shows.
 func ImportIssueScoreOutOfRange() string { return In(i18n.Locale()).ImportIssueScoreOutOfRange() }
 
-// ImportIssueScoreOutOfRange says "%s is outside the full mark of %s."
+// ImportIssueScoreOutOfRange says "%s's %s score is above the full mark of %s."
 // in the language of msgs.
 func (msgs Messages) ImportIssueScoreOutOfRange() string {
 	return Catalog.Format(msgs.locale, "importIssueScoreOutOfRange", nil)
@@ -5742,11 +5802,11 @@ func (msgs Messages) ImportIssueRatioNotPositive() string {
 	return Catalog.Format(msgs.locale, "importIssueRatioNotPositive", nil)
 }
 
-// ImportIssueDuplicateBaseline says "%s · %s has more than one entry score."
+// ImportIssueDuplicateBaseline says "%s's %s has more than one entry score."
 // in the language the app shows.
 func ImportIssueDuplicateBaseline() string { return In(i18n.Locale()).ImportIssueDuplicateBaseline() }
 
-// ImportIssueDuplicateBaseline says "%s · %s has more than one entry score."
+// ImportIssueDuplicateBaseline says "%s's %s has more than one entry score."
 // in the language of msgs.
 func (msgs Messages) ImportIssueDuplicateBaseline() string {
 	return Catalog.Format(msgs.locale, "importIssueDuplicateBaseline", nil)
@@ -5900,6 +5960,36 @@ func ImportUndo() string { return In(i18n.Locale()).ImportUndo() }
 // in the language of msgs.
 func (msgs Messages) ImportUndo() string {
 	return Catalog.Format(msgs.locale, "importUndo", nil)
+}
+
+// ImportUndoTitle says "Undo this import?"
+// in the language the app shows.
+func ImportUndoTitle() string { return In(i18n.Locale()).ImportUndoTitle() }
+
+// ImportUndoTitle says "Undo this import?"
+// in the language of msgs.
+func (msgs Messages) ImportUndoTitle() string {
+	return Catalog.Format(msgs.locale, "importUndoTitle", nil)
+}
+
+// ImportUndoBody says "Records added by this import are deleted, and updated records return to their previous values."
+// in the language the app shows.
+func ImportUndoBody() string { return In(i18n.Locale()).ImportUndoBody() }
+
+// ImportUndoBody says "Records added by this import are deleted, and updated records return to their previous values."
+// in the language of msgs.
+func (msgs Messages) ImportUndoBody() string {
+	return Catalog.Format(msgs.locale, "importUndoBody", nil)
+}
+
+// ImportUndoConfirm says "Undo"
+// in the language the app shows.
+func ImportUndoConfirm() string { return In(i18n.Locale()).ImportUndoConfirm() }
+
+// ImportUndoConfirm says "Undo"
+// in the language of msgs.
+func (msgs Messages) ImportUndoConfirm() string {
+	return Catalog.Format(msgs.locale, "importUndoConfirm", nil)
 }
 
 // ImportUndoNotImported says "This import has already been undone."
@@ -6842,11 +6932,11 @@ func (msgs Messages) ExamScoreMeta() string {
 	return Catalog.Format(msgs.locale, "examScoreMeta", nil)
 }
 
-// ExamScoreDistribution says "Score distribution · %s"
+// ExamScoreDistribution says "Score distribution: %s"
 // in the language the app shows.
 func ExamScoreDistribution() string { return In(i18n.Locale()).ExamScoreDistribution() }
 
-// ExamScoreDistribution says "Score distribution · %s"
+// ExamScoreDistribution says "Score distribution: %s"
 // in the language of msgs.
 func (msgs Messages) ExamScoreDistribution() string {
 	return Catalog.Format(msgs.locale, "examScoreDistribution", nil)
@@ -6862,11 +6952,11 @@ func (msgs Messages) ExamClassComparison() string {
 	return Catalog.Format(msgs.locale, "examClassComparison", nil)
 }
 
-// ExamClassAverageLine says "%s · average %s · %s students"
+// ExamClassAverageLine says "%s average %s (%s students)"
 // in the language the app shows.
 func ExamClassAverageLine() string { return In(i18n.Locale()).ExamClassAverageLine() }
 
-// ExamClassAverageLine says "%s · average %s · %s students"
+// ExamClassAverageLine says "%s average %s (%s students)"
 // in the language of msgs.
 func (msgs Messages) ExamClassAverageLine() string {
 	return Catalog.Format(msgs.locale, "examClassAverageLine", nil)
@@ -6982,11 +7072,11 @@ func (msgs Messages) ExamCutoffImpact() string {
 	return Catalog.Format(msgs.locale, "examCutoffImpact", nil)
 }
 
-// ExamCutoffImpactRate says "%s of %s passed · %s"
+// ExamCutoffImpactRate says "%s of %s passed (%s)"
 // in the language the app shows.
 func ExamCutoffImpactRate() string { return In(i18n.Locale()).ExamCutoffImpactRate() }
 
-// ExamCutoffImpactRate says "%s of %s passed · %s"
+// ExamCutoffImpactRate says "%s of %s passed (%s)"
 // in the language of msgs.
 func (msgs Messages) ExamCutoffImpactRate() string {
 	return Catalog.Format(msgs.locale, "examCutoffImpactRate", nil)
@@ -7162,11 +7252,11 @@ func (msgs Messages) ExamStatGroupMembers() string {
 	return Catalog.Format(msgs.locale, "examStatGroupMembers", nil)
 }
 
-// ExamStatGroupMeta says "%s · target %s"
+// ExamStatGroupMeta says "%s (target %s)"
 // in the language the app shows.
 func ExamStatGroupMeta() string { return In(i18n.Locale()).ExamStatGroupMeta() }
 
-// ExamStatGroupMeta says "%s · target %s"
+// ExamStatGroupMeta says "%s (target %s)"
 // in the language of msgs.
 func (msgs Messages) ExamStatGroupMeta() string {
 	return Catalog.Format(msgs.locale, "examStatGroupMeta", nil)
@@ -7372,31 +7462,31 @@ func (msgs Messages) ExamIssueNoRoster() string {
 	return Catalog.Format(msgs.locale, "examIssueNoRoster", nil)
 }
 
-// ExamIssueMissingTrack says "%s · %s has no track."
+// ExamIssueMissingTrack says "%s (%s) has no track."
 // in the language the app shows.
 func ExamIssueMissingTrack() string { return In(i18n.Locale()).ExamIssueMissingTrack() }
 
-// ExamIssueMissingTrack says "%s · %s has no track."
+// ExamIssueMissingTrack says "%s (%s) has no track."
 // in the language of msgs.
 func (msgs Messages) ExamIssueMissingTrack() string {
 	return Catalog.Format(msgs.locale, "examIssueMissingTrack", nil)
 }
 
-// ExamIssueMissingScores says "%s · %s has no scores."
+// ExamIssueMissingScores says "%s (%s) has no scores."
 // in the language the app shows.
 func ExamIssueMissingScores() string { return In(i18n.Locale()).ExamIssueMissingScores() }
 
-// ExamIssueMissingScores says "%s · %s has no scores."
+// ExamIssueMissingScores says "%s (%s) has no scores."
 // in the language of msgs.
 func (msgs Messages) ExamIssueMissingScores() string {
 	return Catalog.Format(msgs.locale, "examIssueMissingScores", nil)
 }
 
-// ExamIssueScoreOutOfRange says "%s · %s %s %s is above the full mark %s."
+// ExamIssueScoreOutOfRange says "%s (%s): %s score %s is above the full mark %s."
 // in the language the app shows.
 func ExamIssueScoreOutOfRange() string { return In(i18n.Locale()).ExamIssueScoreOutOfRange() }
 
-// ExamIssueScoreOutOfRange says "%s · %s %s %s is above the full mark %s."
+// ExamIssueScoreOutOfRange says "%s (%s): %s score %s is above the full mark %s."
 // in the language of msgs.
 func (msgs Messages) ExamIssueScoreOutOfRange() string {
 	return Catalog.Format(msgs.locale, "examIssueScoreOutOfRange", nil)
@@ -7412,11 +7502,11 @@ func (msgs Messages) ExamIssueScoreWithoutRoster() string {
 	return Catalog.Format(msgs.locale, "examIssueScoreWithoutRoster", nil)
 }
 
-// ExamIssueZeroClassTarget says "%s · %s target is zero."
+// ExamIssueZeroClassTarget says "%s's %s target is zero."
 // in the language the app shows.
 func ExamIssueZeroClassTarget() string { return In(i18n.Locale()).ExamIssueZeroClassTarget() }
 
-// ExamIssueZeroClassTarget says "%s · %s target is zero."
+// ExamIssueZeroClassTarget says "%s's %s target is zero."
 // in the language of msgs.
 func (msgs Messages) ExamIssueZeroClassTarget() string {
 	return Catalog.Format(msgs.locale, "examIssueZeroClassTarget", nil)
@@ -7592,24 +7682,46 @@ func (msgs Messages) ImportIssueUnknownTrack() string {
 	return Catalog.Format(msgs.locale, "importIssueUnknownTrack", nil)
 }
 
-// ImportIssueCutoffNotPositive says "%s · %s cutoff must be greater than zero."
+// ImportIssueCutoffNotPositive says "%s (%s) cutoff must be greater than zero."
 // in the language the app shows.
 func ImportIssueCutoffNotPositive() string { return In(i18n.Locale()).ImportIssueCutoffNotPositive() }
 
-// ImportIssueCutoffNotPositive says "%s · %s cutoff must be greater than zero."
+// ImportIssueCutoffNotPositive says "%s (%s) cutoff must be greater than zero."
 // in the language of msgs.
 func (msgs Messages) ImportIssueCutoffNotPositive() string {
 	return Catalog.Format(msgs.locale, "importIssueCutoffNotPositive", nil)
 }
 
-// ImportIssueDuplicateCutoff says "%s · %s appears more than once."
+// ImportIssueDuplicateCutoff says "%s (%s) appears more than once."
 // in the language the app shows.
 func ImportIssueDuplicateCutoff() string { return In(i18n.Locale()).ImportIssueDuplicateCutoff() }
 
-// ImportIssueDuplicateCutoff says "%s · %s appears more than once."
+// ImportIssueDuplicateCutoff says "%s (%s) appears more than once."
 // in the language of msgs.
 func (msgs Messages) ImportIssueDuplicateCutoff() string {
 	return Catalog.Format(msgs.locale, "importIssueDuplicateCutoff", nil)
+}
+
+// ImportIssueCutoffZero says "The %s %s cutoff is zero, so it was not imported."
+// in the language the app shows.
+func ImportIssueCutoffZero() string { return In(i18n.Locale()).ImportIssueCutoffZero() }
+
+// ImportIssueCutoffZero says "The %s %s cutoff is zero, so it was not imported."
+// in the language of msgs.
+func (msgs Messages) ImportIssueCutoffZero() string {
+	return Catalog.Format(msgs.locale, "importIssueCutoffZero", nil)
+}
+
+// ImportIssueCutoffSubjectSkipped says "%s is not in the subject setup, so this line was not imported."
+// in the language the app shows.
+func ImportIssueCutoffSubjectSkipped() string {
+	return In(i18n.Locale()).ImportIssueCutoffSubjectSkipped()
+}
+
+// ImportIssueCutoffSubjectSkipped says "%s is not in the subject setup, so this line was not imported."
+// in the language of msgs.
+func (msgs Messages) ImportIssueCutoffSubjectSkipped() string {
+	return Catalog.Format(msgs.locale, "importIssueCutoffSubjectSkipped", nil)
 }
 
 // ImportIssueUnknownTier says "Tier %s does not exist."
@@ -7622,11 +7734,11 @@ func (msgs Messages) ImportIssueUnknownTier() string {
 	return Catalog.Format(msgs.locale, "importIssueUnknownTier", nil)
 }
 
-// ImportIssueNegativeTarget says "%s · %s target cannot be negative."
+// ImportIssueNegativeTarget says "%s's %s target cannot be negative."
 // in the language the app shows.
 func ImportIssueNegativeTarget() string { return In(i18n.Locale()).ImportIssueNegativeTarget() }
 
-// ImportIssueNegativeTarget says "%s · %s target cannot be negative."
+// ImportIssueNegativeTarget says "%s's %s target cannot be negative."
 // in the language of msgs.
 func (msgs Messages) ImportIssueNegativeTarget() string {
 	return Catalog.Format(msgs.locale, "importIssueNegativeTarget", nil)
@@ -7640,6 +7752,96 @@ func ImportIssueDuplicateTarget() string { return In(i18n.Locale()).ImportIssueD
 // in the language of msgs.
 func (msgs Messages) ImportIssueDuplicateTarget() string {
 	return Catalog.Format(msgs.locale, "importIssueDuplicateTarget", nil)
+}
+
+// ImportIssueColItem says "Data item"
+// in the language the app shows.
+func ImportIssueColItem() string { return In(i18n.Locale()).ImportIssueColItem() }
+
+// ImportIssueColItem says "Data item"
+// in the language of msgs.
+func (msgs Messages) ImportIssueColItem() string {
+	return Catalog.Format(msgs.locale, "importIssueColItem", nil)
+}
+
+// ImportIssueColFile says "File"
+// in the language the app shows.
+func ImportIssueColFile() string { return In(i18n.Locale()).ImportIssueColFile() }
+
+// ImportIssueColFile says "File"
+// in the language of msgs.
+func (msgs Messages) ImportIssueColFile() string {
+	return Catalog.Format(msgs.locale, "importIssueColFile", nil)
+}
+
+// ImportIssueColSheet says "Worksheet"
+// in the language the app shows.
+func ImportIssueColSheet() string { return In(i18n.Locale()).ImportIssueColSheet() }
+
+// ImportIssueColSheet says "Worksheet"
+// in the language of msgs.
+func (msgs Messages) ImportIssueColSheet() string {
+	return Catalog.Format(msgs.locale, "importIssueColSheet", nil)
+}
+
+// ImportIssueColRow says "Row"
+// in the language the app shows.
+func ImportIssueColRow() string { return In(i18n.Locale()).ImportIssueColRow() }
+
+// ImportIssueColRow says "Row"
+// in the language of msgs.
+func (msgs Messages) ImportIssueColRow() string {
+	return Catalog.Format(msgs.locale, "importIssueColRow", nil)
+}
+
+// ImportIssueColColumn says "Column"
+// in the language the app shows.
+func ImportIssueColColumn() string { return In(i18n.Locale()).ImportIssueColColumn() }
+
+// ImportIssueColColumn says "Column"
+// in the language of msgs.
+func (msgs Messages) ImportIssueColColumn() string {
+	return Catalog.Format(msgs.locale, "importIssueColColumn", nil)
+}
+
+// ImportIssueColSeverity says "Severity"
+// in the language the app shows.
+func ImportIssueColSeverity() string { return In(i18n.Locale()).ImportIssueColSeverity() }
+
+// ImportIssueColSeverity says "Severity"
+// in the language of msgs.
+func (msgs Messages) ImportIssueColSeverity() string {
+	return Catalog.Format(msgs.locale, "importIssueColSeverity", nil)
+}
+
+// ImportIssueColIssue says "Issue"
+// in the language the app shows.
+func ImportIssueColIssue() string { return In(i18n.Locale()).ImportIssueColIssue() }
+
+// ImportIssueColIssue says "Issue"
+// in the language of msgs.
+func (msgs Messages) ImportIssueColIssue() string {
+	return Catalog.Format(msgs.locale, "importIssueColIssue", nil)
+}
+
+// SeverityBlocking says "Blocking"
+// in the language the app shows.
+func SeverityBlocking() string { return In(i18n.Locale()).SeverityBlocking() }
+
+// SeverityBlocking says "Blocking"
+// in the language of msgs.
+func (msgs Messages) SeverityBlocking() string {
+	return Catalog.Format(msgs.locale, "severityBlocking", nil)
+}
+
+// SeverityWarning says "Warning"
+// in the language the app shows.
+func SeverityWarning() string { return In(i18n.Locale()).SeverityWarning() }
+
+// SeverityWarning says "Warning"
+// in the language of msgs.
+func (msgs Messages) SeverityWarning() string {
+	return Catalog.Format(msgs.locale, "severityWarning", nil)
 }
 
 // ImportResultRoster says "Imported %s roster rows. This exam now has %s students."
@@ -7720,6 +7922,16 @@ func AssessmentListMeta() string { return In(i18n.Locale()).AssessmentListMeta()
 // in the language of msgs.
 func (msgs Messages) AssessmentListMeta() string {
 	return Catalog.Format(msgs.locale, "assessmentListMeta", nil)
+}
+
+// AssessmentOption says "%s %s"
+// in the language the app shows.
+func AssessmentOption() string { return In(i18n.Locale()).AssessmentOption() }
+
+// AssessmentOption says "%s %s"
+// in the language of msgs.
+func (msgs Messages) AssessmentOption() string {
+	return Catalog.Format(msgs.locale, "assessmentOption", nil)
 }
 
 // AssessmentSelectHint says "Select an exam to see what is ready."

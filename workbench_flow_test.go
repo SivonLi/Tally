@@ -272,7 +272,7 @@ func TestAssessmentSelectionAndOverview(t *testing.T) {
 	if item.AssessmentID != fixture.AssessmentID {
 		t.Fatalf("assessment = %d", item.AssessmentID)
 	}
-	if got := a.assessmentOverviewLabel(item); got != "Midterm · 2026级" {
+	if got := a.assessmentOverviewLabel(item); got != "2026级 Midterm" {
 		t.Fatalf("label = %q", got)
 	}
 	a.selectedAssessmentID = 0
