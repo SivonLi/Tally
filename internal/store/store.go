@@ -208,7 +208,10 @@ func (s *Store) migrate(ctx context.Context) error {
 	if err := s.deriveLegacyCohorts(ctx); err != nil {
 		return err
 	}
-	return s.migrateSchoolData(ctx)
+	if err := s.migrateSchoolData(ctx); err != nil {
+		return err
+	}
+	return s.ensureClassTargetColumns(ctx)
 }
 
 // EnsureDefaultPlan 在首次启动时写入内置默认方案，返回最新的已发布版本。

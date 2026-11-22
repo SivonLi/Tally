@@ -269,26 +269,20 @@ func weightedTiers(tiers []assessment.TierConfig, target ClassTarget, actualCoun
 }
 
 func undergraduatePassRatio(tiers []assessment.TierConfig, target ClassTarget, actualCounts map[string]float64) float64 {
-	var undergraduate assessment.TierConfig
-	found := false
+	totalTarget := 0.0
+	totalActual := 0.0
 	for _, tier := range tiers {
-		if tier.Key == "undergraduate" {
-			undergraduate = tier
-			found = true
-			break
+		if t, ok := target.Counts[tier.Key]; ok && t != nil {
+			totalTarget += *t
+		}
+		if a, ok := actualCounts[tier.Key]; ok {
+			totalActual += a
 		}
 	}
-	if !found {
+	if totalTarget == 0 {
 		return 0
 	}
-	targetCount, ok := target.Counts[undergraduate.Key]
-	if !ok || targetCount == nil {
-		return 0
-	}
-	if *targetCount == 0 {
-		return 0
-	}
-	return actualCounts[undergraduate.Key] / *targetCount
+	return totalActual / totalTarget
 }
 
 func numberObject(values map[string]float64) map[string]formula.Value {

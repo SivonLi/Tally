@@ -314,8 +314,19 @@ func build(data store.BatchData, plan assessment.Config) (calc.Input, []Issue) {
 		}
 		tierCutoffs[item.TierKey][item.Track] = item.Value
 	}
+	hasActualCounts := func(tierKey string) bool {
+		for _, target := range data.ClassTargets {
+			if target.ActualCounts != nil && target.ActualCounts[tierKey] != nil {
+				return true
+			}
+		}
+		return false
+	}
 	for _, tier := range plan.Tiers {
 		if len(tierCutoffs[tier.Key]) == 0 {
+			if data.Batch.ExamType == "gaokao" && hasActualCounts(tier.Key) {
+				continue
+			}
 			add("missing_tier_cutoff", fmt.Sprintf("档位 %s 缺少总分分数线", tier.Label))
 		}
 	}
@@ -326,6 +337,9 @@ func build(data store.BatchData, plan assessment.Config) (calc.Input, []Issue) {
 	for _, tier := range plan.Tiers {
 		for track := range studentTracks {
 			if tierCutoffs[tier.Key][track] <= 0 {
+				if data.Batch.ExamType == "gaokao" && hasActualCounts(tier.Key) {
+					continue
+				}
 				add("missing_tier_cutoff", fmt.Sprintf("档位 %s 缺少 %s 类总分分数线", tier.Label, track))
 			}
 		}
@@ -372,6 +386,13 @@ func build(data store.BatchData, plan assessment.Config) (calc.Input, []Issue) {
 		for _, id := range group.MemberGroupIDs {
 			members = append(members, strconv.FormatInt(id, 10))
 		}
+		if len(members) == 0 {
+			add("missing_stat_member", fmt.Sprintf("统计组 %s %s 没有成员教学班", group.Subject, group.Name))
+			continue
+		}
+		if !statGroupHasStudents(data, group, plan.Data) {
+			continue
+		}
 		baseline := group.BaselineAverage
 		ratio := group.BaselineRatio
 		if baseline <= 0 && ratio <= 0 {
@@ -390,13 +411,6 @@ func build(data store.BatchData, plan assessment.Config) (calc.Input, []Issue) {
 		}
 		if group.Target <= 0 {
 			add("missing_stat_target", fmt.Sprintf("统计组 %s %s 缺少单科目标", group.Subject, group.Name))
-			continue
-		}
-		if len(members) == 0 {
-			add("missing_stat_member", fmt.Sprintf("统计组 %s %s 没有成员教学班", group.Subject, group.Name))
-			continue
-		}
-		if !statGroupHasStudents(data, group, plan.Data) {
 			continue
 		}
 		statGroups = append(statGroups, calc.StatGroup{
@@ -588,6 +602,28 @@ func subjectTracks(data store.BatchData) map[string][]string {
 }
 
 func actualTierCounts(data store.BatchData, plan assessment.Config, cutoffs map[string]map[string]float64, issues *[]Issue) map[string]map[string]float64 {
+	hasExplicitActuals := false
+	for _, target := range data.ClassTargets {
+		if len(target.ActualCounts) > 0 {
+			hasExplicitActuals = true
+			break
+		}
+	}
+	if hasExplicitActuals {
+		result := map[string]map[string]float64{}
+		for _, target := range data.ClassTargets {
+			classID := strconv.FormatInt(target.ClassID, 10)
+			if result[classID] == nil {
+				result[classID] = map[string]float64{}
+			}
+			for tierKey, actual := range target.ActualCounts {
+				if actual != nil {
+					result[classID][tierKey] = *actual
+				}
+			}
+		}
+		return result
+	}
 	valid := map[int64]bool{}
 	for _, student := range data.Students {
 		if calc.IsValidStudent(toCalcStudent(student), plan.Data) {
