@@ -15,6 +15,7 @@ import (
 	"tally/internal/calc"
 	"tally/internal/school"
 	"tally/internal/store"
+	"tally/internal/sync"
 	"tally/locales"
 )
 
@@ -144,6 +145,16 @@ type app struct {
 	backups              []store.BackupInfo
 	restoreBackupName    string
 	restoreOpen          bool
+	secrets              secretStore
+	syncSettings         store.SyncSettings
+	syncWebDAVPassword   string
+	syncPackagePassword  string
+	syncLoaded           bool
+	syncBusy             bool
+	syncMessage          string
+	syncError            string
+	syncRemoteStatus     *sync.RemoteStatus
+	syncConflictOpen     bool
 	importWizard         *importWizardState
 	importRunID          int64
 	importDetail         *store.ImportRunDetail
@@ -254,6 +265,11 @@ func (a *app) load() {
 	a.reloadExams(ctx)
 	a.reloadAssessments(ctx)
 	a.reloadSchoolSettings(ctx)
+	if syncSet, err := opened.GetSyncSettings(ctx); err == nil {
+		a.syncSettings = syncSet
+	}
+	a.loadSyncSecrets()
+	a.syncLoaded = true
 	appearance, err := opened.Appearance(ctx)
 	if err != nil {
 		a.loadError = err.Error()

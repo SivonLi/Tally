@@ -337,6 +337,11 @@ func textField(c *ui.Context, value *string, label, placeholder string) ui.Eleme
 	return field.Input(c, value, field.InputProps{Placeholder: placeholder}).Label(label)
 }
 
+// passwordField 是 Lobe MyGo 的密码输入框。
+func passwordField(c *ui.Context, value *string, label, placeholder string) ui.Element {
+	return field.InputPassword(c, value, field.InputProps{Placeholder: placeholder}).Label(label)
+}
+
 // numberField 是 Lobe MyGo 的数字输入框。
 func numberField(c *ui.Context, value *float64, lo, hi, step float64, label string) ui.Element {
 	return field.InputNumber(c, value, field.InputNumberProps{

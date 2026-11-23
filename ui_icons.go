@@ -34,6 +34,7 @@ var (
 	iconSubjects   = lucide.BookOpen()
 	iconDatabase   = lucide.Database()
 	iconAppearance = lucide.Monitor()
+	iconSync       = lucide.Cloud()
 	iconArrowRight = lucide.ArrowRight()
 	iconArrowLeft  = lucide.ArrowLeft()
 	iconUpDown     = lucide.ChevronDown()

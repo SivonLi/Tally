@@ -37,6 +37,13 @@ func (a *app) openSettings() {
 		return
 	}
 	a.settingsPageID = "school"
+	if !a.syncLoaded && a.store != nil {
+		if s, err := a.store.GetSyncSettings(context.Background()); err == nil {
+			a.syncSettings = s
+		}
+		a.loadSyncSecrets()
+		a.syncLoaded = true
+	}
 	a.settingsForm = form.New(a.settingsFormValuesFromDrafts())
 	a.settingsWin = mygo.NewWindow(mygo.WindowOptions{
 		Title:                locales.NavSettings(),
@@ -136,6 +143,7 @@ func (a *app) settingsView(c *ui.Context) {
 		})
 	})
 	a.restoreDialog(c, p)
+	a.syncConflictDialog(c, p)
 }
 
 type settingsPage struct {
@@ -150,6 +158,7 @@ func (a *app) settingsPages() []settingsPage {
 		{"school", locales.SettingsSchool(), iconSchool, a.settingsSchoolSection},
 		{"subjects", locales.SettingsSubjects(), iconSubjects, a.settingsSubjectsSection},
 		{"data", locales.SettingsData(), iconDatabase, a.settingsDataSection},
+		{"sync", locales.SettingsSync(), iconSync, a.settingsSyncSection},
 		{"appearance", locales.SettingsAppearance(), iconAppearance, a.settingsAppearanceSection},
 	}
 }

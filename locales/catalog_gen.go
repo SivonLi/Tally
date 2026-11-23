@@ -9483,3 +9483,355 @@ func ColumnPassUncapped() string { return In(i18n.Locale()).ColumnPassUncapped()
 func (msgs Messages) ColumnPassUncapped() string {
 	return Catalog.Format(msgs.locale, "columnPassUncapped", nil)
 }
+
+// SettingsSync says "Cloud Sync"
+// in the language the app shows.
+func SettingsSync() string { return In(i18n.Locale()).SettingsSync() }
+
+// SettingsSync says "Cloud Sync"
+// in the language of msgs.
+func (msgs Messages) SettingsSync() string {
+	return Catalog.Format(msgs.locale, "settingsSync", nil)
+}
+
+// SettingsSyncHint says "Configure WebDAV server to securely sync data between office and home PCs"
+// in the language the app shows.
+func SettingsSyncHint() string { return In(i18n.Locale()).SettingsSyncHint() }
+
+// SettingsSyncHint says "Configure WebDAV server to securely sync data between office and home PCs"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncHint() string {
+	return Catalog.Format(msgs.locale, "settingsSyncHint", nil)
+}
+
+// SettingsWebDAVURL says "WebDAV Server URL"
+// in the language the app shows.
+func SettingsWebDAVURL() string { return In(i18n.Locale()).SettingsWebDAVURL() }
+
+// SettingsWebDAVURL says "WebDAV Server URL"
+// in the language of msgs.
+func (msgs Messages) SettingsWebDAVURL() string {
+	return Catalog.Format(msgs.locale, "settingsWebDAVURL", nil)
+}
+
+// SettingsWebDAVURLHint says "e.g. https://dav.example.com/dav/ (HTTPS or LAN HTTP only)"
+// in the language the app shows.
+func SettingsWebDAVURLHint() string { return In(i18n.Locale()).SettingsWebDAVURLHint() }
+
+// SettingsWebDAVURLHint says "e.g. https://dav.example.com/dav/ (HTTPS or LAN HTTP only)"
+// in the language of msgs.
+func (msgs Messages) SettingsWebDAVURLHint() string {
+	return Catalog.Format(msgs.locale, "settingsWebDAVURLHint", nil)
+}
+
+// SettingsWebDAVUsername says "Username"
+// in the language the app shows.
+func SettingsWebDAVUsername() string { return In(i18n.Locale()).SettingsWebDAVUsername() }
+
+// SettingsWebDAVUsername says "Username"
+// in the language of msgs.
+func (msgs Messages) SettingsWebDAVUsername() string {
+	return Catalog.Format(msgs.locale, "settingsWebDAVUsername", nil)
+}
+
+// SettingsWebDAVPassword says "Password"
+// in the language the app shows.
+func SettingsWebDAVPassword() string { return In(i18n.Locale()).SettingsWebDAVPassword() }
+
+// SettingsWebDAVPassword says "Password"
+// in the language of msgs.
+func (msgs Messages) SettingsWebDAVPassword() string {
+	return Catalog.Format(msgs.locale, "settingsWebDAVPassword", nil)
+}
+
+// SettingsWebDAVPasswordHint says "Saved in system keychain, never stored in plaintext"
+// in the language the app shows.
+func SettingsWebDAVPasswordHint() string { return In(i18n.Locale()).SettingsWebDAVPasswordHint() }
+
+// SettingsWebDAVPasswordHint says "Saved in system keychain, never stored in plaintext"
+// in the language of msgs.
+func (msgs Messages) SettingsWebDAVPasswordHint() string {
+	return Catalog.Format(msgs.locale, "settingsWebDAVPasswordHint", nil)
+}
+
+// SettingsRemoteDir says "Remote Directory"
+// in the language the app shows.
+func SettingsRemoteDir() string { return In(i18n.Locale()).SettingsRemoteDir() }
+
+// SettingsRemoteDir says "Remote Directory"
+// in the language of msgs.
+func (msgs Messages) SettingsRemoteDir() string {
+	return Catalog.Format(msgs.locale, "settingsRemoteDir", nil)
+}
+
+// SettingsRemoteDirHint says "Default Tally; manages packages and files in this folder"
+// in the language the app shows.
+func SettingsRemoteDirHint() string { return In(i18n.Locale()).SettingsRemoteDirHint() }
+
+// SettingsRemoteDirHint says "Default Tally; manages packages and files in this folder"
+// in the language of msgs.
+func (msgs Messages) SettingsRemoteDirHint() string {
+	return Catalog.Format(msgs.locale, "settingsRemoteDirHint", nil)
+}
+
+// SettingsDeviceName says "Device Name"
+// in the language the app shows.
+func SettingsDeviceName() string { return In(i18n.Locale()).SettingsDeviceName() }
+
+// SettingsDeviceName says "Device Name"
+// in the language of msgs.
+func (msgs Messages) SettingsDeviceName() string {
+	return Catalog.Format(msgs.locale, "settingsDeviceName", nil)
+}
+
+// SettingsDeviceNameHint says "Identifies this computer, e.g. Office PC or Home PC"
+// in the language the app shows.
+func SettingsDeviceNameHint() string { return In(i18n.Locale()).SettingsDeviceNameHint() }
+
+// SettingsDeviceNameHint says "Identifies this computer, e.g. Office PC or Home PC"
+// in the language of msgs.
+func (msgs Messages) SettingsDeviceNameHint() string {
+	return Catalog.Format(msgs.locale, "settingsDeviceNameHint", nil)
+}
+
+// SettingsEncryptSync says "Package Encryption"
+// in the language the app shows.
+func SettingsEncryptSync() string { return In(i18n.Locale()).SettingsEncryptSync() }
+
+// SettingsEncryptSync says "Package Encryption"
+// in the language of msgs.
+func (msgs Messages) SettingsEncryptSync() string {
+	return Catalog.Format(msgs.locale, "settingsEncryptSync", nil)
+}
+
+// SettingsEncryptSyncHint says "Uses AES-256-GCM and scrypt key derivation to protect student privacy"
+// in the language the app shows.
+func SettingsEncryptSyncHint() string { return In(i18n.Locale()).SettingsEncryptSyncHint() }
+
+// SettingsEncryptSyncHint says "Uses AES-256-GCM and scrypt key derivation to protect student privacy"
+// in the language of msgs.
+func (msgs Messages) SettingsEncryptSyncHint() string {
+	return Catalog.Format(msgs.locale, "settingsEncryptSyncHint", nil)
+}
+
+// SettingsSyncPassword says "Sync Password"
+// in the language the app shows.
+func SettingsSyncPassword() string { return In(i18n.Locale()).SettingsSyncPassword() }
+
+// SettingsSyncPassword says "Sync Password"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncPassword() string {
+	return Catalog.Format(msgs.locale, "settingsSyncPassword", nil)
+}
+
+// SettingsSyncPasswordHint says "Used to encrypt and decrypt packages; must match across all computers"
+// in the language the app shows.
+func SettingsSyncPasswordHint() string { return In(i18n.Locale()).SettingsSyncPasswordHint() }
+
+// SettingsSyncPasswordHint says "Used to encrypt and decrypt packages; must match across all computers"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncPasswordHint() string {
+	return Catalog.Format(msgs.locale, "settingsSyncPasswordHint", nil)
+}
+
+// SettingsTestConnection says "Test Connection"
+// in the language the app shows.
+func SettingsTestConnection() string { return In(i18n.Locale()).SettingsTestConnection() }
+
+// SettingsTestConnection says "Test Connection"
+// in the language of msgs.
+func (msgs Messages) SettingsTestConnection() string {
+	return Catalog.Format(msgs.locale, "settingsTestConnection", nil)
+}
+
+// SettingsConnectionSuccess says "Connection test succeeded, remote directory ready"
+// in the language the app shows.
+func SettingsConnectionSuccess() string { return In(i18n.Locale()).SettingsConnectionSuccess() }
+
+// SettingsConnectionSuccess says "Connection test succeeded, remote directory ready"
+// in the language of msgs.
+func (msgs Messages) SettingsConnectionSuccess() string {
+	return Catalog.Format(msgs.locale, "settingsConnectionSuccess", nil)
+}
+
+// SettingsSyncNow says "Upload to Cloud"
+// in the language the app shows.
+func SettingsSyncNow() string { return In(i18n.Locale()).SettingsSyncNow() }
+
+// SettingsSyncNow says "Upload to Cloud"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncNow() string {
+	return Catalog.Format(msgs.locale, "settingsSyncNow", nil)
+}
+
+// SettingsPullNow says "Pull from Cloud"
+// in the language the app shows.
+func SettingsPullNow() string { return In(i18n.Locale()).SettingsPullNow() }
+
+// SettingsPullNow says "Pull from Cloud"
+// in the language of msgs.
+func (msgs Messages) SettingsPullNow() string {
+	return Catalog.Format(msgs.locale, "settingsPullNow", nil)
+}
+
+// SettingsSyncStatusTitle says "Sync Status"
+// in the language the app shows.
+func SettingsSyncStatusTitle() string { return In(i18n.Locale()).SettingsSyncStatusTitle() }
+
+// SettingsSyncStatusTitle says "Sync Status"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncStatusTitle() string {
+	return Catalog.Format(msgs.locale, "settingsSyncStatusTitle", nil)
+}
+
+// SettingsLastSyncTime says "Last sync: %s"
+// in the language the app shows.
+func SettingsLastSyncTime() string { return In(i18n.Locale()).SettingsLastSyncTime() }
+
+// SettingsLastSyncTime says "Last sync: %s"
+// in the language of msgs.
+func (msgs Messages) SettingsLastSyncTime() string {
+	return Catalog.Format(msgs.locale, "settingsLastSyncTime", nil)
+}
+
+// SettingsLastSyncDevice says "Last device: %s"
+// in the language the app shows.
+func SettingsLastSyncDevice() string { return In(i18n.Locale()).SettingsLastSyncDevice() }
+
+// SettingsLastSyncDevice says "Last device: %s"
+// in the language of msgs.
+func (msgs Messages) SettingsLastSyncDevice() string {
+	return Catalog.Format(msgs.locale, "settingsLastSyncDevice", nil)
+}
+
+// SettingsSyncStatusUpToDate says "Data is up to date"
+// in the language the app shows.
+func SettingsSyncStatusUpToDate() string { return In(i18n.Locale()).SettingsSyncStatusUpToDate() }
+
+// SettingsSyncStatusUpToDate says "Data is up to date"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncStatusUpToDate() string {
+	return Catalog.Format(msgs.locale, "settingsSyncStatusUpToDate", nil)
+}
+
+// SettingsSyncStatusCanPush says "Local changes ready to upload"
+// in the language the app shows.
+func SettingsSyncStatusCanPush() string { return In(i18n.Locale()).SettingsSyncStatusCanPush() }
+
+// SettingsSyncStatusCanPush says "Local changes ready to upload"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncStatusCanPush() string {
+	return Catalog.Format(msgs.locale, "settingsSyncStatusCanPush", nil)
+}
+
+// SettingsSyncStatusCanPull says "Cloud updates ready to pull"
+// in the language the app shows.
+func SettingsSyncStatusCanPull() string { return In(i18n.Locale()).SettingsSyncStatusCanPull() }
+
+// SettingsSyncStatusCanPull says "Cloud updates ready to pull"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncStatusCanPull() string {
+	return Catalog.Format(msgs.locale, "settingsSyncStatusCanPull", nil)
+}
+
+// SettingsSyncStatusConflict says "Concurrent modifications detected"
+// in the language the app shows.
+func SettingsSyncStatusConflict() string { return In(i18n.Locale()).SettingsSyncStatusConflict() }
+
+// SettingsSyncStatusConflict says "Concurrent modifications detected"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncStatusConflict() string {
+	return Catalog.Format(msgs.locale, "settingsSyncStatusConflict", nil)
+}
+
+// SettingsSyncSuccess says "Successfully synced and uploaded package to cloud"
+// in the language the app shows.
+func SettingsSyncSuccess() string { return In(i18n.Locale()).SettingsSyncSuccess() }
+
+// SettingsSyncSuccess says "Successfully synced and uploaded package to cloud"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncSuccess() string {
+	return Catalog.Format(msgs.locale, "settingsSyncSuccess", nil)
+}
+
+// SettingsPullSuccess says "Successfully pulled and restored package from cloud"
+// in the language the app shows.
+func SettingsPullSuccess() string { return In(i18n.Locale()).SettingsPullSuccess() }
+
+// SettingsPullSuccess says "Successfully pulled and restored package from cloud"
+// in the language of msgs.
+func (msgs Messages) SettingsPullSuccess() string {
+	return Catalog.Format(msgs.locale, "settingsPullSuccess", nil)
+}
+
+// SettingsSyncConflictModalTitle says "Cloud Sync Conflict"
+// in the language the app shows.
+func SettingsSyncConflictModalTitle() string {
+	return In(i18n.Locale()).SettingsSyncConflictModalTitle()
+}
+
+// SettingsSyncConflictModalTitle says "Cloud Sync Conflict"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncConflictModalTitle() string {
+	return Catalog.Format(msgs.locale, "settingsSyncConflictModalTitle", nil)
+}
+
+// SettingsSyncConflictModalBody says "Both local and cloud versions have changes. If you overwrite, a local backup will be created automatically before rep…"
+// in the language the app shows.
+func SettingsSyncConflictModalBody() string { return In(i18n.Locale()).SettingsSyncConflictModalBody() }
+
+// SettingsSyncConflictModalBody says "Both local and cloud versions have changes. If you overwrite, a local backup will be created automatically before rep…"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncConflictModalBody() string {
+	return Catalog.Format(msgs.locale, "settingsSyncConflictModalBody", nil)
+}
+
+// SettingsSyncConflictOverwrite says "Overwrite with Cloud (Auto Backup)"
+// in the language the app shows.
+func SettingsSyncConflictOverwrite() string { return In(i18n.Locale()).SettingsSyncConflictOverwrite() }
+
+// SettingsSyncConflictOverwrite says "Overwrite with Cloud (Auto Backup)"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncConflictOverwrite() string {
+	return Catalog.Format(msgs.locale, "settingsSyncConflictOverwrite", nil)
+}
+
+// SettingsSyncConflictCancel says "Cancel and Keep Local"
+// in the language the app shows.
+func SettingsSyncConflictCancel() string { return In(i18n.Locale()).SettingsSyncConflictCancel() }
+
+// SettingsSyncConflictCancel says "Cancel and Keep Local"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncConflictCancel() string {
+	return Catalog.Format(msgs.locale, "settingsSyncConflictCancel", nil)
+}
+
+// SettingsSaveSync says "Save Sync Settings"
+// in the language the app shows.
+func SettingsSaveSync() string { return In(i18n.Locale()).SettingsSaveSync() }
+
+// SettingsSaveSync says "Save Sync Settings"
+// in the language of msgs.
+func (msgs Messages) SettingsSaveSync() string {
+	return Catalog.Format(msgs.locale, "settingsSaveSync", nil)
+}
+
+// SettingsSyncSaved says "Sync settings saved"
+// in the language the app shows.
+func SettingsSyncSaved() string { return In(i18n.Locale()).SettingsSyncSaved() }
+
+// SettingsSyncSaved says "Sync settings saved"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncSaved() string {
+	return Catalog.Format(msgs.locale, "settingsSyncSaved", nil)
+}
+
+// SettingsInsecureHTTPWarning says "Warning: HTTP connection is unencrypted; data could be intercepted. HTTPS is recommended."
+// in the language the app shows.
+func SettingsInsecureHTTPWarning() string { return In(i18n.Locale()).SettingsInsecureHTTPWarning() }
+
+// SettingsInsecureHTTPWarning says "Warning: HTTP connection is unencrypted; data could be intercepted. HTTPS is recommended."
+// in the language of msgs.
+func (msgs Messages) SettingsInsecureHTTPWarning() string {
+	return Catalog.Format(msgs.locale, "settingsInsecureHTTPWarning", nil)
+}

@@ -56,6 +56,14 @@ func newTestApp(t *testing.T) *app {
 		page:               pagePlans,
 		systemAcademicYear: 2026,
 		academicYearStart:  2026,
+		secrets:            newMemorySecrets(),
+		syncLoaded:         true,
+		syncSettings: store.SyncSettings{
+			RemoteDir:      "Tally",
+			DeviceID:       "test-dev",
+			DeviceName:     "Test PC",
+			EncryptEnabled: true,
+		},
 	}
 	t.Cleanup(func() {
 		if a.store == nil {

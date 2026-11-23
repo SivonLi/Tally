@@ -202,6 +202,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	statements = append(statements, batchSchema()...)
 	statements = append(statements, cohortSchema()...)
 	statements = append(statements, savedViewsSchema()...)
+	statements = append(statements, syncSchema()...)
 	if _, err := s.db.Transaction(ctx, statements); err != nil {
 		return err
 	}
