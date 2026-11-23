@@ -140,15 +140,6 @@ Go 由 mise 管理，版本写在 `.mise.toml`：
 eval "$(mise activate zsh)"
 ```
 
-## 界面测试
-
-验证 `build/` 里的产物时按 `docs/ui-testing.md` 操作：
-
-- 测试前执行 `scripts/ui-test/app.sh snapshot`，测试结束执行 `scripts/ui-test/app.sh restore --start`。
-- 中间文件、导出文件和日志只写 `.scratch/ui-test/`。
-- 用 `scripts/ui-test/ax.js` 读取控件树、点击、输入和选择文件，不记录具体按钮的位置和文字。
-- 视觉检查用 `ax.js visual` 一次完成截图、控件位置快照和对比度检查，再查看 PNG 确认；检查清单见文档，截图只用于发现视觉问题，定位仍用控件树。
-
 ## 完成前
 
 按 `CONSTRAINTS.md` 逐条核对。没有当场跑出的结果，不允许声称完成。

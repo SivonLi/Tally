@@ -11,7 +11,6 @@
 | `docs/design-roadmap.md` | 后续阶段划分、目标数据模型、历史数据、同步与迁移 | 规划后续阶段、同步、历史分析前 |
 | `docs/historical-data-checklist.md` | 真实历史数据的目录层级、工作簿与工作表角色、读取规则和说明模板 | 整理或者导入历史数据前 |
 | `docs/release.md` | 发布流程 | 发布前 |
-| `docs/ui-testing.md` | 构建产物的界面测试工具、截图检查和操作流程 | 验证 `build/` 产物、界面改动回归前 |
 | `docs/commits.md` | 提交规范 | 提交前 |
 | `AGENTS.md` | 工程规则和技能路由 | 每个新会话开始时 |
 | `.agents/skills/README.md` | 项目技能索引和锁定范围 | 选择技能或者新增技能时 |
