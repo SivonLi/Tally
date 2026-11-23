@@ -522,10 +522,7 @@ func (a *app) importWizardPage(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
-			if textButton(c, locales.Back()).Children(func() {
-				ui.Icon(c, iconArrowLeft).FontSize(t.Space(4))
-				ui.Text(c, locales.Back()).FontSize(bodySize(t))
-			}).Clicked() {
+			if backButton(c, p).Clicked() {
 				a.closeImportWizard()
 			}
 			ui.Column(c).Grow(1).Gap(0).Children(func() {

@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	"strconv"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/i18n"
 
 	"tally/internal/exporter"
 	"tally/internal/store"
@@ -203,32 +203,35 @@ func (a *app) chooseAnalysisExport() {
 	cohort := a.selectedCohort()
 	cohortName := ""
 	if cohort != nil {
-		cohortName = strconv.Itoa(cohort.EnrollmentYear) + "级"
+		cohortName = a.cohortName(cohort.EnrollmentYear)
+		if i18n.Locale() == "en" {
+			cohortName += " "
+		}
 	}
-	defaultName := "分析报告.xlsx"
+	defaultName := locales.AnalysisReportDefaultFileName()
 	switch a.analysisTabIndex {
 	case 0:
-		defaultName = cohortName + a.analysisTeacherName + "教师趋势.xlsx"
+		defaultName = fmt.Sprintf(locales.AnalysisExportTeacherTrend(), cohortName, a.analysisTeacherName)
 	case 1:
 		clsName := a.analysisClassResult.ClassName
 		if clsName == "" {
-			clsName = "班级"
+			clsName = locales.ColumnClass()
 		}
-		defaultName = cohortName + clsName + "趋势.xlsx"
+		defaultName = fmt.Sprintf(locales.AnalysisExportClassTrend(), cohortName, clsName)
 	case 2:
 		subjName := a.subjectName(a.analysisSubject, a.analysisSubject)
 		if subjName == "" {
-			subjName = "学科"
+			subjName = locales.ColumnSubject()
 		}
-		defaultName = cohortName + subjName + "对比.xlsx"
+		defaultName = fmt.Sprintf(locales.AnalysisExportSubjectComparison(), cohortName, subjName)
 	case 3:
 		stuName := a.analysisStudentResult.StudentName
 		if stuName == "" {
-			stuName = "学生"
+			stuName = locales.NavStudents()
 		}
-		defaultName = cohortName + stuName + "追踪.xlsx"
+		defaultName = fmt.Sprintf(locales.AnalysisExportStudentTracking(), cohortName, stuName)
 	case 4:
-		defaultName = cohortName + "考核并排对比.xlsx"
+		defaultName = fmt.Sprintf(locales.AnalysisExportAssessmentComparison(), cohortName)
 	}
 
 	go func() {

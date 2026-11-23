@@ -69,7 +69,7 @@ func (a *app) view(c *ui.Context) {
 	page.Children(func() {
 		a.sidebar(c, p)
 		top, right, bottom, left := pageInsets(c)
-		ui.Column(c).Grow(1).MinWidth(0).FillHeight().Background(p.canvas).
+		ui.Column(c).Grow(1).Shrink(1).MinHeight(0).MinWidth(0).FillHeight().Background(p.canvas).
 			Padding(top, right, bottom, left).Role(ui.RoleMain).Children(func() {
 			if a.loadError != "" {
 				notice(c, p, noticeDanger, locales.PlanLoadError()+": "+a.loadError)
@@ -89,21 +89,22 @@ func (a *app) view(c *ui.Context) {
 // sidebar 是唯一的导航入口，顶部为级切换，底部为帮助与设置。
 func (a *app) sidebar(c *ui.Context, p uiPalette) {
 	t := p.theme
-	top := t.Space(4)
+	top := t.Space(2)
 	if c.TitleBar().Left > 0 {
 		top = topStrip(c) + 4
 	}
 	side := ui.Column(c).Width(sidebarWidth).Shrink(0).FillHeight().
-		Padding(top, t.Space(4), t.Space(4), t.Space(4)).
-		Gap(t.Space(1)).DragWindow()
+		Padding(top, t.Space(4), t.Space(2), t.Space(4)).
+		Gap(t.Space(0.5)).DragWindow()
 	if !c.Vibrancy() {
 		side.Background(p.panelMuted)
 	}
 	side.Children(func() {
 		a.cohortSwitcher(c, p)
 		// 负边距抵消滚动条占位，左右补偿统一为 8。
-		ui.Scroll(c.Key("nav")).Grow(1).Margin(0, -t.Space(2)).Padding(0, t.Space(2)).
-			Gap(t.Space(0.5)).Children(func() {
+		ui.Scroll(c.Key("nav")).Grow(1).Shrink(1).MinHeight(0).
+			Margin(0, -t.Space(2)).Padding(0, t.Space(2)).
+			Gap(0).Children(func() {
 			a.navItem(c, p, pageOverview, iconHome, locales.NavOverview())
 			a.navSection(c, p, locales.NavGroupData())
 			a.navItem(c, p, pageCohorts, iconCohort, locales.NavCohorts())
@@ -122,7 +123,7 @@ func (a *app) sidebar(c *ui.Context, p uiPalette) {
 			a.navItem(c, p, pagePlans, iconPlans, locales.NavPlans())
 		})
 		rule(c)
-		ui.Column(c).Gap(t.Space(0.5)).Padding(t.Space(1.5), 0, 0, 0).Children(func() {
+		ui.Column(c).Gap(0).Padding(t.Space(1), 0, 0, 0).Children(func() {
 			a.sidebarAction(c, p, iconHelp, locales.NavHelp(), func() {
 				a.page = pageHelp
 			})
@@ -141,7 +142,7 @@ func (a *app) cohortSwitcher(c *ui.Context, p uiPalette) {
 		return
 	}
 	t := p.theme
-	height := t.Space(9)
+	height := t.Space(7)
 	chosen := a.selectedCohortID
 	sel := ui.SelectBase(c.Key("cohort"), &chosen)
 	trigger := sel.Trigger.Height(height).PaddingX(t.Space(2)).Gap(t.Space(1)).
@@ -151,7 +152,7 @@ func (a *app) cohortSwitcher(c *ui.Context, p uiPalette) {
 		trigger.Absolute().Top((topStrip(c) - height) / 2).Left(left + t.Space(3)).
 			MaxWidth(sidebarWidth - left - t.Space(5.5))
 	} else {
-		trigger.AlignSelf(ui.Stretch).Margin(0, 0, t.Space(1), 0)
+		trigger.AlignSelf(ui.Stretch).Margin(0, 0, 0, 0)
 	}
 	color := p.muted
 	if trigger.Hovered() || sel.Open() {
@@ -266,7 +267,7 @@ func (a *app) selectStageByID(id string) {
 // navSection 是导航里的分组标题。
 func (a *app) navSection(c *ui.Context, p uiPalette, title string) {
 	ui.Text(c, title).FontSize(captionSize(p.theme)).FontWeight(600).TextColor(p.ink).
-		Padding(p.theme.Space(2), p.theme.Space(2), p.theme.Space(0.5), p.theme.Space(2)).
+		Padding(p.theme.Space(1), p.theme.Space(2), 0, p.theme.Space(2)).
 		SingleLine()
 }
 

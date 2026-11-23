@@ -359,7 +359,7 @@ func (a *app) analysisTeacherTrendTab(c *ui.Context, p uiPalette) {
 					ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
 						ui.Text(c, pt.ExamName).FontSize(bodySize(t)).FontWeight(600).Grow(1)
 						ui.Text(c, pt.ExamDate).FontSize(captionSize(t)).TextColor(p.muted)
-						ui.Text(c, formatDecimal(pt.PersonalScore, 1)+" 分").FontSize(bodySize(t)).FontWeight(600).FontFeatures("tnum")
+						ui.Text(c, fmt.Sprintf(locales.AnalysisScorePoints(), formatDecimal(pt.PersonalScore, 1))).FontSize(bodySize(t)).FontWeight(600).FontFeatures("tnum")
 					})
 					for _, r := range pt.Rows {
 						r := r

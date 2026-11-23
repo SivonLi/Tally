@@ -178,6 +178,7 @@ func metricInline(c *ui.Context, p uiPalette, value uint64, label string) {
 }
 
 func notice(c *ui.Context, p uiPalette, tone noticeTone, text string) {
+	text = localizeErrorMessage(text)
 	t := p.theme
 	accent, icon, background := p.info, lucide.Info, p.infoSoft
 	switch tone {
@@ -284,13 +285,37 @@ func pageActionButton(c *ui.Context, label string) ui.Element {
 func linkRow(c *ui.Context, p uiPalette, label string, body func()) ui.Element {
 	t := p.theme
 	element := action.StyleButton(c, ui.ButtonBase(c), "", action.ButtonProps{Variant: action.Text}).
-		FillWidth().Label(label).MinHeight(t.Space(9)).
-		Padding(t.Space(2), t.Space(3)).Radius(t.Space(1.5))
+		FillWidth().Label(label).Height(0).MinHeight(t.Space(14)).
+		Padding(t.Space(3), t.Space(3)).Radius(t.Space(1.5))
 	if element.Hovered() {
 		element.Background(p.hover)
 	}
 	element.Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).Children(body)
+	})
+	return element
+}
+
+// listRowButton 是用于列表项的透明背景文字按钮，只设置无障碍名称，不插入重复的视觉文本。
+func listRowButton(c *ui.Context, label string) ui.Element {
+	t := *c.Theme()
+	element := action.StyleButton(c, ui.ButtonBase(c), "", action.ButtonProps{Variant: action.Text})
+	return element.FillWidth().Label(label).FontSize(bodySize(t)).Cursor(ui.CursorPointer).
+		Radius(t.Space(1.5))
+}
+
+// backButton 是统一的返回按钮，带左箭头图标与返回文案。
+func backButton(c *ui.Context, p uiPalette) ui.Element {
+	t := p.theme
+	tk := theme.TokensOf(c)
+	element := action.StyleButton(c, ui.ButtonBase(c), "", action.ButtonProps{Variant: action.Text}).
+		Height(tk.ControlHeight).Padding(t.Space(1.5), t.Space(2)).Radius(t.Space(1.5)).
+		Label(locales.Back()).Cursor(ui.CursorPointer)
+	element.Children(func() {
+		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(1.5)).Children(func() {
+			ui.Icon(c, iconArrowLeft).FontSize(t.Space(4))
+			ui.Text(c, locales.Back()).FontSize(bodySize(t)).SingleLine()
+		})
 	})
 	return element
 }
@@ -393,7 +418,7 @@ func searchField(c *ui.Context, value *string, label, placeholder string) ui.Ele
 	t := *c.Theme()
 	tk := theme.TokensOf(c)
 	return ui.SearchField(c, value).Label(label).Placeholder(placeholder).
-		MinHeight(tk.ControlHeight).FontSize(bodySize(t))
+		MinHeight(tk.ControlHeight).FontSize(bodySize(t)).FillWidth()
 }
 
 // dateField 是 36 高、16 字号的日期选择框。
@@ -404,16 +429,13 @@ func dateField(c *ui.Context, value *time.Time, label string, props field.DatePi
 		Height(tk.ControlHeight).FontSize(bodySize(t)).Radius(tk.BorderRadius)
 }
 
-func styleInputRow(root ui.Element, tk *theme.Tokens, focused bool) {
-	hovered := root.Hovered() && !focused && !root.IsDisabled()
-	border := tk.BorderSecondary
-	if hovered {
-		border = tk.Border
-	}
+func styleInputRow(c *ui.Context, root ui.Element, focused bool) {
+	p := uiPaletteFor(c)
+	border := p.borderStrong
 	if focused {
-		border = tk.Primary
+		border = p.accent
 	}
-	root.Background(tk.BgContainer).Border(1, border)
+	root.Background(p.panel).Border(1, border)
 }
 
 // textField 是 36 高、16 字号的单行输入框。
@@ -425,7 +447,7 @@ func textField(c *ui.Context, value *string, label, placeholder string) ui.Eleme
 		input = ui.TextInputBase(c, value).Grow(1).Height(tk.ControlHeight).Placeholder(placeholder).
 			PlaceholderColor(tk.TextPlaceholder)
 	})
-	styleInputRow(root, tk, input.Focused())
+	styleInputRow(c, root, input.Focused())
 	input.Label(label)
 	return input
 }
@@ -442,7 +464,7 @@ func textAreaField(c *ui.Context, value *string, label, placeholder string, minR
 		area = ui.TextAreaBase(c, value).Lines(minRows, maxRows).FocusRing(false).
 			Placeholder(placeholder).PlaceholderColor(tk.TextPlaceholder)
 	})
-	styleInputRow(root, tk, area.Focused())
+	styleInputRow(c, root, area.Focused())
 	area.Label(label)
 	return area
 }
@@ -477,7 +499,7 @@ func passwordField(c *ui.Context, value *string, label, placeholder string) ui.E
 			ui.Icon(c, glyph).FontSize(t.Space(4))
 		})
 	})
-	styleInputRow(root, tk, input.Focused())
+	styleInputRow(c, root, input.Focused())
 	input.Label(label)
 	return input
 }
@@ -548,7 +570,7 @@ func numberField(c *ui.Context, value *float64, lo, hi, step float64, label stri
 			}
 		})
 	})
-	styleInputRow(root, tk, input.Focused())
+	styleInputRow(c, root, input.Focused())
 	input.Label(label)
 	return input
 }
@@ -572,18 +594,23 @@ func numberControl(c *ui.Context, glyph *ui.SVG, label string) bool {
 func segmentedField(c *ui.Context, selected *int, labels []string, label string) ui.Element {
 	t := *c.Theme()
 	tk := theme.TokensOf(c)
+	p := uiPaletteFor(c)
 	parts := ui.SegmentedBase(c, selected, len(labels))
 	track := parts.Track.Height(tk.ControlHeight).Padding(t.Space(1)).
 		Gap(t.Space(1)).Radius(tk.BorderRadiusLG).
 		Background(tk.BgLayout).Border(1, tk.FillQuaternary)
 	track.Label(label)
 	track.Children(func() {
+		ui.Box(c).Absolute().Left(0).Right(0).Bottom(0).Height(1).
+			Background(p.borderStrong).ZIndex(-1)
 		for index, option := range labels {
 			segment := parts.Segment(index).FillHeight().PaddingX(t.Space(4)).
 				Radius(tk.BorderRadius).FontSize(bodySize(t)).FontWeight(500).
 				Cursor(ui.CursorPointer)
 			color := tk.TextSecondary
-			if index == *selected || segment.Hovered() {
+			if index == *selected {
+				color = p.accent
+			} else if segment.Hovered() {
 				color = tk.Text
 			}
 			pose := ui.Pose{}
@@ -594,8 +621,10 @@ func segmentedField(c *ui.Context, selected *int, labels []string, label string)
 			segment.Children(func() {
 				if index == *selected {
 					ui.Box(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).
-						Radius(tk.BorderRadius).Background(tk.BgElevated).
-						ZIndex(-1).Transition(segmentSlide)
+						Radius(tk.BorderRadius).Background(p.accentSoft).
+						Border(1, p.accent).ZIndex(-1).Transition(segmentSlide)
+					ui.Box(c).Absolute().Left(0).Right(0).Bottom(0).Height(2).
+						Background(p.accent).ZIndex(1)
 				}
 				ui.Text(c, option).SingleLine()
 			})

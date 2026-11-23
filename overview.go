@@ -255,9 +255,8 @@ func (a *app) recentExamsPanel(c *ui.Context, p uiPalette) {
 			}
 			shown++
 			exam := exam
-			row := textButton(c, a.examBatchLabel(exam)).FillWidth().
-				MinHeight(t.Space(9)).Padding(t.Space(2), t.Space(3)).
-				Radius(t.Space(1.5)).
+			row := listRowButton(c, a.examBatchLabel(exam)).
+				Height(0).MinHeight(t.Space(14)).Padding(t.Space(3), t.Space(3)).
 				Background(ui.Transparent).AlignItems(ui.Center)
 			row.Children(func() {
 				ui.Column(c).Grow(1).Gap(0).Children(func() {
@@ -392,9 +391,13 @@ func (a *app) cohortPage(c *ui.Context, p uiPalette) {
 				notice(c, p, noticeInfo, locales.StageReadOnly())
 			}
 			ui.Split(c, &a.cohortSidebarWidth, func() {
-				a.cohortSidebar(c, p)
+				ui.Column(c).Fill().MinWidth(0).Clip().Padding(0, t.Space(4), 0, 0).Children(func() {
+					a.cohortSidebar(c, p)
+				})
 			}, func() {
-				a.cohortDetails(c, p)
+				ui.Column(c).Fill().MinWidth(0).Padding(0, 0, 0, t.Space(4)).Children(func() {
+					a.cohortDetails(c, p)
+				})
 			}).Grow(1)
 		}
 	})
@@ -429,73 +432,72 @@ func (a *app) cohortDetails(c *ui.Context, p uiPalette) {
 		})
 		return
 	}
-	ui.Scroll(c).Fill().Children(func() {
-		ui.Column(c).FillWidth().Gap(t.Space(4)).Children(func() {
-			section(c, p, func() {
-				ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
-					ui.Column(c).Grow(1).Gap(t.Space(1)).Children(func() {
-						ui.Text(c, a.cohortName(cohort.EnrollmentYear)).FontSize(sectionSize(t)).FontWeight(600)
-						ui.Text(c, a.classOfName(cohort.GraduationYear)).FontSize(bodySize(t)).
-							TextColor(p.muted)
-					})
-					badge(c, p, locales.CohortActive(), toneSuccess)
+	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
+		section(c, p, func() {
+			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
+				ui.Column(c).Grow(1).Gap(t.Space(1)).Children(func() {
+					ui.Text(c, a.cohortName(cohort.EnrollmentYear)).FontSize(sectionSize(t)).FontWeight(600)
+					ui.Text(c, a.classOfName(cohort.GraduationYear)).FontSize(bodySize(t)).
+						TextColor(p.muted)
 				})
-				ui.Row(c).Gap(t.Space(7)).Children(func() {
-					metric(c, p, strconv.Itoa(cohort.EnrollmentYear), locales.EnrollmentYear())
-					metric(c, p, strconv.Itoa(cohort.GraduationYear), locales.CohortGraduation())
-					metric(c, p, strconv.Itoa(len(a.cohortStages)), locales.CohortStageHistory())
-					metric(c, p, strconv.Itoa(a.stageCounts.Students), locales.ReadinessStudents())
-				})
+				badge(c, p, locales.CohortActive(), toneSuccess)
 			})
-			sectionRule(c, p, func() {
-				sectionHeading(c, p, locales.CohortStageHistory(), len(a.cohortStages))
-				if len(a.cohortStages) == 0 {
-					smallEmptyState(c, p, locales.CohortNoStages())
-					return
-				}
-				for _, stage := range a.cohortStages {
-					ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).
-						Padding(t.Space(2), 0).Children(func() {
-						ui.Text(c, a.stageName(stage.GradeLevel)).FontSize(bodySize(t)).Width(t.Space(18))
-						ui.Text(c, a.academicYearLabel(stage.AcademicYearStart)).FontSize(bodySize(t)).
-							TextColor(p.inkSecondary).Grow(1)
-						if stage.ReviewStatus == "pending" {
-							badge(c, p, locales.CohortPending(), toneWarning)
-						} else {
-							badge(c, p, locales.CohortConfirmed(), toneSuccess)
-						}
-					})
-					rule(c)
-				}
+			ui.Row(c).Gap(t.Space(7)).Children(func() {
+				metric(c, p, strconv.Itoa(cohort.EnrollmentYear), locales.EnrollmentYear())
+				metric(c, p, strconv.Itoa(cohort.GraduationYear), locales.CohortGraduation())
+				metric(c, p, strconv.Itoa(len(a.cohortStages)), locales.CohortStageHistory())
+				metric(c, p, strconv.Itoa(a.stageCounts.Students), locales.ReadinessStudents())
 			})
-			sectionRule(c, p, func() {
-				sectionHeading(c, p, locales.CohortClasses(), len(a.classes))
-				if len(a.classes) == 0 {
-					smallEmptyState(c, p, locales.CohortNoClasses())
-					return
-				}
-				a.classTable.RowHeight = t.Space(10)
-				columns := []ui.TableColumn{
-					{Title: locales.ColumnClass(), Width: t.Space(24)},
-					{Title: locales.ReadinessStudents(), Width: 0, Align: ui.End},
-					{Title: locales.ClassHeadTeacher(), Width: 0},
-				}
-				ui.Table(c, &a.classTable, columns, len(a.classes), func(row, col int) {
-					class := a.classes[row]
-					switch col {
-					case 0:
-						ui.Text(c, class.Name).SingleLine()
-					case 1:
-						ui.Text(c, formatInt(class.Students)).FontFeatures("tnum")
-					case 2:
-						if class.HeadTeacher == "" {
-							ui.Text(c, "-").TextColor(p.muted)
-						} else {
-							ui.Text(c, class.HeadTeacher).SingleLine()
-						}
+		})
+		sectionRule(c, p, func() {
+			sectionHeading(c, p, locales.CohortStageHistory(), len(a.cohortStages))
+			if len(a.cohortStages) == 0 {
+				smallEmptyState(c, p, locales.CohortNoStages())
+				return
+			}
+			for _, stage := range a.cohortStages {
+				ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).
+					Padding(t.Space(2), 0).Children(func() {
+					ui.Text(c, a.stageName(stage.GradeLevel)).FontSize(bodySize(t)).Width(t.Space(18))
+					ui.Text(c, a.academicYearLabel(stage.AcademicYearStart)).FontSize(bodySize(t)).
+						TextColor(p.inkSecondary).Grow(1)
+					if stage.ReviewStatus == "pending" {
+						badge(c, p, locales.CohortPending(), toneWarning)
+					} else {
+						badge(c, p, locales.CohortConfirmed(), toneSuccess)
 					}
-				}).Label(locales.CohortClasses()).Height(t.Space(64))
-			})
+				})
+				rule(c)
+			}
+		})
+		ui.Column(c).Grow(1).Shrink(1).MinHeight(0).Gap(t.Space(3)).Children(func() {
+			rule(c)
+			sectionHeading(c, p, locales.CohortClasses(), len(a.classes))
+			if len(a.classes) == 0 {
+				smallEmptyState(c, p, locales.CohortNoClasses())
+				return
+			}
+			a.classTable.RowHeight = t.Space(10)
+			columns := []ui.TableColumn{
+				{Title: locales.ColumnClass(), Width: t.Space(24)},
+				{Title: locales.ReadinessStudents(), Width: 0, Align: ui.End},
+				{Title: locales.ClassHeadTeacher(), Width: 0},
+			}
+			ui.Table(c, &a.classTable, columns, len(a.classes), func(row, col int) {
+				class := a.classes[row]
+				switch col {
+				case 0:
+					ui.Text(c, class.Name).SingleLine()
+				case 1:
+					ui.Text(c, formatInt(class.Students)).FontFeatures("tnum")
+				case 2:
+					if class.HeadTeacher == "" {
+						ui.Text(c, "-").TextColor(p.muted)
+					} else {
+						ui.Text(c, class.HeadTeacher).SingleLine()
+					}
+				}
+			}).Label(locales.CohortClasses()).Grow(1).Shrink(1).MinHeight(0).Fill()
 		})
 	})
 }

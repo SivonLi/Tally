@@ -9895,3 +9895,153 @@ func SettingsInsecureHTTPWarning() string { return In(i18n.Locale()).SettingsIns
 func (msgs Messages) SettingsInsecureHTTPWarning() string {
 	return Catalog.Format(msgs.locale, "settingsInsecureHTTPWarning", nil)
 }
+
+// SettingsSyncWebDAVURLRequired says "WebDAV server URL is required"
+// in the language the app shows.
+func SettingsSyncWebDAVURLRequired() string { return In(i18n.Locale()).SettingsSyncWebDAVURLRequired() }
+
+// SettingsSyncWebDAVURLRequired says "WebDAV server URL is required"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncWebDAVURLRequired() string {
+	return Catalog.Format(msgs.locale, "settingsSyncWebDAVURLRequired", nil)
+}
+
+// SettingsSyncCreateSnapshotFailed says "Failed to create upload snapshot: %v"
+// in the language the app shows.
+func SettingsSyncCreateSnapshotFailed() string {
+	return In(i18n.Locale()).SettingsSyncCreateSnapshotFailed()
+}
+
+// SettingsSyncCreateSnapshotFailed says "Failed to create upload snapshot: %v"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncCreateSnapshotFailed() string {
+	return Catalog.Format(msgs.locale, "settingsSyncCreateSnapshotFailed", nil)
+}
+
+// SettingsSyncReadSnapshotFailed says "Failed to read snapshot data: %v"
+// in the language the app shows.
+func SettingsSyncReadSnapshotFailed() string {
+	return In(i18n.Locale()).SettingsSyncReadSnapshotFailed()
+}
+
+// SettingsSyncReadSnapshotFailed says "Failed to read snapshot data: %v"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncReadSnapshotFailed() string {
+	return Catalog.Format(msgs.locale, "settingsSyncReadSnapshotFailed", nil)
+}
+
+// SettingsSyncOpenTempDBFailed says "Failed to open temporary database for verification: %v"
+// in the language the app shows.
+func SettingsSyncOpenTempDBFailed() string { return In(i18n.Locale()).SettingsSyncOpenTempDBFailed() }
+
+// SettingsSyncOpenTempDBFailed says "Failed to open temporary database for verification: %v"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncOpenTempDBFailed() string {
+	return Catalog.Format(msgs.locale, "settingsSyncOpenTempDBFailed", nil)
+}
+
+// SettingsSyncIntegrityCheckFailed says "Downloaded data failed SQLite integrity check, replacement aborted"
+// in the language the app shows.
+func SettingsSyncIntegrityCheckFailed() string {
+	return In(i18n.Locale()).SettingsSyncIntegrityCheckFailed()
+}
+
+// SettingsSyncIntegrityCheckFailed says "Downloaded data failed SQLite integrity check, replacement aborted"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncIntegrityCheckFailed() string {
+	return Catalog.Format(msgs.locale, "settingsSyncIntegrityCheckFailed", nil)
+}
+
+// SettingsSyncBackupFailed says "Failed to backup current database: %v"
+// in the language the app shows.
+func SettingsSyncBackupFailed() string { return In(i18n.Locale()).SettingsSyncBackupFailed() }
+
+// SettingsSyncBackupFailed says "Failed to backup current database: %v"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncBackupFailed() string {
+	return Catalog.Format(msgs.locale, "settingsSyncBackupFailed", nil)
+}
+
+// SettingsSyncCheckRemote says "Check Remote"
+// in the language the app shows.
+func SettingsSyncCheckRemote() string { return In(i18n.Locale()).SettingsSyncCheckRemote() }
+
+// SettingsSyncCheckRemote says "Check Remote"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncCheckRemote() string {
+	return Catalog.Format(msgs.locale, "settingsSyncCheckRemote", nil)
+}
+
+// AnalysisScorePoints says "%s pts"
+// in the language the app shows.
+func AnalysisScorePoints() string { return In(i18n.Locale()).AnalysisScorePoints() }
+
+// AnalysisScorePoints says "%s pts"
+// in the language of msgs.
+func (msgs Messages) AnalysisScorePoints() string {
+	return Catalog.Format(msgs.locale, "analysisScorePoints", nil)
+}
+
+// AnalysisReportDefaultFileName says "Analysis-Report.xlsx"
+// in the language the app shows.
+func AnalysisReportDefaultFileName() string { return In(i18n.Locale()).AnalysisReportDefaultFileName() }
+
+// AnalysisReportDefaultFileName says "Analysis-Report.xlsx"
+// in the language of msgs.
+func (msgs Messages) AnalysisReportDefaultFileName() string {
+	return Catalog.Format(msgs.locale, "analysisReportDefaultFileName", nil)
+}
+
+// AnalysisExportTeacherTrend says "%s%s-Teacher-Trend.xlsx"
+// in the language the app shows.
+func AnalysisExportTeacherTrend() string { return In(i18n.Locale()).AnalysisExportTeacherTrend() }
+
+// AnalysisExportTeacherTrend says "%s%s-Teacher-Trend.xlsx"
+// in the language of msgs.
+func (msgs Messages) AnalysisExportTeacherTrend() string {
+	return Catalog.Format(msgs.locale, "analysisExportTeacherTrend", nil)
+}
+
+// AnalysisExportClassTrend says "%s%s-Trend.xlsx"
+// in the language the app shows.
+func AnalysisExportClassTrend() string { return In(i18n.Locale()).AnalysisExportClassTrend() }
+
+// AnalysisExportClassTrend says "%s%s-Trend.xlsx"
+// in the language of msgs.
+func (msgs Messages) AnalysisExportClassTrend() string {
+	return Catalog.Format(msgs.locale, "analysisExportClassTrend", nil)
+}
+
+// AnalysisExportSubjectComparison says "%s%s-Comparison.xlsx"
+// in the language the app shows.
+func AnalysisExportSubjectComparison() string {
+	return In(i18n.Locale()).AnalysisExportSubjectComparison()
+}
+
+// AnalysisExportSubjectComparison says "%s%s-Comparison.xlsx"
+// in the language of msgs.
+func (msgs Messages) AnalysisExportSubjectComparison() string {
+	return Catalog.Format(msgs.locale, "analysisExportSubjectComparison", nil)
+}
+
+// AnalysisExportStudentTracking says "%s%s-Tracking.xlsx"
+// in the language the app shows.
+func AnalysisExportStudentTracking() string { return In(i18n.Locale()).AnalysisExportStudentTracking() }
+
+// AnalysisExportStudentTracking says "%s%s-Tracking.xlsx"
+// in the language of msgs.
+func (msgs Messages) AnalysisExportStudentTracking() string {
+	return Catalog.Format(msgs.locale, "analysisExportStudentTracking", nil)
+}
+
+// AnalysisExportAssessmentComparison says "%s-Assessment-Comparison.xlsx"
+// in the language the app shows.
+func AnalysisExportAssessmentComparison() string {
+	return In(i18n.Locale()).AnalysisExportAssessmentComparison()
+}
+
+// AnalysisExportAssessmentComparison says "%s-Assessment-Comparison.xlsx"
+// in the language of msgs.
+func (msgs Messages) AnalysisExportAssessmentComparison() string {
+	return Catalog.Format(msgs.locale, "analysisExportAssessmentComparison", nil)
+}

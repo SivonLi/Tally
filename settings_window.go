@@ -131,14 +131,15 @@ func (a *app) settingsView(c *ui.Context) {
 			}
 		})
 		ui.Column(c).Grow(1).MinWidth(0).FillHeight().Background(p.canvas).Children(func() {
-			ui.Scroll(c).Fill().Padding(topStrip(c)+t.Space(2), t.Space(7), t.Space(8), t.Space(7)).
-				Children(func() {
-					current.build(c, p)
-				})
-			ui.Row(c).Absolute().Top(0).Left(0).Right(0).Height(topStrip(c)).
+			ui.Row(c).FillWidth().Height(topStrip(c)).Shrink(0).
 				Padding(0, t.Space(7)).AlignItems(ui.Center).DragWindow().Children(func() {
 				ui.Text(c, current.title).FontSize(bodySize(t)).FontWeight(600)
 			})
+			ui.Scroll(c).Clip().Grow(1).Shrink(1).MinHeight(0).FillWidth().
+				Padding(t.Space(4), t.Space(7), t.Space(8), t.Space(7)).
+				Children(func() {
+					current.build(c, p)
+				})
 		})
 	})
 	a.restoreDialog(c, p)
@@ -231,7 +232,7 @@ func (a *app) settingsSubjectsSection(c *ui.Context, p uiPalette) {
 								textField(c, &subject.Name, locales.SubjectName(), "")
 							})
 							numberField(c, &subject.FullMark, 0, 300, 1, locales.SubjectFullMark()).
-								Width(t.Space(18))
+								Width(t.Space(28))
 							switchField(c, &subject.Enabled, locales.SubjectEnabled())
 						})
 					})

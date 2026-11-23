@@ -58,8 +58,8 @@ func (a *app) studentsPage(c *ui.Context, p uiPalette) {
 		if a.dataMessage != "" {
 			notice(c, p, noticeSuccess, a.dataMessage)
 		}
-		ui.Row(c).Grow(1).Gap(t.Space(3)).Children(func() {
-			ui.Column(c).Grow(1).Gap(t.Space(2)).Children(func() {
+		ui.Row(c).Grow(1).Shrink(1).MinHeight(0).AlignItems(ui.Stretch).Gap(t.Space(3)).Children(func() {
+			ui.Column(c).Grow(1).Shrink(1).MinHeight(0).FillHeight().Gap(t.Space(2)).Children(func() {
 				a.studentTable.RowHeight = t.Space(10)
 				selected := -1
 				for index, student := range a.students {
@@ -98,7 +98,7 @@ func (a *app) studentsPage(c *ui.Context, p uiPalette) {
 							ui.Text(c, formatDecimal(*student.TotalScore, 1)).FontFeatures("tnum")
 						}
 					}
-				}).Label(locales.NavStudents()).Grow(1).FillWidth()
+				}).Label(locales.NavStudents()).Grow(1).Shrink(1).MinHeight(0).Fill()
 				if table.Changed() && selected >= 0 {
 					a.selectStudent(a.students[selected].ID)
 				}
@@ -162,7 +162,7 @@ func (a *app) studentFilters(c *ui.Context, p uiPalette) {
 			}
 		}
 		nextTrack := chosenTrack
-		selectField(c, "students-track", &nextTrack, trackLabels, locales.DataFilterTrack()).Width(t.Space(24))
+		selectField(c, "students-track", &nextTrack, trackLabels, locales.DataFilterTrack()).Width(t.Space(32))
 		if nextTrack != chosenTrack {
 			a.dataTrackFilter = ""
 			for index, track := range a.tracks {
@@ -184,7 +184,7 @@ func (a *app) studentFilters(c *ui.Context, p uiPalette) {
 			}
 		}
 		nextStatus := chosenStatus
-		selectField(c, "students-status", &nextStatus, statusLabels, locales.DataFilterStatus()).Width(t.Space(24))
+		selectField(c, "students-status", &nextStatus, statusLabels, locales.DataFilterStatus()).Width(t.Space(32))
 		if nextStatus != chosenStatus {
 			for index, label := range statusLabels {
 				if label == nextStatus {
@@ -357,7 +357,7 @@ func (a *app) facultyPage(c *ui.Context, p uiPalette) {
 func (a *app) facultyFilters(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Row(c).FillWidth().Wrap().AlignItems(ui.End).Gap(t.Space(2)).Children(func() {
-		ui.Column(c).Width(t.Space(56)).Children(func() {
+		ui.Column(c).Width(t.Space(72)).Children(func() {
 			if a.facultyTab == 1 {
 				nextQuery := a.groupQuery
 				searchField(c, &nextQuery, locales.DataSearchGroups(), locales.DataSearchGroups())
@@ -433,7 +433,7 @@ func (a *app) groupFilters(c *ui.Context, p uiPalette) {
 	ui.Row(c).FillWidth().Wrap().AlignItems(ui.End).Gap(t.Space(2)).Children(func() {
 		ui.Column(c).Width(t.Space(56)).Children(func() {
 			nextQuery := a.groupQuery
-			ui.SearchField(c, &nextQuery).Label(locales.DataSearchGroups())
+			searchField(c, &nextQuery, locales.DataSearchGroups(), locales.DataSearchGroups())
 			if nextQuery != a.groupQuery {
 				a.groupQuery = nextQuery
 				a.reloadDataPages(context.Background())
@@ -573,7 +573,7 @@ func (a *app) baselinePage(c *ui.Context, p uiPalette) {
 func (a *app) baselineFilters(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Row(c).FillWidth().Wrap().AlignItems(ui.End).Gap(t.Space(2)).Children(func() {
-		ui.Column(c).Width(t.Space(56)).Children(func() {
+		ui.Column(c).Width(t.Space(72)).Children(func() {
 			nextQuery := a.baselineQuery
 			searchField(c, &nextQuery, locales.DataSearchBaseline(), locales.DataSearchBaseline())
 			if nextQuery != a.baselineQuery {
@@ -608,7 +608,7 @@ func (a *app) baselineFilters(c *ui.Context, p uiPalette) {
 
 func (a *app) importsPage(c *ui.Context, p uiPalette) {
 	t := p.theme
-	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
+	ui.Column(c).Fill().Gap(t.Space(2)).Children(func() {
 		pageHeading(c, p, locales.NavImports(), locales.ImportsPageSubtitle(), nil)
 		if !a.dataStageReady() {
 			a.noStageState(c, p, iconImports)
@@ -626,13 +626,13 @@ func (a *app) importsPage(c *ui.Context, p uiPalette) {
 			emptyState(c, p, iconImports, locales.ImportsEmpty(), locales.ImportsEmptyHint(), nil)
 			return
 		}
-		ui.Row(c).Grow(1).Gap(t.Space(3)).Children(func() {
-			ui.Scroll(c).Grow(1).Children(func() {
+		ui.Row(c).Grow(1).Shrink(1).MinHeight(0).AlignItems(ui.Start).Gap(t.Space(3)).Children(func() {
+			ui.Scroll(c).Grow(1).Shrink(1).MinHeight(0).Children(func() {
 				ui.Column(c).FillWidth().Gap(0).Dividers(1, p.border).Children(func() {
 					for _, run := range runs {
 						run := run
 						ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).
-							Padding(t.Space(3), 0).Children(func() {
+							Padding(t.Space(2), 0).Children(func() {
 							ui.Column(c).Grow(1).MinWidth(0).Gap(t.Space(0.5)).Children(func() {
 								ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
 									ui.Text(c, importFileLabel(run)).FontSize(bodySize(t)).
@@ -752,7 +752,7 @@ func importStatusName(status string) string {
 func (a *app) importFilters(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Row(c).FillWidth().AlignItems(ui.End).Gap(t.Space(2)).Children(func() {
-		ui.Column(c).Width(t.Space(56)).Children(func() {
+		ui.Column(c).Width(t.Space(72)).Children(func() {
 			nextQuery := a.importQuery
 			searchField(c, &nextQuery, locales.DataSearchImports(), locales.DataSearchImports())
 			if nextQuery != a.importQuery {

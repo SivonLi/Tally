@@ -45,13 +45,7 @@ func (a *app) prepPage(c *ui.Context, p uiPalette) {
 	editable := a.stageEditable()
 	ui.Column(c).Fill().Gap(t.Space(5)).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
-			back := textButton(c, locales.Back()).Padding(t.Space(1.5)).
-				Radius(t.Space(1.5)).Background(ui.Transparent)
-			back.Children(func() {
-				ui.Icon(c, iconArrowLeft).FontSize(t.Space(4)).TextColor(p.ink)
-				ui.Text(c, locales.Back()).FontSize(bodySize(t))
-			})
-			if back.Clicked() {
+			if backButton(c, p).Clicked() {
 				a.prepOpen = false
 			}
 			ui.Column(c).Grow(1).Gap(0).Children(func() {

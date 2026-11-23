@@ -244,8 +244,8 @@ func (a *app) qualityIssueRow(c *ui.Context, p uiPalette, issue store.ExamQualit
 		tone = toneDanger
 	}
 	label := a.examQualityText(issue)
-	element := textButton(c, label).FillWidth().
-		MinHeight(t.Space(9)).Padding(t.Space(2), t.Space(3)).Radius(t.Space(1.5)).
+	element := listRowButton(c, label).
+		Height(0).MinHeight(t.Space(14)).Padding(t.Space(3), t.Space(3)).
 		Background(ui.Transparent)
 	element.Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Start).Gap(t.Space(2)).Children(func() {

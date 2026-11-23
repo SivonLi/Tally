@@ -112,7 +112,7 @@ func (a *app) saveSyncSettings() {
 func (a *app) testWebDAVConnection() {
 	rawURL := strings.TrimSpace(a.syncSettings.WebDAVURL)
 	if rawURL == "" {
-		a.syncError = locales.SettingsWebDAVURL() + " 不能为空"
+		a.syncError = locales.SettingsSyncWebDAVURLRequired()
 		a.syncMessage = ""
 		a.invalidateSettings()
 		return
@@ -228,7 +228,7 @@ func (a *app) startSyncUpload() {
 		return
 	}
 	if err != nil {
-		a.syncError = fmt.Sprintf("创建上传快照失败: %v", err)
+		a.syncError = fmt.Sprintf(locales.SettingsSyncCreateSnapshotFailed(), err)
 		a.syncMessage = ""
 		a.invalidateSettings()
 		return
@@ -237,7 +237,7 @@ func (a *app) startSyncUpload() {
 	dbSnapshotPath := filepath.Join(backupDir, "tally.db")
 	dbBytes, err := os.ReadFile(dbSnapshotPath)
 	if err != nil {
-		a.syncError = fmt.Sprintf("读取快照数据失败: %v", err)
+		a.syncError = fmt.Sprintf(locales.SettingsSyncReadSnapshotFailed(), err)
 		a.syncMessage = ""
 		a.invalidateSettings()
 		return
@@ -343,7 +343,7 @@ func (a *app) startSyncPull(force bool) {
 	// 3. SQLite 完整性校验
 	verifyDB, err := sqlite.Open(ctx, tempDB, sqlite.OpenOptions{ReadOnly: true})
 	if err != nil {
-		a.syncError = fmt.Sprintf("打开校验临时数据库失败: %v", err)
+		a.syncError = fmt.Sprintf(locales.SettingsSyncOpenTempDBFailed(), err)
 		a.syncMessage = ""
 		a.invalidateSettings()
 		return
@@ -351,7 +351,7 @@ func (a *app) startSyncPull(force bool) {
 	rows, err := verifyDB.Query(ctx, "PRAGMA integrity_check")
 	verifyDB.Close()
 	if err != nil || len(rows.Values) == 0 || rows.Values[0][0] != "ok" {
-		a.syncError = "下载的数据未通过 SQLite 完整性检查，放弃替换"
+		a.syncError = locales.SettingsSyncIntegrityCheckFailed()
 		a.syncMessage = ""
 		a.invalidateSettings()
 		return
@@ -367,7 +367,7 @@ func (a *app) startSyncPull(force bool) {
 	a.store = nil
 
 	if _, err := store.CreateBackup(a.dataDir); err != nil {
-		a.syncError = fmt.Sprintf("备份当前数据库失败: %v", err)
+		a.syncError = fmt.Sprintf(locales.SettingsSyncBackupFailed(), err)
 		a.reopenStore()
 		a.invalidateSettings()
 		return
@@ -555,7 +555,7 @@ func (a *app) settingsSyncSection(c *ui.Context, p uiPalette) {
 				Title: locales.SettingsSyncStatusTitle(),
 				Fixed: true,
 				Extra: func() {
-					if plainButton(c, "检查远端").Clicked() {
+					if plainButton(c, locales.SettingsSyncCheckRemote()).Clicked() {
 						a.checkRemoteSync()
 					}
 				},

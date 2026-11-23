@@ -27,7 +27,7 @@ var brand = func() *theme.Config {
 	light.PrimaryTextActive = light.Primary
 	light.PrimaryBg = ui.Hex("#E4ECF2")
 	light.PrimaryBgHover = ui.Hex("#D8E4EE")
-	light.PrimaryBorder = ui.Hex("#CDD4DC")
+	light.PrimaryBorder = ui.Hex("#828C99")
 	light.PrimaryBorderHover = light.Primary
 	light.PrimaryFill = ui.RGBA(38, 114, 175, 0.36)
 	light.PrimaryFillSecondary = ui.RGBA(38, 114, 175, 0.2)
@@ -78,9 +78,9 @@ var brand = func() *theme.Config {
 	light.BgContainerSecondary = ui.Hex("#E4ECF2")
 	light.BgElevated = ui.Hex("#EDEFF1")
 	light.BgSpotlight = ui.Hex("#E8E9EB")
-	light.Border = ui.Hex("#CDD4DC")
-	light.BorderSecondary = ui.Hex("#CDD4DC")
-	light.BorderDisabled = ui.Hex("#CDD4DC")
+	light.Border = ui.Hex("#828C99")
+	light.BorderSecondary = ui.Hex("#828C99")
+	light.BorderDisabled = ui.Hex("#828C99")
 	light.Fill = ui.RGBA(36, 21, 35, 0.12)
 	light.FillSecondary = ui.RGBA(36, 21, 35, 0.06)
 	light.FillTertiary = ui.RGBA(36, 21, 35, 0.035)
@@ -259,7 +259,7 @@ func uiPaletteFor(c *ui.Context) uiPalette {
 		fill:         ui.Hex("#B7CFE2"),
 		hover:        ui.Hex("#D5DBE2"),
 		border:       tk.Border,
-		borderStrong: ui.Hex("#C0C9D4"),
+		borderStrong: ui.Hex("#7D8794"),
 		ink:          tk.Text,
 		inkSecondary: tk.TextSecondary,
 		muted:        tk.TextSecondary,

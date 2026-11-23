@@ -86,10 +86,7 @@ func (a *app) examDetailPage(c *ui.Context, p uiPalette) {
 	}
 	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
-			if textButton(c, locales.Back()).Children(func() {
-				ui.Icon(c, iconArrowLeft).FontSize(t.Space(4))
-				ui.Text(c, locales.Back()).FontSize(bodySize(t))
-			}).Clicked() {
+			if backButton(c, p).Clicked() {
 				a.selectedExamID = 0
 				a.exam = store.Exam{}
 				a.examError = ""
@@ -205,7 +202,7 @@ func (a *app) examRosterTab(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Column(c).Grow(1).Gap(t.Space(2)).Children(func() {
 		ui.Row(c).AlignItems(ui.End).Wrap().Gap(t.Space(2)).Children(func() {
-			ui.Column(c).Width(t.Space(56)).Children(func() {
+			ui.Column(c).Width(t.Space(72)).Children(func() {
 				next := a.examRosterQuery
 				searchField(c, &next, locales.ExamSearchRoster(), locales.ExamSearchRoster())
 				if next != a.examRosterQuery {
@@ -232,7 +229,7 @@ func (a *app) examRosterTab(c *ui.Context, p uiPalette) {
 				chosenTrack = trackLabels[0]
 			}
 			nextTrack := chosenTrack
-			selectField(c, "exam-default-track", &nextTrack, trackLabels, locales.ExamDefaultTrack()).Width(t.Space(24))
+			selectField(c, "exam-default-track", &nextTrack, trackLabels, locales.ExamDefaultTrack()).Width(t.Space(32))
 			if nextTrack != chosenTrack {
 				for index, label := range trackLabels {
 					if label == nextTrack {
@@ -304,7 +301,7 @@ func (a *app) examScoresTab(c *ui.Context, p uiPalette) {
 				}
 			}
 			nextSubject := chosenSubject
-			selectField(c, "exam-data-subject", &nextSubject, subjectLabels, locales.DataFilterSubject()).Width(t.Space(24))
+			selectField(c, "exam-data-subject", &nextSubject, subjectLabels, locales.DataFilterSubject()).Width(t.Space(32))
 			if nextSubject != chosenSubject {
 				for index, label := range subjectLabels {
 					if label == nextSubject {
@@ -322,7 +319,7 @@ func (a *app) examScoresTab(c *ui.Context, p uiPalette) {
 				}
 			}
 			nextClass := chosenClass
-			selectField(c, "exam-data-class", &nextClass, classLabels, locales.DataFilterClass()).Width(t.Space(24))
+			selectField(c, "exam-data-class", &nextClass, classLabels, locales.DataFilterClass()).Width(t.Space(32))
 			if nextClass != chosenClass {
 				for index, label := range classLabels {
 					if label == nextClass {
@@ -496,7 +493,7 @@ func (a *app) examCutoffsTab(c *ui.Context, p uiPalette) {
 				a.openExamImportWizard(importer.KindCutoffs, a.exam.ID, a.examCohort.CohortID)
 			}
 		})
-		ui.Scroll(c).Grow(1).Children(func() {
+		ui.Scroll(c).Grow(1).Shrink(1).MinHeight(0).Children(func() {
 			ui.Column(c).FillWidth().Gap(t.Space(4)).Children(func() {
 				sectionHeading(c, p, locales.ExamSubjectCutoffs(), len(a.examSubjectCutoffs))
 				if len(a.examSubjectCutoffs) == 0 {
@@ -577,7 +574,7 @@ func (a *app) examTargetsTab(c *ui.Context, p uiPalette) {
 		a.classTable.RowHeight = t.Space(10)
 		columns := []ui.TableColumn{{Title: locales.ColumnClass(), Width: t.Space(18)}}
 		for _, tier := range a.examTierKeys {
-			columns = append(columns, ui.TableColumn{Title: a.tierName(tier), Width: t.Space(20), Align: ui.End})
+			columns = append(columns, ui.TableColumn{Title: a.tierName(tier), Width: t.Space(32), Align: ui.End})
 		}
 		ui.Table(c, &a.classTable, columns, len(a.examClasses), func(row, col int) {
 			class := a.examClasses[row]
@@ -609,7 +606,7 @@ func (a *app) examStatGroupsTab(c *ui.Context, p uiPalette) {
 			emptyState(c, p, iconGroups, locales.ExamGroupsEmpty(), locales.ExamGroupsEmptyHint(), nil)
 			return
 		}
-		ui.Scroll(c).Grow(1).Children(func() {
+		ui.Scroll(c).Grow(1).Shrink(1).MinHeight(0).Children(func() {
 			ui.Column(c).FillWidth().Gap(0).Children(func() {
 				for _, group := range a.examStatGroups {
 					group := group
@@ -684,7 +681,7 @@ func (a *app) examQualityTab(c *ui.Context, p uiPalette) {
 			emptyState(c, p, iconQuality, locales.ExamQualityEmpty(), locales.ExamQualityEmptyHint(), nil)
 			return
 		}
-		ui.Scroll(c).Grow(1).Children(func() {
+		ui.Scroll(c).Grow(1).Shrink(1).MinHeight(0).Children(func() {
 			ui.Column(c).FillWidth().Gap(t.Space(1)).Children(func() {
 				for _, issue := range a.examQuality {
 					issue := issue
@@ -746,10 +743,7 @@ func (a *app) examPrepPage(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
-			if textButton(c, locales.Back()).Children(func() {
-				ui.Icon(c, iconArrowLeft).FontSize(t.Space(4))
-				ui.Text(c, locales.Back()).FontSize(bodySize(t))
-			}).Clicked() {
+			if backButton(c, p).Clicked() {
 				a.examPrepOpen = false
 			}
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
@@ -919,7 +913,7 @@ func (a *app) newExamModal(c *ui.Context, p uiPalette) {
 							if value == 0 {
 								value = subject.FullMark
 							}
-							ui.Column(c).Width(t.Space(20)).Gap(0).Children(func() {
+							ui.Column(c).Width(t.Space(32)).Gap(0).Children(func() {
 								numberField(c, &value, 0.1, 10000, 1,
 									a.subjectName(subject.Key, subject.Name))
 								ui.Text(c, a.subjectName(subject.Key, subject.Name)).

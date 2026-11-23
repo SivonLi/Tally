@@ -992,5 +992,19 @@
   "settingsSyncConflictCancel": "Cancel and Keep Local",
   "settingsSaveSync": "Save Sync Settings",
   "settingsSyncSaved": "Sync settings saved",
-  "settingsInsecureHTTPWarning": "Warning: HTTP connection is unencrypted; data could be intercepted. HTTPS is recommended."
+  "settingsInsecureHTTPWarning": "Warning: HTTP connection is unencrypted; data could be intercepted. HTTPS is recommended.",
+  "settingsSyncWebDAVURLRequired": "WebDAV server URL is required",
+  "settingsSyncCreateSnapshotFailed": "Failed to create upload snapshot: %v",
+  "settingsSyncReadSnapshotFailed": "Failed to read snapshot data: %v",
+  "settingsSyncOpenTempDBFailed": "Failed to open temporary database for verification: %v",
+  "settingsSyncIntegrityCheckFailed": "Downloaded data failed SQLite integrity check, replacement aborted",
+  "settingsSyncBackupFailed": "Failed to backup current database: %v",
+  "settingsSyncCheckRemote": "Check Remote",
+  "analysisScorePoints": "%s pts",
+  "analysisReportDefaultFileName": "Analysis-Report.xlsx",
+  "analysisExportTeacherTrend": "%s%s-Teacher-Trend.xlsx",
+  "analysisExportClassTrend": "%s%s-Trend.xlsx",
+  "analysisExportSubjectComparison": "%s%s-Comparison.xlsx",
+  "analysisExportStudentTracking": "%s%s-Tracking.xlsx",
+  "analysisExportAssessmentComparison": "%s-Assessment-Comparison.xlsx"
 }

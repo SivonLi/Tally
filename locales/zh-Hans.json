@@ -983,5 +983,19 @@
   "settingsSyncConflictCancel": "取消，保留本地",
   "settingsSaveSync": "保存同步设置",
   "settingsSyncSaved": "同步设置已保存",
-  "settingsInsecureHTTPWarning": "警告：HTTP 连接未加密，在公共网络可能被截获！建议使用 HTTPS。"
+  "settingsInsecureHTTPWarning": "警告：HTTP 连接未加密，在公共网络可能被截获！建议使用 HTTPS。",
+  "settingsSyncWebDAVURLRequired": "WebDAV 服务器地址不能为空",
+  "settingsSyncCreateSnapshotFailed": "创建上传快照失败: %v",
+  "settingsSyncReadSnapshotFailed": "读取快照数据失败: %v",
+  "settingsSyncOpenTempDBFailed": "打开校验临时数据库失败: %v",
+  "settingsSyncIntegrityCheckFailed": "下载的数据未通过 SQLite 完整性检查，放弃替换",
+  "settingsSyncBackupFailed": "备份当前数据库失败: %v",
+  "settingsSyncCheckRemote": "检查远端",
+  "analysisScorePoints": "%s 分",
+  "analysisReportDefaultFileName": "分析报告.xlsx",
+  "analysisExportTeacherTrend": "%s%s教师趋势.xlsx",
+  "analysisExportClassTrend": "%s%s趋势.xlsx",
+  "analysisExportSubjectComparison": "%s%s对比.xlsx",
+  "analysisExportStudentTracking": "%s%s追踪.xlsx",
+  "analysisExportAssessmentComparison": "%s考核并排对比.xlsx"
 }

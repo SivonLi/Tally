@@ -333,9 +333,13 @@ func (a *app) assessmentPage(c *ui.Context, p uiPalette) {
 			return
 		}
 		ui.Split(c, &a.batchSidebarWidth, func() {
-			a.assessmentList(c, p)
+			ui.Column(c).Fill().MinWidth(0).Clip().Padding(0, t.Space(4), 0, 0).Children(func() {
+				a.assessmentList(c, p)
+			})
 		}, func() {
-			a.assessmentDetail(c, p)
+			ui.Column(c).Fill().MinWidth(0).Padding(0, 0, 0, t.Space(4)).Children(func() {
+				a.assessmentDetail(c, p)
+			})
 		}).Grow(1)
 	})
 	a.zeroModal(c, p)
@@ -358,9 +362,9 @@ func (a *app) assessmentList(c *ui.Context, p uiPalette) {
 					if selected {
 						background = p.accentSoft
 					}
-					row := textButton(c, a.assessmentOverviewLabel(item)).FillWidth().
-						MinHeight(t.Space(9)).Padding(t.Space(2), t.Space(3)).
-						Radius(t.Space(1.5)).Background(background).AlignItems(ui.Start)
+					row := listRowButton(c, a.assessmentOverviewLabel(item)).
+						Height(0).MinHeight(t.Space(14)).Padding(t.Space(3), t.Space(3)).
+						Background(background).AlignItems(ui.Start)
 					row.Children(func() {
 						ui.Column(c).FillWidth().Gap(t.Space(0.5)).Children(func() {
 							ui.Text(c, a.assessmentOverviewLabel(item)).FontSize(bodySize(t)).
@@ -445,12 +449,17 @@ func (a *app) assessmentDetail(c *ui.Context, p uiPalette) {
 		})
 		a.assessmentSteps(c, p, stage)
 		a.assessmentActions(c, p, *overview)
-		ui.Scroll(c).Grow(1).Children(func() {
-			ui.Column(c).FillWidth().Gap(t.Space(4)).Children(func() {
-				a.assessmentChecklist(c, p, *overview)
+		if len(a.assessmentRows) == 0 {
+			ui.Scroll(c).Grow(1).Shrink(1).MinHeight(0).Children(func() {
+				ui.Column(c).FillWidth().Gap(t.Space(4)).Children(func() {
+					a.assessmentChecklist(c, p, *overview)
+				})
+			})
+		} else {
+			ui.Column(c).Grow(1).Shrink(1).MinHeight(0).Children(func() {
 				a.assessmentResults(c, p)
 			})
-		})
+		}
 	})
 }
 
@@ -547,10 +556,9 @@ func (a *app) assessmentChecklist(c *ui.Context, p uiPalette, overview store.Ass
 		for _, item := range items {
 			item := item
 			missing := item.Count == 0
-			row := textButton(c, item.Label).FillWidth().
+			row := listRowButton(c, item.Label).
 				MinHeight(t.Space(9)).Padding(t.Space(2), t.Space(3)).
-				Radius(t.Space(1.5)).Background(ui.Transparent).
-				AlignItems(ui.Center)
+				Background(ui.Transparent).AlignItems(ui.Center)
 			row.Children(func() {
 				if missing {
 					ui.Icon(c, iconAlert).FontSize(t.Space(4)).TextColor(p.warning)
@@ -645,7 +653,7 @@ func (a *app) assessmentActions(c *ui.Context, p uiPalette, overview store.Asses
 
 func (a *app) assessmentResults(c *ui.Context, p uiPalette) {
 	t := p.theme
-	ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
+	ui.Column(c).Grow(1).Shrink(1).MinHeight(0).Fill().Gap(t.Space(2)).Children(func() {
 		a.assessmentResultsHeader(c, p)
 		if len(a.assessmentRows) == 0 {
 			ui.Text(c, locales.AssessmentNoResults()).FontSize(bodySize(t)).TextColor(p.muted)
@@ -766,7 +774,7 @@ func (a *app) assessmentSubjectResults(c *ui.Context, p uiPalette) {
 		case 7:
 			ui.Text(c, formatDecimal(item.Points, 1)).FontFeatures("tnum")
 		}
-	}).Label(locales.AssessmentViewBySubject()).FillWidth()
+	}).Label(locales.AssessmentViewBySubject()).Grow(1).Shrink(1).MinHeight(0).Fill()
 }
 
 type classSummaryItem struct {
@@ -867,7 +875,7 @@ func (a *app) assessmentClassResults(c *ui.Context, p uiPalette) {
 		case col == len(columns)-1:
 			ui.Text(c, formatDecimal(item.Total, 1)).FontFeatures("tnum")
 		}
-	}).Label(locales.AssessmentViewByClass()).FillWidth()
+	}).Label(locales.AssessmentViewByClass()).Grow(1).Shrink(1).MinHeight(0).Fill()
 }
 
 func (a *app) assessmentTeacherResults(c *ui.Context, p uiPalette) {
@@ -904,7 +912,7 @@ func (a *app) assessmentTeacherResults(c *ui.Context, p uiPalette) {
 		case 4:
 			ui.Text(c, formatDecimal(item.Score, 2)).FontFeatures("tnum")
 		}
-	}).Label(locales.AssessmentViewByTeacher()).FillWidth()
+	}).Label(locales.AssessmentViewByTeacher()).Grow(1).Shrink(1).MinHeight(0).Fill()
 }
 
 func gradeLabel(grade string) string {
@@ -1333,7 +1341,7 @@ func (a *app) zeroIssueCard(c *ui.Context, p uiPalette, index int, exclude func(
 				ui.Text(c, a.tierLabel(tier)).Width(t.Space(16))
 				name := issue.ClassName + " " + a.tierLabel(tier)
 				numberField(c, a.zeroValues[key], 0, 100000, 1, key).
-					Width(t.Space(22)).Label(name)
+					Width(t.Space(36)).Label(name)
 			})
 		}
 	})

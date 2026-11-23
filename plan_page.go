@@ -601,7 +601,7 @@ func (a *app) planRankingSection(c *ui.Context, p uiPalette) {
 			a.planManualBoundaries(c, p)
 		}
 		ui.Text(c, locales.PlanTierPointsHint()).FontSize(captionSize(t)).TextColor(p.muted)
-		ui.Grid(c).ColumnTracks(ui.Fixed(t.Space(28)), ui.Fixed(t.Space(28)), ui.Fixed(t.Space(28))).
+		ui.Grid(c).ColumnTracks(ui.Fixed(t.Space(32)), ui.Fixed(t.Space(32)), ui.Fixed(t.Space(32))).
 			Gap(t.Space(3)).Children(func() {
 			for index := range a.planConfig.Ranking.Points {
 				index := index
