@@ -135,12 +135,12 @@ func (a *app) stageReviewModal(c *ui.Context, p uiPalette) {
 	}
 	t := p.theme
 	open := true
-	confirmed := feedback.Modal(c, &open, feedback.ModalProps{
+	confirmed := modal(c, &open, modalProps{
 		Title:      fmt.Sprintf(locales.StageReviewTitle(), a.copiedStageLabel(stage)),
 		OkText:     locales.StageReviewOpenPrep(),
 		CancelText: locales.Close(),
 	}, func() {
-		ui.Column(c).Width(t.Space(112)).Gap(t.Space(4)).Children(func() {
+		ui.Column(c).FillWidth().Gap(t.Space(4)).Children(func() {
 			ui.Text(c, locales.StageReviewBody()).FontSize(bodySize(t)).
 				TextColor(p.muted).Pretty()
 			ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
@@ -256,7 +256,8 @@ func (a *app) recentExamsPanel(c *ui.Context, p uiPalette) {
 			shown++
 			exam := exam
 			row := textButton(c, a.examBatchLabel(exam)).FillWidth().
-				Padding(t.Space(1.5), t.Space(2)).Radius(t.Space(1.5)).
+				MinHeight(t.Space(9)).Padding(t.Space(2), t.Space(3)).
+				Radius(t.Space(1.5)).
 				Background(ui.Transparent).AlignItems(ui.Center)
 			row.Children(func() {
 				ui.Column(c).Grow(1).Gap(0).Children(func() {
@@ -337,12 +338,12 @@ func (a *app) newCohortModal(c *ui.Context, p uiPalette) {
 	}
 	t := p.theme
 	open := true
-	confirmed := feedback.Modal(c, &open, feedback.ModalProps{
+	confirmed := modal(c, &open, modalProps{
 		Title:      locales.NewCohortTitle(),
 		OkText:     locales.CohortCreate(),
 		CancelText: locales.PlanCancel(),
 	}, func() {
-		ui.Column(c).Width(t.Space(112)).Gap(t.Space(4)).Children(func() {
+		ui.Column(c).FillWidth().Gap(t.Space(4)).Children(func() {
 			ui.Text(c, locales.NewCohortSubtitle()).FontSize(bodySize(t)).TextColor(p.muted).Pretty()
 			a.dialogForm(c, func() {
 				a.dialogField(c, "enrollment-year", locales.EnrollmentYear(),
@@ -449,8 +450,7 @@ func (a *app) cohortDetails(c *ui.Context, p uiPalette) {
 			sectionRule(c, p, func() {
 				sectionHeading(c, p, locales.CohortStageHistory(), len(a.cohortStages))
 				if len(a.cohortStages) == 0 {
-					ui.Text(c, locales.CohortNoStages()).FontSize(bodySize(t)).
-						TextColor(p.muted).Pretty()
+					smallEmptyState(c, p, locales.CohortNoStages())
 					return
 				}
 				for _, stage := range a.cohortStages {
@@ -471,10 +471,10 @@ func (a *app) cohortDetails(c *ui.Context, p uiPalette) {
 			sectionRule(c, p, func() {
 				sectionHeading(c, p, locales.CohortClasses(), len(a.classes))
 				if len(a.classes) == 0 {
-					ui.Text(c, locales.CohortNoClasses()).FontSize(bodySize(t)).
-						TextColor(p.muted).Pretty()
+					smallEmptyState(c, p, locales.CohortNoClasses())
 					return
 				}
+				a.classTable.RowHeight = t.Space(10)
 				columns := []ui.TableColumn{
 					{Title: locales.ColumnClass(), Width: t.Space(24)},
 					{Title: locales.ReadinessStudents(), Width: 0, Align: ui.End},

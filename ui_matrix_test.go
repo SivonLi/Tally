@@ -882,3 +882,111 @@ func TestSecondBatchMinimumSizeModals(t *testing.T) {
 		})
 	}
 }
+
+func TestThirdBatchMinimumSizeViews(t *testing.T) {
+	cases := []struct {
+		name  string
+		setup func(*app)
+	}{
+		{name: "view_overview_1024", setup: func(a *app) { a.page = pageOverview }},
+		{name: "view_cohorts_1024", setup: func(a *app) { a.page = pageCohorts }},
+		{name: "view_workbench_1024", setup: func(a *app) { a.page = pageAssessments }},
+		{name: "view_datapages_1024", setup: func(a *app) { a.page = pageStudents }},
+		{name: "view_faculty_1024", setup: func(a *app) { a.page = pageFaculty }},
+		{name: "view_baseline_1024", setup: func(a *app) { a.page = pageBaseline }},
+		{
+			name: "view_exampages_1024",
+			setup: func(a *app) {
+				a.page = pageExams
+				a.selectedExamID = a.exams[0].ID
+			},
+		},
+		{name: "view_quality_1024", setup: func(a *app) { a.page = pageQuality }},
+		{
+			name: "view_importwizard_1024",
+			setup: func(a *app) {
+				a.openImportWizard(importer.KindStudents)
+			},
+		},
+		{
+			name: "view_prepwizard_1024",
+			setup: func(a *app) {
+				a.page = pageOverview
+				a.prepOpen = true
+			},
+		},
+		{
+			name: "view_settings_1024",
+			setup: func(a *app) {
+				a.settingsPageID = "school"
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a := newPopulatedTestApp(t)
+			tc.setup(a)
+			view := a.view
+			if tc.name == "view_settings_1024" {
+				view = a.settingsView
+			}
+			tt := ui.NewTester(view, 1024, 640)
+			tt.SetLocale("zh-Hans")
+			settleTester(tt)
+			if tt.FramePending() {
+				t.Fatalf("%s 未稳定", tc.name)
+			}
+			captureDualSnapshot(t, tt, tc.name)
+			if tt.FramePending() {
+				t.Fatalf("%s 深色模式未稳定", tc.name)
+			}
+		})
+	}
+}
+
+func TestThirdBatchMinimumSizeModals(t *testing.T) {
+	cases := []struct {
+		name  string
+		setup func(*app)
+	}{
+		{
+			name: "modal_stage_review_1024",
+			setup: func(a *app) {
+				a.page = pageOverview
+				a.stageReviewOpen = true
+			},
+		},
+		{
+			name: "modal_new_cohort_1024",
+			setup: func(a *app) {
+				a.page = pageOverview
+				a.newCohortOpen = true
+				a.newCohortYear = 2026
+			},
+		},
+		{
+			name: "modal_plan_save_1024",
+			setup: func(a *app) {
+				a.page = pagePlans
+				a.planSaveChoice = planSaveAsking
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a := newPopulatedTestApp(t)
+			tc.setup(a)
+			tt := ui.NewTester(a.view, 1024, 640)
+			tt.SetLocale("zh-Hans")
+			settleTester(tt)
+			if tt.FramePending() {
+				t.Fatalf("%s 未稳定", tc.name)
+			}
+			assertAccessibleWithin(t, tt, 1024, 640)
+			captureDualSnapshot(t, tt, tc.name)
+			if tt.FramePending() {
+				t.Fatalf("%s 深色模式未稳定", tc.name)
+			}
+		})
+	}
+}

@@ -654,7 +654,7 @@ func (a *app) wizardSheetStep(c *ui.Context, p uiPalette, wizard *importWizardSt
 	panel(c, p).FillWidth().Padding(t.Space(4)).Gap(t.Space(3)).Children(func() {
 		ui.Text(c, locales.ImportWizardSheetHint()).FontSize(bodySize(t)).TextColor(p.muted).Pretty()
 		next := chosen
-		selectField(c, "wizard-sheet", &next, names, locales.ImportWizardSheetLabel()).Width(t.Space(70))
+		selectField(c, "wizard-sheet", &next, names, locales.ImportWizardSheetLabel()).Width(t.Space(72))
 		if next != chosen {
 			a.wizardChooseSheet(next)
 		}
@@ -777,7 +777,7 @@ func (a *app) wizardValidateStep(c *ui.Context, p uiPalette, wizard *importWizar
 							tone = p.danger
 						}
 						ui.Row(c).FillWidth().AlignItems(ui.Start).Gap(t.Space(2)).Children(func() {
-							ui.Box(c).Width(t.Space(1)).Height(t.Space(4)).Radius(t.Space(0.5)).
+							ui.Box(c).Width(t.Space(1)).Height(t.Space(4)).Radius(t.Space(1)).
 								Background(tone)
 							ui.Column(c).Grow(1).Gap(0).Children(func() {
 								ui.Text(c, a.importIssueText(issue)).FontSize(bodySize(t)).Pretty()

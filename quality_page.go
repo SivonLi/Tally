@@ -192,7 +192,7 @@ func (a *app) qualityItemFilter(c *ui.Context, p uiPalette) {
 		}
 	}
 	next := chosen
-	selectField(c, "quality-data-item", &next, labels, locales.ExamQualityDataItem()).Width(t.Space(32))
+	selectField(c, "quality-data-item", &next, labels, locales.ExamQualityDataItem()).Width(t.Space(40))
 	if next != chosen {
 		for index, label := range labels {
 			if label == next {
@@ -245,7 +245,7 @@ func (a *app) qualityIssueRow(c *ui.Context, p uiPalette, issue store.ExamQualit
 	}
 	label := a.examQualityText(issue)
 	element := textButton(c, label).FillWidth().
-		Padding(t.Space(1.5), t.Space(2)).Radius(t.Space(1.5)).
+		MinHeight(t.Space(9)).Padding(t.Space(2), t.Space(3)).Radius(t.Space(1.5)).
 		Background(ui.Transparent)
 	element.Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Start).Gap(t.Space(2)).Children(func() {
@@ -256,7 +256,7 @@ func (a *app) qualityIssueRow(c *ui.Context, p uiPalette, issue store.ExamQualit
 					ui.Text(c, meta).FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
 				}
 			})
-			ui.Icon(c, iconArrowRight).FontSize(t.Space(3.5)).TextColor(p.muted)
+			ui.Icon(c, iconArrowRight).FontSize(t.Space(4)).TextColor(p.muted)
 		})
 	})
 	if element.Clicked() {

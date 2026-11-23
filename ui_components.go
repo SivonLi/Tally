@@ -11,6 +11,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/lobehub/lobe-mygo/pkg/action"
 	"github.com/lobehub/lobe-mygo/pkg/choice"
+	"github.com/lobehub/lobe-mygo/pkg/field"
 	"github.com/lobehub/lobe-mygo/pkg/form"
 	"github.com/lobehub/lobe-mygo/pkg/layout"
 	"github.com/lobehub/lobe-mygo/pkg/lucide"
@@ -269,10 +270,22 @@ func standardButton(c *ui.Context, label string, variant action.ButtonVariant) u
 	return element
 }
 
+// pageActionButton 是 44 高、16 字号的页面级主按钮。
+func pageActionButton(c *ui.Context, label string) ui.Element {
+	t := *c.Theme()
+	tk := theme.TokensOf(c)
+	element := action.StyleButton(c, ui.ButtonBase(c), "", action.ButtonProps{Variant: action.Primary})
+	element.Height(tk.ControlHeightLG).FontSize(bodySize(t)).Label(label).Children(func() {
+		ui.Text(c, label).FontSize(bodySize(t)).SingleLine()
+	})
+	return element
+}
+
 func linkRow(c *ui.Context, p uiPalette, label string, body func()) ui.Element {
 	t := p.theme
 	element := action.StyleButton(c, ui.ButtonBase(c), "", action.ButtonProps{Variant: action.Text}).
-		FillWidth().Label(label).Padding(t.Space(2.5), t.Space(3)).Radius(t.Space(1.5))
+		FillWidth().Label(label).MinHeight(t.Space(9)).
+		Padding(t.Space(2), t.Space(3)).Radius(t.Space(1.5))
 	if element.Hovered() {
 		element.Background(p.hover)
 	}
@@ -375,6 +388,22 @@ func inputRow(c *ui.Context) ui.Element {
 		Transition(inputTransition)
 }
 
+// searchField 是 36 高、16 字号的搜索框。
+func searchField(c *ui.Context, value *string, label, placeholder string) ui.Element {
+	t := *c.Theme()
+	tk := theme.TokensOf(c)
+	return ui.SearchField(c, value).Label(label).Placeholder(placeholder).
+		MinHeight(tk.ControlHeight).FontSize(bodySize(t))
+}
+
+// dateField 是 36 高、16 字号的日期选择框。
+func dateField(c *ui.Context, value *time.Time, label string, props field.DatePickerProps) ui.Element {
+	t := *c.Theme()
+	tk := theme.TokensOf(c)
+	return field.DatePicker(c, value, props).Label(label).
+		Height(tk.ControlHeight).FontSize(bodySize(t)).Radius(tk.BorderRadius)
+}
+
 func styleInputRow(root ui.Element, tk *theme.Tokens, focused bool) {
 	hovered := root.Hovered() && !focused && !root.IsDisabled()
 	border := tk.BorderSecondary
@@ -399,6 +428,23 @@ func textField(c *ui.Context, value *string, label, placeholder string) ui.Eleme
 	styleInputRow(root, tk, input.Focused())
 	input.Label(label)
 	return input
+}
+
+// textAreaField 是 16 字号的多行输入框，行数由调用点控制。
+func textAreaField(c *ui.Context, value *string, label, placeholder string, minRows, maxRows int) ui.Element {
+	t := *c.Theme()
+	tk := theme.TokensOf(c)
+	root := ui.Column(c).Padding(t.Space(2), t.Space(3)).Radius(tk.BorderRadius).
+		FontSize(bodySize(t)).TextColor(tk.Text).Cursor(ui.CursorText).
+		Transition(inputTransition)
+	var area ui.Element
+	root.Children(func() {
+		area = ui.TextAreaBase(c, value).Lines(minRows, maxRows).FocusRing(false).
+			Placeholder(placeholder).PlaceholderColor(tk.TextPlaceholder)
+	})
+	styleInputRow(root, tk, area.Focused())
+	area.Label(label)
+	return area
 }
 
 // passwordField 是 36 高、16 字号的密码输入框。
@@ -592,7 +638,11 @@ func (a *app) dialogField(c *ui.Context, name, label, desc string, control func(
 	}, control)
 }
 
-const modalDefaultWidth float32 = 520
+const (
+	modalWidthCompact float32 = 400
+	modalDefaultWidth float32 = 520
+	modalWidthWide    float32 = 680
+)
 
 type modalProps struct {
 	Title      string

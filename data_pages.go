@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui"
-	"github.com/lobehub/lobe-mygo/pkg/field"
 
 	"tally/internal/importer"
 	"tally/internal/store"
@@ -61,7 +60,7 @@ func (a *app) studentsPage(c *ui.Context, p uiPalette) {
 		}
 		ui.Row(c).Grow(1).Gap(t.Space(3)).Children(func() {
 			ui.Column(c).Grow(1).Gap(t.Space(2)).Children(func() {
-				a.studentTable.RowHeight = t.Space(9)
+				a.studentTable.RowHeight = t.Space(10)
 				selected := -1
 				for index, student := range a.students {
 					if student.ID == a.selectedStudentID {
@@ -114,10 +113,10 @@ func (a *app) studentsPage(c *ui.Context, p uiPalette) {
 func studentColumns(t ui.Theme) []ui.TableColumn {
 	return []ui.TableColumn{
 		{Title: locales.ColumnStudentNo(), Width: t.Space(18)},
-		{Title: locales.ColumnName(), Width: t.Space(16)},
-		{Title: locales.ColumnClass(), Width: t.Space(16)},
-		{Title: locales.ColumnTrack(), Width: t.Space(16)},
-		{Title: locales.ColumnStatus(), Width: t.Space(16)},
+		{Title: locales.ColumnName(), Width: t.Space(28)},
+		{Title: locales.ColumnClass(), Width: t.Space(24)},
+		{Title: locales.ColumnTrack(), Width: t.Space(20)},
+		{Title: locales.ColumnStatus(), Width: t.Space(20)},
 		{Title: locales.ColumnStudentTotal(), Width: 0, Align: ui.End},
 	}
 }
@@ -127,9 +126,7 @@ func (a *app) studentFilters(c *ui.Context, p uiPalette) {
 	ui.Row(c).FillWidth().Wrap().AlignItems(ui.End).Gap(t.Space(2)).Children(func() {
 		ui.Column(c).Width(t.Space(56)).Gap(0).Children(func() {
 			nextQuery := a.dataQuery
-			field.SearchBar(c, &nextQuery, field.SearchBarProps{
-				Placeholder: locales.DataSearchStudents(),
-			}).Label(locales.DataSearchStudents())
+			searchField(c, &nextQuery, locales.DataSearchStudents(), locales.DataSearchStudents())
 			if nextQuery != a.dataQuery {
 				a.dataQuery = nextQuery
 				a.selectedStudentID = 0
@@ -145,7 +142,7 @@ func (a *app) studentFilters(c *ui.Context, p uiPalette) {
 			}
 		}
 		nextClass := chosenClass
-		selectField(c, "students-class", &nextClass, labels, locales.DataFilterClass()).Width(t.Space(28))
+		selectField(c, "students-class", &nextClass, labels, locales.DataFilterClass()).Width(t.Space(40))
 		if nextClass != chosenClass {
 			for index, label := range labels {
 				if label == nextClass {
@@ -327,8 +324,9 @@ func (a *app) facultyPage(c *ui.Context, p uiPalette) {
 			emptyState(c, p, iconFaculty, locales.FacultyEmpty(), locales.FacultyEmptyHint(), nil)
 			return
 		}
+		a.teacherTable.RowHeight = t.Space(10)
 		columns := []ui.TableColumn{
-			{Title: locales.ColumnName(), Width: t.Space(18)},
+			{Title: locales.ColumnName(), Width: t.Space(24)},
 			{Title: locales.TeacherNo(), Width: t.Space(18)},
 			{Title: locales.TeacherSubject(), Width: t.Space(18)},
 			{Title: locales.TeacherGroups(), Width: 0, Align: ui.End},
@@ -362,9 +360,7 @@ func (a *app) facultyFilters(c *ui.Context, p uiPalette) {
 		ui.Column(c).Width(t.Space(56)).Children(func() {
 			if a.facultyTab == 1 {
 				nextQuery := a.groupQuery
-				field.SearchBar(c, &nextQuery, field.SearchBarProps{
-					Placeholder: locales.DataSearchGroups(),
-				}).Label(locales.DataSearchGroups())
+				searchField(c, &nextQuery, locales.DataSearchGroups(), locales.DataSearchGroups())
 				if nextQuery != a.groupQuery {
 					a.groupQuery = nextQuery
 					a.reloadDataPages(context.Background())
@@ -372,9 +368,7 @@ func (a *app) facultyFilters(c *ui.Context, p uiPalette) {
 				return
 			}
 			nextQuery := a.teacherQuery
-			field.SearchBar(c, &nextQuery, field.SearchBarProps{
-				Placeholder: locales.DataSearchFaculty(),
-			}).Label(locales.DataSearchFaculty())
+			searchField(c, &nextQuery, locales.DataSearchFaculty(), locales.DataSearchFaculty())
 			if nextQuery != a.teacherQuery {
 				a.teacherQuery = nextQuery
 				a.reloadDataPages(context.Background())
@@ -456,7 +450,7 @@ func (a *app) groupFilters(c *ui.Context, p uiPalette) {
 			}
 		}
 		next := chosen
-		selectField(c, "groups-subject", &next, labels, locales.DataFilterSubject()).Width(t.Space(28))
+		selectField(c, "groups-subject", &next, labels, locales.DataFilterSubject()).Width(t.Space(40))
 		if next != chosen {
 			for index, label := range labels {
 				if label == next {
@@ -483,12 +477,13 @@ func (a *app) visibleTeachingGroups() []store.DataTeachingGroup {
 
 func (a *app) groupTableWith(c *ui.Context, p uiPalette, label string, groups []store.DataTeachingGroup) {
 	t := p.theme
+	a.groupTable.RowHeight = t.Space(10)
 	columns := []ui.TableColumn{
-		{Title: locales.GroupSubject(), Width: t.Space(16)},
+		{Title: locales.GroupSubject(), Width: t.Space(18)},
 		{Title: locales.GroupName(), Width: t.Space(20)},
 		{Title: locales.GroupClasses(), Width: 0},
 		{Title: locales.GroupTeachers(), Width: 0},
-		{Title: locales.GroupStudents(), Width: t.Space(14), Align: ui.End},
+		{Title: locales.GroupStudents(), Width: t.Space(18), Align: ui.End},
 		{Title: locales.ColumnSource(), Width: t.Space(28)},
 	}
 	ui.Table(c, &a.groupTable, columns, len(groups), func(row, col int) {
@@ -542,12 +537,13 @@ func (a *app) baselinePage(c *ui.Context, p uiPalette) {
 			emptyState(c, p, iconBaseline, locales.BaselineEmpty(), locales.BaselineEmptyHint(), nil)
 			return
 		}
+		a.baselineTable.RowHeight = t.Space(10)
 		columns := []ui.TableColumn{
 			{Title: locales.ColumnClass(), Width: t.Space(18)},
-			{Title: locales.BaselineSubject(), Width: t.Space(16)},
+			{Title: locales.BaselineSubject(), Width: t.Space(20)},
 			{Title: locales.BaselineAverage(), Width: 0, Align: ui.End},
-			{Title: locales.BaselineCount(), Width: t.Space(14), Align: ui.End},
-			{Title: locales.BaselineRatio(), Width: t.Space(14), Align: ui.End},
+			{Title: locales.BaselineCount(), Width: t.Space(18), Align: ui.End},
+			{Title: locales.BaselineRatio(), Width: t.Space(18), Align: ui.End},
 			{Title: locales.BaselineSet(), Width: 0},
 			{Title: locales.ColumnSource(), Width: t.Space(28)},
 		}
@@ -579,9 +575,7 @@ func (a *app) baselineFilters(c *ui.Context, p uiPalette) {
 	ui.Row(c).FillWidth().Wrap().AlignItems(ui.End).Gap(t.Space(2)).Children(func() {
 		ui.Column(c).Width(t.Space(56)).Children(func() {
 			nextQuery := a.baselineQuery
-			field.SearchBar(c, &nextQuery, field.SearchBarProps{
-				Placeholder: locales.DataSearchBaseline(),
-			}).Label(locales.DataSearchBaseline())
+			searchField(c, &nextQuery, locales.DataSearchBaseline(), locales.DataSearchBaseline())
 			if nextQuery != a.baselineQuery {
 				a.baselineQuery = nextQuery
 				a.reloadDataPages(context.Background())
@@ -596,7 +590,7 @@ func (a *app) baselineFilters(c *ui.Context, p uiPalette) {
 			}
 		}
 		next := chosen
-		selectField(c, "baseline-class", &next, labels, locales.DataFilterClass()).Width(t.Space(28))
+		selectField(c, "baseline-class", &next, labels, locales.DataFilterClass()).Width(t.Space(40))
 		if next != chosen {
 			for index, label := range labels {
 				if label == next {
@@ -760,9 +754,7 @@ func (a *app) importFilters(c *ui.Context, p uiPalette) {
 	ui.Row(c).FillWidth().AlignItems(ui.End).Gap(t.Space(2)).Children(func() {
 		ui.Column(c).Width(t.Space(56)).Children(func() {
 			nextQuery := a.importQuery
-			field.SearchBar(c, &nextQuery, field.SearchBarProps{
-				Placeholder: locales.DataSearchImports(),
-			}).Label(locales.DataSearchImports())
+			searchField(c, &nextQuery, locales.DataSearchImports(), locales.DataSearchImports())
 			if nextQuery != a.importQuery {
 				a.importQuery = nextQuery
 			}

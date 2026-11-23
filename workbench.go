@@ -11,7 +11,6 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
-	"github.com/lobehub/lobe-mygo/pkg/feedback"
 	"github.com/lobehub/lobe-mygo/pkg/nav"
 
 	"tally/internal/assessment"
@@ -360,8 +359,8 @@ func (a *app) assessmentList(c *ui.Context, p uiPalette) {
 						background = p.accentSoft
 					}
 					row := textButton(c, a.assessmentOverviewLabel(item)).FillWidth().
-						Padding(t.Space(2), t.Space(2.5)).Radius(t.Space(1.5)).
-						Background(background).AlignItems(ui.Start)
+						MinHeight(t.Space(9)).Padding(t.Space(2), t.Space(3)).
+						Radius(t.Space(1.5)).Background(background).AlignItems(ui.Start)
 					row.Children(func() {
 						ui.Column(c).FillWidth().Gap(t.Space(0.5)).Children(func() {
 							ui.Text(c, a.assessmentOverviewLabel(item)).FontSize(bodySize(t)).
@@ -549,7 +548,8 @@ func (a *app) assessmentChecklist(c *ui.Context, p uiPalette, overview store.Ass
 			item := item
 			missing := item.Count == 0
 			row := textButton(c, item.Label).FillWidth().
-				Padding(t.Space(2), 0).Radius(t.Space(1.5)).Background(ui.Transparent).
+				MinHeight(t.Space(9)).Padding(t.Space(2), t.Space(3)).
+				Radius(t.Space(1.5)).Background(ui.Transparent).
 				AlignItems(ui.Center)
 			row.Children(func() {
 				if missing {
@@ -561,7 +561,7 @@ func (a *app) assessmentChecklist(c *ui.Context, p uiPalette, overview store.Ass
 					TextAlign(ui.Start)
 				ui.Text(c, item.Meta).FontSize(captionSize(t)).
 					TextColor(p.muted).SingleLine().FontFeatures("tnum")
-				ui.Icon(c, iconArrowRight).FontSize(t.Space(3.5)).TextColor(p.muted)
+				ui.Icon(c, iconArrowRight).FontSize(t.Space(4)).TextColor(p.muted)
 			})
 			if row.Clicked() {
 				a.openExamTab(overview, item.Tab)
@@ -734,16 +734,16 @@ func (a *app) assessmentSubjectResults(c *ui.Context, p uiPalette) {
 		return fmt.Sprintf("%d:%s", rows[row].StatGroupID, rows[row].Subject)
 	}
 	a.resultTable.Selection = &a.resultSelection
-	a.resultTable.RowHeight = t.Space(8)
+	a.resultTable.RowHeight = t.Space(10)
 	columns := []ui.TableColumn{
 		{Title: locales.ColumnClass(), Width: t.Space(18)},
-		{Title: locales.ColumnSubject(), Width: t.Space(14)},
+		{Title: locales.ColumnSubject(), Width: t.Space(20)},
 		{Title: locales.ColumnStatGroup(), Width: t.Space(20)},
 		{Title: locales.ColumnTeachers(), Width: 0},
-		{Title: locales.ColumnTotal(), Width: t.Space(16), Align: ui.End},
-		{Title: locales.ColumnRank(), Width: t.Space(12), Align: ui.End},
-		{Title: locales.ColumnTier(), Width: t.Space(12)},
-		{Title: locales.ColumnPoints(), Width: t.Space(12), Align: ui.End},
+		{Title: locales.ColumnTotal(), Width: t.Space(20), Align: ui.End},
+		{Title: locales.ColumnRank(), Width: t.Space(18), Align: ui.End},
+		{Title: locales.ColumnTier(), Width: t.Space(20)},
+		{Title: locales.ColumnPoints(), Width: t.Space(18), Align: ui.End},
 	}
 	rule(c)
 	ui.Table(c, &a.resultTable, columns, len(rows), func(row, col int) {
@@ -820,25 +820,25 @@ func (a *app) assessmentClassResults(c *ui.Context, p uiPalette) {
 	t := p.theme
 	subjects, items := a.classSummaryData()
 	if len(items) == 0 {
-		ui.Text(c, locales.AssessmentNoResults()).FontSize(bodySize(t)).TextColor(p.muted)
+		smallEmptyState(c, p, locales.AssessmentNoResults())
 		return
 	}
 	a.classResultTable.Key = func(row int) any {
 		return items[row].ClassName
 	}
 	a.classResultTable.Selection = &a.classSelection
-	a.classResultTable.RowHeight = t.Space(8)
+	a.classResultTable.RowHeight = t.Space(10)
 	columns := []ui.TableColumn{
 		{Title: locales.ColumnClass(), Width: t.Space(18)},
-		{Title: locales.ColumnClassCompletionScore(), Width: t.Space(16), Align: ui.End},
+		{Title: locales.ColumnClassCompletionScore(), Width: t.Space(20), Align: ui.End},
 	}
 	for _, s := range subjects {
 		columns = append(columns,
-			ui.TableColumn{Title: subjectLabel(s), Width: t.Space(16), Align: ui.End},
+			ui.TableColumn{Title: subjectLabel(s), Width: t.Space(20), Align: ui.End},
 			ui.TableColumn{Title: subjectLabel(s) + " " + locales.ColumnTeachers(), Width: t.Space(20)},
 		)
 	}
-	columns = append(columns, ui.TableColumn{Title: locales.ColumnClassTotal(), Width: t.Space(16), Align: ui.End})
+	columns = append(columns, ui.TableColumn{Title: locales.ColumnClassTotal(), Width: t.Space(20), Align: ui.End})
 	rule(c)
 	ui.Table(c, &a.classResultTable, columns, len(items), func(row, col int) {
 		item := items[row]
@@ -874,20 +874,20 @@ func (a *app) assessmentTeacherResults(c *ui.Context, p uiPalette) {
 	t := p.theme
 	scores := a.assessmentPersonal
 	if len(scores) == 0 {
-		ui.Text(c, locales.AssessmentNoResults()).FontSize(bodySize(t)).TextColor(p.muted)
+		smallEmptyState(c, p, locales.AssessmentNoResults())
 		return
 	}
 	a.teacherResultTable.Key = func(row int) any {
 		return fmt.Sprintf("%s:%s", scores[row].TeacherName, scores[row].Subject)
 	}
 	a.teacherResultTable.Selection = &a.teacherSelection
-	a.teacherResultTable.RowHeight = t.Space(8)
+	a.teacherResultTable.RowHeight = t.Space(10)
 	columns := []ui.TableColumn{
-		{Title: locales.ColumnTeacherName(), Width: t.Space(16)},
-		{Title: locales.ColumnGrade(), Width: t.Space(12)},
-		{Title: locales.ColumnSubject(), Width: t.Space(14)},
+		{Title: locales.ColumnTeacherName(), Width: t.Space(28)},
+		{Title: locales.ColumnGrade(), Width: t.Space(18)},
+		{Title: locales.ColumnSubject(), Width: t.Space(20)},
 		{Title: locales.ColumnGroupPoints(), Width: 0},
-		{Title: locales.ColumnPersonalScore(), Width: t.Space(16), Align: ui.End},
+		{Title: locales.ColumnPersonalScore(), Width: t.Space(24), Align: ui.End},
 	}
 	rule(c)
 	ui.Table(c, &a.teacherResultTable, columns, len(scores), func(row, col int) {
@@ -1265,11 +1265,11 @@ func (a *app) zeroModal(c *ui.Context, p uiPalette) {
 	excludeClass := int64(0)
 	fill := false
 	open := true
-	if feedback.Modal(c, &open, feedback.ModalProps{
+	if modal(c, &open, modalProps{
 		Title:      locales.ZeroTitle(),
 		OkText:     locales.ZeroFill(),
 		CancelText: locales.ZeroClose(),
-		Width:      t.Space(170),
+		Width:      modalWidthWide,
 	}, func() {
 		ui.Column(c).FillWidth().Gap(t.Space(4)).Children(func() {
 			ui.Row(c).AlignItems(ui.Start).Gap(t.Space(3)).Children(func() {
@@ -1360,9 +1360,9 @@ func (a *app) resultDetailModal(c *ui.Context, p uiPalette) {
 	t := p.theme
 	detail := a.resultDetail
 	open := true
-	feedback.Modal(c, &open, feedback.ModalProps{
+	modal(c, &open, modalProps{
 		Title:    locales.AssessmentDetailTitle(),
-		Width:    t.Space(160),
+		Width:    modalWidthWide,
 		NoFooter: true,
 	}, func() {
 		row := detail.Row

@@ -6,7 +6,6 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
-	"github.com/lobehub/lobe-mygo/pkg/action"
 	"github.com/lobehub/lobe-mygo/pkg/display"
 	"github.com/lobehub/lobe-mygo/pkg/form"
 
@@ -111,7 +110,7 @@ func (a *app) settingsView(c *ui.Context) {
 			current = item
 		}
 	}
-	top := float32(14)
+	top := t.Space(4)
 	if c.TitleBar().Left > 0 {
 		top = topStrip(c) + 4
 	}
@@ -121,7 +120,7 @@ func (a *app) settingsView(c *ui.Context) {
 	}
 	root.Children(func() {
 		side := ui.Column(c).Width(settingsSidebarWidth).Shrink(0).FillHeight().
-			Padding(top, t.Space(3), t.Space(3.5), t.Space(3)).Gap(t.Space(0.5)).DragWindow()
+			Padding(top, t.Space(3), t.Space(4), t.Space(3)).Gap(t.Space(0.5)).DragWindow()
 		if !c.Vibrancy() {
 			side.Background(p.panelMuted)
 		}
@@ -165,7 +164,7 @@ func (a *app) settingsPages() []settingsPage {
 
 func (a *app) settingsNavItem(c *ui.Context, p uiPalette, item settingsPage, selected bool) {
 	t := p.theme
-	button := ui.ButtonBase(c.Key(item.id)).Label(item.title).Height(t.Space(8)).
+	button := ui.ButtonBase(c.Key(item.id)).Label(item.title).Height(t.Space(9)).
 		Padding(0, t.Space(2)).Gap(t.Space(2)).Radius(t.Space(2)).
 		AlignItems(ui.Center).Justify(ui.Start).FocusRing(false)
 	switch {
@@ -307,9 +306,7 @@ func (a *app) settingsDataSection(c *ui.Context, p uiPalette) {
 				},
 			}, func() {
 				if len(items) == 0 {
-					display.Empty(c, display.EmptyProps{
-						Title: locales.SettingsBackupsEmpty(),
-					})
+					smallEmptyState(c, p, locales.SettingsBackupsEmpty())
 					return
 				}
 				if key := display.List(c, display.ListProps{Items: items, Variant: display.ListBorderless}); key != "" {
@@ -362,8 +359,7 @@ func (a *app) settingsAppearanceSection(c *ui.Context, p uiPalette) {
 						}
 					}
 					next := chosen
-					action.Segmented(c, &next, labels, action.SegmentedProps{}).
-						Label(locales.AppearanceTitle())
+					segmentedField(c, &next, labels, locales.AppearanceTitle())
 					if next != chosen {
 						a.setAppearance(values[next])
 					}
@@ -429,7 +425,7 @@ func (a *app) academicYearSelect(c *ui.Context, p uiPalette) {
 		labels = append(labels, chosen)
 	}
 	next := chosen
-	selectField(c, "settings-academic-year", &next, labels, locales.SettingsAcademicYear()).Width(t.Space(52))
+	selectField(c, "settings-academic-year", &next, labels, locales.SettingsAcademicYear()).Width(t.Space(56))
 	if next != chosen {
 		start, err := school.ParseAcademicYearStart(next)
 		if err == nil {

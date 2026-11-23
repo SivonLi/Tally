@@ -10,7 +10,6 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/lobehub/lobe-mygo/pkg/action"
 	"github.com/lobehub/lobe-mygo/pkg/choice"
-	"github.com/lobehub/lobe-mygo/pkg/feedback"
 	"github.com/lobehub/lobe-mygo/pkg/field"
 	"github.com/lobehub/lobe-mygo/pkg/form"
 	"github.com/lobehub/lobe-mygo/pkg/layout"
@@ -151,7 +150,9 @@ func (a *app) planPage(c *ui.Context, p uiPalette) {
 			if a.planError != "" {
 				notice(c, p, noticeWarning, a.planError)
 			}
-			ui.Scroll(c.Key("plan-config")).Grow(1).MinHeight(0).Margin(0, -8).Padding(0, 8).Children(func() {
+			// 负边距抵消滚动条占位，左右补偿统一为 8。
+			ui.Scroll(c.Key("plan-config")).Grow(1).MinHeight(0).
+				Margin(0, -t.Space(2)).Padding(0, t.Space(2)).Children(func() {
 				form.View(c, a.planFormState(), form.Props[struct{}]{
 					Variant: form.Filled,
 					Layout:  form.Vertical,
@@ -296,11 +297,10 @@ func (a *app) planField(c *ui.Context, label, desc string, control func()) {
 func (a *app) planBasicsSection(c *ui.Context, p uiPalette) {
 	a.planSection(c, p, locales.PlanSectionBasics(), locales.PlanSectionBasicsHint(), func() {
 		a.planField(c, locales.PlanNameLabel(), "", func() {
-			field.Input(c, &a.planConfig.Name, field.InputProps{}).Label(locales.PlanNameLabel()).MaxWidth(c.Theme().Space(110))
+			textField(c, &a.planConfig.Name, locales.PlanNameLabel(), "")
 		})
 		a.planField(c, locales.PlanDescriptionLabel(), "", func() {
-			field.TextArea(c, &a.planConfig.Description, field.TextAreaProps{MinRows: 2, MaxRows: 4}).
-				Label(locales.PlanDescriptionLabel()).MaxWidth(c.Theme().Space(150))
+			textAreaField(c, &a.planConfig.Description, locales.PlanDescriptionLabel(), "", 2, 4)
 		})
 	})
 }
@@ -420,9 +420,7 @@ func (a *app) planIndicatorsSection(c *ui.Context, p uiPalette) {
 				ui.Grid(c).ColumnTracks(ui.Fixed(t.Space(36)), ui.Fr(1).Min(t.Space(60))).
 					Gap(t.Space(4)).Children(func() {
 					a.planField(c, locales.PlanPointsLabel(), "", func() {
-						field.InputNumber(c, &indicator.Points, field.InputNumberProps{
-							Min: 0, Max: 100, Step: 1,
-						}).Label(locales.PlanPointsLabel()).MaxWidth(t.Space(32))
+						numberField(c, &indicator.Points, 0, 100, 1, locales.PlanPointsLabel())
 					})
 					a.planField(c, locales.PlanFormulaLabel(), "", func() {
 						a.planFormulaShapeField(c, p, key, &indicator.Formula)
@@ -501,12 +499,10 @@ func (a *app) planCapFields(c *ui.Context, p uiPalette, indicator *assessment.In
 		ui.Grid(c).ColumnTracks(ui.Fixed(t.Space(36)), ui.Fixed(t.Space(36))).
 			Gap(t.Space(3)).Children(func() {
 			a.planField(c, locales.PlanCapMinLabel(), "", func() {
-				field.InputNumber(c, indicator.Cap.Min, field.InputNumberProps{Step: 1}).
-					Label(locales.PlanCapMinLabel()).MaxWidth(t.Space(32))
+				numberField(c, indicator.Cap.Min, math.Inf(-1), math.Inf(1), 1, locales.PlanCapMinLabel())
 			})
 			a.planField(c, locales.PlanCapMaxLabel(), "", func() {
-				field.InputNumber(c, indicator.Cap.Max, field.InputNumberProps{Step: 1}).
-					Label(locales.PlanCapMaxLabel()).MaxWidth(t.Space(32))
+				numberField(c, indicator.Cap.Max, math.Inf(-1), math.Inf(1), 1, locales.PlanCapMaxLabel())
 			})
 		})
 	})
@@ -541,8 +537,7 @@ func (a *app) planTiersSection(c *ui.Context, p uiPalette) {
 				}
 			})
 		}
-		if action.Button(c, locales.PlanAddTier(), action.ButtonProps{Size: theme.Middle}).
-			Label(locales.PlanAddTier()).Clicked() {
+		if plainButton(c, locales.PlanAddTier()).Clicked() {
 			a.planConfig.Tiers = append(a.planConfig.Tiers, assessment.TierConfig{
 				Key:    fmt.Sprintf("tier_%d", len(a.planConfig.Tiers)+1),
 				Label:  fmt.Sprintf("%s %d", locales.PlanTierLabel(), len(a.planConfig.Tiers)+1),
@@ -611,9 +606,8 @@ func (a *app) planRankingSection(c *ui.Context, p uiPalette) {
 			for index := range a.planConfig.Ranking.Points {
 				index := index
 				a.planField(c, fmt.Sprintf(locales.PlanTierPointsItem(), index+1), "", func() {
-					field.InputNumber(c, &a.planConfig.Ranking.Points[index], field.InputNumberProps{
-						Min: 0, Step: 1,
-					}).Label(fmt.Sprintf(locales.PlanTierPointsItem(), index+1))
+					numberField(c, &a.planConfig.Ranking.Points[index], 0, math.Inf(1), 1,
+						fmt.Sprintf(locales.PlanTierPointsItem(), index+1))
 				})
 			}
 		})
@@ -643,8 +637,7 @@ func (a *app) planBoundaryRatioField(c *ui.Context, p uiPalette) {
 	a.planField(c, locales.PlanBoundaryPartsLabel(), "", func() {
 		original := float64(display)
 		value := original
-		field.InputNumber(c, &value, field.InputNumberProps{Min: 2, Max: 10, Step: 1}).
-			Label(locales.PlanBoundaryPartsLabel()).MaxWidth(t.Space(20))
+		numberField(c, &value, 2, 10, 1, locales.PlanBoundaryPartsLabel())
 		if value != original {
 			boundary.First, boundary.Second = assessment.BoundaryRatioFormulas(int(value))
 		}
@@ -698,8 +691,7 @@ func (a *app) planOverrides(c *ui.Context, p uiPalette) {
 				}
 			})
 		}
-		if action.Button(c, locales.PlanAddOverride(), action.ButtonProps{Size: theme.Middle}).
-			Label(locales.PlanAddOverride()).Clicked() {
+		if plainButton(c, locales.PlanAddOverride()).Clicked() {
 			a.planConfig.Ranking.Boundary.Overrides = append(a.planConfig.Ranking.Boundary.Overrides,
 				assessment.BoundaryOverride{Subject: "chinese", N: 1, First: 1, Second: 1})
 		}
@@ -749,8 +741,7 @@ func (a *app) planManualBoundaries(c *ui.Context, p uiPalette) {
 				}
 			})
 		}
-		if action.Button(c, locales.PlanAddManual(), action.ButtonProps{Size: theme.Middle}).
-			Label(locales.PlanAddManual()).Clicked() {
+		if plainButton(c, locales.PlanAddManual()).Clicked() {
 			a.planConfig.Ranking.Boundary.Manual = append(a.planConfig.Ranking.Boundary.Manual,
 				assessment.ManualBoundary{Subject: "chinese", First: 1, Second: 1})
 		}
@@ -816,8 +807,7 @@ func (a *app) planProgramsSection(c *ui.Context, p uiPalette) {
 					a.planProgramGrade(c, p, program)
 					a.planField(c, locales.PlanProgramCohort(), "", func() {
 						cohort := program.When.Cohort
-						field.Input(c, &cohort, field.InputProps{Placeholder: locales.PlanProgramAny()}).
-							Label(locales.PlanProgramCohort())
+						textField(c, &cohort, locales.PlanProgramCohort(), locales.PlanProgramAny())
 						program.When.Cohort = cohort
 					})
 				})
@@ -835,8 +825,7 @@ func (a *app) planProgramsSection(c *ui.Context, p uiPalette) {
 				}
 			})
 		}
-		if action.Button(c, locales.PlanAddProgram(), action.ButtonProps{Size: theme.Middle}).
-			Label(locales.PlanAddProgram()).Clicked() {
+		if plainButton(c, locales.PlanAddProgram()).Clicked() {
 			a.planConfig.Programs = append(a.planConfig.Programs, assessment.ProgramConfig{
 				When:               assessment.ProgramWhen{ExamType: "gaokao"},
 				IndicatorOverrides: map[string]assessment.IndicatorOverride{},
@@ -861,7 +850,7 @@ func (a *app) planProgramOverrideField(c *ui.Context, program *assessment.Progra
 	if program.IndicatorOverrides != nil {
 		formula = program.IndicatorOverrides[key].Formula
 	}
-	field.Input(c, &formula, field.InputProps{}).Label(planIndicatorLabel(key))
+	textField(c, &formula, planIndicatorLabel(key), "")
 	a.setProgramOverride(program, key, formula)
 }
 
@@ -943,7 +932,7 @@ func (a *app) planWeightInput(c *ui.Context, p uiPalette, label string, value *f
 	t := p.theme
 	ui.Column(c).FillWidth().Gap(t.Space(0.5)).Children(func() {
 		ui.Text(c, label).FontSize(captionSize(t)).TextColor(p.muted)
-		field.InputNumber(c, value, field.InputNumberProps{Min: 0, Max: 1, Step: 0.05}).Label(label)
+		numberField(c, value, 0, 1, 0.05, label)
 	})
 }
 
@@ -1000,8 +989,7 @@ func (a *app) planSaveBar(c *ui.Context, p uiPalette) {
 		Padding(t.Space(2), 0, 0, 0).Children(func() {
 		ui.Text(c, locales.PlanSaveHint()).FontSize(captionSize(t)).TextColor(p.muted).
 			Grow(1).Shrink(1).MinWidth(0).SingleLine()
-		if action.Button(c, locales.PlanSave(), action.ButtonProps{Variant: action.Primary, Size: theme.Large}).
-			Label(locales.PlanSave()).Clicked() {
+		if pageActionButton(c, locales.PlanSave()).Clicked() {
 			a.planError = ""
 			a.planMessage = ""
 			a.planSaveChoice = planSaveAsking
@@ -1016,27 +1004,24 @@ func (a *app) planSaveDialog(c *ui.Context, p uiPalette) {
 	t := p.theme
 	chosen := planSaveNone
 	open := true
-	feedback.Modal(c, &open, feedback.ModalProps{
+	modal(c, &open, modalProps{
 		Title:    locales.PlanSaveTitle(),
 		NoFooter: true,
-		Width:    t.Space(96),
+		Width:    modalWidthCompact,
 	}, func() {
 		ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
 			ui.Text(c, locales.PlanSaveMessage()).FontSize(bodySize(t)).TextColor(p.inkSecondary).
 				Pretty()
 			ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
-				if action.Button(c, locales.PlanUpdate(), action.ButtonProps{Variant: action.Primary, Size: theme.Middle}).
-					Label(locales.PlanUpdate()).Clicked() {
+				if primaryButton(c, locales.PlanUpdate()).Clicked() {
 					chosen = planSaveUpdate
 					open = false
 				}
-				if action.Button(c, locales.PlanSaveAsNew(), action.ButtonProps{Size: theme.Middle}).
-					Label(locales.PlanSaveAsNew()).Clicked() {
+				if plainButton(c, locales.PlanSaveAsNew()).Clicked() {
 					chosen = planSaveNew
 					open = false
 				}
-				if action.Button(c, locales.PlanCancel(), action.ButtonProps{Variant: action.Text, Size: theme.Middle}).
-					Label(locales.PlanCancel()).Clicked() {
+				if textButton(c, locales.PlanCancel()).Clicked() {
 					chosen = planSaveCancel
 					open = false
 				}

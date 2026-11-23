@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/lobehub/lobe-mygo/pkg/theme"
 
 	"tally/locales"
 )
@@ -88,18 +89,21 @@ func (a *app) view(c *ui.Context) {
 // sidebar 是唯一的导航入口，顶部为级切换，底部为帮助与设置。
 func (a *app) sidebar(c *ui.Context, p uiPalette) {
 	t := p.theme
-	top := float32(14)
+	top := t.Space(4)
 	if c.TitleBar().Left > 0 {
 		top = topStrip(c) + 4
 	}
-	side := ui.Column(c).Width(sidebarWidth).Shrink(0).FillHeight().Padding(top, 14, 14, 14).
+	side := ui.Column(c).Width(sidebarWidth).Shrink(0).FillHeight().
+		Padding(top, t.Space(4), t.Space(4), t.Space(4)).
 		Gap(t.Space(1)).DragWindow()
 	if !c.Vibrancy() {
 		side.Background(p.panelMuted)
 	}
 	side.Children(func() {
 		a.cohortSwitcher(c, p)
-		ui.Scroll(c.Key("nav")).Grow(1).Margin(0, -6).Padding(0, 6).Gap(t.Space(0.5)).Children(func() {
+		// 负边距抵消滚动条占位，左右补偿统一为 8。
+		ui.Scroll(c.Key("nav")).Grow(1).Margin(0, -t.Space(2)).Padding(0, t.Space(2)).
+			Gap(t.Space(0.5)).Children(func() {
 			a.navItem(c, p, pageOverview, iconHome, locales.NavOverview())
 			a.navSection(c, p, locales.NavGroupData())
 			a.navItem(c, p, pageCohorts, iconCohort, locales.NavCohorts())
@@ -136,16 +140,18 @@ func (a *app) cohortSwitcher(c *ui.Context, p uiPalette) {
 	if len(a.cohorts) == 0 {
 		return
 	}
-	const height = float32(24)
+	t := p.theme
+	height := t.Space(9)
 	chosen := a.selectedCohortID
 	sel := ui.SelectBase(c.Key("cohort"), &chosen)
-	trigger := sel.Trigger.Height(height).PaddingX(7).Gap(4).Radius(7).AlignItems(ui.Center).
+	trigger := sel.Trigger.Height(height).PaddingX(t.Space(2)).Gap(t.Space(1)).
+		Radius(t.Space(2)).AlignItems(ui.Center).
 		FocusRing(false).Label(locales.CohortSelectLabel())
 	if left := c.TitleBar().Left; left > 0 {
-		trigger.Absolute().Top((topStrip(c) - height) / 2).Left(left + 12).
-			MaxWidth(sidebarWidth - left - 22)
+		trigger.Absolute().Top((topStrip(c) - height) / 2).Left(left + t.Space(3)).
+			MaxWidth(sidebarWidth - left - t.Space(5.5))
 	} else {
-		trigger.AlignSelf(ui.Start).Margin(0, 0, 4, -7).MaxWidth(sidebarWidth - 28)
+		trigger.AlignSelf(ui.Stretch).Margin(0, 0, t.Space(1), 0)
 	}
 	color := p.muted
 	if trigger.Hovered() || sel.Open() {
@@ -159,22 +165,24 @@ func (a *app) cohortSwitcher(c *ui.Context, p uiPalette) {
 		}
 		ui.Text(c, name).FontSize(captionSize(p.theme)).FontWeight(600).TextColor(color).
 			SingleLine().Shrink(1).MinWidth(0)
-		ui.Icon(c, iconUpDown).Size(11, 11).TextColor(p.muted)
+		ui.Icon(c, iconUpDown).Size(t.Space(4), t.Space(4)).TextColor(p.muted)
 	})
 	selectedCohort := a.selectedCohort()
 	sel.Popup(func(panel ui.Element) {
 		panel.Key("cohort-switcher")
-		panel.Margin(6, 0, 0, 0).Padding(5).Gap(1).MinWidth(180).MaxWidth(sidebarWidth+60).
-			Radius(12).Background(p.panel).Border(0.5, p.border).
-			Shadow(0, 8, 24, -4, ui.RGBA(0, 0, 0, 0.35))
+		panel.Margin(t.Space(1.5), 0, 0, 0).Padding(t.Space(2)).Gap(t.Space(0.5)).
+			MinWidth(t.Space(45)).MaxWidth(sidebarWidth+t.Space(15)).
+			Radius(t.Space(3)).Background(p.panel).Border(1, p.border)
+		theme.TokensOf(c).Elevate(panel, theme.BoxShadowSecondary)
 		ui.Scroll(c).MaxHeight(320).Children(func() {
-			ui.Column(c).FillWidth().Gap(1).Children(func() {
+			ui.Column(c).FillWidth().Gap(t.Space(0.5)).Children(func() {
 				for _, cohort := range a.cohorts {
 					cohort := cohort
 					name := a.cohortName(cohort.EnrollmentYear)
 					selected := selectedCohort != nil && cohort.ID == selectedCohort.ID
 					item := sel.Item("cohort-" + strconv.FormatInt(cohort.ID, 10)).Label(name).
-						Height(30).PaddingX(8).Gap(8).Radius(7).AlignItems(ui.Center).
+						Height(t.Space(9)).PaddingX(t.Space(2)).Gap(t.Space(2)).
+						Radius(t.Space(2)).AlignItems(ui.Center).
 						TextColor(p.ink)
 					if item.Highlighted() {
 						item.Background(p.fill)
@@ -184,9 +192,9 @@ func (a *app) cohortSwitcher(c *ui.Context, p uiPalette) {
 						if selected {
 							checkOpacity = 1
 						}
-						ui.Icon(c, iconCheck).Size(14, 14).TextColor(p.ink).Shrink(0).
+						ui.Icon(c, iconCheck).Size(t.Space(4), t.Space(4)).TextColor(p.ink).Shrink(0).
 							Opacity(checkOpacity)
-						ui.Text(c, name).FontSize(13).TextColor(p.ink).SingleLine().
+						ui.Text(c, name).FontSize(bodySize(t)).TextColor(p.ink).SingleLine().
 							Shrink(1).MinWidth(0)
 					})
 					if !selected {
@@ -218,21 +226,23 @@ func (a *app) cohortSwitcher(c *ui.Context, p uiPalette) {
 
 // stageMenuItems 在当前年级下面列出它的阶段。
 func (a *app) stageMenuItems(c *ui.Context, p uiPalette, sel ui.SelectParts[string]) {
+	t := p.theme
 	labels, ids := a.stageOptions()
 	for index, label := range labels {
 		label, id := label, ids[index]
 		selected := id == a.selectedStageID
 		item := sel.Item("stage-" + strconv.FormatInt(id, 10)).Label(label).
-			Height(28).PaddingStart(30).PaddingEnd(8).Gap(8).Radius(7).AlignItems(ui.Center).
+			Height(t.Space(9)).PaddingStart(t.Space(8)).PaddingEnd(t.Space(2)).
+			Gap(t.Space(2)).Radius(t.Space(2)).AlignItems(ui.Center).
 			TextColor(p.inkSecondary)
 		if item.Highlighted() {
 			item.Background(p.fill)
 		}
 		item.Children(func() {
-			ui.Text(c, label).FontSize(captionSize(p.theme)).TextColor(p.inkSecondary).Grow(1).
+			ui.Text(c, label).FontSize(bodySize(t)).TextColor(p.inkSecondary).Grow(1).
 				Shrink(1).MinWidth(0).SingleLine()
 			if selected {
-				ui.Icon(c, iconCheck).Size(13, 13).TextColor(p.accent)
+				ui.Icon(c, iconCheck).Size(t.Space(4), t.Space(4)).TextColor(p.accent)
 			}
 		})
 	}
@@ -256,7 +266,7 @@ func (a *app) selectStageByID(id string) {
 // navSection 是导航里的分组标题。
 func (a *app) navSection(c *ui.Context, p uiPalette, title string) {
 	ui.Text(c, title).FontSize(captionSize(p.theme)).FontWeight(600).TextColor(p.ink).
-		Padding(p.theme.Space(2.5), p.theme.Space(2.5), p.theme.Space(0.5), p.theme.Space(2.5)).
+		Padding(p.theme.Space(2), p.theme.Space(2), p.theme.Space(0.5), p.theme.Space(2)).
 		SingleLine()
 }
 
@@ -264,8 +274,9 @@ func (a *app) navSection(c *ui.Context, p uiPalette, title string) {
 // 与 MyGo Music 的侧栏条目一致。
 func (a *app) navItem(c *ui.Context, p uiPalette, page pageID, icon *ui.SVG, label string) {
 	selected := a.normalizedPage() == page
-	b := ui.ButtonBase(c.Key(string(page))).Label(label).Height(34).PaddingX(10).Gap(10).
-		Radius(8).AlignItems(ui.Center).Justify(ui.Start).FocusRing(false)
+	b := ui.ButtonBase(c.Key(string(page))).Label(label).Height(p.theme.Space(9)).
+		PaddingX(p.theme.Space(2.5)).Gap(p.theme.Space(2.5)).
+		Radius(p.theme.Space(2)).AlignItems(ui.Center).Justify(ui.Start).FocusRing(false)
 	background := ui.Transparent
 	switch {
 	case selected:
@@ -280,7 +291,7 @@ func (a *app) navItem(c *ui.Context, p uiPalette, page pageID, icon *ui.SVG, lab
 		iconColor = p.accent
 	}
 	b.Children(func() {
-		ui.Icon(c, icon).Size(17, 17).TextColor(iconColor)
+		ui.Icon(c, icon).Size(p.theme.Space(5), p.theme.Space(5)).TextColor(iconColor)
 		ui.Text(c, label).FontSize(bodySize(p.theme)).FontWeight(500).TextColor(color).SingleLine()
 	})
 	if b.Clicked() {
@@ -293,8 +304,8 @@ func (a *app) navItem(c *ui.Context, p uiPalette, page pageID, icon *ui.SVG, lab
 
 func (a *app) sidebarAction(c *ui.Context, p uiPalette, icon *ui.SVG, label string, action func()) {
 	t := p.theme
-	button := ui.ButtonBase(c.Key(label)).Label(label).Height(t.Space(8)).
-		Padding(0, t.Space(2.5)).Gap(t.Space(2)).Radius(t.Space(2)).
+	button := ui.ButtonBase(c.Key(label)).Label(label).Height(t.Space(9)).
+		Padding(0, t.Space(3)).Gap(t.Space(2)).Radius(t.Space(2)).
 		AlignItems(ui.Center).Justify(ui.Start).FocusRing(false)
 	if button.Hovered() {
 		button.Background(p.hover)

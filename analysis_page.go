@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui"
-	"github.com/lobehub/lobe-mygo/pkg/feedback"
 
 	"tally/locales"
 )
@@ -161,11 +160,10 @@ func (a *app) analysisSaveViewModal(c *ui.Context, p uiPalette) {
 	ctx := context.Background()
 	open := true
 
-	if feedback.Modal(c, &open, feedback.ModalProps{
+	if modal(c, &open, modalProps{
 		Title:      locales.AnalysisSaveCurrentView(),
 		OkText:     locales.AnalysisSaveViewBtn(),
 		CancelText: locales.AnalysisCancelBtn(),
-		Width:      t.Space(120),
 	}, func() {
 		ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
 			ui.Text(c, locales.AnalysisSaveViewPrompt()).FontSize(captionSize(t)).TextColor(p.muted)
@@ -500,7 +498,8 @@ func (a *app) analysisSubjectComparisonTab(c *ui.Context, p uiPalette) {
 		ui.Column(c).FillWidth().Gap(0).Dividers(1, p.border).Children(func() {
 			for _, g := range res.Groups {
 				g := g
-				ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).Padding(t.Space(2.5), 0).Children(func() {
+				ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).
+					MinHeight(t.Space(9)).Padding(t.Space(2), t.Space(3)).Children(func() {
 					ui.Textf(c, "#%d", g.Rank).FontSize(bodySize(t)).FontWeight(600).Width(t.Space(8))
 					ui.Text(c, g.LeadClassName).FontSize(bodySize(t)).Width(t.Space(18))
 					ui.Text(c, strings.Join(g.TeacherNames, "、")).FontSize(captionSize(t)).TextColor(p.muted).Grow(1)
@@ -650,7 +649,7 @@ func (a *app) analysisAssessmentComparisonTab(c *ui.Context, p uiPalette) {
 					ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
 						ui.Text(c, item.ExamName).FontSize(sectionSize(t)).FontWeight(600)
 						ui.Text(c, item.ExamDate+" · "+item.AcademicYear+" "+item.Semester).FontSize(captionSize(t)).TextColor(p.muted)
-						ui.Box(c).Height(1).FillWidth().Background(p.border)
+						rule(c)
 						a.analysisMetric(c, p, locales.AnalysisTotalStudents(), formatInt(item.ParticipantCount))
 						a.analysisMetric(c, p, locales.AnalysisGroupCount(), formatInt(item.GroupCount))
 						a.analysisMetric(c, p, locales.AnalysisAverageScore(), formatDecimal(item.AverageScore, 1))
@@ -726,7 +725,7 @@ func (a *app) analysisAssessmentSelect(c *ui.Context, p uiPalette) {
 		chosen = labels[0]
 	}
 	next := chosen
-	selectField(c, "analysis-results", &next, labels, locales.AssessmentResultsSelect()).Width(t.Space(64))
+	selectField(c, "analysis-results", &next, labels, locales.AssessmentResultsSelect()).Width(t.Space(72))
 	if next != chosen && next != locales.NoDataYet() {
 		for _, item := range a.assessments {
 			if a.assessmentOverviewLabel(item) == next {
@@ -757,10 +756,10 @@ func (a *app) analysisBars(c *ui.Context, p uiPalette, labels []string, values [
 			}
 			ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
 				ui.Text(c, label).FontSize(bodySize(t)).Width(t.Space(24)).SingleLine()
-				ui.Box(c).Grow(1).Height(t.Space(1.5)).Radius(t.Space(0.75)).
+				ui.Box(c).Grow(1).Height(t.Space(1.5)).Radius(t.Space(1)).
 					Background(p.fill).Children(func() {
 					ui.Box(c).WidthPercent(width).MaxWidthPercent(100).FillHeight().
-						Radius(t.Space(0.75)).Background(p.accent)
+						Radius(t.Space(1)).Background(p.accent)
 				})
 				ui.Text(c, formatDecimal(value, 1)).FontSize(captionSize(t)).
 					FontFeatures("tnum").Width(t.Space(12)).TextAlign(ui.End)

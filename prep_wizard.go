@@ -85,7 +85,7 @@ func (a *app) prepRow(c *ui.Context, p uiPalette, step prepStep, index, next int
 	t := p.theme
 	rule(c)
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).
-		Padding(t.Space(3.5), 0).Children(func() {
+		Padding(t.Space(3), 0).Children(func() {
 		ui.Textf(c, "%d", index+1).FontSize(captionSize(t)).
 			TextColor(p.muted).FontFeatures("tnum").Width(t.Space(4))
 		ui.Column(c).Grow(1).MinWidth(0).Gap(t.Space(0.5)).Children(func() {
