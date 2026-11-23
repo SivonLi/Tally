@@ -146,7 +146,7 @@ eval "$(mise activate zsh)"
 测试流程与规范遵循 `docs/testing.md`：
 
 - **无头测试 (ui.NewTester)**：每个 View 页面与 Modal 弹窗都必须编写专属的 `ui.NewTester` 测试。
-- **双色快照 (tt.Image)**：每个界面测试必须在虚拟时钟推进稳定后，分别在浅色模式（`tt.SetDark(false)`）与深色模式（`tt.SetDark(true)`）各捕获一张 `tt.Image()` 快照，保存至 `testdata/snapshots/`，并断言深浅背景差异与有效性。
+- **双态双色快照 (tt.Image)**：每个 View 页面与 Modal 弹窗必须同时覆盖无数据状态（Empty）与有数据状态（Populated），并在虚拟时钟推进稳定后分别生成浅色（`tt.SetDark(false)`）与深色（`tt.SetDark(true)`）两份快照，落盘至 `testdata/snapshots/` 进行视觉比对与防退化断言。
 - **自动化插件 (mygo-automation)**：端到端与黑盒自动化使用 MyGo 官方插件 `plugins/automation`（通过 `//go:build automation` 隔离）。外部操作统一使用 `mygo-automation` 命令行工具通过 Unix Domain Socket 驱动，严禁引入特定平台的脆弱无障碍脚本。
 
 ## 完成前
