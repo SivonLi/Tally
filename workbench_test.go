@@ -10,6 +10,7 @@ import (
 	"github.com/xuri/excelize/v2"
 
 	"tally/internal/store"
+	"tally/locales"
 )
 
 type assessmentPageFixture struct {
@@ -478,5 +479,37 @@ func TestAssessmentMultiDimensionalViews(t *testing.T) {
 			}
 			a.closeResultDetail()
 		}
+	}
+}
+
+func TestResultDetailUsesSingleContentClose(t *testing.T) {
+	a := newTestApp(t)
+	a.page = pageAssessments
+	a.resultDetailOpen = true
+	a.resultDetail = resultDetail{
+		Row: store.StoredResultRow{
+			Subject:       "chinese",
+			StatGroupName: "高一(1)班",
+			LeadClassName: "高一(1)班",
+			TeacherNames:  "张老师",
+		},
+		PlanLabel: "默认方案",
+	}
+
+	tt := ui.NewTester(a.view, 1280, 800)
+	tt.SetLocale("en")
+	settleTester(tt)
+	if _, ok := tt.AccessByRole(ui.RoleButton, "Cancel"); ok {
+		t.Fatal("result detail still shows a footer cancel button")
+	}
+	if _, ok := tt.AccessByRole(ui.RoleButton, locales.AssessmentDetailClose()); !ok {
+		t.Fatalf("missing content close button in %q", tt.Texts())
+	}
+	if err := tt.Click(locales.AssessmentDetailClose()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.resultDetailOpen {
+		t.Fatal("content close button did not close the result detail")
 	}
 }

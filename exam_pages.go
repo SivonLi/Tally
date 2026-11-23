@@ -834,7 +834,7 @@ func (a *app) newExamModal(c *ui.Context, p uiPalette) {
 		CancelText: locales.PlanCancel(),
 		Width:      t.Space(120),
 	}, func() {
-		ui.Column(c).Width(t.Space(120)).Gap(t.Space(4)).Children(func() {
+		ui.Column(c).FillWidth().Gap(t.Space(4)).Children(func() {
 			ui.Text(c, locales.ExamNewSubtitle()).FontSize(bodySize(t)).TextColor(p.muted).Pretty()
 			a.dialogForm(c, func() {
 				ui.Grid(c).FillWidth().ColumnTracks(ui.Fr(1), ui.Fr(1)).Gap(t.Space(4)).Children(func() {
@@ -956,7 +956,7 @@ func (a *app) statGroupModal(c *ui.Context, p uiPalette) {
 		CancelText: locales.PlanCancel(),
 		Width:      t.Space(124),
 	}, func() {
-		ui.Column(c).Width(t.Space(124)).Gap(t.Space(3)).Children(func() {
+		ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
 			a.dialogForm(c, func() {
 				ui.Grid(c).FillWidth().ColumnTracks(ui.Fr(1), ui.Fr(1)).Gap(t.Space(4)).Children(func() {
 					ui.Column(c).Gap(t.Space(2)).Children(func() {

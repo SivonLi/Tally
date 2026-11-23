@@ -4260,6 +4260,36 @@ func (msgs Messages) AnalysisDeleteView() string {
 	return Catalog.Format(msgs.locale, "analysisDeleteView", nil)
 }
 
+// AnalysisDeleteViewTitle says "Delete “%s”?"
+// in the language the app shows.
+func AnalysisDeleteViewTitle() string { return In(i18n.Locale()).AnalysisDeleteViewTitle() }
+
+// AnalysisDeleteViewTitle says "Delete “%s”?"
+// in the language of msgs.
+func (msgs Messages) AnalysisDeleteViewTitle() string {
+	return Catalog.Format(msgs.locale, "analysisDeleteViewTitle", nil)
+}
+
+// AnalysisDeleteViewConfirm says "Delete “%s”"
+// in the language the app shows.
+func AnalysisDeleteViewConfirm() string { return In(i18n.Locale()).AnalysisDeleteViewConfirm() }
+
+// AnalysisDeleteViewConfirm says "Delete “%s”"
+// in the language of msgs.
+func (msgs Messages) AnalysisDeleteViewConfirm() string {
+	return Catalog.Format(msgs.locale, "analysisDeleteViewConfirm", nil)
+}
+
+// AnalysisDeleteViewBody says "The saved view is removed. The underlying analysis data is not changed."
+// in the language the app shows.
+func AnalysisDeleteViewBody() string { return In(i18n.Locale()).AnalysisDeleteViewBody() }
+
+// AnalysisDeleteViewBody says "The saved view is removed. The underlying analysis data is not changed."
+// in the language of msgs.
+func (msgs Messages) AnalysisDeleteViewBody() string {
+	return Catalog.Format(msgs.locale, "analysisDeleteViewBody", nil)
+}
+
 // AnalysisDefaultView says "Default view"
 // in the language the app shows.
 func AnalysisDefaultView() string { return In(i18n.Locale()).AnalysisDefaultView() }
@@ -9074,6 +9104,16 @@ func AssessmentDetailTeachers() string { return In(i18n.Locale()).AssessmentDeta
 // in the language of msgs.
 func (msgs Messages) AssessmentDetailTeachers() string {
 	return Catalog.Format(msgs.locale, "assessmentDetailTeachers", nil)
+}
+
+// AssessmentDetailClose says "Close details"
+// in the language the app shows.
+func AssessmentDetailClose() string { return In(i18n.Locale()).AssessmentDetailClose() }
+
+// AssessmentDetailClose says "Close details"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailClose() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailClose", nil)
 }
 
 // AssessmentDetailStudents says "Participating students"

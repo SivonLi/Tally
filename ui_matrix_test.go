@@ -766,3 +766,119 @@ func TestModalMatrix_SyncConflict_WithData(t *testing.T) {
 
 	captureDualSnapshot(t, tt, "modal_sync_conflict_populated")
 }
+
+func TestSecondBatchMinimumSizeViews(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		page pageID
+	}{
+		{name: "view_analysis_1024", page: pageAnalysis},
+		{name: "view_planpage_1024", page: pagePlans},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := newPopulatedTestApp(t)
+			a.page = tc.page
+			tt := ui.NewTester(a.view, 1024, 640)
+			tt.SetLocale("zh-Hans")
+			settleTester(tt)
+			if tt.FramePending() {
+				t.Fatalf("%s did not settle", tc.name)
+			}
+			captureDualSnapshot(t, tt, tc.name)
+			if tt.FramePending() {
+				t.Fatalf("%s did not settle in dark mode", tc.name)
+			}
+		})
+	}
+}
+
+func TestSecondBatchMinimumSizeModals(t *testing.T) {
+	cases := []struct {
+		name  string
+		setup func(*app)
+	}{
+		{
+			name: "modal_zero_1024",
+			setup: func(a *app) {
+				a.page = pageAssessments
+				a.zeroOpen = true
+				a.zeroIssues = []calc.ZeroTargetIssue{
+					{ClassID: "1", ClassName: "高一(1)班", MissingTiers: []string{"特控", "本科"}},
+				}
+				a.initZeroValues()
+			},
+		},
+		{
+			name: "modal_result_detail_1024",
+			setup: func(a *app) {
+				a.page = pageAssessments
+				a.resultDetailOpen = true
+				a.resultDetail = resultDetail{
+					Row: store.StoredResultRow{
+						Subject:          "语文",
+						StatGroupName:    "高一(1)班",
+						LeadClassName:    "高一(1)班",
+						TeacherNames:     "张老师",
+						ClassAverage:     92.5,
+						GradeAverage:     88.0,
+						ImprovementScore: 104.5,
+						PassScore:        95.0,
+						CompletionScore:  90.0,
+						Total:            96.5,
+						Rank:             1,
+					},
+					PlanLabel: "教学成绩量化考核方案",
+					Students: []store.ResultRowStudent{
+						{Position: 1, StudentNo: "001", Name: "甲"},
+					},
+				}
+			},
+		},
+		{
+			name: "modal_analysis_save_view_1024",
+			setup: func(a *app) {
+				a.page = pageAnalysis
+				a.analysisSaveViewOpen = true
+				a.analysisSaveViewName = "语文教学质量跟踪与趋势对比"
+			},
+		},
+		{
+			name: "modal_new_exam_1024",
+			setup: func(a *app) {
+				a.page = pageExams
+				a.newExamOpen = true
+				a.newExamName = "高一第一学期期中质量调研"
+				a.newExamDate = time.Date(2026, 11, 15, 0, 0, 0, 0, time.Local)
+			},
+		},
+		{
+			name: "modal_stat_group_1024",
+			setup: func(a *app) {
+				a.page = pageExams
+				if len(a.exams) > 0 {
+					a.selectedExamID = a.exams[0].ID
+					a.exam = a.exams[0]
+				}
+				a.statGroupOpen = true
+				a.statGroupName = "高一物理走班创新组"
+				a.statGroupTarget = 45
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a := newPopulatedTestApp(t)
+			tc.setup(a)
+			tt := ui.NewTester(a.view, 1024, 640)
+			tt.SetLocale("zh-Hans")
+			settleTester(tt)
+			if tt.FramePending() {
+				t.Fatalf("%s did not settle", tc.name)
+			}
+			captureDualSnapshot(t, tt, tc.name)
+			if tt.FramePending() {
+				t.Fatalf("%s did not settle in dark mode", tc.name)
+			}
+		})
+	}
+}

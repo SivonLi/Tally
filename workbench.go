@@ -1271,7 +1271,7 @@ func (a *app) zeroModal(c *ui.Context, p uiPalette) {
 		CancelText: locales.ZeroClose(),
 		Width:      t.Space(170),
 	}, func() {
-		ui.Column(c).Width(t.Space(170)).Gap(t.Space(4)).Children(func() {
+		ui.Column(c).FillWidth().Gap(t.Space(4)).Children(func() {
 			ui.Row(c).AlignItems(ui.Start).Gap(t.Space(3)).Children(func() {
 				ui.Box(c).Size(t.Space(11), t.Space(11)).Radius(t.Space(3)).
 					Background(p.warningSoft).Center().Children(func() {
@@ -1361,12 +1361,12 @@ func (a *app) resultDetailModal(c *ui.Context, p uiPalette) {
 	detail := a.resultDetail
 	open := true
 	feedback.Modal(c, &open, feedback.ModalProps{
-		Title:  locales.AssessmentDetailTitle(),
-		OkText: locales.Close(),
-		Width:  t.Space(160),
+		Title:    locales.AssessmentDetailTitle(),
+		Width:    t.Space(160),
+		NoFooter: true,
 	}, func() {
 		row := detail.Row
-		ui.Column(c).Width(t.Space(160)).Gap(t.Space(3)).Children(func() {
+		ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
 			ui.Row(c).Gap(t.Space(1)).Children(func() {
 				badge(c, p, row.LeadClassName, toneNeutral)
 				badge(c, p, subjectLabel(row.Subject), toneNeutral)
@@ -1434,6 +1434,11 @@ func (a *app) resultDetailModal(c *ui.Context, p uiPalette) {
 						})
 					}
 				})
+			})
+			ui.Row(c).FillWidth().Justify(ui.End).Children(func() {
+				if plainButton(c, locales.AssessmentDetailClose()).Clicked() {
+					open = false
+				}
 			})
 		})
 	})

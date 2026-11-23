@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/egoist/mygo/ui"
+
+	"tally/locales"
 )
 
 // scrollPlanTo 滚动方案页，直到指定文字出现在窗口内。
@@ -104,5 +106,44 @@ func TestPlanCompletionOverrideField(t *testing.T) {
 	program := a.planConfig.Programs[0]
 	if _, exists := program.IndicatorOverrides["completion"]; exists {
 		t.Fatalf("completion override still present: %+v", program.IndicatorOverrides)
+	}
+}
+
+func TestPlanInlineRowsUseStandardControlHeight(t *testing.T) {
+	a := newTestApp(t)
+	tt := ui.NewTester(a.view, 1280, 1000)
+	tt.SetLocale("en")
+	settleTester(tt)
+	scrollPlanTo(t, tt, locales.PlanTierLabel())
+
+	want := map[string]int{
+		locales.PlanTierLabel():       1,
+		locales.PlanTierWeightLabel(): 1,
+		locales.PlanRemoveRow():       1,
+		locales.PlanOverrideSubject(): 1,
+		locales.PlanOverrideCount():   1,
+		locales.PlanOverrideFirst():   1,
+		locales.PlanOverrideSecond():  1,
+	}
+	seen := map[string]int{}
+	for _, info := range tt.AccessAll() {
+		switch info.Role {
+		case ui.RoleButton, ui.RoleTextField, ui.RoleComboBox, ui.RolePopUpButton:
+		default:
+			continue
+		}
+		_, ok := want[info.Name]
+		if !ok || info.Bounds.W <= 0 || info.Bounds.H <= 0 {
+			continue
+		}
+		seen[info.Name]++
+		if info.Bounds.H != 36 {
+			t.Errorf("%s height = %v, want 36", info.Name, info.Bounds.H)
+		}
+	}
+	for name, count := range want {
+		if seen[name] < count {
+			t.Errorf("%s controls = %d, want at least %d", name, seen[name], count)
+		}
 	}
 }

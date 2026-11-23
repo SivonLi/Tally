@@ -79,29 +79,31 @@
 
 ## 第二批：高危体验与交互 Bug（收益最高）
 
-- [ ] **#1 弹窗内容列宽度造成右侧裁切**
+- [x] **#1 弹窗内容列宽度造成右侧裁切**
   文件：`workbench.go:1268`、`1363`、`analysis_page.go:135`、`exam_pages.go:831`、`953`
   现状：弹窗宽度与内容列宽度相同（680/680、640/640、480/480、480/480、496/496），内容区左右各有 16px 内边距，可用宽度少 32px，右侧内容被面板裁切。
   违反条目：1.4、4.5
   修正方向：内容列统一使用 `FillWidth()`，不再通过增加弹窗宽度规避。
 
-- [ ] **#2 删除已保存视图没有确认**
+- [x] **#2 删除已保存视图没有确认**
   文件：`analysis_page.go:32`
   现状：删除已保存视图使用普通按钮，点击立即删除，没有确认。
   违反条目：3.2
   修正方向：改用危险图标或危险文字样式，并增加带对象名称的 `AlertDialog` 确认；取消在左，删除在右。
 
-- [ ] **#10 行内删除按钮与输入框不齐**
+- [x] **#10 行内删除按钮与输入框不齐**
   文件：`plan_page.go:531`、`685`、`732`、`791`
   现状：行内删除图标按钮使用默认 36 高度，与同行 32 输入框不齐，间距 12。
   违反条目：2.1、3.2
   修正方向：同行输入框统一 36 高度，图标按钮使用 `BlockSize: 36`，与输入框间距改为 16。
 
-- [ ] **#23 结果详情弹窗出现双关闭按钮**
+- [x] **#23 结果详情弹窗出现双关闭按钮**
   文件：`workbench.go:1363`
   现状：结果详情弹窗只设置 `OkText`，没有 `NoFooter`，底部出现“取消”和“关闭”两个按钮。
   违反条目：3.3
   修正方向：设置 `NoFooter: true`，在内容区提供一个关闭按钮。
+
+第二批验证：`workbench.go`、`analysis_page.go`、`exam_pages.go`、`plan_page.go` 的改动通过 `go test -race` 的目标用例；新增 `TestAnalysisDeleteViewRequiresConfirmation`、`TestResultDetailUsesSingleContentClose`、`TestPlanInlineRowsUseStandardControlHeight`，并为分析页、方案页与 5 个受影响弹窗生成 `1024 × 640` 的浅色、深色快照。计划页的 `codeSelect` 与 `planFieldNumber` 已统一到 36 高度，行内删除按钮显式使用 36。
 
 ## 第三批：单页一致性收尾与测试补全
 
@@ -200,6 +202,7 @@
   现状：`field.Input`、`field.InputNumber`、`field.Select`、`field.TextArea` 使用默认 32/14；添加行按钮使用 `theme.Middle`（32/13）；页面级保存按钮使用 `theme.Large`（40/14）。
   违反条目：1.2、1.4、2.1
   修正方向：输入框、数字框、下拉与文本框统一 36 高度、16 字号；行内添加按钮 36 高度；页面级保存动作 44 高度。与 #10 重叠的输入框按本条一次改完，#10 只需核对图标按钮对齐。
+  进度：`codeSelect` 与 `planFieldNumber` 已在第二批改为 36 高度、16 字号；其余直接调用仍待处理。
 
 - [ ] **#31 其余直调 Lobe 组件的调用点仍低于新规范**
   文件：`data_pages.go:130`、`365`、`375`、`582`、`763`；`exam_pages.go:211`、`295`、`887`；`settings_window.go:310`、`365`；`workbench.go:1268`、`1363`；`overview.go:138`、`340`；`analysis_page.go:135`；`exam_pages.go:831`、`953`；`plan_page.go:1004`

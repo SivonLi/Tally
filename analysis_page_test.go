@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -106,6 +107,59 @@ func TestAnalysisSavedViewFlow(t *testing.T) {
 	a.deleteSavedView(ctx, savedID)
 	if len(a.analysisSavedViews) != 0 {
 		t.Fatalf("expected 0 saved views after deletion, got %d", len(a.analysisSavedViews))
+	}
+}
+
+func TestAnalysisDeleteViewRequiresConfirmation(t *testing.T) {
+	ctx := context.Background()
+	a := newTestApp(t)
+	a.page = pageAnalysis
+	a.language = "zh-Hans"
+
+	tt := ui.NewTester(a.view, 1280, 800)
+	tt.SetLocale("zh-Hans")
+	a.saveCurrentView(ctx, "语文学科分析")
+	tt.Frame()
+	if a.analysisSelectedViewID <= 0 || len(a.analysisSavedViews) != 1 {
+		t.Fatalf("saved view setup: id=%d views=%d", a.analysisSelectedViewID, len(a.analysisSavedViews))
+	}
+
+	if err := tt.Click(locales.AnalysisDeleteView()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if !a.analysisDeleteViewOpen {
+		t.Fatal("delete confirmation did not open")
+	}
+	title := fmt.Sprintf(locales.AnalysisDeleteViewTitle(), "语文学科分析")
+	if !tt.HasText(title) {
+		t.Fatalf("missing %q in %q", title, tt.Texts())
+	}
+	if len(a.analysisSavedViews) != 1 {
+		t.Fatalf("view deleted before confirmation: %d", len(a.analysisSavedViews))
+	}
+
+	if err := tt.Click(locales.AnalysisCancelBtn()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.analysisDeleteViewOpen || len(a.analysisSavedViews) != 1 {
+		t.Fatalf("cancel changed the saved view: open=%v views=%d",
+			a.analysisDeleteViewOpen, len(a.analysisSavedViews))
+	}
+
+	if err := tt.Click(locales.AnalysisDeleteView()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	confirm := fmt.Sprintf(locales.AnalysisDeleteViewConfirm(), "语文学科分析")
+	if err := tt.Click(confirm); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.analysisDeleteViewOpen || len(a.analysisSavedViews) != 0 {
+		t.Fatalf("confirmed delete did not run: open=%v views=%d",
+			a.analysisDeleteViewOpen, len(a.analysisSavedViews))
 	}
 }
 

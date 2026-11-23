@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -246,6 +247,8 @@ func (a *app) planSection(c *ui.Context, p uiPalette, title, desc string, body f
 
 // codeSelect 是保存代码的下拉框，选项文字跟随语言。
 func (a *app) codeSelect(c *ui.Context, value *string, options []planOption, label string, onChange func(string)) {
+	t := *c.Theme()
+	tk := theme.TokensOf(c)
 	chosen := ""
 	items := make([]field.SelectOption, 0, len(options))
 	for _, option := range options {
@@ -259,7 +262,7 @@ func (a *app) codeSelect(c *ui.Context, value *string, options []planOption, lab
 	}
 	current := chosen
 	field.Select(c, &current, field.SelectProps{Options: items, Size: theme.Middle}).
-		Label(label).FillWidth()
+		Label(label).FillWidth().Height(tk.ControlHeight).FontSize(bodySize(t))
 	if current != chosen && onChange != nil {
 		onChange(current)
 	}
@@ -516,19 +519,22 @@ func (a *app) planTiersSection(c *ui.Context, p uiPalette) {
 		for index := range a.planConfig.Tiers {
 			index := index
 			tier := &a.planConfig.Tiers[index]
-			ui.Row(c).FillWidth().AlignItems(ui.End).Gap(t.Space(3)).Children(func() {
+			ui.Row(c).FillWidth().AlignItems(ui.End).Gap(t.Space(4)).Children(func() {
 				ui.Column(c).Grow(1).MinWidth(0).Children(func() {
 					a.planField(c, locales.PlanTierLabel(), "", func() {
-						field.Input(c, &tier.Label, field.InputProps{}).Label(locales.PlanTierLabel())
+						textField(c, &tier.Label, locales.PlanTierLabel(), "")
 					})
 				})
 				ui.Column(c).Width(t.Space(30)).Shrink(0).Children(func() {
 					a.planField(c, locales.PlanTierWeightLabel(), "", func() {
-						field.InputNumber(c, &tier.Weight, field.InputNumberProps{Min: 0, Step: 1}).
-							Label(locales.PlanTierWeightLabel())
+						a.planFieldNumber(c, &tier.Weight, locales.PlanTierWeightLabel())
 					})
 				})
-				remove := action.ActionIcon(c, iconTrash, action.ActionIconProps{Variant: action.ActionIconBorderless, Danger: true}).
+				remove := action.ActionIcon(c, iconTrash, action.ActionIconProps{
+					Variant:   action.ActionIconBorderless,
+					Danger:    true,
+					BlockSize: t.Space(9),
+				}).
 					Label(locales.PlanRemoveRow())
 				if remove.Clicked() {
 					removed = index
@@ -655,7 +661,7 @@ func (a *app) planOverrides(c *ui.Context, p uiPalette) {
 		for index := range a.planConfig.Ranking.Boundary.Overrides {
 			index := index
 			row := &a.planConfig.Ranking.Boundary.Overrides[index]
-			ui.Row(c).FillWidth().AlignItems(ui.End).Gap(t.Space(3)).Children(func() {
+			ui.Row(c).FillWidth().AlignItems(ui.End).Gap(t.Space(4)).Children(func() {
 				ui.Column(c).Grow(1).MinWidth(0).Children(func() {
 					a.planField(c, locales.PlanOverrideSubject(), "", func() {
 						a.codeField(c, &row.Subject, planSubjectChoices(), locales.PlanOverrideSubject())
@@ -682,7 +688,11 @@ func (a *app) planOverrides(c *ui.Context, p uiPalette) {
 						row.Second = int(second)
 					})
 				})
-				if action.ActionIcon(c, iconTrash, action.ActionIconProps{Variant: action.ActionIconBorderless, Danger: true}).
+				if action.ActionIcon(c, iconTrash, action.ActionIconProps{
+					Variant:   action.ActionIconBorderless,
+					Danger:    true,
+					BlockSize: t.Space(9),
+				}).
 					Label(locales.PlanRemoveRow()).Clicked() {
 					removed = index
 				}
@@ -709,7 +719,7 @@ func (a *app) planManualBoundaries(c *ui.Context, p uiPalette) {
 		for index := range a.planConfig.Ranking.Boundary.Manual {
 			index := index
 			row := &a.planConfig.Ranking.Boundary.Manual[index]
-			ui.Row(c).FillWidth().AlignItems(ui.End).Gap(t.Space(3)).Children(func() {
+			ui.Row(c).FillWidth().AlignItems(ui.End).Gap(t.Space(4)).Children(func() {
 				ui.Column(c).Grow(1).MinWidth(0).Children(func() {
 					a.planField(c, locales.PlanOverrideSubject(), "", func() {
 						a.codeField(c, &row.Subject, planSubjectChoices(), locales.PlanOverrideSubject())
@@ -729,7 +739,11 @@ func (a *app) planManualBoundaries(c *ui.Context, p uiPalette) {
 						row.Second = int(second)
 					})
 				})
-				if action.ActionIcon(c, iconTrash, action.ActionIconProps{Variant: action.ActionIconBorderless, Danger: true}).
+				if action.ActionIcon(c, iconTrash, action.ActionIconProps{
+					Variant:   action.ActionIconBorderless,
+					Danger:    true,
+					BlockSize: t.Space(9),
+				}).
 					Label(locales.PlanRemoveRow()).Clicked() {
 					removed = index
 				}
@@ -749,7 +763,7 @@ func (a *app) planManualBoundaries(c *ui.Context, p uiPalette) {
 }
 
 func (a *app) planFieldNumber(c *ui.Context, value *float64, label string) {
-	field.InputNumber(c, value, field.InputNumberProps{Min: 0, Step: 1}).Label(label)
+	numberField(c, value, 0, math.Inf(1), 1, label)
 }
 
 func (a *app) planPersonalSection(c *ui.Context, p uiPalette) {
@@ -789,8 +803,9 @@ func (a *app) planProgramsSection(c *ui.Context, p uiPalette) {
 						FontSize(bodySize(t)).FontWeight(600)
 					ui.Spacer(c)
 					if action.ActionIcon(c, iconTrash, action.ActionIconProps{
-						Variant: action.ActionIconBorderless,
-						Danger:  true,
+						Variant:   action.ActionIconBorderless,
+						Danger:    true,
+						BlockSize: t.Space(9),
 					}).Label(locales.PlanRemoveRow()).Clicked() {
 						removed = index
 					}

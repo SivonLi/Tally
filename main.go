@@ -90,6 +90,9 @@ type app struct {
 	analysisSelectedViewID          int64
 	analysisSaveViewOpen            bool
 	analysisSaveViewName            string
+	analysisDeleteViewOpen          bool
+	analysisDeleteViewID            int64
+	analysisDeleteViewName          string
 	analysisMessage                 string
 	analysisError                   string
 

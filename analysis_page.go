@@ -30,7 +30,9 @@ func (a *app) analysisPage(c *ui.Context, p uiPalette) {
 
 				if a.analysisSelectedViewID > 0 {
 					if labelledButton(c, locales.AnalysisDeleteView(), iconTrash, false).Clicked() {
-						a.deleteSavedView(ctx, a.analysisSelectedViewID)
+						a.analysisDeleteViewID = a.analysisSelectedViewID
+						a.analysisDeleteViewName = a.analysisSavedViewName(a.analysisSelectedViewID)
+						a.analysisDeleteViewOpen = a.analysisDeleteViewName != ""
 					}
 				}
 
@@ -87,6 +89,33 @@ func (a *app) analysisPage(c *ui.Context, p uiPalette) {
 
 	// 保存视图弹窗
 	a.analysisSaveViewModal(c, p)
+	a.analysisDeleteViewDialog(c)
+}
+
+func (a *app) analysisSavedViewName(id int64) string {
+	for _, view := range a.analysisSavedViews {
+		if view.ID == id {
+			return view.Name
+		}
+	}
+	return ""
+}
+
+func (a *app) analysisDeleteViewDialog(c *ui.Context) {
+	if !a.analysisDeleteViewOpen {
+		return
+	}
+	title := fmt.Sprintf(locales.AnalysisDeleteViewTitle(), a.analysisDeleteViewName)
+	confirm := fmt.Sprintf(locales.AnalysisDeleteViewConfirm(), a.analysisDeleteViewName)
+	choice := ui.AlertDialog(c, &a.analysisDeleteViewOpen, title,
+		locales.AnalysisDeleteViewBody(), locales.AnalysisCancelBtn(), confirm)
+	if choice == 1 {
+		a.deleteSavedView(context.Background(), a.analysisDeleteViewID)
+	}
+	if !a.analysisDeleteViewOpen {
+		a.analysisDeleteViewID = 0
+		a.analysisDeleteViewName = ""
+	}
 }
 
 func (a *app) analysisSavedViewsSelector(c *ui.Context, p uiPalette) {
@@ -138,7 +167,7 @@ func (a *app) analysisSaveViewModal(c *ui.Context, p uiPalette) {
 		CancelText: locales.AnalysisCancelBtn(),
 		Width:      t.Space(120),
 	}, func() {
-		ui.Column(c).Width(t.Space(120)).Gap(t.Space(3)).Children(func() {
+		ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
 			ui.Text(c, locales.AnalysisSaveViewPrompt()).FontSize(captionSize(t)).TextColor(p.muted)
 			textField(c, &a.analysisSaveViewName, locales.AnalysisSaveViewPrompt(), "")
 		})
