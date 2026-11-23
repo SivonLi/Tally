@@ -158,6 +158,26 @@ func (msgs Messages) Decrement() string {
 	return Catalog.Format(msgs.locale, "decrement", nil)
 }
 
+// ShowPassword says "Show password"
+// in the language the app shows.
+func ShowPassword() string { return In(i18n.Locale()).ShowPassword() }
+
+// ShowPassword says "Show password"
+// in the language of msgs.
+func (msgs Messages) ShowPassword() string {
+	return Catalog.Format(msgs.locale, "showPassword", nil)
+}
+
+// HidePassword says "Hide password"
+// in the language the app shows.
+func HidePassword() string { return In(i18n.Locale()).HidePassword() }
+
+// HidePassword says "Hide password"
+// in the language of msgs.
+func (msgs Messages) HidePassword() string {
+	return Catalog.Format(msgs.locale, "hidePassword", nil)
+}
+
 // PlanLibraryTitle says "Assessment plans"
 // in the language the app shows.
 func PlanLibraryTitle() string { return In(i18n.Locale()).PlanLibraryTitle() }

@@ -788,9 +788,9 @@ stateDiagram-v2
 
 ### 6.1 视觉方向
 
-方向名称：档案纸与靛墨。
+视觉方向：沉静清晰的专业数据工具。
 
-界面使用温暖纸色作为窗口底色，白色或者浅纸色承载数据，墨色文字建立层级，靛青承担主操作和选中状态，胭脂色只用于风险、错误和不可逆操作。卡片依靠边框和背景层次区分，不使用厚重阴影、渐变和玻璃效果。每个页面只有一个强调色靛青，状态色只出现在小面积徽标和提示中。
+界面在浅色下使用素雅灰面作为窗口底色、深色下使用沉静深蓝灰作为画布，抬升表面卡片承载数据，深墨色/反白文字建立层级，深蓝与冰蓝承担主操作和选中状态，错误与警告保留清晰敏锐的状态标识。卡片依靠边框和背景层次区分，不使用厚重阴影、渐变和玻璃效果。每个页面只有一个核心强调色，状态色只出现在小面积徽标、标签和提示中。
 
 视觉签名由两部分组成：
 
@@ -805,62 +805,64 @@ stateDiagram-v2
 
 | 语义名称 | 色值 | 用途 |
 |---|---|---|
-| `canvas` | `#F4F1E8` | 窗口底色 |
-| `surface` | `#FFFDF8` | 卡片、表格、输入框 |
-| `surfaceMuted` | `#ECE7DB` | 表头、侧栏、次级面板 |
-| `surfaceHover` | `#F7F3E9` | 悬停背景 |
-| `surfacePressed` | `#E8E2D4` | 按下背景 |
-| `border` | `#DCD4C4` | 分隔线、控件边框 |
-| `borderStrong` | `#C4B9A6` | 选中边框、输入框聚焦前边框 |
-| `ink` | `#1E1C18` | 主文字 |
-| `inkSecondary` | `#4A463E` | 次级文字 |
-| `muted` | `#6B665C` | 说明文字、占位文字 |
-| `accent` | `#2B4C7E` | 主按钮、选中状态、链接 |
-| `accentHover` | `#223E68` | 主按钮悬停 |
-| `accentPressed` | `#1A3152` | 主按钮按下 |
-| `accentText` | `#FFFFFF` | 主色上的文字 |
-| `accentSoft` | `#E4EBF5` | 选中背景、轻提示 |
-| `danger` | `#9D2933` | 错误、删除 |
-| `dangerSoft` | `#F4E3E4` | 错误背景 |
-| `warning` | `#7A5B12` | 警告、需处理 |
-| `warningSoft` | `#F5EEDC` | 警告背景 |
-| `success` | `#2E6B4F` | 完成、已发布 |
-| `successSoft` | `#E3EEE7` | 完成背景 |
-| `info` | `#2A6079` | 提示、导入中 |
-| `infoSoft` | `#E2EEF3` | 提示背景 |
-| `selection` | `#D9E3F2` | 文本选择 |
-| `focus` | `#2B4C7E` | 焦点环 |
+| `canvas` | `#F5F7F8` | 窗口底色、全局画布 |
+| `surface` / `panel` | `#EDEFF1` | 卡片表面、表格主体、弹出层 |
+| `surfaceMuted` / `panelMuted` | `#E4ECF2` | 侧栏底色、表头、次级容器表面 |
+| `surfaceHover` / `panelHover` | `#D8E4EE` | 悬停背景、高亮表面 |
+| `fill` | `#B7CFE2` | 侧边栏选中项、激活填充 |
+| `hover` | `#D5DBE2` | 侧边栏控件、次级悬停状态 |
+| `border` | `#CDD4DC` | 分隔线、控件边框 |
+| `borderStrong` | `#C0C9D4` | 输入框边框、重点控件边框 |
+| `ink` | `#241523` | 主文字、标题字色 |
+| `inkSecondary` | `#6F6873` | 次级文字、辅助说明、常规图标 |
+| `muted` | `#6F6873` | 说明文字、占位文字 |
+| `accent` | `#2672AF` | 主按钮、选中状态、链接、强调色 |
+| `accentHover` | `#2672AF` | 主按钮悬停 |
+| `accentPressed` | `#2672AF` | 主按钮按下 |
+| `accentText` | `#FFFFFF` | 主色上的反色文字 |
+| `accentSoft` | `#E4ECF2` | 选中背景、柔和表面、轻提示 |
+| `danger` | `#FB2C36` | 错误、删除、危险操作 |
+| `dangerSoft` | `#F4E3E4` | 错误背景（保留原生基准） |
+| `warning` | `#FE9A00` | 警告、需处理 |
+| `warningSoft` | `#F5EEDC` | 警告背景（保留原生基准） |
+| `success` | `#2E6B4F` | 完成、已发布（保留原生基准） |
+| `successSoft` | `#E3EEE7` | 完成背景（保留原生基准） |
+| `info` | `#2A6079` | 提示、导入中（保留原生基准） |
+| `infoSoft` | `#E2EEF3` | 提示背景（保留原生基准） |
+| `selection` | `#B7CFE2` | 文本与项目选择背景 |
+| `focus` | `#2672AF` | 焦点环 |
 | `scrollbar` | `#B8AF9E` | 滚动条 |
 
 #### 6.2.2 深色主题
 
 | 语义名称 | 色值 | 用途 |
 |---|---|---|
-| `canvas` | `#171512` | 窗口底色 |
-| `surface` | `#1E1C18` | 卡片、表格、输入框 |
-| `surfaceMuted` | `#26231E` | 表头、侧栏、次级面板 |
-| `surfaceHover` | `#2B2822` | 悬停背景 |
-| `surfacePressed` | `#332F28` | 按下背景 |
-| `border` | `#3A362E` | 分隔线、控件边框 |
-| `borderStrong` | `#4E483E` | 选中边框、输入框聚焦前边框 |
-| `ink` | `#EDE9E0` | 主文字 |
-| `inkSecondary` | `#C7C1B5` | 次级文字 |
-| `muted` | `#A19A8D` | 说明文字、占位文字 |
-| `accent` | `#9DB7DC` | 主按钮、选中状态、链接 |
-| `accentHover` | `#B3C9E6` | 主按钮悬停 |
-| `accentPressed` | `#84A2CB` | 主按钮按下 |
-| `accentText` | `#14120F` | 主色上的文字 |
-| `accentSoft` | `#293447` | 选中背景、轻提示 |
-| `danger` | `#E39A90` | 错误、删除 |
-| `dangerSoft` | `#3A2422` | 错误背景 |
-| `warning` | `#D8B466` | 警告、需处理 |
-| `warningSoft` | `#362E1C` | 警告背景 |
-| `success` | `#8FC3A4` | 完成、已发布 |
-| `successSoft` | `#1F3328` | 完成背景 |
-| `info` | `#8FB8CC` | 提示、导入中 |
-| `infoSoft` | `#1E3038` | 提示背景 |
-| `selection` | `#2C4160` | 文本选择 |
-| `focus` | `#9DB7DC` | 焦点环 |
+| `canvas` | `#17212B` | 窗口底色、全局画布 |
+| `surface` / `panel` | `#333B45` | 卡片表面、表格主体、抬升表面 |
+| `surfaceMuted` / `panelMuted` | `#1E2D3B` | 侧栏底色、表头、次级容器表面 |
+| `surfaceHover` / `panelHover` | `#324E66` | 悬停背景、高亮表面 |
+| `fill` | `#324F66` | 侧边栏选中项、激活填充 |
+| `hover` | `#424E5A` | 侧边栏控件、次级悬停状态 |
+| `border` | `#405567` | 分隔线、控件边框 |
+| `borderStrong` | `#4F677B` | 输入框边框、重点控件边框 |
+| `ink` | `#FFFAFF` | 主文字、标题字色 |
+| `inkSecondary` | `#969CA6` | 次级文字、辅助说明、常规图标 |
+| `muted` | `#969CA6` | 说明文字、占位文字 |
+| `accent` | `#70B9EE` | 主按钮、选中状态、链接、强调色 |
+| `accentHover` | `#70B9EE` | 主按钮悬停 |
+| `accentPressed` | `#70B9EE` | 主按钮按下 |
+| `accentText` | `#17212B` | 主色上的反色文字 |
+| `accentSoft` | `#293F52` | 选中背景、柔和表面、轻提示 |
+| `danger` | `#FB414A` | 错误、删除、危险操作 |
+| `dangerSoft` | `#3A2422` | 错误背景（保留原生基准） |
+| `warning` | `#FE9A00` | 警告、需处理 |
+| `warningSoft` | `#362E1C` | 警告背景（保留原生基准） |
+| `success` | `#8FC3A4` | 完成、已发布（保留原生基准） |
+| `successSoft` | `#1F3328` | 完成背景（保留原生基准） |
+| `info` | `#8FB8CC` | 提示、导入中（保留原生基准） |
+| `infoSoft` | `#1E3038` | 提示背景（保留原生基准） |
+| `selection` | `#324F66` | 文本与项目选择背景 |
+| `focus` | `#70B9EE` | 焦点环 |
 | `scrollbar` | `#4A453C` | 滚动条 |
 
 #### 6.2.3 图表颜色
@@ -899,29 +901,32 @@ stateDiagram-v2
 
 #### 6.2.5 MyGo 主题字段映射
 
-MyGo 的 `ui.Theme` 提供基础语义字段，界面颜色按下面的关系映射：
+MyGo 原生 UI 由 `brand`（`*theme.Config`）注入全局控件，并通过 `uiPaletteFor(c)` 提供业务语义调色板：
 
-| 设计语义 | MyGo 字段 |
-|---|---|
-| `canvas` | `Theme.Background` |
-| `surface` | `Theme.Surface` |
-| `surfaceHover` | `Theme.SurfaceHover` |
-| `surfacePressed` | `Theme.SurfacePressed` |
-| `border` | `Theme.Border` |
-| `ink` | `Theme.Text` |
-| `muted` | `Theme.TextMuted` |
-| `accent` | `Theme.Accent` |
-| `accentHover` | `Theme.AccentHover` |
-| `accentPressed` | `Theme.AccentPressed` |
-| `accentText` | `Theme.AccentText` |
-| `danger` | `Theme.Danger` |
-| `warning` | `Theme.Warning` |
-| `success` | `Theme.Success` |
-| `selection` | `Theme.Selection` |
-| `focus` | `Theme.Focus` |
-| `scrollbar` | `Theme.Scrollbar` |
+| 设计语义 | MyGo / Lobe-MyGo 字段 | 说明 |
+|---|---|---|
+| `canvas` | `Theme.Background` / `BgBase` / `BgLayout` | 窗口背景色、全局画布 |
+| `surface` / `panel` | `Theme.Surface` / `BgContainer` / `BgElevated` | 抬升表面卡片、弹窗面板 |
+| `surfaceMuted` / `panelMuted` | `BgContainerSecondary` | 侧栏底色、表头底色 |
+| `surfaceHover` / `panelHover` | `Theme.SurfaceHover` / `BgSpotlight` | 悬浮高亮表面 |
+| `fill` | `fill` / `PrimaryFill` | 侧栏选中项、激活项背景填充 |
+| `hover` | `hover` | 侧栏控件悬浮底色 |
+| `border` | `Theme.Border` / `Border` / `BorderSecondary` | 常规边框、分割线 |
+| `borderStrong` | `PrimaryBorder` | 输入框、重点控件边框 |
+| `ink` | `Theme.Text` / `Text` / `TextHeading` / `IconHover` | 主文字、标题字色 |
+| `inkSecondary` / `muted` | `Theme.TextMuted` / `TextSecondary` / `Icon` | 次级文字、辅助说明、常规图标 |
+| `accent` | `Theme.Accent` / `Primary` / `Link` / `Highlight` | 主按钮、选中状态、强调色 |
+| `accentText` | `Theme.AccentText` / `PrimaryForeground` | 强调色上的反色文字 |
+| `accentSoft` | `PrimaryBg` | 强调柔和表面、选中淡底色 |
+| `danger` | `Theme.Danger` / `Error` / `ErrorText` | 错误、删除、阻断操作 |
+| `warning` | `Theme.Warning` / `Warning` / `WarningText` | 警告、需处理、提醒 |
+| `success` | `Theme.Success` / `Success` | 成功、完成、就绪（保留原生基准色） |
+| `info` | `Info` | 提示、常规说明（保留原生基准色） |
 
-`surfaceMuted`、`inkSecondary`、`accentSoft`、`dangerSoft`、`warningSoft`、`successSoft`、`info` 和 `infoSoft` 由项目的 `uiPalette` 提供，与 `Theme` 一起设置。浅色与深色各自一套数值，界面代码只引用语义名称。
+调色板集成规范与未覆盖处理原则：
+1. **外部调色板无缝映射**：将外部设计的浅深双态调色板对齐到应用全局窗口画布、抬升卡片表面、侧栏、边框、文字排印与主副强调色。
+2. **未覆盖角色严禁凭空定义**：若外部设计清单中未提供特定业务角色（如 `Success` 成功色、`Info` 信息色以及各状态淡底色 `dangerSoft`/`warningSoft`/`successSoft`/`infoSoft`），系统严格遵循不自行发明颜色的原则，完整保留 Tally 原生基准色彩。
+3. **保留不消费颜色**：外部调色板中若包含 Tally 架构当前无需使用的色值（如代码编辑器表面、集成终端底色、聊天气泡表面、搜索词高亮等），在文档中作为储备色记录，不污染界面代码。
 
 ### 6.3 字体
 
@@ -1999,7 +2004,7 @@ erDiagram
 | 5 | 基础数据的复用范围 | 学生与教师身份跨级保存，行政班、教学班、任课关系和学生归属按阶段保存并支持复制，入口成绩按级保存并跨阶段引用 | 决定新学年的工作量和历史数据连接方式 |
 | 6 | 导入来源 | 支持任意 Excel 映射导入，同时提供标准模板；本期不接入学籍与考务接口 | 决定导入向导的复杂度 |
 | 7 | 编辑权限 | 本期按单机单用户设计，所有数据可编辑并记录审计；不做角色权限 | 决定设置页面与审计范围 |
-| 8 | 视觉方向 | 采用「档案纸与靛墨」，暖纸色、靛青主色、胭脂风险色、等宽数字特性 | 决定全部页面与组件颜色 |
+| 8 | 视觉方向 | 采用安静明晰的工具调色板体系，浅灰/冷夜蓝底色、深蓝与冰蓝强调色、等宽数字特性 | 决定全部页面与组件颜色 |
 | 9 | 计算口径 | 保持现有口径与方案配置不变，重构只改变数据组织与界面 | 决定计算引擎是否需要修改 |
 | 10 | 导出范围 | 本期保留 Excel 导出，产品不增加 PDF 报告；6.16 的设计评审 PDF 只用于方案选择 | 决定导出页面与依赖 |
 | 11 | 历史数据迁移 | 迁移现有 `batches` 记录到级、阶段、考试和本次考核结构，保留结果与方案版本 | 版本 4 迁移组织数据，版本 6 迁移考试数据 |

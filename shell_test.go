@@ -205,8 +205,8 @@ func TestSettingsWindowUsesBlackAndMaterial(t *testing.T) {
 	tt.Advance(2 * time.Second)
 	tt.Frame()
 	img := tt.Image()
-	if got := img.RGBAAt(600, 400); got != (color.RGBA{R: 0x17, G: 0x15, B: 0x12, A: 0xff}) {
-		t.Fatalf("content background = %v, want warm dark canvas", got)
+	if got := img.RGBAAt(600, 400); got != (color.RGBA{R: 0x17, G: 0x21, B: 0x2b, A: 0xff}) {
+		t.Fatalf("content background = %v, want dark canvas", got)
 	}
 	if _, ok := tt.Find("Subjects"); !ok {
 		t.Errorf("texts = %q", tt.Texts())

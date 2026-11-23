@@ -21,6 +21,8 @@
   "languageChinese": "中文",
   "increment": "Increase",
   "decrement": "Decrease",
+  "showPassword": "Show password",
+  "hidePassword": "Hide password",
   "planLibraryTitle": "Assessment plans",
   "planPageSubtitle": "Change the rules here and save when you are done.",
   "planSelectorLabel": "Plan",

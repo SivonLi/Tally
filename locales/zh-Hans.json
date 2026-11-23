@@ -12,6 +12,8 @@
   "languageChinese": "中文",
   "increment": "增加",
   "decrement": "减少",
+  "showPassword": "显示密码",
+  "hidePassword": "隐藏密码",
   "planLibraryTitle": "考核方案",
   "planPageSubtitle": "在这里修改计算规则，改完保存。",
   "planSelectorLabel": "方案",

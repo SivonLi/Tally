@@ -5,29 +5,37 @@ import (
 	"github.com/lobehub/lobe-mygo/pkg/theme"
 )
 
-// brand 是应用唯一的主题。背景使用暖纸色，强调色只有靛青一种，
-// 成功、提醒和错误各自保留可辨认的颜色。
+// brand 是应用唯一的主题。
+// 遵循 Tally 调色板体系，强调色为深蓝/冰蓝，状态色保留清晰辨识度。
 var brand = func() *theme.Config {
 	light, dark := *theme.Light(), *theme.Dark()
 
-	light.Primary = ui.Hex("#2B4C7E")
-	light.PrimaryHover = ui.Hex("#223E68")
-	light.PrimaryActive = ui.Hex("#1A3152")
+	light.ControlHeight = 36
+	light.ControlHeightSM = 28
+	light.ControlHeightLG = 44
+	light.FontSize = 16
+	light.FontSizeSM = 14
+	light.FontSizeLG = 18
+	light.FontSizeXL = 28
+
+	light.Primary = ui.Hex("#2672AF")
+	light.PrimaryHover = light.Primary
+	light.PrimaryActive = light.Primary
 	light.PrimaryForeground = ui.Hex("#FFFFFF")
 	light.PrimaryText = light.Primary
-	light.PrimaryTextHover = light.PrimaryHover
-	light.PrimaryTextActive = light.PrimaryActive
-	light.PrimaryBg = ui.Hex("#E4EBF5")
-	light.PrimaryBgHover = ui.Hex("#D5DFF0")
-	light.PrimaryBorder = ui.Hex("#C4B9A6")
-	light.PrimaryBorderHover = ui.Hex("#9DB7DC")
-	light.PrimaryFill = ui.RGBA(43, 76, 126, 0.36)
-	light.PrimaryFillSecondary = ui.RGBA(43, 76, 126, 0.2)
-	light.PrimaryFillTertiary = ui.RGBA(43, 76, 126, 0.1)
-	light.PrimaryFillQuaternary = ui.RGBA(43, 76, 126, 0.04)
+	light.PrimaryTextHover = light.Primary
+	light.PrimaryTextActive = light.Primary
+	light.PrimaryBg = ui.Hex("#E4ECF2")
+	light.PrimaryBgHover = ui.Hex("#D8E4EE")
+	light.PrimaryBorder = ui.Hex("#CDD4DC")
+	light.PrimaryBorderHover = light.Primary
+	light.PrimaryFill = ui.RGBA(38, 114, 175, 0.36)
+	light.PrimaryFillSecondary = ui.RGBA(38, 114, 175, 0.2)
+	light.PrimaryFillTertiary = ui.RGBA(38, 114, 175, 0.1)
+	light.PrimaryFillQuaternary = ui.RGBA(38, 114, 175, 0.04)
 	light.Link = light.Primary
-	light.LinkHover = light.PrimaryHover
-	light.LinkActive = light.PrimaryActive
+	light.LinkHover = light.Primary
+	light.LinkActive = light.Primary
 	light.Success = ui.Hex("#2E6B4F")
 	light.SuccessHover = ui.Hex("#3D7D5E")
 	light.SuccessActive = ui.Hex("#245840")
@@ -38,22 +46,22 @@ var brand = func() *theme.Config {
 	light.SuccessBgHover = ui.Hex("#D3E3D8")
 	light.SuccessBorder = ui.Hex("#C8E0D2")
 	light.SuccessBorderHover = ui.Hex("#AFD3BE")
-	light.Warning = ui.Hex("#7A5B12")
-	light.WarningHover = ui.Hex("#8B6B1A")
-	light.WarningActive = ui.Hex("#654A0E")
+	light.Warning = ui.Hex("#FE9A00")
+	light.WarningHover = light.Warning
+	light.WarningActive = light.Warning
 	light.WarningText = light.Warning
-	light.WarningTextHover = light.WarningHover
-	light.WarningTextActive = light.WarningActive
+	light.WarningTextHover = light.Warning
+	light.WarningTextActive = light.Warning
 	light.WarningBg = ui.Hex("#F5EEDC")
 	light.WarningBgHover = ui.Hex("#E7DFC8")
 	light.WarningBorder = ui.Hex("#E7D8B4")
 	light.WarningBorderHover = ui.Hex("#DAC798")
-	light.Error = ui.Hex("#9D2933")
-	light.ErrorHover = ui.Hex("#AF3B43")
-	light.ErrorActive = ui.Hex("#86222B")
+	light.Error = ui.Hex("#FB2C36")
+	light.ErrorHover = light.Error
+	light.ErrorActive = light.Error
 	light.ErrorText = light.Error
-	light.ErrorTextHover = light.ErrorHover
-	light.ErrorTextActive = light.ErrorActive
+	light.ErrorTextHover = light.Error
+	light.ErrorTextActive = light.Error
 	light.ErrorBg = ui.Hex("#F4E3E4")
 	light.ErrorBgHover = ui.Hex("#E7CFCF")
 	light.ErrorBorder = ui.Hex("#E9C8C2")
@@ -64,51 +72,59 @@ var brand = func() *theme.Config {
 	light.InfoBg = ui.Hex("#F4F4F6")
 	light.InfoBorder = ui.Hex("#E4E4E9")
 
-	light.BgBase = ui.Hex("#F4F1E8")
-	light.BgLayout = ui.Hex("#F4F1E8")
-	light.BgContainer = ui.Hex("#FFFDF8")
-	light.BgContainerSecondary = ui.Hex("#ECE7DB")
-	light.BgElevated = ui.Hex("#FFFDF8")
-	light.BgSpotlight = ui.Hex("#F7F3E9")
-	light.Border = ui.Hex("#DCD4C4")
-	light.BorderSecondary = ui.Hex("#E8E1D4")
-	light.BorderDisabled = ui.Hex("#DCD4C4")
-	light.Fill = ui.RGBA(30, 28, 24, 0.12)
-	light.FillSecondary = ui.RGBA(30, 28, 24, 0.06)
-	light.FillTertiary = ui.RGBA(30, 28, 24, 0.035)
-	light.FillQuaternary = ui.RGBA(30, 28, 24, 0.02)
-	light.Text = ui.Hex("#1E1C18")
-	light.TextHeading = ui.Hex("#1E1C18")
-	light.TextSecondary = ui.Hex("#4A463E")
-	light.TextTertiary = ui.Hex("#6B665C")
-	light.TextQuaternary = ui.Hex("#6B665C")
-	light.TextDescription = ui.Hex("#6B665C")
-	light.TextLabel = ui.Hex("#4A463E")
-	light.TextPlaceholder = ui.Hex("#6B665C")
-	light.TextDisabled = ui.Hex("#6B665C")
-	light.Icon = ui.Hex("#6B665C")
-	light.IconHover = ui.Hex("#1E1C18")
-	light.Split = ui.RGBA(30, 28, 24, 0.08)
+	light.BgBase = ui.Hex("#F5F7F8")
+	light.BgLayout = ui.Hex("#F5F7F8")
+	light.BgContainer = ui.Hex("#EDEFF1")
+	light.BgContainerSecondary = ui.Hex("#E4ECF2")
+	light.BgElevated = ui.Hex("#EDEFF1")
+	light.BgSpotlight = ui.Hex("#E8E9EB")
+	light.Border = ui.Hex("#CDD4DC")
+	light.BorderSecondary = ui.Hex("#CDD4DC")
+	light.BorderDisabled = ui.Hex("#CDD4DC")
+	light.Fill = ui.RGBA(36, 21, 35, 0.12)
+	light.FillSecondary = ui.RGBA(36, 21, 35, 0.06)
+	light.FillTertiary = ui.RGBA(36, 21, 35, 0.035)
+	light.FillQuaternary = ui.RGBA(36, 21, 35, 0.02)
+	light.Text = ui.Hex("#241523")
+	light.TextHeading = ui.Hex("#241523")
+	light.TextSecondary = ui.Hex("#6F6873")
+	light.TextTertiary = ui.Hex("#6F6873")
+	light.TextQuaternary = ui.Hex("#6F6873")
+	light.TextDescription = ui.Hex("#6F6873")
+	light.TextLabel = ui.Hex("#6F6873")
+	light.TextPlaceholder = ui.Hex("#6F6873")
+	light.TextDisabled = ui.Hex("#6F6873")
+	light.Icon = ui.Hex("#6F6873")
+	light.IconHover = ui.Hex("#241523")
+	light.Split = ui.RGBA(36, 21, 35, 0.08)
 	light.Highlight = light.Primary
 
-	dark.Primary = ui.Hex("#9DB7DC")
-	dark.PrimaryHover = ui.Hex("#B3C9E6")
-	dark.PrimaryActive = ui.Hex("#84A2CB")
-	dark.PrimaryForeground = ui.Hex("#14120F")
-	dark.PrimaryText = ui.Hex("#9DB7DC")
-	dark.PrimaryTextHover = ui.Hex("#B3C9E6")
-	dark.PrimaryTextActive = ui.Hex("#84A2CB")
-	dark.PrimaryBg = ui.Hex("#293447")
-	dark.PrimaryBgHover = ui.Hex("#314059")
-	dark.PrimaryBorder = ui.Hex("#4E483E")
-	dark.PrimaryBorderHover = ui.Hex("#9DB7DC")
-	dark.PrimaryFill = ui.RGBA(157, 183, 220, 0.36)
-	dark.PrimaryFillSecondary = ui.RGBA(157, 183, 220, 0.22)
-	dark.PrimaryFillTertiary = ui.RGBA(157, 183, 220, 0.12)
-	dark.PrimaryFillQuaternary = ui.RGBA(157, 183, 220, 0.05)
+	dark.ControlHeight = 36
+	dark.ControlHeightSM = 28
+	dark.ControlHeightLG = 44
+	dark.FontSize = 16
+	dark.FontSizeSM = 14
+	dark.FontSizeLG = 18
+	dark.FontSizeXL = 28
+
+	dark.Primary = ui.Hex("#70B9EE")
+	dark.PrimaryHover = dark.Primary
+	dark.PrimaryActive = dark.Primary
+	dark.PrimaryForeground = ui.Hex("#17212B")
+	dark.PrimaryText = dark.Primary
+	dark.PrimaryTextHover = dark.Primary
+	dark.PrimaryTextActive = dark.Primary
+	dark.PrimaryBg = ui.Hex("#293F52")
+	dark.PrimaryBgHover = ui.Hex("#324E66")
+	dark.PrimaryBorder = ui.Hex("#405567")
+	dark.PrimaryBorderHover = dark.Primary
+	dark.PrimaryFill = ui.RGBA(112, 185, 238, 0.36)
+	dark.PrimaryFillSecondary = ui.RGBA(112, 185, 238, 0.22)
+	dark.PrimaryFillTertiary = ui.RGBA(112, 185, 238, 0.12)
+	dark.PrimaryFillQuaternary = ui.RGBA(112, 185, 238, 0.05)
 	dark.Link = dark.PrimaryText
-	dark.LinkHover = dark.PrimaryTextHover
-	dark.LinkActive = dark.PrimaryTextActive
+	dark.LinkHover = dark.PrimaryText
+	dark.LinkActive = dark.PrimaryText
 	dark.Success = ui.Hex("#8FC3A4")
 	dark.SuccessHover = ui.Hex("#A5D2B6")
 	dark.SuccessActive = ui.Hex("#78B292")
@@ -119,22 +135,22 @@ var brand = func() *theme.Config {
 	dark.SuccessBgHover = ui.Hex("#254232")
 	dark.SuccessBorder = ui.Hex("#1F4A30")
 	dark.SuccessBorderHover = ui.Hex("#2A6240")
-	dark.Warning = ui.Hex("#D8B466")
-	dark.WarningHover = ui.Hex("#E3C378")
-	dark.WarningActive = ui.Hex("#C3A458")
+	dark.Warning = ui.Hex("#FE9A00")
+	dark.WarningHover = dark.Warning
+	dark.WarningActive = dark.Warning
 	dark.WarningText = dark.Warning
-	dark.WarningTextHover = dark.WarningHover
-	dark.WarningTextActive = dark.WarningActive
+	dark.WarningTextHover = dark.Warning
+	dark.WarningTextActive = dark.Warning
 	dark.WarningBg = ui.Hex("#362E1C")
 	dark.WarningBgHover = ui.Hex("#43392B")
 	dark.WarningBorder = ui.Hex("#4A3B1E")
 	dark.WarningBorderHover = ui.Hex("#5C4A28")
-	dark.Error = ui.Hex("#E39A90")
-	dark.ErrorHover = ui.Hex("#EBAEA6")
-	dark.ErrorActive = ui.Hex("#CF8379")
+	dark.Error = ui.Hex("#FB414A")
+	dark.ErrorHover = dark.Error
+	dark.ErrorActive = dark.Error
 	dark.ErrorText = dark.Error
-	dark.ErrorTextHover = dark.ErrorHover
-	dark.ErrorTextActive = dark.ErrorActive
+	dark.ErrorTextHover = dark.Error
+	dark.ErrorTextActive = dark.Error
 	dark.ErrorBg = ui.Hex("#3A2422")
 	dark.ErrorBgHover = ui.Hex("#4A302D")
 	dark.ErrorBorder = ui.Hex("#4C2A26")
@@ -145,31 +161,31 @@ var brand = func() *theme.Config {
 	dark.InfoBg = ui.Hex("#1A1A1E")
 	dark.InfoBorder = ui.Hex("#2A2A30")
 
-	dark.BgBase = ui.Hex("#171512")
-	dark.BgLayout = ui.Hex("#171512")
-	dark.BgContainer = ui.Hex("#1E1C18")
-	dark.BgContainerSecondary = ui.Hex("#26231E")
-	dark.BgElevated = ui.Hex("#1E1C18")
-	dark.BgSpotlight = ui.Hex("#2B2822")
-	dark.Border = ui.Hex("#3A362E")
-	dark.BorderSecondary = ui.Hex("#332F28")
-	dark.BorderDisabled = ui.Hex("#3A362E")
-	dark.Fill = ui.RGBA(237, 233, 224, 0.14)
-	dark.FillSecondary = ui.RGBA(237, 233, 224, 0.08)
-	dark.FillTertiary = ui.RGBA(237, 233, 224, 0.05)
-	dark.FillQuaternary = ui.RGBA(237, 233, 224, 0.03)
-	dark.Text = ui.Hex("#EDE9E0")
-	dark.TextHeading = ui.Hex("#EDE9E0")
-	dark.TextSecondary = ui.Hex("#C7C1B5")
-	dark.TextTertiary = ui.Hex("#A19A8D")
-	dark.TextQuaternary = ui.Hex("#A19A8D")
-	dark.TextDescription = ui.Hex("#A19A8D")
-	dark.TextLabel = ui.Hex("#C7C1B5")
-	dark.TextPlaceholder = ui.Hex("#A19A8D")
-	dark.TextDisabled = ui.Hex("#A19A8D")
-	dark.Icon = ui.Hex("#A19A8D")
-	dark.IconHover = ui.Hex("#EDE9E0")
-	dark.Split = ui.RGBA(237, 233, 224, 0.08)
+	dark.BgBase = ui.Hex("#17212B")
+	dark.BgLayout = ui.Hex("#17212B")
+	dark.BgContainer = ui.Hex("#333B45")
+	dark.BgContainerSecondary = ui.Hex("#1E2D3B")
+	dark.BgElevated = ui.Hex("#333B45")
+	dark.BgSpotlight = ui.Hex("#414851")
+	dark.Border = ui.Hex("#405567")
+	dark.BorderSecondary = ui.Hex("#405567")
+	dark.BorderDisabled = ui.Hex("#405567")
+	dark.Fill = ui.RGBA(255, 250, 255, 0.14)
+	dark.FillSecondary = ui.RGBA(255, 250, 255, 0.08)
+	dark.FillTertiary = ui.RGBA(255, 250, 255, 0.05)
+	dark.FillQuaternary = ui.RGBA(255, 250, 255, 0.03)
+	dark.Text = ui.Hex("#FFFAFF")
+	dark.TextHeading = ui.Hex("#FFFAFF")
+	dark.TextSecondary = ui.Hex("#969CA6")
+	dark.TextTertiary = ui.Hex("#969CA6")
+	dark.TextQuaternary = ui.Hex("#969CA6")
+	dark.TextDescription = ui.Hex("#969CA6")
+	dark.TextLabel = ui.Hex("#969CA6")
+	dark.TextPlaceholder = ui.Hex("#969CA6")
+	dark.TextDisabled = ui.Hex("#969CA6")
+	dark.Icon = ui.Hex("#969CA6")
+	dark.IconHover = ui.Hex("#FFFAFF")
+	dark.Split = ui.RGBA(255, 250, 255, 0.08)
 	dark.Highlight = dark.Primary
 
 	return theme.NewConfig(light, dark)
@@ -205,73 +221,74 @@ type uiPalette struct {
 func uiPaletteFor(c *ui.Context) uiPalette {
 	brand.Apply(c)
 	t := *c.Theme()
+	tk := theme.TokensOf(c)
 	if t.Dark {
 		return uiPalette{
 			theme:        t,
-			canvas:       ui.Hex("#171512"),
-			panel:        ui.Hex("#1E1C18"),
-			panelMuted:   ui.Hex("#26231E"),
-			panelHover:   ui.Hex("#2B2822"),
-			fill:         ui.Hex("#2B2822"),
-			hover:        ui.Hex("#2B2822"),
-			border:       ui.Hex("#3A362E"),
-			borderStrong: ui.Hex("#4E483E"),
-			ink:          ui.Hex("#EDE9E0"),
-			inkSecondary: ui.Hex("#C7C1B5"),
-			muted:        ui.Hex("#A19A8D"),
-			accent:       ui.Hex("#9DB7DC"),
-			accentText:   ui.Hex("#14120F"),
-			accentSoft:   ui.Hex("#293447"),
-			danger:       ui.Hex("#E39A90"),
-			dangerSoft:   ui.Hex("#3A2422"),
-			warning:      ui.Hex("#D8B466"),
-			warningSoft:  ui.Hex("#362E1C"),
-			success:      ui.Hex("#8FC3A4"),
-			successSoft:  ui.Hex("#1F3328"),
-			info:         ui.Hex("#8FB8CC"),
-			infoSoft:     ui.Hex("#1E3038"),
+			canvas:       tk.BgBase,
+			panel:        tk.BgContainer,
+			panelMuted:   tk.BgContainerSecondary,
+			panelHover:   tk.PrimaryBgHover,
+			fill:         ui.Hex("#324F66"),
+			hover:        ui.Hex("#424E5A"),
+			border:       tk.Border,
+			borderStrong: ui.Hex("#4F677B"),
+			ink:          tk.Text,
+			inkSecondary: tk.TextSecondary,
+			muted:        tk.TextSecondary,
+			accent:       tk.Primary,
+			accentText:   tk.PrimaryForeground,
+			accentSoft:   tk.PrimaryBg,
+			danger:       tk.Error,
+			dangerSoft:   tk.ErrorBg,
+			warning:      tk.Warning,
+			warningSoft:  tk.WarningBg,
+			success:      tk.Success,
+			successSoft:  tk.SuccessBg,
+			info:         tk.Info,
+			infoSoft:     tk.InfoBg,
 		}
 	}
 
 	return uiPalette{
 		theme:        t,
-		canvas:       ui.Hex("#F4F1E8"),
-		panel:        ui.Hex("#FFFDF8"),
-		panelMuted:   ui.Hex("#ECE7DB"),
-		panelHover:   ui.Hex("#F7F3E9"),
-		fill:         ui.Hex("#F7F3E9"),
-		hover:        ui.Hex("#F7F3E9"),
-		border:       ui.Hex("#DCD4C4"),
-		borderStrong: ui.Hex("#C4B9A6"),
-		ink:          ui.Hex("#1E1C18"),
-		inkSecondary: ui.Hex("#4A463E"),
-		muted:        ui.Hex("#6B665C"),
-		accent:       ui.Hex("#2B4C7E"),
-		accentText:   ui.Hex("#FFFFFF"),
-		accentSoft:   ui.Hex("#E4EBF5"),
-		danger:       ui.Hex("#9D2933"),
-		dangerSoft:   ui.Hex("#F4E3E4"),
-		warning:      ui.Hex("#7A5B12"),
-		warningSoft:  ui.Hex("#F5EEDC"),
-		success:      ui.Hex("#2E6B4F"),
-		successSoft:  ui.Hex("#E3EEE7"),
-		info:         ui.Hex("#2A6079"),
-		infoSoft:     ui.Hex("#E2EEF3"),
+		canvas:       tk.BgBase,
+		panel:        tk.BgContainer,
+		panelMuted:   tk.BgContainerSecondary,
+		panelHover:   tk.PrimaryBgHover,
+		fill:         ui.Hex("#B7CFE2"),
+		hover:        ui.Hex("#D5DBE2"),
+		border:       tk.Border,
+		borderStrong: ui.Hex("#C0C9D4"),
+		ink:          tk.Text,
+		inkSecondary: tk.TextSecondary,
+		muted:        tk.TextSecondary,
+		accent:       tk.Primary,
+		accentText:   tk.PrimaryForeground,
+		accentSoft:   tk.PrimaryBg,
+		danger:       tk.Error,
+		dangerSoft:   tk.ErrorBg,
+		warning:      tk.Warning,
+		warningSoft:  tk.WarningBg,
+		success:      tk.Success,
+		successSoft:  tk.SuccessBg,
+		info:         tk.Info,
+		infoSoft:     tk.InfoBg,
 	}
 }
 
 func titleSize(t ui.Theme) float32 {
-	return 24
+	return t.FontSize * 28 / 16
 }
 
 func sectionSize(t ui.Theme) float32 {
-	return 16
+	return t.FontSize * 18 / 16
 }
 
 func bodySize(t ui.Theme) float32 {
-	return 13
+	return t.FontSize
 }
 
 func captionSize(t ui.Theme) float32 {
-	return 12
+	return t.FontSize * 14 / 16
 }
