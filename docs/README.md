@@ -10,6 +10,7 @@
 | `docs/product-redesign.md` | 教学数据工作台的产品结构、级与阶段基础数据、引导式导入、考核流程、界面与视觉规范 | 讨论产品重构方向、确认第 11 节决策、调整导航与数据模型前 |
 | `docs/design-roadmap.md` | 后续阶段划分、目标数据模型、历史数据、同步与迁移 | 规划后续阶段、同步、历史分析前 |
 | `docs/historical-data-checklist.md` | 真实历史数据的目录层级、工作簿与工作表角色、读取规则和说明模板 | 整理或者导入历史数据前 |
+| `docs/testing.md` | 界面双轨测试流程、View 与 Modal 测试矩阵、双色快照规范与 mygo-automation 插件驱动 | 编写、修改界面测试或执行自动化前 |
 | `docs/release.md` | 发布流程 | 发布前 |
 | `docs/commits.md` | 提交规范 | 提交前 |
 | `AGENTS.md` | 工程规则和技能路由 | 每个新会话开始时 |

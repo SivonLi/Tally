@@ -11,6 +11,7 @@
 | `mygo-drawing` | `transmit-bug/mygo-skills` | MyGo 自绘与画布 |
 | `mygo-motion` | `transmit-bug/mygo-skills` | MyGo 动画与手势 |
 | `mygo-usage` | `transmit-bug/mygo-skills` | MyGo 窗口、视图、状态与测试 |
+| `mygo-automation` | MyGo 官方插件 | 外部自动化测试、驱动运行中的应用、获取控件树与截图 |
 | `mygo-web` | `transmit-bug/mygo-skills` | 当前项目没有网页窗口，暂不使用 |
 | `mygo-maintenance` | MyGo 自带模板 | 版本升级、崩溃修复、API 行为确认 |
 | `mygo-native-modules` | MyGo 自带模板 | Swift、Kotlin、Rust、Zig 原生模块 |

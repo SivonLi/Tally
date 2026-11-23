@@ -10,6 +10,7 @@
 |---|---|
 | 新增或修改界面、选控件、检查页面是否用了该用的控件 | `mygo-components` |
 | 窗口、视图函数、状态与身份、`ui.NewTester` 测试 | `mygo-usage` |
+| 外部自动化测试、驱动运行中的应用、获取控件树与截图 | `mygo-automation` |
 | 对话框、通知、菜单、托盘、剪贴板、全局快捷键、文件监听、电源、网络 | `mygo-desktop` |
 | 过渡、弹簧、关键帧、手势动画以及动画测试 | `mygo-motion` |
 | 自绘、画布、着色器、路径与文字绘制 | `mygo-drawing` |
@@ -139,6 +140,14 @@ Go 由 mise 管理，版本写在 `.mise.toml`：
 ```sh
 eval "$(mise activate zsh)"
 ```
+
+## 界面与自动化测试
+
+测试流程与规范遵循 `docs/testing.md`：
+
+- **无头测试 (ui.NewTester)**：每个 View 页面与 Modal 弹窗都必须编写专属的 `ui.NewTester` 测试。
+- **双色快照 (tt.Image)**：每个界面测试必须在虚拟时钟推进稳定后，分别在浅色模式（`tt.SetDark(false)`）与深色模式（`tt.SetDark(true)`）各捕获一张 `tt.Image()` 快照，保存至 `testdata/snapshots/`，并断言深浅背景差异与有效性。
+- **自动化插件 (mygo-automation)**：端到端与黑盒自动化使用 MyGo 官方插件 `plugins/automation`（通过 `//go:build automation` 隔离）。外部操作统一使用 `mygo-automation` 命令行工具通过 Unix Domain Socket 驱动，严禁引入特定平台的脆弱无障碍脚本。
 
 ## 完成前
 
