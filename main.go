@@ -50,13 +50,19 @@ type app struct {
 	assessmentMessage            string
 	assessmentError              string
 	batchSidebarWidth            float32
+	assessmentResultTab          int
+	assessmentSubjectFilter      string
 	resultTable                  ui.ListState
+	classResultTable             ui.ListState
+	teacherResultTable           ui.ListState
 	assessmentRuns               []store.AssessmentRunSummary
 	assessmentRunID              int64
 	assessmentRunChosen          bool
 	assessmentOfficialStale      bool
 	assessmentOfficialStaleItems []string
 	resultSelection              ui.Selection[string]
+	classSelection               ui.Selection[string]
+	teacherSelection             ui.Selection[string]
 	resultDetailOpen             bool
 	resultDetail                 resultDetail
 	calculateVersion             string

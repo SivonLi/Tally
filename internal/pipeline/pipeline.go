@@ -135,6 +135,7 @@ func ExportAssessment(ctx context.Context, storage *store.Store, assessmentID in
 	if currentHash != run.InputHash {
 		return fmt.Errorf("本次考核的数据或者方案已经变化，需要重新核算后才能导出")
 	}
+	data, _ := storage.LoadAssessmentData(ctx, assessmentID)
 	batch := store.Batch{
 		AcademicYear: context.AcademicYear,
 		Semester:     context.Exam.Term,
@@ -150,6 +151,8 @@ func ExportAssessment(ctx context.Context, storage *store.Store, assessmentID in
 		Run:         run,
 		Rows:        rows,
 		Personal:    personal,
+		Students:    data.Students,
+		Classes:     data.Classes,
 		GeneratedAt: time.Now(),
 	}); err != nil {
 		return err
@@ -209,6 +212,10 @@ func ExportLatest(ctx context.Context, storage *store.Store, batchID int64, path
 	if currentHash != run.InputHash {
 		return fmt.Errorf("批次数据或者方案已经变化，需要重新核算后才能导出")
 	}
+	data, err := storage.LoadBatchData(ctx, batchID)
+	if err != nil {
+		return err
+	}
 	if err := exporter.Write(exporter.Input{
 		Path:        path,
 		Batch:       batch,
@@ -216,6 +223,8 @@ func ExportLatest(ctx context.Context, storage *store.Store, batchID int64, path
 		Run:         run,
 		Rows:        rows,
 		Personal:    personal,
+		Students:    data.Students,
+		Classes:     data.Classes,
 		GeneratedAt: time.Now(),
 	}); err != nil {
 		return err

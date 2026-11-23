@@ -9303,3 +9303,183 @@ func PlanCompletionWeightedPreview() string { return In(i18n.Locale()).PlanCompl
 func (msgs Messages) PlanCompletionWeightedPreview() string {
 	return Catalog.Format(msgs.locale, "planCompletionWeightedPreview", nil)
 }
+
+// AssessmentViewBySubject says "Subject Rankings"
+// in the language the app shows.
+func AssessmentViewBySubject() string { return In(i18n.Locale()).AssessmentViewBySubject() }
+
+// AssessmentViewBySubject says "Subject Rankings"
+// in the language of msgs.
+func (msgs Messages) AssessmentViewBySubject() string {
+	return Catalog.Format(msgs.locale, "assessmentViewBySubject", nil)
+}
+
+// AssessmentViewByClass says "Class Summary"
+// in the language the app shows.
+func AssessmentViewByClass() string { return In(i18n.Locale()).AssessmentViewByClass() }
+
+// AssessmentViewByClass says "Class Summary"
+// in the language of msgs.
+func (msgs Messages) AssessmentViewByClass() string {
+	return Catalog.Format(msgs.locale, "assessmentViewByClass", nil)
+}
+
+// AssessmentViewByTeacher says "Teacher Scores"
+// in the language the app shows.
+func AssessmentViewByTeacher() string { return In(i18n.Locale()).AssessmentViewByTeacher() }
+
+// AssessmentViewByTeacher says "Teacher Scores"
+// in the language of msgs.
+func (msgs Messages) AssessmentViewByTeacher() string {
+	return Catalog.Format(msgs.locale, "assessmentViewByTeacher", nil)
+}
+
+// AssessmentViewMode says "View Mode"
+// in the language the app shows.
+func AssessmentViewMode() string { return In(i18n.Locale()).AssessmentViewMode() }
+
+// AssessmentViewMode says "View Mode"
+// in the language of msgs.
+func (msgs Messages) AssessmentViewMode() string {
+	return Catalog.Format(msgs.locale, "assessmentViewMode", nil)
+}
+
+// AssessmentFilterAllSubjects says "All Subjects"
+// in the language the app shows.
+func AssessmentFilterAllSubjects() string { return In(i18n.Locale()).AssessmentFilterAllSubjects() }
+
+// AssessmentFilterAllSubjects says "All Subjects"
+// in the language of msgs.
+func (msgs Messages) AssessmentFilterAllSubjects() string {
+	return Catalog.Format(msgs.locale, "assessmentFilterAllSubjects", nil)
+}
+
+// ColumnPersonalScore says "Personal Score"
+// in the language the app shows.
+func ColumnPersonalScore() string { return In(i18n.Locale()).ColumnPersonalScore() }
+
+// ColumnPersonalScore says "Personal Score"
+// in the language of msgs.
+func (msgs Messages) ColumnPersonalScore() string {
+	return Catalog.Format(msgs.locale, "columnPersonalScore", nil)
+}
+
+// ColumnGroupPoints says "Assigned Groups & Points"
+// in the language the app shows.
+func ColumnGroupPoints() string { return In(i18n.Locale()).ColumnGroupPoints() }
+
+// ColumnGroupPoints says "Assigned Groups & Points"
+// in the language of msgs.
+func (msgs Messages) ColumnGroupPoints() string {
+	return Catalog.Format(msgs.locale, "columnGroupPoints", nil)
+}
+
+// ColumnClassCompletionScore says "Completion Score"
+// in the language the app shows.
+func ColumnClassCompletionScore() string { return In(i18n.Locale()).ColumnClassCompletionScore() }
+
+// ColumnClassCompletionScore says "Completion Score"
+// in the language of msgs.
+func (msgs Messages) ColumnClassCompletionScore() string {
+	return Catalog.Format(msgs.locale, "columnClassCompletionScore", nil)
+}
+
+// ColumnGrade says "Grade"
+// in the language the app shows.
+func ColumnGrade() string { return In(i18n.Locale()).ColumnGrade() }
+
+// ColumnGrade says "Grade"
+// in the language of msgs.
+func (msgs Messages) ColumnGrade() string {
+	return Catalog.Format(msgs.locale, "columnGrade", nil)
+}
+
+// ColumnTeacherName says "Teacher"
+// in the language the app shows.
+func ColumnTeacherName() string { return In(i18n.Locale()).ColumnTeacherName() }
+
+// ColumnTeacherName says "Teacher"
+// in the language of msgs.
+func (msgs Messages) ColumnTeacherName() string {
+	return Catalog.Format(msgs.locale, "columnTeacherName", nil)
+}
+
+// ColumnClassTotal says "Class Total"
+// in the language the app shows.
+func ColumnClassTotal() string { return In(i18n.Locale()).ColumnClassTotal() }
+
+// ColumnClassTotal says "Class Total"
+// in the language of msgs.
+func (msgs Messages) ColumnClassTotal() string {
+	return Catalog.Format(msgs.locale, "columnClassTotal", nil)
+}
+
+// ColumnImprovementScore says "Improvement Score"
+// in the language the app shows.
+func ColumnImprovementScore() string { return In(i18n.Locale()).ColumnImprovementScore() }
+
+// ColumnImprovementScore says "Improvement Score"
+// in the language of msgs.
+func (msgs Messages) ColumnImprovementScore() string {
+	return Catalog.Format(msgs.locale, "columnImprovementScore", nil)
+}
+
+// ColumnPassScore says "Pass Score"
+// in the language the app shows.
+func ColumnPassScore() string { return In(i18n.Locale()).ColumnPassScore() }
+
+// ColumnPassScore says "Pass Score"
+// in the language of msgs.
+func (msgs Messages) ColumnPassScore() string {
+	return Catalog.Format(msgs.locale, "columnPassScore", nil)
+}
+
+// ColumnActualCompletion says "Actual Completion"
+// in the language the app shows.
+func ColumnActualCompletion() string { return In(i18n.Locale()).ColumnActualCompletion() }
+
+// ColumnActualCompletion says "Actual Completion"
+// in the language of msgs.
+func (msgs Messages) ColumnActualCompletion() string {
+	return Catalog.Format(msgs.locale, "columnActualCompletion", nil)
+}
+
+// ColumnBaseCompletion says "Base Completion"
+// in the language the app shows.
+func ColumnBaseCompletion() string { return In(i18n.Locale()).ColumnBaseCompletion() }
+
+// ColumnBaseCompletion says "Base Completion"
+// in the language of msgs.
+func (msgs Messages) ColumnBaseCompletion() string {
+	return Catalog.Format(msgs.locale, "columnBaseCompletion", nil)
+}
+
+// ColumnCompletionUncapped says "Uncapped Completion"
+// in the language the app shows.
+func ColumnCompletionUncapped() string { return In(i18n.Locale()).ColumnCompletionUncapped() }
+
+// ColumnCompletionUncapped says "Uncapped Completion"
+// in the language of msgs.
+func (msgs Messages) ColumnCompletionUncapped() string {
+	return Catalog.Format(msgs.locale, "columnCompletionUncapped", nil)
+}
+
+// ColumnImprovementUncapped says "Uncapped Improvement"
+// in the language the app shows.
+func ColumnImprovementUncapped() string { return In(i18n.Locale()).ColumnImprovementUncapped() }
+
+// ColumnImprovementUncapped says "Uncapped Improvement"
+// in the language of msgs.
+func (msgs Messages) ColumnImprovementUncapped() string {
+	return Catalog.Format(msgs.locale, "columnImprovementUncapped", nil)
+}
+
+// ColumnPassUncapped says "Uncapped Pass"
+// in the language the app shows.
+func ColumnPassUncapped() string { return In(i18n.Locale()).ColumnPassUncapped() }
+
+// ColumnPassUncapped says "Uncapped Pass"
+// in the language of msgs.
+func (msgs Messages) ColumnPassUncapped() string {
+	return Catalog.Format(msgs.locale, "columnPassUncapped", nil)
+}

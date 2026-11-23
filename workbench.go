@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -650,46 +651,285 @@ func (a *app) assessmentResults(c *ui.Context, p uiPalette) {
 			ui.Text(c, locales.AssessmentNoResults()).FontSize(bodySize(t)).TextColor(p.muted)
 			return
 		}
-		rows := a.assessmentRows
-		a.resultTable.Key = func(row int) any {
-			return fmt.Sprintf("%d:%s", rows[row].StatGroupID, rows[row].Subject)
+		switch a.assessmentResultTab {
+		case 1:
+			a.assessmentClassResults(c, p)
+		case 2:
+			a.assessmentTeacherResults(c, p)
+		default:
+			a.assessmentSubjectResults(c, p)
 		}
-		a.resultTable.Selection = &a.resultSelection
-		a.resultTable.RowHeight = t.Space(8)
-		columns := []ui.TableColumn{
-			{Title: locales.ColumnClass(), Width: t.Space(18)},
-			{Title: locales.ColumnSubject(), Width: t.Space(14)},
-			{Title: locales.ColumnStatGroup(), Width: t.Space(20)},
-			{Title: locales.ColumnTeachers(), Width: 0},
-			{Title: locales.ColumnTotal(), Width: t.Space(16), Align: ui.End},
-			{Title: locales.ColumnRank(), Width: t.Space(12), Align: ui.End},
-			{Title: locales.ColumnTier(), Width: t.Space(12)},
-			{Title: locales.ColumnPoints(), Width: t.Space(12), Align: ui.End},
-		}
-		rule(c)
-		ui.Table(c, &a.resultTable, columns, len(rows), func(row, col int) {
-			item := rows[row]
-			switch col {
-			case 0:
-				ui.Text(c, item.LeadClassName).SingleLine()
-			case 1:
-				ui.Text(c, subjectLabel(item.Subject)).SingleLine()
-			case 2:
-				ui.Text(c, item.StatGroupName).SingleLine()
-			case 3:
-				ui.Text(c, decodeNames(item.TeacherNames)).SingleLine()
-			case 4:
-				ui.Text(c, formatDecimal(item.Total, 1)).FontFeatures("tnum")
-			case 5:
-				ui.Text(c, formatInt(item.Rank)).FontFeatures("tnum")
-			case 6:
-				ui.Text(c, levelLabel(item.TierIndex))
-			case 7:
-				ui.Text(c, formatDecimal(item.Points, 1)).FontFeatures("tnum")
-			}
-		}).Label(locales.AssessmentResults()).FillWidth()
 		a.consumeResultRowSelection()
 	})
+}
+
+func (a *app) distinctAssessmentSubjects() []string {
+	seen := map[string]bool{}
+	order := []string{"chinese", "math", "english", "physics", "chemistry", "biology", "history", "geography", "politics"}
+	present := map[string]bool{}
+	for _, row := range a.assessmentRows {
+		present[row.Subject] = true
+	}
+	var res []string
+	for _, s := range order {
+		if present[s] && !seen[s] {
+			seen[s] = true
+			res = append(res, s)
+		}
+	}
+	for _, row := range a.assessmentRows {
+		if !seen[row.Subject] {
+			seen[row.Subject] = true
+			res = append(res, row.Subject)
+		}
+	}
+	return res
+}
+
+func (a *app) filteredAssessmentRows() []store.StoredResultRow {
+	if a.assessmentSubjectFilter == "" || a.assessmentSubjectFilter == "all" {
+		return a.assessmentRows
+	}
+	var res []store.StoredResultRow
+	for _, row := range a.assessmentRows {
+		if row.Subject == a.assessmentSubjectFilter {
+			res = append(res, row)
+		}
+	}
+	return res
+}
+
+func (a *app) assessmentSubjectResults(c *ui.Context, p uiPalette) {
+	t := p.theme
+	subjects := a.distinctAssessmentSubjects()
+	if len(subjects) > 1 {
+		options := []string{locales.AssessmentFilterAllSubjects()}
+		for _, s := range subjects {
+			options = append(options, locales.ColumnSubject()+": "+subjectLabel(s))
+		}
+		chosen := locales.AssessmentFilterAllSubjects()
+		if a.assessmentSubjectFilter != "" && a.assessmentSubjectFilter != "all" {
+			chosen = locales.ColumnSubject() + ": " + subjectLabel(a.assessmentSubjectFilter)
+		}
+		next := chosen
+		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+			selectField(c, "workbench-subject-filter", &next, options, locales.AssessmentFilterAllSubjects()).
+				Width(t.Space(40)).Label(locales.ColumnSubject())
+		})
+		if next != chosen {
+			if next == locales.AssessmentFilterAllSubjects() {
+				a.assessmentSubjectFilter = "all"
+			} else {
+				for _, s := range subjects {
+					if locales.ColumnSubject()+": "+subjectLabel(s) == next {
+						a.assessmentSubjectFilter = s
+						break
+					}
+				}
+			}
+		}
+	}
+	rows := a.filteredAssessmentRows()
+	a.resultTable.Key = func(row int) any {
+		return fmt.Sprintf("%d:%s", rows[row].StatGroupID, rows[row].Subject)
+	}
+	a.resultTable.Selection = &a.resultSelection
+	a.resultTable.RowHeight = t.Space(8)
+	columns := []ui.TableColumn{
+		{Title: locales.ColumnClass(), Width: t.Space(18)},
+		{Title: locales.ColumnSubject(), Width: t.Space(14)},
+		{Title: locales.ColumnStatGroup(), Width: t.Space(20)},
+		{Title: locales.ColumnTeachers(), Width: 0},
+		{Title: locales.ColumnTotal(), Width: t.Space(16), Align: ui.End},
+		{Title: locales.ColumnRank(), Width: t.Space(12), Align: ui.End},
+		{Title: locales.ColumnTier(), Width: t.Space(12)},
+		{Title: locales.ColumnPoints(), Width: t.Space(12), Align: ui.End},
+	}
+	rule(c)
+	ui.Table(c, &a.resultTable, columns, len(rows), func(row, col int) {
+		item := rows[row]
+		switch col {
+		case 0:
+			ui.Text(c, item.LeadClassName).SingleLine()
+		case 1:
+			ui.Text(c, subjectLabel(item.Subject)).SingleLine()
+		case 2:
+			ui.Text(c, item.StatGroupName).SingleLine()
+		case 3:
+			ui.Text(c, decodeNames(item.TeacherNames)).SingleLine()
+		case 4:
+			ui.Text(c, formatDecimal(item.Total, 1)).FontFeatures("tnum")
+		case 5:
+			ui.Text(c, formatInt(item.Rank)).FontFeatures("tnum")
+		case 6:
+			ui.Text(c, levelLabel(item.TierIndex))
+		case 7:
+			ui.Text(c, formatDecimal(item.Points, 1)).FontFeatures("tnum")
+		}
+	}).Label(locales.AssessmentViewBySubject()).FillWidth()
+}
+
+type classSummaryItem struct {
+	ClassName       string
+	CompletionScore float64
+	HasCompletion   bool
+	SubjectScores   map[string]float64
+	SubjectTeachers map[string]string
+	Total           float64
+}
+
+func (a *app) classSummaryData() ([]string, []classSummaryItem) {
+	subjects := a.distinctAssessmentSubjects()
+	classOrder := make([]string, 0)
+	classMap := make(map[string]*classSummaryItem)
+	for _, row := range a.assessmentRows {
+		item, exists := classMap[row.LeadClassName]
+		if !exists {
+			item = &classSummaryItem{
+				ClassName:       row.LeadClassName,
+				SubjectScores:   make(map[string]float64),
+				SubjectTeachers: make(map[string]string),
+			}
+			classMap[row.LeadClassName] = item
+			classOrder = append(classOrder, row.LeadClassName)
+		}
+		if row.CompletionParticipate {
+			item.CompletionScore = row.CompletionScore
+			item.HasCompletion = true
+		}
+		item.SubjectScores[row.Subject] = row.Total
+		item.SubjectTeachers[row.Subject] = decodeNames(row.TeacherNames)
+	}
+	items := make([]classSummaryItem, 0, len(classOrder))
+	for _, name := range classOrder {
+		item := *classMap[name]
+		total := 0.0
+		if item.HasCompletion {
+			total += item.CompletionScore
+		}
+		for _, s := range subjects {
+			total += item.SubjectScores[s]
+		}
+		item.Total = total
+		items = append(items, item)
+	}
+	return subjects, items
+}
+
+func (a *app) assessmentClassResults(c *ui.Context, p uiPalette) {
+	t := p.theme
+	subjects, items := a.classSummaryData()
+	if len(items) == 0 {
+		ui.Text(c, locales.AssessmentNoResults()).FontSize(bodySize(t)).TextColor(p.muted)
+		return
+	}
+	a.classResultTable.Key = func(row int) any {
+		return items[row].ClassName
+	}
+	a.classResultTable.Selection = &a.classSelection
+	a.classResultTable.RowHeight = t.Space(8)
+	columns := []ui.TableColumn{
+		{Title: locales.ColumnClass(), Width: t.Space(18)},
+		{Title: locales.ColumnClassCompletionScore(), Width: t.Space(16), Align: ui.End},
+	}
+	for _, s := range subjects {
+		columns = append(columns,
+			ui.TableColumn{Title: subjectLabel(s), Width: t.Space(16), Align: ui.End},
+			ui.TableColumn{Title: subjectLabel(s) + " " + locales.ColumnTeachers(), Width: t.Space(20)},
+		)
+	}
+	columns = append(columns, ui.TableColumn{Title: locales.ColumnClassTotal(), Width: t.Space(16), Align: ui.End})
+	rule(c)
+	ui.Table(c, &a.classResultTable, columns, len(items), func(row, col int) {
+		item := items[row]
+		switch {
+		case col == 0:
+			ui.Text(c, item.ClassName).SingleLine()
+		case col == 1:
+			if item.HasCompletion {
+				ui.Text(c, formatDecimal(item.CompletionScore, 1)).FontFeatures("tnum")
+			} else {
+				ui.Text(c, "-").TextColor(p.muted)
+			}
+		case col < len(columns)-1:
+			subIdx := (col - 2) / 2
+			isTeacher := (col-2)%2 == 1
+			s := subjects[subIdx]
+			if isTeacher {
+				ui.Text(c, item.SubjectTeachers[s]).SingleLine()
+			} else {
+				if score, ok := item.SubjectScores[s]; ok {
+					ui.Text(c, formatDecimal(score, 1)).FontFeatures("tnum")
+				} else {
+					ui.Text(c, "-").TextColor(p.muted)
+				}
+			}
+		case col == len(columns)-1:
+			ui.Text(c, formatDecimal(item.Total, 1)).FontFeatures("tnum")
+		}
+	}).Label(locales.AssessmentViewByClass()).FillWidth()
+}
+
+func (a *app) assessmentTeacherResults(c *ui.Context, p uiPalette) {
+	t := p.theme
+	scores := a.assessmentPersonal
+	if len(scores) == 0 {
+		ui.Text(c, locales.AssessmentNoResults()).FontSize(bodySize(t)).TextColor(p.muted)
+		return
+	}
+	a.teacherResultTable.Key = func(row int) any {
+		return fmt.Sprintf("%s:%s", scores[row].TeacherName, scores[row].Subject)
+	}
+	a.teacherResultTable.Selection = &a.teacherSelection
+	a.teacherResultTable.RowHeight = t.Space(8)
+	columns := []ui.TableColumn{
+		{Title: locales.ColumnTeacherName(), Width: t.Space(16)},
+		{Title: locales.ColumnGrade(), Width: t.Space(12)},
+		{Title: locales.ColumnSubject(), Width: t.Space(14)},
+		{Title: locales.ColumnGroupPoints(), Width: 0},
+		{Title: locales.ColumnPersonalScore(), Width: t.Space(16), Align: ui.End},
+	}
+	rule(c)
+	ui.Table(c, &a.teacherResultTable, columns, len(scores), func(row, col int) {
+		item := scores[row]
+		switch col {
+		case 0:
+			ui.Text(c, item.TeacherName).SingleLine()
+		case 1:
+			ui.Text(c, gradeLabel(item.Grade)).SingleLine()
+		case 2:
+			ui.Text(c, subjectLabel(item.Subject)).SingleLine()
+		case 3:
+			ui.Text(c, formatPoints(item.GroupPoints)).SingleLine()
+		case 4:
+			ui.Text(c, formatDecimal(item.Score, 2)).FontFeatures("tnum")
+		}
+	}).Label(locales.AssessmentViewByTeacher()).FillWidth()
+}
+
+func gradeLabel(grade string) string {
+	switch grade {
+	case "g1":
+		return locales.GradeG1()
+	case "g2":
+		return locales.GradeG2()
+	case "g3":
+		return locales.GradeG3()
+	default:
+		return grade
+	}
+}
+
+func formatPoints(value string) string {
+	var points []float64
+	if err := json.Unmarshal([]byte(value), &points); err != nil {
+		return value
+	}
+	parts := make([]string, 0, len(points))
+	for _, point := range points {
+		parts = append(parts, strconv.FormatFloat(point, 'f', -1, 64))
+	}
+	return strings.Join(parts, locales.ListSeparator())
 }
 
 func (a *app) assessmentResultsHeader(c *ui.Context, p uiPalette) {
@@ -717,6 +957,11 @@ func (a *app) assessmentResultsHeader(c *ui.Context, p uiPalette) {
 			}
 		}
 		ui.Spacer(c)
+		segmentedField(c, &a.assessmentResultTab, []string{
+			locales.AssessmentViewBySubject(),
+			locales.AssessmentViewByClass(),
+			locales.AssessmentViewByTeacher(),
+		}, locales.AssessmentViewMode())
 		if a.assessmentRun.ID != 0 {
 			ui.Textf(c, locales.AssessmentRunMeta(), formatTime(a.assessmentRun.CreatedAt)).
 				FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum")
@@ -736,15 +981,46 @@ func (a *app) runOptionLabelForID(id int64) string {
 // consumeResultRowSelection 消费行点击产生的选中：
 // 选中在下一帧出现，这里打开对应行的详情并清空选中。
 func (a *app) consumeResultRowSelection() {
-	if a.resultDetailOpen || a.resultSelection.Len() == 0 {
+	if a.resultDetailOpen {
 		return
 	}
-	for key := range a.resultSelection.All() {
-		row := a.resultRowByKey(key)
-		if row != nil {
-			a.openResultDetail(*row)
+	if a.resultSelection.Len() > 0 {
+		for key := range a.resultSelection.All() {
+			row := a.resultRowByKey(key)
+			if row != nil {
+				a.openResultDetail(*row)
+			}
+			break
 		}
-		break
+		a.resultSelection.Clear()
+		return
+	}
+	if a.classSelection.Len() > 0 {
+		for className := range a.classSelection.All() {
+			for _, row := range a.assessmentRows {
+				if row.LeadClassName == className {
+					a.openResultDetail(row)
+					break
+				}
+			}
+			break
+		}
+		a.classSelection.Clear()
+		return
+	}
+	if a.teacherSelection.Len() > 0 {
+		for key := range a.teacherSelection.All() {
+			teacherName, subject, _ := strings.Cut(key, ":")
+			for _, row := range a.assessmentRows {
+				if (subject == "" || row.Subject == subject) && strings.Contains(decodeNames(row.TeacherNames), teacherName) {
+					a.openResultDetail(row)
+					break
+				}
+			}
+			break
+		}
+		a.teacherSelection.Clear()
+		return
 	}
 }
 
@@ -780,11 +1056,15 @@ func (a *app) closeResultDetail() {
 	a.resultDetailOpen = false
 	a.resultDetail = resultDetail{}
 	a.resultSelection.Clear()
+	a.classSelection.Clear()
+	a.teacherSelection.Clear()
 }
 
 // openResultDetail 为一条结果行收集详情并打开弹窗。
 func (a *app) openResultDetail(row store.StoredResultRow) {
 	a.resultSelection.Clear()
+	a.classSelection.Clear()
+	a.teacherSelection.Clear()
 	if a.store == nil || a.assessmentRun.ID == 0 {
 		return
 	}

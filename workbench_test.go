@@ -201,7 +201,7 @@ func TestAssessmentCalculateRequiresPreparation(t *testing.T) {
 	if got := a.assessmentMissingItems(*overview); len(got) != 1 || got[0] != "Merged groups" {
 		t.Fatalf("missing items = %q", got)
 	}
-	tt := ui.NewTester(a.view, 1280, 800)
+	tt := ui.NewTester(a.view, 1280, 1000)
 	tt.SetLocale("en")
 	tt.Frame()
 	if !tt.HasText("Before calculation, prepare: Merged groups.") {
@@ -249,7 +249,7 @@ func TestAssessmentZeroTargetFill(t *testing.T) {
 	if !a.zeroOpen || len(a.zeroIssues) == 0 {
 		t.Fatalf("zero dialog = %v issues=%d", a.zeroOpen, len(a.zeroIssues))
 	}
-	tt := ui.NewTester(a.view, 1280, 800)
+	tt := ui.NewTester(a.view, 1280, 1000)
 	tt.SetLocale("en")
 	tt.Frame()
 	if !tt.HasText("Fill missing targets") {
@@ -291,7 +291,7 @@ func TestAssessmentTrialKeepsOfficialState(t *testing.T) {
 	if a.officialExportReady() {
 		t.Fatal("export ready without an official run")
 	}
-	tt := ui.NewTester(a.view, 1280, 800)
+	tt := ui.NewTester(a.view, 1280, 1000)
 	tt.SetLocale("en")
 	tt.Frame()
 	for _, text := range []string{"Test results", "Test calculation finished"} {
@@ -341,7 +341,7 @@ func TestAssessmentStaleMarksOfficialRun(t *testing.T) {
 	if a.officialExportReady() {
 		t.Fatal("export ready while results are stale")
 	}
-	tt := ui.NewTester(a.view, 1280, 800)
+	tt := ui.NewTester(a.view, 1280, 1000)
 	tt.SetLocale("en")
 	tt.Frame()
 	for _, text := range []string{"Needs recalculation", "Data has changed: Scores"} {
@@ -358,7 +358,7 @@ func TestAssessmentRowClickOpensDetail(t *testing.T) {
 	if a.assessmentError != "" {
 		t.Fatal(a.assessmentError)
 	}
-	tt := ui.NewTester(a.view, 1280, 800)
+	tt := ui.NewTester(a.view, 1280, 1000)
 	tt.SetLocale("en")
 	tt.Frame()
 	if err := tt.Click("Chinese"); err != nil {
@@ -401,7 +401,7 @@ func TestAssessmentRunSelectorSwitchesRuns(t *testing.T) {
 	if !a.assessmentRun.IsOfficial {
 		t.Fatalf("displayed run = %+v", a.assessmentRun)
 	}
-	tt := ui.NewTester(a.view, 1280, 800)
+	tt := ui.NewTester(a.view, 1280, 1000)
 	tt.SetLocale("en")
 	tt.Frame()
 	if !tt.HasText("Final results") {
@@ -421,5 +421,62 @@ func TestAssessmentRunSelectorSwitchesRuns(t *testing.T) {
 	}
 	if !tt.HasText("Test results") {
 		t.Fatalf("texts = %q", tt.Texts())
+	}
+}
+
+func TestAssessmentMultiDimensionalViews(t *testing.T) {
+	fixture := newAssessmentPageFixture(t, false)
+	a := fixture.App
+	a.startAssessmentCalculate()
+	if a.assessmentError != "" {
+		t.Fatal(a.assessmentError)
+	}
+
+	tt := ui.NewTester(a.view, 1280, 1000)
+	tt.SetLocale("en")
+	tt.Frame()
+
+	// 1. 默认视图：学科排名
+	if a.assessmentResultTab != 0 {
+		t.Fatalf("expected default tab 0, got %d", a.assessmentResultTab)
+	}
+	if !tt.HasText("Subject Rankings") {
+		t.Fatalf("missing 'Subject Rankings' in %q", tt.Texts())
+	}
+
+	// 2. 切换到班级汇总视图
+	a.assessmentResultTab = 1
+	tt.Frame()
+	if !tt.HasText("Class Summary") {
+		t.Fatalf("missing 'Class Summary' in %q", tt.Texts())
+	}
+	// 点击班级行
+	if len(a.assessmentRows) > 0 {
+		className := a.assessmentRows[0].LeadClassName
+		if err := tt.Click(className); err == nil {
+			tt.Frame()
+			if !a.resultDetailOpen {
+				t.Fatalf("expected result detail to open on class row click, got false")
+			}
+			a.closeResultDetail()
+		}
+	}
+
+	// 3. 切换到教师得分视图
+	a.assessmentResultTab = 2
+	tt.Frame()
+	if !tt.HasText("Teacher Scores") {
+		t.Fatalf("missing 'Teacher Scores' in %q", tt.Texts())
+	}
+	// 点击教师行
+	if len(a.assessmentPersonal) > 0 {
+		teacherName := a.assessmentPersonal[0].TeacherName
+		if err := tt.Click(teacherName); err == nil {
+			tt.Frame()
+			if !a.resultDetailOpen {
+				t.Fatalf("expected result detail to open on teacher row click, got false")
+			}
+			a.closeResultDetail()
+		}
 	}
 }
