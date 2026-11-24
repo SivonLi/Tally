@@ -17,31 +17,46 @@ func (a *app) analysisPage(c *ui.Context, p uiPalette) {
 	ctx := context.Background()
 
 	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
-		// 顶栏：标题 + 视图操作 + 导出按钮
-		pageHeading(c, p, locales.NavAnalysis(), locales.AnalysisPageSubtitle(), func() {
-			ui.Row(c).Wrap().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-				a.analysisSavedViewsSelector(c, p)
+		cohort := a.selectedCohort()
+		var actions func()
+		if cohort != nil {
+			actions = func() {
+				ui.Row(c).Wrap().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+					a.analysisSavedViewsSelector(c, p)
 
-				if labelledButton(c, locales.AnalysisSaveCurrentView(), iconCopy, false).Clicked() {
-					a.analysisSaveViewName = ""
-					a.analysisSaveViewError = ""
-					a.analysisSaveViewOpen = true
-				}
-
-				if a.analysisSelectedViewID > 0 {
-					if labelledButton(c, locales.AnalysisDeleteView(), iconTrash, false).Clicked() {
-						a.analysisDeleteViewID = a.analysisSelectedViewID
-						a.analysisDeleteViewName = a.analysisSavedViewName(a.analysisSelectedViewID)
-						a.analysisDeleteViewOpen = a.analysisDeleteViewName != ""
+					if labelledButton(c, locales.AnalysisSaveCurrentView(), iconCopy, false).Clicked() {
+						a.analysisSaveViewName = ""
+						a.analysisSaveViewError = ""
+						a.analysisSaveViewOpen = true
 					}
-				}
 
-				exportBtn := labelledButton(c, locales.AnalysisExport(), iconExport, false)
-				if exportBtn.Clicked() {
-					a.chooseAnalysisExport()
+					if a.analysisSelectedViewID > 0 {
+						if labelledButton(c, locales.AnalysisDeleteView(), iconTrash, false).Clicked() {
+							a.analysisDeleteViewID = a.analysisSelectedViewID
+							a.analysisDeleteViewName = a.analysisSavedViewName(a.analysisSelectedViewID)
+							a.analysisDeleteViewOpen = a.analysisDeleteViewName != ""
+						}
+					}
+
+					exportBtn := labelledButton(c, locales.AnalysisExport(), iconExport, false)
+					if exportBtn.Clicked() {
+						a.chooseAnalysisExport()
+					}
+				})
+			}
+		}
+
+		// 顶栏：标题 + 视图操作 + 导出按钮
+		pageHeading(c, p, locales.NavAnalysis(), locales.AnalysisPageSubtitle(), actions)
+
+		if cohort == nil {
+			emptyState(c, p, iconCohort, locales.WorkspaceEmpty(), locales.WorkspaceEmptyHint(), func() {
+				if labelledButton(c, locales.WorkspaceCreate(), iconPlus, true).Clicked() {
+					a.openNewCohort()
 				}
 			})
-		})
+			return
+		}
 
 		// 消息通知
 		if a.analysisError != "" {
@@ -60,7 +75,9 @@ func (a *app) analysisPage(c *ui.Context, p uiPalette) {
 			locales.AnalysisTabAssessmentComparison(),
 		}
 		prevTab := a.analysisTabIndex
-		segmentedField(c, &a.analysisTabIndex, tabLabels, locales.NavAnalysis())
+		ui.Row(c).Children(func() {
+			segmentedField(c, &a.analysisTabIndex, tabLabels, locales.NavAnalysis())
+		})
 		if a.analysisTabIndex != prevTab {
 			a.reloadAnalysis(ctx)
 		}

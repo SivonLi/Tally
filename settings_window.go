@@ -29,6 +29,8 @@ func (a *app) openSettings() {
 		return
 	}
 	a.settingsPageID = "school"
+	a.sofficeDraft = a.sofficePath
+	a.refreshSofficeStatus()
 	if !a.syncLoaded && a.store != nil {
 		if s, err := a.store.GetSyncSettings(context.Background()); err == nil {
 			a.syncSettings = s
@@ -252,6 +254,48 @@ func (a *app) settingsDataSection(c *ui.Context, p uiPalette) {
 				a.restoreOpen = true
 				a.invalidateSettings()
 			}
+		})
+		formGroup(c, p, locales.SettingsSofficeTitle(), locales.SettingsSofficeDesc(), nil, func() {
+			status := a.sofficeStatus
+			statusTone := toneWarning
+			badgeLabel := locales.ImportCenterChecklistMissing()
+			statusText := locales.SettingsSofficeStatusMissing()
+			if status.Found {
+				statusTone = toneSuccess
+				badgeLabel = locales.ImportCenterChecklistReady()
+				sourceLabel := locales.SettingsSofficeSourceAuto()
+				switch status.Source {
+				case "configured", "custom":
+					sourceLabel = locales.SettingsSofficeSourceCustom()
+				case "env":
+					sourceLabel = locales.SettingsSofficeSourceEnv()
+				}
+				statusText = fmt.Sprintf(locales.SettingsSofficeStatusReady(), sourceLabel, status.Path)
+			}
+			ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+				badge(c, p, badgeLabel, statusTone)
+				ui.Text(c, statusText).FontSize(captionSize(t)).TextColor(p.inkSecondary).
+					Grow(1).Shrink(1).MinWidth(0).Pretty().Selectable()
+			})
+			formFieldItem(c, p, locales.SettingsSofficePathLabel(), "", false, func() {
+				ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+					ui.Column(c).Grow(1).Shrink(1).MinWidth(t.Space(40)).AlignItems(ui.Stretch).Children(func() {
+						textField(c, &a.sofficeDraft, locales.SettingsSofficePathLabel(), locales.SettingsSofficePathPlaceholder())
+					})
+					ui.Row(c).Shrink(0).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+						if plainButton(c, locales.SettingsSofficePick()).Clicked() {
+							a.chooseSofficeExecutable()
+						}
+						if plainButton(c, locales.SettingsSofficeTest()).Clicked() {
+							a.refreshSofficeStatus()
+							a.invalidateSettings()
+						}
+						if primaryButton(c, locales.Save()).Clicked() {
+							a.saveSofficePath()
+						}
+					})
+				})
+			})
 		})
 		if a.settingsError != "" {
 			notice(c, p, noticeDanger, a.settingsError)

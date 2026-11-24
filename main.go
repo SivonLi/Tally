@@ -12,6 +12,7 @@ import (
 
 	"tally/internal/assessment"
 	"tally/internal/calc"
+	"tally/internal/excel"
 	"tally/internal/importer"
 	"tally/internal/pipeline"
 	"tally/internal/school"
@@ -286,6 +287,9 @@ type app struct {
 	unsavedGuardOpen       bool
 	pendingNavAction       func()
 	sofficePath            string
+	sofficeDraft           string
+	sofficeStatus          excel.SofficeStatus
+	sofficeChecked         bool
 }
 
 func (a *app) notifyMain(message string) {
@@ -350,9 +354,14 @@ func (a *app) load() {
 		return
 	}
 	a.appearance = appearance
-	if soffice, err := opened.SofficePath(ctx); err == nil {
-		a.sofficePath = soffice
+	soffice, err := opened.SofficePath(ctx)
+	if err != nil {
+		a.loadError = err.Error()
+		return
 	}
+	a.sofficePath = soffice
+	a.sofficeDraft = a.sofficePath
+	a.refreshSofficeStatus()
 	if a.page == "" {
 		a.page = pageOverview
 	}

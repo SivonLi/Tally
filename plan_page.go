@@ -168,6 +168,19 @@ func (a *app) planPage(c *ui.Context, p uiPalette) {
 	})
 }
 
+// clonePlanConfig 深拷贝方案配置，避免编辑切片、指针或映射字段时原地改写版本快照。
+func clonePlanConfig(src assessment.Config) assessment.Config {
+	data, err := json.Marshal(src)
+	if err != nil {
+		return src
+	}
+	var dst assessment.Config
+	if err := json.Unmarshal(data, &dst); err != nil {
+		return src
+	}
+	return dst
+}
+
 // loadPlanConfig 把当前方案的版本读入可编辑配置。
 func (a *app) loadPlanConfig() {
 	version := a.selectedVersion()
@@ -175,7 +188,7 @@ func (a *app) loadPlanConfig() {
 		a.planConfigVersionID = 0
 		return
 	}
-	a.planConfig = version.Config
+	a.planConfig = clonePlanConfig(version.Config)
 	a.planConfigVersionID = version.ID
 	a.planConfigBaseline = a.selectedPlanID
 }
@@ -958,10 +971,20 @@ func (a *app) planSwitch(c *ui.Context, value *bool, label string) {
 
 func (a *app) planSaveBar(c *ui.Context, p uiPalette) {
 	t := p.theme
+	dirty := a.planConfigDirty()
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Justify(ui.End).Gap(t.Space(2)).
 		Padding(t.Space(2), 0, 0, 0).Children(func() {
-		ui.Text(c, locales.PlanSaveHint()).FontSize(captionSize(t)).TextColor(p.muted).
-			Grow(1).Shrink(1).MinWidth(0).SingleLine()
+		if dirty {
+			badge(c, p, locales.UnsavedGuardTitle(), toneWarning)
+			ui.Spacer(c)
+			if plainButton(c, locales.UnsavedGuardDiscard()).Clicked() {
+				a.loadPlanConfig()
+				a.planError = ""
+			}
+		} else {
+			ui.Text(c, locales.PlanSaveHint()).FontSize(captionSize(t)).TextColor(p.muted).
+				Grow(1).Shrink(1).MinWidth(0).SingleLine()
+		}
 		if pageActionButton(c, locales.PlanSave()).Clicked() {
 			a.planError = ""
 			a.planMessage = ""

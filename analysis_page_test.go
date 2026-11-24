@@ -15,6 +15,7 @@ import (
 
 func TestAnalysisPageTabs(t *testing.T) {
 	a := newTestApp(t)
+	addCohort(t, a, 2026)
 	a.page = pageAnalysis
 	a.language = "zh-Hans"
 
@@ -76,6 +77,7 @@ func TestAnalysisPageTabs(t *testing.T) {
 func TestAnalysisSavedViewFlow(t *testing.T) {
 	ctx := context.Background()
 	a := newTestApp(t)
+	addCohort(t, a, 2026)
 	a.page = pageAnalysis
 	a.language = "zh-Hans"
 
@@ -113,6 +115,7 @@ func TestAnalysisSavedViewFlow(t *testing.T) {
 func TestAnalysisDeleteViewRequiresConfirmation(t *testing.T) {
 	ctx := context.Background()
 	a := newTestApp(t)
+	addCohort(t, a, 2026)
 	a.page = pageAnalysis
 	a.language = "zh-Hans"
 
@@ -257,6 +260,7 @@ func TestAnalysisExportExecution(t *testing.T) {
 func TestAnalysisTabsRenderWithData(t *testing.T) {
 	ctx := context.Background()
 	a := newTestApp(t)
+	addCohort(t, a, 2026)
 	a.page = pageAnalysis
 	a.language = "zh-Hans"
 
