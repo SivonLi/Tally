@@ -973,6 +973,9 @@ func (a *app) assessmentResultsHeader(c *ui.Context, p uiPalette) {
 						a.selectAssessmentRun(id)
 					}
 				}
+				if labelledButton(c, locales.WorkbenchCompareRuns(), iconDiff, false).Clicked() {
+					a.openRunCompare()
+				}
 			}
 			ui.Spacer(c)
 			if a.assessmentRun.ID != 0 {
@@ -1267,6 +1270,7 @@ func (a *app) initZeroValues() {
 	if a.zeroValues == nil {
 		a.zeroValues = map[string]*float64{}
 	}
+	a.zeroExcluded = map[string]bool{}
 	for _, issue := range a.zeroIssues {
 		tiers := issue.MissingTiers
 		if len(tiers) == 0 {
@@ -1331,15 +1335,29 @@ func (a *app) zeroModal(c *ui.Context, p uiPalette) {
 func (a *app) zeroIssueCard(c *ui.Context, p uiPalette, index int, exclude func(int64)) {
 	t := p.theme
 	issue := a.zeroIssues[index]
+	if a.zeroExcluded == nil {
+		a.zeroExcluded = map[string]bool{}
+	}
+	excluded := a.zeroExcluded[issue.ClassID]
 	panel(c, p).Background(p.panelMuted).Padding(t.Space(3)).Gap(t.Space(2)).Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
 			ui.Text(c, issue.ClassName).FontSize(bodySize(t)).FontWeight(600).
 				Grow(1).Shrink(1).MinWidth(0).SingleLine().Tooltip(issue.ClassName)
+			nextExcluded := excluded
+			checkboxField(c, &nextExcluded, locales.ZeroTargetBatchExclude()).
+				Label(issue.ClassName + " " + locales.ZeroTargetBatchExclude())
+			if nextExcluded != excluded {
+				a.zeroExcluded[issue.ClassID] = nextExcluded
+				excluded = nextExcluded
+			}
 			if plainButton(c, locales.ZeroExclude()).Clicked() {
 				classID, _ := strconv.ParseInt(issue.ClassID, 10, 64)
 				exclude(classID)
 			}
 		})
+		if excluded {
+			return
+		}
 		tiers := issue.MissingTiers
 		if len(tiers) == 0 {
 			tiers = issue.AllTiers
@@ -1369,19 +1387,23 @@ type detailOperand struct {
 	Value string
 }
 
-// resultDetailModal 是一条结果行的详情弹窗：
-// 指标明细、计算依据、合并组与参与学生。
+// resultDetailModal 是右侧滑出的结果行穿透详情抽屉：
+// 保留主表视野的同时展示指标公式明细、合并组成员与每位参与学生的实考成绩、分科方向与达线状态。
 func (a *app) resultDetailModal(c *ui.Context, p uiPalette) {
 	t := p.theme
 	detail := a.resultDetail
 	wasOpen := a.resultDetailOpen
-	modal(c, &a.resultDetailOpen, modalProps{
+	row := detail.Row
+	subtitle := ""
+	if row.LeadClassName != "" || row.Subject != "" {
+		subtitle = row.LeadClassName + " · " + subjectLabel(row.Subject)
+	}
+	sideDrawer(c, &a.resultDetailOpen, sideDrawerProps{
 		Key:      "result-detail",
 		Title:    locales.AssessmentDetailTitle(),
-		Width:    modalWidthWide,
-		NoFooter: true,
+		Subtitle: subtitle,
+		Width:    560,
 	}, func() {
-		row := detail.Row
 		ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
 			ui.Row(c).FillWidth().Wrap().Gap(t.Space(1)).Children(func() {
 				badge(c, p, row.LeadClassName, toneNeutral)
@@ -1426,20 +1448,39 @@ func (a *app) resultDetailModal(c *ui.Context, p uiPalette) {
 			ui.Column(c).FillWidth().Gap(t.Space(1)).Children(func() {
 				for _, student := range detail.Students {
 					student := student
-					ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+					ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Padding(t.Space(1), 0).Children(func() {
 						ui.Text(c, dashOr(student.StudentNo)).FontSize(captionSize(t)).TextColor(p.muted).
 							Width(t.Space(20)).Shrink(0).SingleLine().FontFeatures("tnum")
 						ui.Text(c, dashOr(student.Name)).FontSize(bodySize(t)).
 							Grow(1).Shrink(1).MinWidth(0).SingleLine().Tooltip(student.Name)
+						if student.Track != "" {
+							badge(c, p, a.trackName(student.Track, student.Track), toneNeutral)
+						}
+						switch {
+						case student.Score != nil:
+							ui.Text(c, formatDecimal(*student.Score, 1)).FontSize(bodySize(t)).FontWeight(600).
+								FontFeatures("tnum").TextColor(p.ink).Width(t.Space(14)).TextAlign(ui.End).Shrink(0)
+							if student.Cutoff > 0 {
+								if student.Passed {
+									badge(c, p, locales.DrilldownPassed(), toneSuccess)
+								} else {
+									badge(c, p, locales.DrilldownNotPassed(), toneNeutral)
+								}
+							}
+						case student.Flag != "":
+							badge(c, p, student.Flag, toneWarning)
+						default:
+							ui.Text(c, locales.DrilldownMissingScore()).FontSize(captionSize(t)).
+								TextColor(p.muted).Shrink(0)
+						}
 					})
 				}
 			})
-			ui.Row(c).FillWidth().Justify(ui.End).Children(func() {
-				if plainButton(c, locales.AssessmentDetailClose()).Clicked() {
-					a.resultDetailOpen = false
-				}
-			})
 		})
+	}, func() {
+		if plainButton(c, locales.AssessmentDetailClose()).Clicked() {
+			a.resultDetailOpen = false
+		}
 	})
 	if wasOpen && !a.resultDetailOpen {
 		a.closeResultDetail()
@@ -1498,32 +1539,41 @@ func (a *app) startFillZero() {
 		a.zeroError = msg
 		return
 	}
-	var adjustments []targetAdjustment
+	batchItems := make([]store.ZeroTargetBatchItem, 0, len(a.zeroIssues))
 	for _, issue := range a.zeroIssues {
 		classID, err := strconv.ParseInt(issue.ClassID, 10, 64)
 		if err != nil {
 			a.zeroError = err.Error()
 			return
 		}
+		if a.zeroExcluded != nil && a.zeroExcluded[issue.ClassID] {
+			batchItems = append(batchItems, store.ZeroTargetBatchItem{
+				ClassID: classID,
+				Exclude: true,
+				Reason:  reason,
+			})
+			continue
+		}
 		tiers := issue.MissingTiers
 		if len(tiers) == 0 {
 			tiers = issue.AllTiers
 		}
+		targets := make(map[string]float64, len(tiers))
 		for _, tier := range tiers {
 			value := 0.0
 			if pointer := a.zeroValues[issue.ClassID+":"+tier]; pointer != nil {
 				value = *pointer
 			}
-			adjustments = append(adjustments, targetAdjustment{classID: classID, tier: tier, value: value})
+			targets[tier] = value
 		}
+		batchItems = append(batchItems, store.ZeroTargetBatchItem{
+			ClassID: classID,
+			Targets: targets,
+			Reason:  reason,
+		})
 	}
 	a.runZeroWork(func(ctx context.Context, assessmentID int64) error {
-		for _, item := range adjustments {
-			if err := a.store.AdjustAssessmentTarget(ctx, assessmentID, item.classID, item.tier, item.value, reason); err != nil {
-				return err
-			}
-		}
-		return nil
+		return a.store.ApplyZeroTargetBatch(ctx, assessmentID, batchItems, reason)
 	})
 }
 

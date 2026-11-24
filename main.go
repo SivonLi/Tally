@@ -13,6 +13,7 @@ import (
 	"tally/internal/assessment"
 	"tally/internal/calc"
 	"tally/internal/importer"
+	"tally/internal/pipeline"
 	"tally/internal/school"
 	"tally/internal/store"
 	"tally/internal/sync"
@@ -68,9 +69,30 @@ type app struct {
 	zeroOpen                     bool
 	zeroIssues                   []calc.ZeroTargetIssue
 	zeroValues                   map[string]*float64
+	zeroExcluded                 map[string]bool
 	zeroReason                   string
 	zeroError                    string
 	zeroMode                     string
+	runCompareOpen               bool
+	runCompareBaseID             int64
+	runCompareTargetID           int64
+	runCompareOnlyChanged        bool
+	runCompareTab                int
+	runCompareDiff               *pipeline.RunDiff
+	runCompareError              string
+	qualityFixOpen               bool
+	qualityFixExamID             int64
+	qualityFixCohortID           int64
+	qualityFixExamName           string
+	qualityFixStudentID          int64
+	qualityFixStudentNo          string
+	qualityFixStudentName        string
+	qualityFixIssue              store.ExamQualityIssue
+	qualityFixTrack              string
+	qualityFixSubject            string
+	qualityFixScore              float64
+	qualityFixFlag               string
+	qualityFixError              string
 
 	analysisTabIndex                int
 	analysisTeacherName             string

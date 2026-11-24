@@ -227,6 +227,8 @@ func (a *app) view(c *ui.Context) {
 	a.statGroupDeleteDialog(c, p)
 	a.zeroModal(c, p)
 	a.resultDetailModal(c, p)
+	a.runCompareDrawer(c, p)
+	a.qualityFixDrawer(c, p)
 	a.analysisSaveViewModal(c, p)
 	a.analysisDeleteViewDialog(c, p)
 	a.planSaveDialog(c, p)

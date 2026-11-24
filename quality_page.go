@@ -220,6 +220,8 @@ func (a *app) qualityPage(c *ui.Context, p uiPalette) {
 		var openExam *qualityExamOverview
 		var openIssueExam *qualityExamOverview
 		var openIssue *store.ExamQualityIssue
+		var fixExam *qualityExamOverview
+		var fixIssue *store.ExamQualityIssue
 		a.qualityListState.Key = func(row int) any { return rows[row].Key }
 		ui.List(c, &a.qualityListState, len(rows), func(row int) {
 			entry := rows[row]
@@ -251,15 +253,26 @@ func (a *app) qualityPage(c *ui.Context, p uiPalette) {
 			case qualityRowIssue:
 				overview := entry.Overview
 				issue := entry.Issue
+				var onFix func()
+				if qualityIssueInlineFixable(issue) {
+					onFix = func() {
+						copiedOverview := overview
+						copiedIssue := issue
+						fixExam = &copiedOverview
+						fixIssue = &copiedIssue
+					}
+				}
 				a.qualityIssueRow(c, p, issue, func() {
 					copiedOverview := overview
 					copiedIssue := issue
 					openIssueExam = &copiedOverview
 					openIssue = &copiedIssue
-				})
+				}, onFix)
 			}
 		}).Label(locales.NavQuality()).Grow(1).Shrink(1).MinHeight(0).Fill()
-		if openExam != nil {
+		if fixExam != nil && fixIssue != nil {
+			a.openQualityFix(*fixExam, *fixIssue)
+		} else if openExam != nil {
 			a.openQualityExam(*openExam)
 		} else if openIssueExam != nil && openIssue != nil {
 			a.openQualityIssue(*openIssueExam, *openIssue)
@@ -330,31 +343,256 @@ func (a *app) qualityImportFilter(c *ui.Context, p uiPalette) {
 	}
 }
 
-func (a *app) qualityIssueRow(c *ui.Context, p uiPalette, issue store.ExamQualityIssue, open func()) {
+func qualityIssueInlineFixable(issue store.ExamQualityIssue) bool {
+	if issue.StudentNo == "" {
+		return false
+	}
+	switch issue.Code {
+	case "missing_track", "score_out_of_range", "missing_scores":
+		return true
+	default:
+		return false
+	}
+}
+
+func (a *app) qualityIssueRow(c *ui.Context, p uiPalette, issue store.ExamQualityIssue, open func(), onFix func()) {
 	t := p.theme
 	tone := toneWarning
 	if issue.Severity == "blocking" {
 		tone = toneDanger
 	}
 	label := a.examQualityText(issue)
-	element := listRowButton(c, label).
-		Height(0).MinHeight(t.Space(14)).Padding(t.Space(3), t.Space(3))
-	element.Children(func() {
-		ui.Row(c).FillWidth().AlignItems(ui.Start).Gap(t.Space(2)).Children(func() {
-			badge(c, p, a.examSeverityName(issue.Severity), tone)
-			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(0).Children(func() {
-				ui.Text(c, label).FontSize(bodySize(t)).Pretty()
-				if meta := a.qualityIssueMeta(issue); meta != "" {
-					ui.Text(c, meta).FontSize(captionSize(t)).TextColor(p.muted).
-						SingleLine().MinWidth(0).Shrink(1).Tooltip(meta)
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+		element := listRowButton(c, label).
+			Height(0).MinHeight(t.Space(14)).Padding(t.Space(3), t.Space(3)).Grow(1).Shrink(1).MinWidth(0)
+		element.Children(func() {
+			ui.Row(c).FillWidth().AlignItems(ui.Start).Gap(t.Space(2)).Children(func() {
+				badge(c, p, a.examSeverityName(issue.Severity), tone)
+				ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(0).Children(func() {
+					ui.Text(c, label).FontSize(bodySize(t)).Pretty()
+					if meta := a.qualityIssueMeta(issue); meta != "" {
+						ui.Text(c, meta).FontSize(captionSize(t)).TextColor(p.muted).
+							SingleLine().MinWidth(0).Shrink(1).Tooltip(meta)
+					}
+				})
+				ui.Icon(c, iconArrowRight).FontSize(t.Space(4)).TextColor(p.muted).Shrink(0)
+			})
+		})
+		if element.Clicked() {
+			open()
+		}
+		if onFix != nil {
+			fixBtn := labelledButton(c, locales.QualityFixInline(), iconEdit, false)
+			fixBtn.Label(locales.QualityFixInline() + " " + issue.StudentNo)
+			if fixBtn.Clicked() {
+				onFix()
+			}
+		}
+	})
+}
+
+func (a *app) openQualityFix(overview qualityExamOverview, issue store.ExamQualityIssue) {
+	if a.store == nil || issue.StudentNo == "" {
+		return
+	}
+	ctx := context.Background()
+	entries, _, err := a.store.ListExamRoster(ctx, store.ExamRosterFilter{
+		ExamID:   overview.ExamID,
+		CohortID: overview.CohortID,
+		Query:    issue.StudentNo,
+		PageSize: 20,
+	})
+	if err != nil {
+		a.qualityError = err.Error()
+		return
+	}
+	var matched *store.ExamRosterEntry
+	for idx := range entries {
+		if entries[idx].StudentNo == issue.StudentNo {
+			matched = &entries[idx]
+			break
+		}
+	}
+	if matched == nil {
+		a.openQualityIssue(overview, issue)
+		return
+	}
+	a.qualityFixExamID = overview.ExamID
+	a.qualityFixCohortID = overview.CohortID
+	a.qualityFixExamName = overview.ExamLabel
+	a.qualityFixStudentID = matched.StudentID
+	a.qualityFixStudentNo = matched.StudentNo
+	a.qualityFixStudentName = matched.Name
+	a.qualityFixIssue = issue
+	a.qualityFixTrack = matched.Track
+	if a.qualityFixTrack == "" {
+		for _, tr := range a.tracks {
+			if tr.Enabled {
+				a.qualityFixTrack = tr.Key
+				break
+			}
+		}
+	}
+	a.qualityFixSubject = issue.Subject
+	if a.qualityFixSubject == "" {
+		for _, sub := range a.subjects {
+			if sub.Enabled {
+				a.qualityFixSubject = sub.Key
+				break
+			}
+		}
+	}
+	a.qualityFixScore = 0
+	a.qualityFixFlag = ""
+	a.qualityFixError = ""
+	a.qualityFixOpen = true
+}
+
+func (a *app) qualityFixDrawer(c *ui.Context, p uiPalette) {
+	if !a.qualityFixOpen {
+		return
+	}
+	subtitle := fmt.Sprintf("%s · %s (%s)", a.qualityFixExamName, a.qualityFixStudentName, a.qualityFixStudentNo)
+	sideDrawer(c, &a.qualityFixOpen, sideDrawerProps{
+		Key:      "quality-fix",
+		Title:    locales.QualityFixInline(),
+		Subtitle: subtitle,
+		Width:    460,
+	}, func() {
+		notice(c, p, noticeWarning, a.examQualityText(a.qualityFixIssue))
+		if a.qualityFixError != "" {
+			notice(c, p, noticeDanger, a.qualityFixError)
+		}
+		if a.qualityFixIssue.Code == "missing_track" {
+			trackLabels := make([]string, 0, len(a.tracks))
+			trackKeys := make([]string, 0, len(a.tracks))
+			chosen := ""
+			for _, tr := range a.tracks {
+				if !tr.Enabled {
+					continue
+				}
+				lbl := a.trackName(tr.Key, tr.Name)
+				trackLabels = append(trackLabels, lbl)
+				trackKeys = append(trackKeys, tr.Key)
+				if tr.Key == a.qualityFixTrack {
+					chosen = lbl
+				}
+			}
+			if chosen == "" && len(trackLabels) > 0 {
+				chosen = trackLabels[0]
+				a.qualityFixTrack = trackKeys[0]
+			}
+			formFieldItem(c, p, locales.QualityFixTrackLabel(), "", false, func() {
+				next := chosen
+				selectField(c, "quality-fix-track", &next, trackLabels, locales.QualityFixTrackLabel()).FillWidth()
+				if next != chosen {
+					for idx, lbl := range trackLabels {
+						if lbl == next {
+							a.qualityFixTrack = trackKeys[idx]
+							break
+						}
+					}
 				}
 			})
-			ui.Icon(c, iconArrowRight).FontSize(t.Space(4)).TextColor(p.muted).Shrink(0)
+			return
+		}
+		subjLabels := make([]string, 0, len(a.subjects))
+		subjKeys := make([]string, 0, len(a.subjects))
+		chosenSubj := ""
+		for _, sub := range a.subjects {
+			if !sub.Enabled {
+				continue
+			}
+			lbl := a.subjectName(sub.Key, sub.Name)
+			subjLabels = append(subjLabels, lbl)
+			subjKeys = append(subjKeys, sub.Key)
+			if sub.Key == a.qualityFixSubject {
+				chosenSubj = lbl
+			}
+		}
+		if chosenSubj == "" && len(subjLabels) > 0 {
+			chosenSubj = subjLabels[0]
+			a.qualityFixSubject = subjKeys[0]
+		}
+		formFieldItem(c, p, locales.ColumnSubject(), "", false, func() {
+			next := chosenSubj
+			selectField(c, "quality-fix-subject", &next, subjLabels, locales.ColumnSubject()).FillWidth()
+			if next != chosenSubj {
+				for idx, lbl := range subjLabels {
+					if lbl == next {
+						a.qualityFixSubject = subjKeys[idx]
+						break
+					}
+				}
+			}
 		})
+		flagKeys := []string{"", "absent", "cheating", "void"}
+		flagLabels := []string{"-", "absent", "cheating", "void"}
+		chosenFlag := flagLabels[0]
+		for idx, k := range flagKeys {
+			if k == a.qualityFixFlag {
+				chosenFlag = flagLabels[idx]
+				break
+			}
+		}
+		formFieldItem(c, p, locales.QualityFixFlagLabel(), "", false, func() {
+			next := chosenFlag
+			selectField(c, "quality-fix-flag", &next, flagLabels, locales.QualityFixFlagLabel()).FillWidth()
+			if next != chosenFlag {
+				for idx, lbl := range flagLabels {
+					if lbl == next {
+						a.qualityFixFlag = flagKeys[idx]
+						break
+					}
+				}
+			}
+		})
+		if a.qualityFixFlag == "" {
+			formFieldItem(c, p, locales.QualityFixScoreLabel(), "", false, func() {
+				numberField(c, &a.qualityFixScore, 0, 1000, 0.5, locales.QualityFixScoreLabel()).FillWidth()
+			})
+		}
+	}, func() {
+		if plainButton(c, locales.PlanCancel()).Clicked() {
+			a.qualityFixOpen = false
+		}
+		if primaryButton(c, locales.Save()).Clicked() {
+			a.saveQualityFix()
+		}
 	})
-	if element.Clicked() {
-		open()
+}
+
+func (a *app) saveQualityFix() {
+	if a.store == nil || a.qualityFixStudentID == 0 {
+		return
 	}
+	ctx := context.Background()
+	var err error
+	if a.qualityFixIssue.Code == "missing_track" {
+		err = a.store.UpdateExamRosterTrack(ctx, a.qualityFixExamID, a.qualityFixCohortID,
+			a.qualityFixStudentID, a.qualityFixTrack)
+	} else {
+		var scorePtr *float64
+		if a.qualityFixFlag == "" {
+			v := a.qualityFixScore
+			scorePtr = &v
+		}
+		err = a.store.UpdateExamScore(ctx, a.qualityFixExamID, a.qualityFixCohortID,
+			a.qualityFixStudentID, a.qualityFixSubject, scorePtr, a.qualityFixFlag)
+	}
+	if err != nil {
+		a.qualityFixError = err.Error()
+		return
+	}
+	a.qualityFixOpen = false
+	a.qualityFixError = ""
+	a.notifyMain(locales.QualityFixSaved())
+	a.reloadQuality(ctx)
+	if a.selectedExamID == a.qualityFixExamID {
+		a.reloadExamData(ctx)
+	}
+	a.reloadAssessments(ctx)
+	a.reloadWorkspaceSummary(ctx)
 }
 
 func (a *app) qualityIssueMeta(issue store.ExamQualityIssue) string {

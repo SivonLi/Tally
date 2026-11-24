@@ -458,6 +458,36 @@ func (a *app) saveExamTargets() {
 	a.reloadExamData(context.Background())
 }
 
+// copyPreviousExamTargets 从同年级最近一次含目标数据的考试复制班级分档目标。
+func (a *app) copyPreviousExamTargets() {
+	if a.store == nil || a.examAssessment.ID == 0 {
+		return
+	}
+	ctx := context.Background()
+	prevID, err := a.store.FindPreviousAssessmentWithTargets(ctx, a.examAssessment.ID)
+	if err != nil {
+		a.examError = err.Error()
+		return
+	}
+	if prevID == 0 {
+		a.examError = ""
+		a.examMessage = locales.WorkbenchCopyPrevTargetsEmpty()
+		a.notifyMain(a.examMessage)
+		return
+	}
+	copied, err := a.store.CopyAssessmentTargets(ctx, prevID, a.examAssessment.ID)
+	if err != nil {
+		a.examError = err.Error()
+		return
+	}
+	a.examError = ""
+	a.examMessage = fmt.Sprintf(locales.WorkbenchCopyPrevTargetsDone(), formatInt(copied))
+	a.notifyMain(a.examMessage)
+	a.reloadExamData(ctx)
+	a.reloadAssessments(ctx)
+	a.reloadWorkspaceSummary(ctx)
+}
+
 func (a *app) openStatGroupEditor(group *store.ExamStatGroup) {
 	a.statGroupOpen = true
 	a.statGroupError = ""

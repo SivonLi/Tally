@@ -610,6 +610,9 @@ func (a *app) examTargetsTab(c *ui.Context, p uiPalette) {
 		ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
 			ui.Text(c, locales.ExamTargetsHint()).FontSize(captionSize(t)).TextColor(p.muted).
 				Grow(1).Shrink(1).MinWidth(0).Pretty()
+			if labelledButton(c, locales.WorkbenchCopyPrevTargets(), iconCopy, false).Clicked() {
+				a.copyPreviousExamTargets()
+			}
 			if labelledButton(c, locales.ExamImportTargets(), iconImports, false).Clicked() {
 				a.openDataImport(importer.KindTargets, a.exam.ID, a.examCohort.CohortID)
 			}
