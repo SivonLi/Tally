@@ -622,7 +622,9 @@ func (a *app) baseDataPage(c *ui.Context, p uiPalette) {
 		a.baseDataTab = 0
 	}
 	ui.Column(c).Fill().Gap(t.Space(3)).Children(func() {
-		segmentedField(c, &a.baseDataTab, labels, locales.NavBaseData())
+		ui.Row(c).Children(func() {
+			segmentedField(c, &a.baseDataTab, labels, locales.NavBaseData())
+		})
 		ui.Column(c).Grow(1).Shrink(1).MinHeight(0).FillWidth().Children(func() {
 			switch a.baseDataTab {
 			case 1:

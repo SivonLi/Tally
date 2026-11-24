@@ -264,7 +264,7 @@ func TestSidebarNavigationToDataPages(t *testing.T) {
 	if a.baseDataTab != 1 {
 		t.Fatalf("baseDataTab = %d", a.baseDataTab)
 	}
-	if !tt.HasText("Create a cohort first") {
+	if !tt.HasText(locales.WorkspaceEmpty()) {
 		t.Errorf("texts = %q", tt.Texts())
 	}
 	if err := tt.Click("Settings"); err != nil {

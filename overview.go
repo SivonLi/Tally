@@ -595,13 +595,15 @@ func (a *app) cohortPage(c *ui.Context, p uiPalette) {
 			if classButton.Clicked() {
 				a.openDataImport(importer.KindClasses, 0, 0)
 			}
-			if labelledButton(c, locales.NewCohort(), iconPlus, true).Clicked() {
-				a.openNewCohort()
+			if len(a.cohorts) > 0 {
+				if labelledButton(c, locales.NewCohort(), iconPlus, true).Clicked() {
+					a.openNewCohort()
+				}
 			}
 		})
 		if len(a.cohorts) == 0 {
-			emptyState(c, p, iconCohort, locales.OverviewNoCohort(), locales.OverviewNoCohortHint(), func() {
-				if labelledButton(c, locales.NewCohort(), iconPlus, true).Clicked() {
+			emptyState(c, p, iconCohort, locales.WorkspaceEmpty(), locales.WorkspaceEmptyHint(), func() {
+				if labelledButton(c, locales.WorkspaceCreate(), iconPlus, true).Clicked() {
 					a.openNewCohort()
 				}
 			})

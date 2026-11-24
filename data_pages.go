@@ -18,14 +18,16 @@ func (a *app) dataStageReady() bool {
 }
 
 func (a *app) noStageState(c *ui.Context, p uiPalette, icon *ui.SVG) {
-	title := locales.DataNoCohort()
-	body := locales.DataNoCohortHint()
+	title := locales.WorkspaceEmpty()
+	body := locales.WorkspaceEmptyHint()
+	actionLabel := locales.WorkspaceCreate()
 	if a.selectedCohort() != nil {
 		title = locales.DataNoStage()
 		body = locales.DataNoStageHint()
+		actionLabel = locales.NewCohort()
 	}
 	emptyState(c, p, icon, title, body, func() {
-		if labelledButton(c, locales.NewCohort(), iconPlus, true).Clicked() {
+		if labelledButton(c, actionLabel, iconPlus, true).Clicked() {
 			a.openNewCohort()
 		}
 	})
@@ -250,46 +252,53 @@ func (a *app) selectStudent(id int64) {
 func (a *app) studentPanel(c *ui.Context, p uiPalette) {
 	t := p.theme
 	student := a.studentDetail
-	listPanel(c, p, locales.StudentDetailTitle(), 0, func() {
-		ui.Scroll(c).Fill().Children(func() {
-			ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
-				ui.Column(c).Gap(0).Children(func() {
-					ui.Text(c, student.Name).FontSize(sectionSize(t)).FontWeight(600)
-					ui.Text(c, student.StudentNo).FontSize(captionSize(t)).TextColor(p.muted).
-						FontFeatures("tnum")
-				})
-				a.detailRow(c, p, locales.ColumnClass(), student.ClassName)
-				a.detailRow(c, p, locales.ColumnTrack(), a.trackName(student.Track, student.Track))
-				a.detailRow(c, p, locales.ColumnStatus(), a.statusName(student.Status))
-				if student.TotalScore != nil {
-					a.detailRow(c, p, locales.ColumnTotal(), formatDecimal(*student.TotalScore, 1))
-				}
-				rule(c)
-				ui.Text(c, locales.StudentTeachingGroups()).FontSize(captionSize(t)).
-					TextColor(p.muted)
-				if len(student.TeachingGroups) == 0 {
-					ui.Text(c, locales.StudentNoGroups()).FontSize(bodySize(t)).
-						TextColor(p.muted).Pretty()
-				}
-				for _, group := range student.TeachingGroups {
-					parts := strings.SplitN(group, ":", 2)
-					label := group
-					if len(parts) == 2 {
-						label = a.subjectName(parts[0], parts[0]) + " · " + parts[1]
+	panel(c, p).Fill().MinWidth(0).MinHeight(0).
+		Padding(t.Space(4)).Gap(t.Space(3)).
+		Role(ui.RoleComplementary).Label(locales.StudentDetailTitle()).
+		Children(func() {
+			detailInspectorHeader(c, p, locales.StudentDetailTitle(), student.StudentNo, func() {
+				a.studentDetailOpen = false
+				a.selectedStudentID = 0
+			})
+			rule(c)
+			ui.Scroll(c).Grow(1).Shrink(1).MinHeight(0).FillWidth().Children(func() {
+				ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
+					ui.Text(c, student.Name).FontSize(sectionSize(t)).FontWeight(600).
+						SingleLine().Tooltip(student.Name)
+					a.detailRow(c, p, locales.ColumnClass(), student.ClassName)
+					a.detailRow(c, p, locales.ColumnTrack(), a.trackName(student.Track, student.Track))
+					a.detailRow(c, p, locales.ColumnStatus(), a.statusName(student.Status))
+					if student.TotalScore != nil {
+						a.detailRow(c, p, locales.ColumnTotal(), formatDecimal(*student.TotalScore, 1))
 					}
-					ui.Text(c, label).FontSize(bodySize(t))
-				}
-				rule(c)
-				ui.Text(c, locales.StudentSource()).FontSize(captionSize(t)).TextColor(p.muted)
-				ui.Text(c, a.studentSource(student)).FontSize(bodySize(t)).
-					TextColor(p.inkSecondary).Selectable().Pretty()
+					rule(c)
+					ui.Text(c, locales.StudentTeachingGroups()).FontSize(captionSize(t)).
+						TextColor(p.muted)
+					if len(student.TeachingGroups) == 0 {
+						ui.Text(c, locales.StudentNoGroups()).FontSize(bodySize(t)).
+							TextColor(p.muted).Pretty()
+					}
+					for _, group := range student.TeachingGroups {
+						parts := strings.SplitN(group, ":", 2)
+						label := group
+						if len(parts) == 2 {
+							label = a.subjectName(parts[0], parts[0]) + " · " + parts[1]
+						}
+						ui.Text(c, label).FontSize(bodySize(t))
+					}
+					rule(c)
+					ui.Text(c, locales.StudentSource()).FontSize(captionSize(t)).TextColor(p.muted)
+					ui.Text(c, a.studentSource(student)).FontSize(bodySize(t)).
+						TextColor(p.inkSecondary).Selectable().Pretty()
+				})
+			})
+			ui.Row(c).FillWidth().Justify(ui.End).Children(func() {
 				if plainButton(c, locales.StudentCloseDetail()).Clicked() {
 					a.studentDetailOpen = false
 					a.selectedStudentID = 0
 				}
 			})
 		})
-	})
 }
 
 func (a *app) detailRow(c *ui.Context, p uiPalette, label, value string) {
