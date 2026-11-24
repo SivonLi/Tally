@@ -102,7 +102,7 @@ func (a *app) prepRow(c *ui.Context, p uiPalette, step prepStep, index, next int
 			button := labelledButton(c, locales.PrepImport(), iconImports, primary)
 			button.Label(locales.PrepImport() + " " + step.Title)
 			if button.Clicked() {
-				a.openImportWizard(step.Kind)
+				a.openDataImport(step.Kind, 0, 0)
 			}
 		}
 	})

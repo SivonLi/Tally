@@ -134,6 +134,10 @@ func (a *app) navigateTo(page pageID) {
 
 // openDataImport 记录当前来源上下文并跳转到独立「数据导入」页，按需预选导入类型与考试。
 func (a *app) openDataImport(kind string, examID, cohortID int64) {
+	if examID == 0 && kind != "" && !a.stageEditable() {
+		a.dataError = locales.StageReadOnly()
+		return
+	}
 	a.guardNavigation(func() {
 		origin := a.normalizedPage()
 		if origin != pageImports {
@@ -146,11 +150,15 @@ func (a *app) openDataImport(kind string, examID, cohortID int64) {
 			}
 		}
 		a.page = pageImports
+		a.importCenterTab = 0
 		if examID != 0 {
+			a.importCenterScope = 1
+			a.importCenterExamID = examID
 			a.importWizard = nil
 			a.openExamImportWizard(kind, examID, cohortID)
 			return
 		}
+		a.importCenterScope = 0
 		if kind != "" {
 			a.openImportWizard(kind)
 		}
@@ -222,6 +230,7 @@ func (a *app) view(c *ui.Context) {
 	a.analysisSaveViewModal(c, p)
 	a.analysisDeleteViewDialog(c, p)
 	a.planSaveDialog(c, p)
+	a.importUndoConfirmModal(c, p)
 	a.renderUnsavedGuard(c, p)
 	if a.mainToast != "" {
 		c.Toast(a.mainToast)

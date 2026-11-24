@@ -12,6 +12,7 @@ import (
 
 	"tally/internal/importer"
 	"tally/internal/store"
+	"tally/locales"
 )
 
 func guidedImportWorkbook(t *testing.T) string {
@@ -395,6 +396,7 @@ func TestImportRecordDetailAndUndo(t *testing.T) {
 	addCohort(t, a, 2026)
 	seedStageData(t, a)
 	a.page = pageImports
+	a.importCenterTab = 2
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
@@ -408,7 +410,11 @@ func TestImportRecordDetailAndUndo(t *testing.T) {
 	if err := tt.Click("Undo this import"); err != nil {
 		t.Fatal(err)
 	}
-	tt.Frame()
+	settleTester(tt)
+	if err := tt.Click(locales.ImportCenterUndoConfirmAction()); err != nil {
+		t.Fatal(err)
+	}
+	settleTester(tt)
 	if !tt.HasText("The import was undone.") {
 		t.Fatalf("undo texts = %q", tt.Texts())
 	}

@@ -593,7 +593,7 @@ func (a *app) cohortPage(c *ui.Context, p uiPalette) {
 			classButton := plainButton(c, locales.ImportClasses())
 			classButton.Disabled(!a.stageEditable())
 			if classButton.Clicked() {
-				a.openImportWizard(importer.KindClasses)
+				a.openDataImport(importer.KindClasses, 0, 0)
 			}
 			if labelledButton(c, locales.NewCohort(), iconPlus, true).Clicked() {
 				a.openNewCohort()

@@ -174,6 +174,7 @@ func TestStageDataPagesShowSources(t *testing.T) {
 		}
 	}
 	a.page = pageImports
+	a.importCenterTab = 2
 	tt.Frame()
 	for _, text := range []string{"roster.xlsx", "assignments.xlsx", "baseline.xlsx"} {
 		if !tt.HasText(text) {

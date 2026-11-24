@@ -492,6 +492,9 @@ func (a *app) wizardApply() {
 		} else {
 			a.reloadDataPages(ctx)
 		}
+		a.reloadExams(ctx)
+		a.reloadAssessments(ctx)
+		a.reloadWorkspaceSummary(ctx)
 	}
 	if a.win == nil {
 		summary, err := work()
@@ -551,6 +554,10 @@ func (a *app) importWizardPage(c *ui.Context, p uiPalette) {
 	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
 			if backButton(c, p).Clicked() {
+				if a.importReturn != nil {
+					a.returnFromImport()
+					return
+				}
 				a.closeImportWizard()
 			}
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
@@ -658,6 +665,18 @@ func (a *app) wizardFileStep(c *ui.Context, p uiPalette, wizard *importWizardSta
 			TextColor(p.inkSecondary).Pretty()
 		ui.Text(c, a.importKindColumns(wizard.Kind)).FontSize(captionSize(t)).
 			TextColor(p.muted).Pretty()
+		clicked, dropped := fileDropZone(c, p, fileDropZoneProps{
+			Key:         "wizard-file-drop",
+			Title:       locales.ImportCenterDropTitle(),
+			ActiveTitle: locales.ImportCenterDropActive(),
+			Hint:        locales.ImportCenterDropHint(),
+			ButtonLabel: locales.ImportCenterBrowseFile(),
+		})
+		if len(dropped) > 0 && !wizard.Reading {
+			a.loadWizardFile(wizard, dropped[0])
+		} else if clicked && !wizard.Reading {
+			a.wizardChooseFile()
+		}
 		ui.Row(c).Gap(t.Space(2)).Children(func() {
 			choose := labelledButton(c, locales.ImportWizardChooseFile(), iconImports, true)
 			choose.Disabled(wizard.Reading)
@@ -878,17 +897,29 @@ func (a *app) wizardResultStep(c *ui.Context, p uiPalette, wizard *importWizardS
 			ui.Text(c, importResultText(wizard.Kind, summary)).FontSize(bodySize(t)).Pretty()
 		}
 		ui.Row(c).Wrap().Gap(t.Space(2)).Children(func() {
+			if a.importReturn != nil {
+				retText := fmt.Sprintf(locales.ImportCenterDoneReturn(), a.importReturn.Label)
+				if labelledButton(c, retText, iconArrowLeft, true).Clicked() {
+					a.returnFromImport()
+					return
+				}
+			}
 			if plainButton(c, locales.ImportWizardViewData()).Clicked() {
+				a.importReturn = nil
 				a.page = importKindPage(wizard.Kind)
 				a.closeImportWizard()
 			}
 			if next := nextImportKind(wizard.Kind); next != "" {
 				if labelledButton(c, fmt.Sprintf(locales.ImportWizardNextKind(), importKindName(next)),
-					iconArrowRight, true).Clicked() {
+					iconArrowRight, a.importReturn == nil).Clicked() {
 					a.wizardContinueKind(next)
 				}
 			}
 			if plainButton(c, locales.ImportWizardDone()).Clicked() {
+				if a.importReturn != nil {
+					a.returnFromImport()
+					return
+				}
 				a.closeImportWizard()
 			}
 		})

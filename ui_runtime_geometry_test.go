@@ -466,6 +466,7 @@ func TestRuntimeSplitSpacingAndImportGap(t *testing.T) {
 	t.Run("导入记录留白", func(t *testing.T) {
 		a := newPopulatedTestApp(t)
 		a.page = pageImports
+		a.importCenterTab = 2
 		if len(a.importRuns) < 4 {
 			t.Fatalf("导入记录不足 4 条：%d", len(a.importRuns))
 		}
@@ -668,6 +669,7 @@ func TestRuntimeSearchAndSelectWidthsAndSidebar(t *testing.T) {
 		}
 
 		a.page = pageImports
+		a.importCenterTab = 2
 		tt = newChineseTester(t, a.view, 1280, 800)
 		search, ok = findNode(tt, ui.RoleTextField, locales.DataSearchImports())
 		if !ok {

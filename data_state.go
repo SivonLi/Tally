@@ -369,12 +369,16 @@ func (a *app) undoSelectedImport() {
 		return
 	}
 	a.dataMessage = locales.ImportUndoDone()
-	a.notifyMain(a.dataMessage)
+	a.notifyMain(locales.ImportCenterUndoSuccess())
 	a.importRunID = 0
 	a.importDetail = nil
 	ctx := context.Background()
 	a.reloadCohorts(ctx)
 	a.reloadDataPages(ctx)
+	a.reloadExams(ctx)
+	a.reloadAssessments(ctx)
+	a.qualityLoaded = false
+	a.reloadWorkspaceSummary(ctx)
 }
 
 func (a *app) classFilterLabels() (labels []string, ids []int64) {

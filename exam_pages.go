@@ -250,7 +250,7 @@ func (a *app) examRosterTab(c *ui.Context, p uiPalette) {
 				a.generateExamRoster()
 			}
 			if labelledButton(c, locales.ExamImportRoster(), iconImports, true).Clicked() {
-				a.openExamImportWizard(importer.KindRoster, a.exam.ID, a.examCohort.CohortID)
+				a.openDataImport(importer.KindRoster, a.exam.ID, a.examCohort.CohortID)
 			}
 		})
 		if len(a.examRoster) == 0 {
@@ -355,7 +355,7 @@ func (a *app) examScoresTab(c *ui.Context, p uiPalette) {
 			}
 			ui.Spacer(c)
 			if labelledButton(c, locales.ExamImportScores(), iconImports, true).Clicked() {
-				a.openExamImportWizard(importer.KindScores, a.exam.ID, a.examCohort.CohortID)
+				a.openDataImport(importer.KindScores, a.exam.ID, a.examCohort.CohortID)
 			}
 		})
 		if len(a.examScoreSummaries) > 0 || len(a.examScoreBands) > 0 {
@@ -540,7 +540,7 @@ func (a *app) examCutoffsTab(c *ui.Context, p uiPalette) {
 		ui.Row(c).Children(func() {
 			ui.Spacer(c)
 			if labelledButton(c, locales.ExamImportCutoffs(), iconImports, true).Clicked() {
-				a.openExamImportWizard(importer.KindCutoffs, a.exam.ID, a.examCohort.CohortID)
+				a.openDataImport(importer.KindCutoffs, a.exam.ID, a.examCohort.CohortID)
 			}
 		})
 		ui.Scroll(c).Grow(1).Shrink(1).MinHeight(0).Children(func() {
@@ -611,7 +611,7 @@ func (a *app) examTargetsTab(c *ui.Context, p uiPalette) {
 			ui.Text(c, locales.ExamTargetsHint()).FontSize(captionSize(t)).TextColor(p.muted).
 				Grow(1).Shrink(1).MinWidth(0).Pretty()
 			if labelledButton(c, locales.ExamImportTargets(), iconImports, false).Clicked() {
-				a.openExamImportWizard(importer.KindTargets, a.exam.ID, a.examCohort.CohortID)
+				a.openDataImport(importer.KindTargets, a.exam.ID, a.examCohort.CohortID)
 			}
 			if labelledButton(c, locales.ExamSaveTargets(), iconCheck, true).Clicked() {
 				a.saveExamTargets()
@@ -848,7 +848,7 @@ func (a *app) examPrepPage(c *ui.Context, p uiPalette) {
 							return
 						}
 						if labelledButton(c, locales.PrepImport(), iconImports, false).Clicked() {
-							a.openExamImportWizard(step.Kind, a.exam.ID, a.examCohort.CohortID)
+							a.openDataImport(step.Kind, a.exam.ID, a.examCohort.CohortID)
 						}
 					})
 				}

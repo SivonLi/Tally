@@ -12,6 +12,7 @@ import (
 
 	"tally/internal/assessment"
 	"tally/internal/calc"
+	"tally/internal/importer"
 	"tally/internal/school"
 	"tally/internal/store"
 	"tally/internal/sync"
@@ -250,6 +251,16 @@ type app struct {
 	workspaceSummaryLoaded bool
 	baseDataTab            int
 	importReturn           *importReturnContext
+	importCenterTab        int
+	importCenterScope      int
+	importCenterExamID     int64
+	importCenterWorkbook   *importer.Workbook
+	importCenterFilePath   string
+	importCenterFileName   string
+	importCenterSheets     []importer.SheetClassification
+	importCenterReading    bool
+	importCenterError      string
+	importUndoConfirmOpen  bool
 	unsavedGuardOpen       bool
 	pendingNavAction       func()
 	sofficePath            string

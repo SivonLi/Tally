@@ -38,7 +38,7 @@ func (a *app) studentsPage(c *ui.Context, p uiPalette) {
 			button := labelledButton(c, locales.ImportStudents(), iconImports, false)
 			button.Disabled(a.dataBusy || !a.stageEditable())
 			if button.Clicked() {
-				a.openImportWizard(importer.KindStudents)
+				a.openDataImport(importer.KindStudents, 0, 0)
 			}
 		})
 		if !a.dataStageReady() {
@@ -91,7 +91,7 @@ func (a *app) studentsPage(c *ui.Context, p uiPalette) {
 						btn := labelledButton(c, locales.ImportStudents(), iconImports, true)
 						btn.Disabled(a.dataBusy || !a.stageEditable())
 						if btn.Clicked() {
-							a.openImportWizard(importer.KindStudents)
+							a.openDataImport(importer.KindStudents, 0, 0)
 						}
 					})
 					return
@@ -339,12 +339,12 @@ func (a *app) facultyPage(c *ui.Context, p uiPalette) {
 			teacherButton := plainButton(c, locales.ImportTeachers())
 			teacherButton.Disabled(a.dataBusy || !a.stageEditable())
 			if teacherButton.Clicked() {
-				a.openImportWizard(importer.KindTeachers)
+				a.openDataImport(importer.KindTeachers, 0, 0)
 			}
 			button := labelledButton(c, locales.ImportAssignments(), iconImports, false)
 			button.Disabled(a.dataBusy || !a.stageEditable())
 			if button.Clicked() {
-				a.openImportWizard(importer.KindAssignments)
+				a.openDataImport(importer.KindAssignments, 0, 0)
 			}
 		})
 		if !a.dataStageReady() {
@@ -390,7 +390,7 @@ func (a *app) facultyPage(c *ui.Context, p uiPalette) {
 				btn := labelledButton(c, locales.ImportAssignments(), iconImports, true)
 				btn.Disabled(a.dataBusy || !a.stageEditable())
 				if btn.Clicked() {
-					a.openImportWizard(importer.KindAssignments)
+					a.openDataImport(importer.KindAssignments, 0, 0)
 				}
 			})
 			return
@@ -471,7 +471,7 @@ func (a *app) teachingGroupTable(c *ui.Context, p uiPalette, label string) {
 			btn := labelledButton(c, locales.ImportAssignments(), iconImports, true)
 			btn.Disabled(a.dataBusy || !a.stageEditable())
 			if btn.Clicked() {
-				a.openImportWizard(importer.KindAssignments)
+				a.openDataImport(importer.KindAssignments, 0, 0)
 			}
 		})
 		return
@@ -504,7 +504,7 @@ func (a *app) groupsPage(c *ui.Context, p uiPalette) {
 				btn := labelledButton(c, locales.ImportAssignments(), iconImports, true)
 				btn.Disabled(a.dataBusy || !a.stageEditable())
 				if btn.Clicked() {
-					a.openImportWizard(importer.KindAssignments)
+					a.openDataImport(importer.KindAssignments, 0, 0)
 				}
 			})
 			return
@@ -614,7 +614,7 @@ func (a *app) baselinePage(c *ui.Context, p uiPalette) {
 			button := labelledButton(c, locales.ImportBaselines(), iconImports, false)
 			button.Disabled(a.dataBusy || !a.stageEditable())
 			if button.Clicked() {
-				a.openImportWizard(importer.KindBaselines)
+				a.openDataImport(importer.KindBaselines, 0, 0)
 			}
 		})
 		if !a.dataStageReady() {
@@ -652,7 +652,7 @@ func (a *app) baselinePage(c *ui.Context, p uiPalette) {
 				btn := labelledButton(c, locales.ImportBaselines(), iconImports, true)
 				btn.Disabled(a.dataBusy || !a.stageEditable())
 				if btn.Clicked() {
-					a.openImportWizard(importer.KindBaselines)
+					a.openDataImport(importer.KindBaselines, 0, 0)
 				}
 			})
 			return
@@ -729,157 +729,6 @@ func (a *app) baselineFilters(c *ui.Context, p uiPalette) {
 	})
 }
 
-func (a *app) importsPage(c *ui.Context, p uiPalette) {
-	t := p.theme
-	ui.Column(c).Fill().Gap(t.Space(2)).Children(func() {
-		pageHeading(c, p, locales.NavImports(), locales.ImportsPageSubtitle(), nil)
-		if !a.dataStageReady() {
-			a.noStageState(c, p, iconImports)
-			return
-		}
-		if a.dataError != "" {
-			notice(c, p, noticeDanger, a.dataError)
-		}
-		if a.dataMessage != "" {
-			notice(c, p, noticeSuccess, a.dataMessage)
-		}
-		a.importFilters(c, p)
-		runs := a.visibleImportRuns()
-		if len(runs) == 0 {
-			if strings.TrimSpace(a.importQuery) != "" {
-				emptyState(c, p, iconImports, locales.FilterEmptyTitle(), locales.FilterEmptyHint(), func() {
-					if plainButton(c, locales.ClearFilters()).Clicked() {
-						a.importQuery = ""
-					}
-				})
-				return
-			}
-			emptyState(c, p, iconImports, locales.ImportsEmpty(), locales.ImportsEmptyHint(), nil)
-			return
-		}
-		ui.Row(c).Grow(1).Shrink(1).MinHeight(0).MinWidth(0).AlignItems(ui.Stretch).Gap(t.Space(3)).Children(func() {
-			selectedRunID := int64(0)
-			a.importsListState.Key = func(row int) any { return runs[row].ID }
-			ui.List(c, &a.importsListState, len(runs), func(row int) {
-				run := runs[row]
-				fileLabel := importFileLabel(run)
-				ui.Column(c).FillWidth().Gap(0).Children(func() {
-					if row > 0 {
-						rule(c)
-					}
-					ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).
-						Padding(t.Space(2), 0).Children(func() {
-						ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(t.Space(0.5)).Children(func() {
-							ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-								ui.Text(c, fileLabel).FontSize(bodySize(t)).
-									FontWeight(500).SingleLine().TruncateMiddle().
-									Shrink(1).MinWidth(0).Tooltip(fileLabel)
-								badge(c, p, importKindName(run.DataKind), toneNeutral)
-								if run.Status == "undone" {
-									badge(c, p, locales.ImportStatusUndone(), toneNeutral)
-								}
-							})
-							ui.Textf(c, locales.ImportRunMeta(), formatTime(run.CreatedAt),
-								formatInt(run.RowCount)).FontSize(captionSize(t)).
-								TextColor(p.muted).FontFeatures("tnum").SingleLine().MinWidth(0)
-						})
-						if run.Warnings > 0 {
-							ui.Text(c, pluralCount(run.Warnings, locales.ImportWarningCountOne(), locales.ImportWarningCount())).
-								FontSize(captionSize(t)).TextColor(p.warning).Shrink(0)
-						}
-						detailButton := plainButton(c, locales.ImportViewDetail()).
-							Label(locales.ImportViewDetail() + " " + importKindName(run.DataKind))
-						if detailButton.Clicked() {
-							selectedRunID = run.ID
-						}
-					})
-				})
-			}).Label(locales.NavImports()).Grow(1).Shrink(1).MinHeight(0).MinWidth(0).Fill()
-			if selectedRunID != 0 {
-				a.selectImportRun(selectedRunID)
-			}
-			if a.importDetail != nil {
-				ui.Column(c.Key("import-detail-panel")).Width(t.Space(84)).Shrink(0).FillHeight().MinHeight(0).
-					Transition(drawerTransition).Children(func() {
-					a.importDetailPanel(c, p)
-				})
-			}
-		})
-	})
-}
-
-func (a *app) importDetailPanel(c *ui.Context, p uiPalette) {
-	detail := a.importDetail
-	if detail == nil {
-		return
-	}
-	t := p.theme
-	canUndo := false
-	reason := ""
-	if a.store != nil && detail.Run.ScopeType == "stage" {
-		value, why, err := a.store.CanUndoImport(context.Background(), detail.Run.ID)
-		if err != nil {
-			a.dataError = err.Error()
-		} else {
-			canUndo = value
-			reason = why
-		}
-	}
-	listPanel(c, p, locales.ImportDetailTitle(), len(detail.Issues), func() {
-		ui.Scroll(c).Fill().Children(func() {
-			ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
-				a.detailRow(c, p, locales.ImportDetailKind(), importKindName(detail.Run.DataKind))
-				a.detailPathRow(c, p, locales.ImportDetailFile(), importFileLabel(detail.Run))
-				a.detailRow(c, p, locales.ImportDetailStatus(),
-					importStatusName(detail.Run.Status))
-				a.detailRow(c, p, locales.ImportDetailRows(), formatInt(detail.Run.RowCount))
-				if detail.Run.RelativePath != "" {
-					a.detailPathRow(c, p, locales.ImportSourcePath(), detail.Run.RelativePath)
-				}
-				for _, sheet := range detail.Run.Sheets {
-					ui.Textf(c, locales.ImportSheetRow(), sheet.Name, sheet.Role, sheet.Rows).
-						FontSize(captionSize(t)).TextColor(p.inkSecondary)
-				}
-				rule(c)
-				if len(detail.Issues) == 0 {
-					ui.Text(c, locales.ImportWizardNoIssues()).FontSize(bodySize(t)).
-						TextColor(p.muted)
-				}
-				for _, issue := range detail.Issues {
-					issue := issue
-					ui.Column(c).FillWidth().Gap(0).Children(func() {
-						ui.Text(c, a.importIssueText(issue)).FontSize(bodySize(t)).Pretty()
-						ui.Textf(c, locales.ImportIssueLocation(), issue.Row,
-							a.importColumnName(issue.Column)).FontSize(captionSize(t)).
-							TextColor(p.muted).FontFeatures("tnum")
-					})
-				}
-				rule(c)
-				button := labelledButton(c, locales.ImportUndo(), iconAlert, false)
-				button.Disabled(!canUndo)
-				if button.Clicked() {
-					a.undoSelectedImport()
-				}
-				if !canUndo {
-					text := locales.ImportUndoNotImported()
-					if reason == "newer_import" {
-						text = locales.ImportUndoBlocked()
-					} else if reason == "no_changes" {
-						text = locales.ImportUndoNoChanges()
-					} else if detail.Run.ScopeType == "exam" {
-						text = locales.ImportUndoExam()
-					}
-					ui.Text(c, text).FontSize(captionSize(t)).TextColor(p.muted).Pretty()
-				}
-				if plainButton(c, locales.Close()).Clicked() {
-					a.importRunID = 0
-					a.importDetail = nil
-				}
-			})
-		})
-	})
-}
-
 func importStatusName(status string) string {
 	switch status {
 	case "undone":
@@ -887,42 +736,6 @@ func importStatusName(status string) string {
 	default:
 		return locales.ImportStatusImported()
 	}
-}
-
-func (a *app) importFilters(c *ui.Context, p uiPalette) {
-	t := p.theme
-	ui.Row(c).FillWidth().AlignItems(ui.End).Gap(t.Space(2)).Children(func() {
-		ui.Column(c).Width(t.Space(72)).Children(func() {
-			nextQuery := a.importQuery
-			searchField(c, &nextQuery, locales.DataSearchImports(), locales.DataSearchImports())
-			if nextQuery != a.importQuery {
-				a.importQuery = nextQuery
-			}
-		})
-		ui.Spacer(c)
-		ui.Text(c, pluralCount(len(a.visibleImportRuns()), locales.DataRecordCountOne(), locales.DataRecordCount())).
-			FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum").Shrink(0)
-	})
-}
-
-func (a *app) visibleImportRuns() []store.ImportRun {
-	query := strings.ToLower(strings.TrimSpace(a.importQuery))
-	if query == "" {
-		return a.importRuns
-	}
-	runs := make([]store.ImportRun, 0, len(a.importRuns))
-	for _, run := range a.importRuns {
-		text := strings.ToLower(strings.Join([]string{
-			importFileLabel(run), run.RelativePath, run.StoredPath, run.DataKind,
-		}, " "))
-		for _, sheet := range run.Sheets {
-			text += " " + strings.ToLower(sheet.Name+" "+sheet.Role)
-		}
-		if strings.Contains(text, query) {
-			runs = append(runs, run)
-		}
-	}
-	return runs
 }
 
 func dataSourceLabel(runID int64, sheet string, row int) string {
