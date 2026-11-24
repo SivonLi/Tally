@@ -13,7 +13,6 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/plugins/sqlite"
 	"github.com/egoist/mygo/ui"
-	"github.com/lobehub/lobe-mygo/pkg/form"
 
 	"tally/internal/store"
 	syncpkg "tally/internal/sync"
@@ -490,7 +489,6 @@ func (a *app) startSyncPull(force bool) {
 			a.reloadExams(uiCtx)
 			a.reloadAssessments(uiCtx)
 			a.reloadSchoolSettings(uiCtx)
-			a.settingsForm = form.New(a.settingsFormValuesFromDrafts())
 
 			a.syncMessage = locales.SettingsPullSuccess()
 			a.syncError = ""
@@ -516,160 +514,110 @@ func (a *app) syncConflictDialog(c *ui.Context, p uiPalette) {
 func (a *app) settingsSyncSection(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Column(c).FillWidth().MaxWidth(t.Space(170)).Gap(t.Space(5)).Children(func() {
-		a.syncSettingsForm(c, func(*settingsFormValues) {
-			form.Group(c, a.settingsForm, form.GroupProps{
-				Desc:  locales.SettingsSyncHint(),
-				Fixed: true,
-			}, func() {
-				// 1. WebDAV 服务器地址
-				form.Field(c, a.settingsForm, form.FieldProps{
-					Name:   "webdav-url",
-					Label:  locales.SettingsWebDAVURL(),
-					Desc:   locales.SettingsWebDAVURLHint(),
-					Layout: form.Vertical,
-					Value:  a.syncSettings.WebDAVURL,
-				}, func() {
-					textField(c, &a.syncSettings.WebDAVURL, locales.SettingsWebDAVURL(), "https://dav.example.com/dav/")
-				})
-
-				// 内网 HTTP 提示
-				if strings.HasPrefix(strings.ToLower(strings.TrimSpace(a.syncSettings.WebDAVURL)), "http://") {
-					notice(c, p, noticeWarning, locales.SettingsInsecureHTTPWarning())
-				}
-
-				// 2. 账号与密码
-				form.Field(c, a.settingsForm, form.FieldProps{
-					Name:   "webdav-username",
-					Label:  locales.SettingsWebDAVUsername(),
-					Layout: form.Vertical,
-					Value:  a.syncSettings.Username,
-				}, func() {
-					textField(c, &a.syncSettings.Username, locales.SettingsWebDAVUsername(), "")
-				})
-
-				form.Field(c, a.settingsForm, form.FieldProps{
-					Name:   "webdav-password",
-					Label:  locales.SettingsWebDAVPassword(),
-					Desc:   locales.SettingsWebDAVPasswordHint(),
-					Layout: form.Vertical,
-					Value:  a.syncWebDAVPassword,
-				}, func() {
-					passwordField(c, &a.syncWebDAVPassword, locales.SettingsWebDAVPassword(), "")
-				})
-
-				// 3. 远端目录与设备名称
-				form.Field(c, a.settingsForm, form.FieldProps{
-					Name:   "remote-dir",
-					Label:  locales.SettingsRemoteDir(),
-					Desc:   locales.SettingsRemoteDirHint(),
-					Layout: form.Vertical,
-					Value:  a.syncSettings.RemoteDir,
-				}, func() {
-					textField(c, &a.syncSettings.RemoteDir, locales.SettingsRemoteDir(), "Tally")
-				})
-
-				form.Field(c, a.settingsForm, form.FieldProps{
-					Name:   "device-name",
-					Label:  locales.SettingsDeviceName(),
-					Desc:   locales.SettingsDeviceNameHint(),
-					Layout: form.Vertical,
-					Value:  a.syncSettings.DeviceName,
-				}, func() {
-					textField(c, &a.syncSettings.DeviceName, locales.SettingsDeviceName(), "Office PC")
-				})
-
-				// 4. 数据包加密开关与同步密码
-				form.Field(c, a.settingsForm, form.FieldProps{
-					Name:   "encrypt-sync",
-					Label:  locales.SettingsEncryptSync(),
-					Desc:   locales.SettingsEncryptSyncHint(),
-					Layout: form.Horizontal,
-					Value:  a.syncSettings.EncryptEnabled,
-				}, func() {
-					switchField(c, &a.syncSettings.EncryptEnabled, locales.SettingsEncryptSync())
-				})
-
-				if a.syncSettings.EncryptEnabled {
-					form.Field(c, a.settingsForm, form.FieldProps{
-						Name:   "sync-password",
-						Label:  locales.SettingsSyncPassword(),
-						Desc:   locales.SettingsSyncPasswordHint(),
-						Layout: form.Vertical,
-						Value:  a.syncPackagePassword,
-					}, func() {
-						passwordField(c, &a.syncPackagePassword, locales.SettingsSyncPassword(), "")
-					})
-				}
+		formGroup(c, p, "", locales.SettingsSyncHint(), nil, func() {
+			// 1. WebDAV 服务器地址
+			formFieldItem(c, p, locales.SettingsWebDAVURL(), locales.SettingsWebDAVURLHint(), false, func() {
+				textField(c, &a.syncSettings.WebDAVURL, locales.SettingsWebDAVURL(), "https://dav.example.com/dav/")
 			})
 
-			// 按钮行: 保存与测试连接
-			ui.Row(c).FillWidth().Wrap().Gap(t.Space(2)).AlignItems(ui.Center).Children(func() {
-				saveBtn := labelledButton(c, locales.SettingsSaveSync(), nil, true)
-				saveBtn.Disabled(a.syncBusy)
-				if saveBtn.Clicked() {
-					a.saveSyncSettings()
-				}
-				testBtn := plainButton(c, locales.SettingsTestConnection())
-				testBtn.Disabled(a.syncBusy)
-				if testBtn.Clicked() {
-					a.testWebDAVConnection()
-				}
+			// 内网 HTTP 提示
+			if strings.HasPrefix(strings.ToLower(strings.TrimSpace(a.syncSettings.WebDAVURL)), "http://") {
+				notice(c, p, noticeWarning, locales.SettingsInsecureHTTPWarning())
+			}
+
+			// 2. 账号与密码
+			formFieldItem(c, p, locales.SettingsWebDAVUsername(), "", false, func() {
+				textField(c, &a.syncSettings.Username, locales.SettingsWebDAVUsername(), "")
 			})
 
-			// 5. 同步状态卡片与操作
-			form.Group(c, a.settingsForm, form.GroupProps{
-				Title: locales.SettingsSyncStatusTitle(),
-				Fixed: true,
-				Extra: func() {
-					checkBtn := plainButton(c, locales.SettingsSyncCheckRemote())
-					checkBtn.Disabled(a.syncBusy)
-					if checkBtn.Clicked() {
-						a.checkRemoteSync()
-					}
-				},
-			}, func() {
-				ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
-					if a.syncSettings.LastSyncTime != "" {
-						ui.Text(c, fmt.Sprintf(locales.SettingsLastSyncTime(), a.syncSettings.LastSyncTime)).
-							FontSize(captionSize(t)).TextColor(p.muted)
-					}
-					if a.syncSettings.LastSyncDevice != "" {
-						ui.Text(c, fmt.Sprintf(locales.SettingsLastSyncDevice(), a.syncSettings.LastSyncDevice)).
-							FontSize(captionSize(t)).TextColor(p.muted).SingleLine().Tooltip(a.syncSettings.LastSyncDevice)
-					}
+			formFieldItem(c, p, locales.SettingsWebDAVPassword(), locales.SettingsWebDAVPasswordHint(), false, func() {
+				passwordField(c, &a.syncWebDAVPassword, locales.SettingsWebDAVPassword(), "")
+			})
 
-					if a.syncBusy {
-						ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-							ui.Spinner(c).Label(locales.SettingsSyncBusy())
-							ui.Text(c, locales.SettingsSyncBusy()).FontSize(bodySize(t)).TextColor(p.muted)
-						})
-					}
+			// 3. 远端目录与设备名称
+			formFieldItem(c, p, locales.SettingsRemoteDir(), locales.SettingsRemoteDirHint(), false, func() {
+				textField(c, &a.syncSettings.RemoteDir, locales.SettingsRemoteDir(), "Tally")
+			})
 
-					if a.syncRemoteStatus != nil {
-						switch a.syncRemoteStatus.Kind {
-						case syncpkg.StatusUpToDate:
-							notice(c, p, noticeSuccess, locales.SettingsSyncStatusUpToDate())
-						case syncpkg.StatusCanPull:
-							notice(c, p, noticeInfo, locales.SettingsSyncStatusCanPull())
-						case syncpkg.StatusCanUpload:
-							notice(c, p, noticeInfo, locales.SettingsSyncStatusCanPush())
-						case syncpkg.StatusConflict:
-							notice(c, p, noticeDanger, locales.SettingsSyncStatusConflict())
-						}
-					}
+			formFieldItem(c, p, locales.SettingsDeviceName(), locales.SettingsDeviceNameHint(), false, func() {
+				textField(c, &a.syncSettings.DeviceName, locales.SettingsDeviceName(), "Office PC")
+			})
 
-					ui.Row(c).FillWidth().Wrap().Gap(t.Space(2)).AlignItems(ui.Center).Children(func() {
-						uploadBtn := labelledButton(c, locales.SettingsSyncNow(), iconSync, true)
-						uploadBtn.Disabled(a.syncBusy)
-						if uploadBtn.Clicked() {
-							a.startSyncUpload()
-						}
-						pullBtn := plainButton(c, locales.SettingsPullNow())
-						pullBtn.Disabled(a.syncBusy)
-						if pullBtn.Clicked() {
-							a.startSyncPull(false)
-						}
+			// 4. 数据包加密开关与同步密码
+			formFieldItem(c, p, locales.SettingsEncryptSync(), locales.SettingsEncryptSyncHint(), true, func() {
+				switchField(c, &a.syncSettings.EncryptEnabled, locales.SettingsEncryptSync())
+			})
+
+			if a.syncSettings.EncryptEnabled {
+				formFieldItem(c, p, locales.SettingsSyncPassword(), locales.SettingsSyncPasswordHint(), false, func() {
+					passwordField(c, &a.syncPackagePassword, locales.SettingsSyncPassword(), "")
+				})
+			}
+		})
+
+		// 按钮行: 保存与测试连接（Sunbeam 单屏唯一明黄主动作）
+		ui.Row(c).FillWidth().Wrap().Gap(t.Space(2)).AlignItems(ui.Center).Children(func() {
+			saveBtn := labelledButton(c, locales.SettingsSaveSync(), nil, true)
+			saveBtn.Disabled(a.syncBusy)
+			if saveBtn.Clicked() {
+				a.saveSyncSettings()
+			}
+			testBtn := plainButton(c, locales.SettingsTestConnection())
+			testBtn.Disabled(a.syncBusy)
+			if testBtn.Clicked() {
+				a.testWebDAVConnection()
+			}
+		})
+
+		// 5. 同步状态卡片与操作
+		formGroup(c, p, locales.SettingsSyncStatusTitle(), "", func() {
+			checkBtn := plainButton(c, locales.SettingsSyncCheckRemote())
+			checkBtn.Disabled(a.syncBusy)
+			if checkBtn.Clicked() {
+				a.checkRemoteSync()
+			}
+		}, func() {
+			ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
+				if a.syncSettings.LastSyncTime != "" {
+					ui.Text(c, fmt.Sprintf(locales.SettingsLastSyncTime(), a.syncSettings.LastSyncTime)).
+						FontSize(captionSize(t)).TextColor(p.muted)
+				}
+				if a.syncSettings.LastSyncDevice != "" {
+					ui.Text(c, fmt.Sprintf(locales.SettingsLastSyncDevice(), a.syncSettings.LastSyncDevice)).
+						FontSize(captionSize(t)).TextColor(p.muted).SingleLine().Tooltip(a.syncSettings.LastSyncDevice)
+				}
+
+				if a.syncBusy {
+					ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+						ui.Spinner(c).Label(locales.SettingsSyncBusy())
+						ui.Text(c, locales.SettingsSyncBusy()).FontSize(bodySize(t)).TextColor(p.muted)
 					})
+				}
+
+				if a.syncRemoteStatus != nil {
+					switch a.syncRemoteStatus.Kind {
+					case syncpkg.StatusUpToDate:
+						notice(c, p, noticeSuccess, locales.SettingsSyncStatusUpToDate())
+					case syncpkg.StatusCanPull:
+						notice(c, p, noticeInfo, locales.SettingsSyncStatusCanPull())
+					case syncpkg.StatusCanUpload:
+						notice(c, p, noticeInfo, locales.SettingsSyncStatusCanPush())
+					case syncpkg.StatusConflict:
+						notice(c, p, noticeDanger, locales.SettingsSyncStatusConflict())
+					}
+				}
+
+				ui.Row(c).FillWidth().Wrap().Gap(t.Space(2)).AlignItems(ui.Center).Children(func() {
+					uploadBtn := labelledButton(c, locales.SettingsSyncNow(), iconSync, false)
+					uploadBtn.Disabled(a.syncBusy)
+					if uploadBtn.Clicked() {
+						a.startSyncUpload()
+					}
+					pullBtn := plainButton(c, locales.SettingsPullNow())
+					pullBtn.Disabled(a.syncBusy)
+					if pullBtn.Clicked() {
+						a.startSyncPull(false)
+					}
 				})
 			})
 		})

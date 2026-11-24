@@ -137,8 +137,8 @@ func TestPlanInlineRowsUseStandardControlHeight(t *testing.T) {
 			continue
 		}
 		seen[info.Name]++
-		if info.Bounds.H != 36 {
-			t.Errorf("%s height = %v, want 36", info.Name, info.Bounds.H)
+		if info.Bounds.H != 40 {
+			t.Errorf("%s height = %v, want 40", info.Name, info.Bounds.H)
 		}
 	}
 	for name, count := range want {

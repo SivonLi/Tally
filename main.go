@@ -9,7 +9,6 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
-	"github.com/lobehub/lobe-mygo/pkg/form"
 
 	"tally/internal/assessment"
 	"tally/internal/calc"
@@ -36,9 +35,7 @@ type app struct {
 	planConfigVersionID int64
 	planConfigBaseline  string
 	planSaveChoice      planSaveChoice
-	planForm            *form.Form[struct{}]
 	planFieldSeq        int
-	dialogFormHost      *form.Form[struct{}]
 
 	published                    []publishedVersion
 	assessments                  []store.AssessmentOverview
@@ -247,7 +244,6 @@ type app struct {
 	settingsOpen   bool
 	appearance     string
 	settingsPageID string
-	settingsForm   *form.Form[settingsFormValues]
 	mainToast      string
 	settingsToast  string
 }
@@ -432,8 +428,7 @@ func main() {
 			TitleBarStyle:        mygo.TitleBarHidden,
 			TitleBarHeight:       int(topStripHeight),
 			TrafficLightPosition: &mygo.Point{X: 20, Y: 20},
-			Vibrancy:             mygo.VibrancySidebar,
-			BackgroundColor:      "light-dark(#ffffff, #000000)",
+			BackgroundColor:      "light-dark(#faf8f5, #090706)",
 			Content:              ui.View(a.view),
 		})
 		mygo.App.OnLocaleChanged(func(string) {

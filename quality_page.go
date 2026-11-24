@@ -221,7 +221,7 @@ func (a *app) qualityPage(c *ui.Context, p uiPalette) {
 								a.stageName(overview.GradeLevel)).FontSize(captionSize(t)).
 								TextColor(p.muted).SingleLine().MinWidth(0).Shrink(1)
 						})
-						ui.Text(c, locales.View()).FontSize(captionSize(t)).TextColor(p.accent).Shrink(0)
+						ui.Text(c, locales.View()).FontSize(captionSize(t)).FontWeight(500).TextColor(p.ink).Shrink(0)
 						ui.Icon(c, iconArrowRight).FontSize(t.Space(4)).TextColor(p.muted).Shrink(0)
 					})
 					if btn.Clicked() {

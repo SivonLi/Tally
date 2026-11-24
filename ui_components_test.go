@@ -6,8 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AstraFoundry/design/packages/mygo/sunbeam"
 	"github.com/egoist/mygo/ui"
 
+	"tally/internal/fonts"
 	"tally/locales"
 )
 
@@ -29,27 +31,38 @@ func componentFixtureView(c *ui.Context) {
 }
 
 func TestDesignTokens(t *testing.T) {
-	for _, dark := range []bool{false, true} {
-		tokens := brand.Tokens(dark)
-		if tokens.ControlHeight != 36 || tokens.ControlHeightSM != 28 || tokens.ControlHeightLG != 44 {
-			t.Errorf("dark=%v control heights = %v/%v/%v, want 36/28/44",
-				dark, tokens.ControlHeight, tokens.ControlHeightSM, tokens.ControlHeightLG)
-		}
-		if tokens.FontSize != 16 || tokens.FontSizeSM != 14 || tokens.FontSizeLG != 18 || tokens.FontSizeXL != 28 {
-			t.Errorf("dark=%v font sizes = %v/%v/%v/%v, want 16/14/18/28",
-				dark, tokens.FontSize, tokens.FontSizeSM, tokens.FontSizeLG, tokens.FontSizeXL)
-		}
+	light, dark := sunbeam.Light(), sunbeam.Dark()
+	if light.Background != ui.Hex("#faf8f5") || dark.Background != ui.Hex("#090706") {
+		t.Errorf("unexpected sunbeam backgrounds: light=%v dark=%v", light.Background, dark.Background)
+	}
+	if light.Primary != ui.Hex("#ffcc00") || light.PrimaryForeground != ui.Hex("#14110f") {
+		t.Errorf("unexpected sunbeam primary: %v / %v", light.Primary, light.PrimaryForeground)
 	}
 
-	base := ui.Theme{FontSize: 16}
-	if bodySize(base) != 16 || captionSize(base) != 14 || sectionSize(base) != 18 || titleSize(base) != 28 {
-		t.Errorf("font scale = %v/%v/%v/%v, want 16/14/18/28",
+	base := ui.Theme{FontSize: sunbeam.TypeBodySM.Size}
+	if controlHeight(base) != 40 || controlHeightLG(base) != 40 || tableRowHeight(base) != 40 {
+		t.Errorf("heights = %v/%v/%v, want 40/40/40",
+			controlHeight(base), controlHeightLG(base), tableRowHeight(base))
+	}
+	if bodySize(base) != 14 || captionSize(base) != 13 || sectionSize(base) != 18 || titleSize(base) != 24 {
+		t.Errorf("font scale = %v/%v/%v/%v, want 14/13/18/24",
 			bodySize(base), captionSize(base), sectionSize(base), titleSize(base))
 	}
-	scaled := ui.Theme{FontSize: 24}
-	if bodySize(scaled) != 24 || captionSize(scaled) != 21 || sectionSize(scaled) != 27 || titleSize(scaled) != 42 {
-		t.Errorf("scaled font sizes = %v/%v/%v/%v, want 24/21/27/42",
+	scaled := ui.Theme{FontSize: 21}
+	if bodySize(scaled) != 21 || captionSize(scaled) != 19.5 || sectionSize(scaled) != 27 || titleSize(scaled) != 36 {
+		t.Errorf("scaled font sizes = %v/%v/%v/%v, want 21/19.5/27/36",
 			bodySize(scaled), captionSize(scaled), sectionSize(scaled), titleSize(scaled))
+	}
+
+	var themeFont string
+	tt := ui.NewTester(func(c *ui.Context) {
+		p := uiPaletteFor(c)
+		themeFont = p.theme.Font
+		ui.Text(c, "Sunbeam")
+	}, 200, 80)
+	tt.Frame()
+	if themeFont != fonts.UIFontFamily {
+		t.Errorf("theme font = %q, want %q", themeFont, fonts.UIFontFamily)
 	}
 }
 
@@ -72,16 +85,16 @@ func TestComponentFixtureAtStandardSizes(t *testing.T) {
 			if !ok {
 				t.Fatalf("%s: missing accessible control %q", size.name, name)
 			}
-			if info.Bounds.H != 36 {
-				t.Errorf("%s: %s height = %v, want 36", size.name, name, info.Bounds.H)
+			if info.Bounds.H != 40 {
+				t.Errorf("%s: %s height = %v, want 40", size.name, name, info.Bounds.H)
 			}
 		}
 		button, ok := tt.AccessByRole(ui.RoleButton, "Continue")
 		if !ok {
 			t.Fatalf("%s: missing Continue button", size.name)
 		}
-		if button.Bounds.H != 36 {
-			t.Errorf("%s: Continue height = %v, want 36", size.name, button.Bounds.H)
+		if button.Bounds.H != 40 {
+			t.Errorf("%s: Continue height = %v, want 40", size.name, button.Bounds.H)
 		}
 		captureDualSnapshot(t, tt, size.name)
 	}
@@ -108,13 +121,18 @@ func TestModalUsesStandardControls(t *testing.T) {
 	tt := ui.NewTester(view, 1280, 800)
 	tt.SetLocale("en")
 	settleTester(tt)
-	for _, name := range []string{"Close", "Dismiss", "Apply"} {
+	wantHeights := map[string]float32{
+		"Close":   32,
+		"Dismiss": 40,
+		"Apply":   40,
+	}
+	for name, wantH := range wantHeights {
 		info, ok := tt.AccessByRole(ui.RoleButton, name)
 		if !ok {
 			t.Fatalf("missing modal button %q", name)
 		}
-		if info.Bounds.H != 36 {
-			t.Errorf("%s height = %v, want 36", name, info.Bounds.H)
+		if info.Bounds.H != wantH {
+			t.Errorf("%s height = %v, want %v", name, info.Bounds.H, wantH)
 		}
 	}
 	if !tt.HasText("Details") || !tt.HasText("Body") {
@@ -130,19 +148,24 @@ func TestModalUsesStandardControls(t *testing.T) {
 }
 
 func TestThemeHoverAndActiveTokensDistinct(t *testing.T) {
-	for _, dark := range []bool{false, true} {
-		tk := brand.Tokens(dark)
-		if tk.Primary == tk.PrimaryHover || tk.PrimaryHover == tk.PrimaryActive || tk.Primary == tk.PrimaryActive {
-			t.Errorf("dark=%v primary rest/hover/active must be distinct: %v / %v / %v",
-				dark, tk.Primary, tk.PrimaryHover, tk.PrimaryActive)
+	for _, tc := range []struct {
+		name string
+		sb   *sunbeam.Palette
+	}{
+		{"light", sunbeam.Light()},
+		{"dark", sunbeam.Dark()},
+	} {
+		sb := tc.sb
+		if sb.FlatFace == sb.FlatFaceHover || sb.FlatFaceHover == sb.FlatFacePressed || sb.FlatFace == sb.FlatFacePressed {
+			t.Errorf("%s flat rest/hover/pressed must be distinct: %v / %v / %v",
+				tc.name, sb.FlatFace, sb.FlatFaceHover, sb.FlatFacePressed)
 		}
-		if tk.Error == tk.ErrorHover || tk.ErrorHover == tk.ErrorActive || tk.Error == tk.ErrorActive {
-			t.Errorf("dark=%v error rest/hover/active must be distinct: %v / %v / %v",
-				dark, tk.Error, tk.ErrorHover, tk.ErrorActive)
+		if sb.RaisedFaceFrom == sb.RaisedFaceTo || sb.RaisedFaceTo == sb.RaisedFacePressed {
+			t.Errorf("%s raised gradient/pressed must be distinct: %v / %v / %v",
+				tc.name, sb.RaisedFaceFrom, sb.RaisedFaceTo, sb.RaisedFacePressed)
 		}
-		if tk.Warning == tk.WarningHover || tk.WarningHover == tk.WarningActive || tk.Warning == tk.WarningActive {
-			t.Errorf("dark=%v warning rest/hover/active must be distinct: %v / %v / %v",
-				dark, tk.Warning, tk.WarningHover, tk.WarningActive)
+		if sb.Primary == sb.PrimaryForeground {
+			t.Errorf("%s primary and foreground must be distinct", tc.name)
 		}
 	}
 }

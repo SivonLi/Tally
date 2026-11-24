@@ -119,14 +119,14 @@ func TestThirdBatchPlanControlHeights(t *testing.T) {
 	if !ok {
 		t.Fatal("找不到 Plan name 输入框")
 	}
-	if field.Bounds.H != 36 {
-		t.Fatalf("Plan name 高度 = %v，期望 36", field.Bounds.H)
+	if field.Bounds.H != 40 {
+		t.Fatalf("Plan name 高度 = %v，期望 40", field.Bounds.H)
 	}
 	save, ok := tt.AccessByRole(ui.RoleButton, "Save")
 	if !ok {
 		t.Fatal("找不到页面级 Save 按钮")
 	}
-	if save.Bounds.H != 44 {
-		t.Fatalf("页面级 Save 高度 = %v，期望 44", save.Bounds.H)
+	if save.Bounds.H != 40 {
+		t.Fatalf("页面级 Save 高度 = %v，期望 40", save.Bounds.H)
 	}
 }

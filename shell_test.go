@@ -194,19 +194,21 @@ func TestSettingsWindowCategories(t *testing.T) {
 	}
 }
 
-// 设置窗口与主窗口一致：内容区纯黑，左侧分类使用系统材质。
+// 设置窗口与主窗口一致：采用 Sunbeam 深色暖墨画布与 Flat 暖灰侧栏（无毛玻璃）。
 func TestSettingsWindowUsesBlackAndMaterial(t *testing.T) {
 	a := newTestApp(t)
 	tt := ui.NewTester(a.settingsView, 760, 620)
 	tt.SetLocale("en")
 	tt.SetDark(true)
-	tt.SetVibrancy(true)
 	tt.Frame()
 	tt.Advance(2 * time.Second)
 	tt.Frame()
 	img := tt.Image()
-	if got := img.RGBAAt(600, 400); got != (color.RGBA{R: 0x17, G: 0x21, B: 0x2b, A: 0xff}) {
-		t.Fatalf("content background = %v, want dark canvas", got)
+	if got := img.RGBAAt(600, 400); got != (color.RGBA{R: 0x09, G: 0x07, B: 0x06, A: 0xff}) {
+		t.Fatalf("content background = %v, want Sunbeam dark background #090706", got)
+	}
+	if got := img.RGBAAt(40, 400); got != (color.RGBA{R: 0x11, G: 0x0f, B: 0x0d, A: 0xff}) {
+		t.Fatalf("sidebar background = %v, want Sunbeam dark canvas #110f0d", got)
 	}
 	if _, ok := tt.Find("Subjects"); !ok {
 		t.Errorf("texts = %q", tt.Texts())

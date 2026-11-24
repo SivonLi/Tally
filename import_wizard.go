@@ -10,7 +10,6 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
-	"github.com/lobehub/lobe-mygo/pkg/nav"
 
 	"tally/internal/excel"
 	"tally/internal/importer"
@@ -598,11 +597,7 @@ func (a *app) wizardSteps(c *ui.Context, p uiPalette, step int) {
 		locales.ImportStepItem(), locales.ImportStepFile(), locales.ImportStepSheet(),
 		locales.ImportStepMapping(), locales.ImportStepValidate(), locales.ImportStepResult(),
 	}
-	items := make([]nav.StepItem, 0, len(labels))
-	for _, label := range labels {
-		items = append(items, nav.StepItem{Title: label})
-	}
-	nav.Steps(c, nav.StepsProps{Items: items, Current: step})
+	stepsBar(c, p, labels, step)
 }
 
 func (a *app) wizardItemStep(c *ui.Context, p uiPalette) {

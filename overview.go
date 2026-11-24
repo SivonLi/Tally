@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/egoist/mygo/ui"
-	"github.com/lobehub/lobe-mygo/pkg/display"
 
 	"tally/internal/importer"
 	"tally/internal/school"
@@ -188,17 +187,17 @@ func (a *app) readinessPanel(c *ui.Context, p uiPalette) {
 			{locales.ReadinessAssignments(), a.stageCounts.Assignments, pageFaculty},
 			{locales.ReadinessBaseline(), a.stageCounts.Baselines, pageBaseline},
 		}
-		items := make([]display.ListItem, 0, len(steps))
+		items := make([]actionListItem, 0, len(steps))
 		for _, step := range steps {
 			meta := locales.ReadinessMissing()
 			if step.Count > 0 {
 				meta = locales.ReadinessReady()
 			}
-			items = append(items, display.ListItem{
+			items = append(items, actionListItem{
 				Key: step.Label, Label: step.Label, Extra: meta,
 			})
 		}
-		clicked := display.List(c, display.ListProps{Items: items, Compact: true})
+		clicked := actionList(c, p, items, false)
 		for _, step := range steps {
 			if step.Label == clicked {
 				a.page = step.Page

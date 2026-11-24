@@ -7,8 +7,6 @@ import (
 
 	"tally/internal/store"
 	"tally/locales"
-
-	"github.com/lobehub/lobe-mygo/pkg/form"
 )
 
 func (a *app) saveSchoolSettings() {
@@ -31,7 +29,6 @@ func (a *app) saveSchoolSettings() {
 	a.settingsError = ""
 	a.reloadSchoolSettings(ctx)
 	a.reloadDataPages(ctx)
-	a.settingsForm = form.New(a.settingsFormValuesFromDrafts())
 	a.notifySettings(locales.SettingsSchoolSaved())
 }
 
@@ -84,7 +81,6 @@ func (a *app) restoreBackup(name string) {
 	a.reloadExams(ctx)
 	a.reloadAssessments(ctx)
 	a.reloadSchoolSettings(ctx)
-	a.settingsForm = form.New(a.settingsFormValuesFromDrafts())
 	a.notifySettings(locales.SettingsBackupRestored())
 }
 

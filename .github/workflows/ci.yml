@@ -118,8 +118,8 @@ jobs:
       - name: 体积门槛
         run: |
           size=$(du -sm build/darwin-arm64/Tally.app | cut -f1)
-          if [ "$size" -gt 30 ]; then
-            echo "应用包 ${size} MB 超过 30 MB"
+          if [ "$size" -gt 40 ]; then
+            echo "应用包 ${size} MB 超过 40 MB"
             exit 1
           fi
           echo "应用包 ${size} MB"

@@ -814,7 +814,7 @@ func (a *app) analysisBars(c *ui.Context, p uiPalette, labels []string, values [
 				ui.Box(c).Grow(1).Shrink(1).MinWidth(0).Height(t.Space(1.5)).Radius(t.Space(1)).
 					Background(p.fill).Children(func() {
 					ui.Box(c).WidthPercent(width).MaxWidthPercent(100).FillHeight().
-						Radius(t.Space(1)).Background(p.accent)
+						Radius(t.Space(1)).Background(p.ink)
 				})
 				ui.Text(c, formatDecimal(value, 1)).FontSize(captionSize(t)).
 					FontFeatures("tnum").Width(t.Space(18)).Shrink(0).TextAlign(ui.End)

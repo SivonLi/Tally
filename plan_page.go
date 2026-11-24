@@ -7,13 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/AstraFoundry/design/packages/mygo/sunbeam"
 	"github.com/egoist/mygo/ui"
-	"github.com/lobehub/lobe-mygo/pkg/action"
-	"github.com/lobehub/lobe-mygo/pkg/choice"
-	"github.com/lobehub/lobe-mygo/pkg/field"
-	"github.com/lobehub/lobe-mygo/pkg/form"
-	"github.com/lobehub/lobe-mygo/pkg/layout"
-	"github.com/lobehub/lobe-mygo/pkg/theme"
 
 	"tally/internal/assessment"
 	"tally/internal/store"
@@ -153,24 +148,18 @@ func (a *app) planPage(c *ui.Context, p uiPalette) {
 			// 负边距抵消滚动条占位，左右补偿统一为 8。
 			ui.Scroll(c.Key("plan-config")).Grow(1).MinHeight(0).
 				Margin(0, -t.Space(2)).Padding(0, t.Space(2)).Children(func() {
-				form.View(c, a.planFormState(), form.Props[struct{}]{
-					Variant: form.Filled,
-					Layout:  form.Vertical,
-					Gap:     t.Space(4),
-				}, func() {
-					ui.Column(c).FillWidth().Gap(t.Space(6)).Padding(0, 0, t.Space(3), 0).Children(func() {
-						a.planFieldSeq = 0
-						a.planBasicsSection(c, p)
-						a.planScopeSection(c, p)
-						a.planDataSection(c, p)
-						a.planWalkingSection(c, p)
-						a.planIndicatorsSection(c, p)
-						a.planTiersSection(c, p)
-						a.planRankingSection(c, p)
-						a.planPersonalSection(c, p)
-						a.planProgramsSection(c, p)
-						a.planValidationSection(c, p)
-					})
+				ui.Column(c).FillWidth().Gap(t.Space(5)).Padding(0, 0, t.Space(3), 0).Children(func() {
+					a.planFieldSeq = 0
+					a.planBasicsSection(c, p)
+					a.planScopeSection(c, p)
+					a.planDataSection(c, p)
+					a.planWalkingSection(c, p)
+					a.planIndicatorsSection(c, p)
+					a.planTiersSection(c, p)
+					a.planRankingSection(c, p)
+					a.planPersonalSection(c, p)
+					a.planProgramsSection(c, p)
+					a.planValidationSection(c, p)
 				})
 			})
 			a.planSaveBar(c, p)
@@ -226,45 +215,38 @@ func (a *app) planChoices() []planOption {
 	return options
 }
 
-// planFormState 初始化方案页表单的布局状态。
-func (a *app) planFormState() *form.Form[struct{}] {
-	if a.planForm == nil {
-		a.planForm = form.New(struct{}{})
-	}
-	return a.planForm
-}
-
-// planSection 用 Lobe 的表单分组显示方案的一个分区。
+// planSection 用 Sunbeam 表单分组卡片显示方案的一个分区。
 func (a *app) planSection(c *ui.Context, p uiPalette, title, desc string, body func()) {
-	form.Group(c, a.planFormState(), form.GroupProps{
-		Title: title,
-		Desc:  desc,
-		Fixed: true,
-	}, func() {
-		ui.Column(c).FillWidth().Gap(p.theme.Space(3)).Padding(0, 0, p.theme.Space(2), 0).Children(body)
-	})
+	formGroup(c, p, title, desc, nil, body)
 }
 
 // codeSelect 是保存代码的下拉框，选项文字跟随语言。
 func (a *app) codeSelect(c *ui.Context, value *string, options []planOption, label string, onChange func(string)) {
-	t := *c.Theme()
-	tk := theme.TokensOf(c)
-	chosen := ""
-	items := make([]field.SelectOption, 0, len(options))
+	a.planFieldSeq++
+	labels := make([]string, 0, len(options))
+	chosenLabel := ""
 	for _, option := range options {
+		labels = append(labels, option.label)
 		if option.code == *value {
-			chosen = option.code
+			chosenLabel = option.label
 		}
-		items = append(items, field.SelectOption{Value: option.code, Label: option.label})
 	}
-	if chosen == "" && len(options) > 0 {
-		chosen = options[0].code
+	if chosenLabel == "" && len(labels) > 0 {
+		chosenLabel = labels[0]
 	}
-	current := chosen
-	field.Select(c, &current, field.SelectProps{Options: items, Size: theme.Middle}).
-		Label(label).FillWidth().Height(tk.ControlHeight).FontSize(bodySize(t))
-	if current != chosen && onChange != nil {
-		onChange(current)
+	current := chosenLabel
+	selectField(c, "plan-code-"+strconv.Itoa(a.planFieldSeq), &current, labels, label).FillWidth()
+	if current != chosenLabel {
+		for _, option := range options {
+			if option.label == current {
+				if onChange != nil {
+					onChange(option.code)
+				} else {
+					*value = option.code
+				}
+				break
+			}
+		}
 	}
 }
 
@@ -274,23 +256,17 @@ func (a *app) codeField(c *ui.Context, value *string, options []planOption, labe
 
 // toggleCodes 是多选开关组，直接读写配置里的代码列表。
 func (a *app) toggleCodes(c *ui.Context, values *[]string, options []planOption, label string) {
-	items := make([]choice.ToggleItem, 0, len(options))
+	items := make([]toggleCodeOption, 0, len(options))
 	for _, option := range options {
-		items = append(items, choice.ToggleItem{Value: option.code, Label: option.label})
+		items = append(items, toggleCodeOption{code: option.code, label: option.label})
 	}
-	choice.ToggleGroup(c, values, choice.ToggleGroupProps{
-		Items:    items,
-		Variant:  choice.ToggleOutlined,
-		Multiple: true,
-	}).Label(label)
+	toggleCodeGroup(c, values, items, label)
 }
 
 func (a *app) planField(c *ui.Context, label, desc string, control func()) {
 	a.planFieldSeq++
-	name := "plan-field-" + strconv.Itoa(a.planFieldSeq)
-	form.Field(c, a.planFormState(), form.FieldProps{
-		Name: name, Label: label, Desc: desc, Value: label, Layout: form.Vertical,
-	}, control)
+	p := uiPaletteFor(c)
+	formFieldItem(c, p, label, desc, false, control)
 }
 
 func (a *app) planBasicsSection(c *ui.Context, p uiPalette) {
@@ -374,8 +350,7 @@ func (a *app) planWalkingSection(c *ui.Context, p uiPalette) {
 				}, locales.PlanWalkingCountInLabel())
 			})
 			a.planField(c, locales.PlanWalkingDoubleCount(), "", func() {
-				choice.Switch(c, &a.planConfig.Data.Walking.AdminClassDoubleCount, choice.SwitchProps{}).
-					Label(locales.PlanWalkingDoubleCount())
+				switchField(c, &a.planConfig.Data.Walking.AdminClassDoubleCount, locales.PlanWalkingDoubleCount())
 			})
 			a.planField(c, locales.PlanJapaneseEnglishLabel(), "", func() {
 				a.codeField(c, &a.planConfig.Data.Walking.Japanese.EnglishStatistics, []planOption{
@@ -411,8 +386,8 @@ func (a *app) planIndicatorsSection(c *ui.Context, p uiPalette) {
 		for index := range a.planConfig.Indicators {
 			indicator := &a.planConfig.Indicators[index]
 			key := indicator.Key
-			layout.Block(c, layout.BlockProps{Variant: layout.BlockFilled}).
-				FillWidth().Padding(t.Space(3)).Gap(t.Space(3)).Children(func() {
+			ui.Column(c).Background(p.panelMuted).Radius(sunbeam.RadiusXL).
+				FillWidth().Padding(16).Gap(t.Space(3)).Children(func() {
 				ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
 					ui.Text(c, planIndicatorLabel(key)).FontSize(bodySize(t)).FontWeight(600)
 				})
@@ -475,7 +450,7 @@ func (a *app) planCapFields(c *ui.Context, p uiPalette, indicator *assessment.In
 	on := indicator.Cap != nil
 	ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-			choice.Switch(c, &on, choice.SwitchProps{Size: theme.Small}).Label(locales.PlanCapLabel())
+			switchField(c, &on, locales.PlanCapLabel())
 			ui.Text(c, locales.PlanCapLabel()).FontSize(bodySize(t))
 		})
 		switch {
@@ -525,12 +500,7 @@ func (a *app) planTiersSection(c *ui.Context, p uiPalette) {
 						a.planFieldNumber(c, &tier.Weight, locales.PlanTierWeightLabel())
 					})
 				})
-				remove := action.ActionIcon(c, iconTrash, action.ActionIconProps{
-					Variant:   action.ActionIconBorderless,
-					Danger:    true,
-					BlockSize: t.Space(9),
-				}).
-					Label(locales.PlanRemoveRow())
+				remove := dangerIconButton(c, iconTrash, locales.PlanRemoveRow())
 				if remove.Clicked() {
 					removed = index
 				}
@@ -680,12 +650,7 @@ func (a *app) planOverrides(c *ui.Context, p uiPalette) {
 						row.Second = int(second)
 					})
 				})
-				if action.ActionIcon(c, iconTrash, action.ActionIconProps{
-					Variant:   action.ActionIconBorderless,
-					Danger:    true,
-					BlockSize: t.Space(9),
-				}).
-					Label(locales.PlanRemoveRow()).Clicked() {
+				if dangerIconButton(c, iconTrash, locales.PlanRemoveRow()).Clicked() {
 					removed = index
 				}
 			})
@@ -730,12 +695,7 @@ func (a *app) planManualBoundaries(c *ui.Context, p uiPalette) {
 						row.Second = int(second)
 					})
 				})
-				if action.ActionIcon(c, iconTrash, action.ActionIconProps{
-					Variant:   action.ActionIconBorderless,
-					Danger:    true,
-					BlockSize: t.Space(9),
-				}).
-					Label(locales.PlanRemoveRow()).Clicked() {
+				if dangerIconButton(c, iconTrash, locales.PlanRemoveRow()).Clicked() {
 					removed = index
 				}
 			})
@@ -786,17 +746,13 @@ func (a *app) planProgramsSection(c *ui.Context, p uiPalette) {
 		for index := range a.planConfig.Programs {
 			index := index
 			program := &a.planConfig.Programs[index]
-			layout.Block(c, layout.BlockProps{Variant: layout.BlockFilled}).
-				FillWidth().Padding(t.Space(3)).Gap(t.Space(3)).Children(func() {
+			ui.Column(c).Background(p.panelMuted).Radius(sunbeam.RadiusXL).
+				FillWidth().Padding(16).Gap(t.Space(3)).Children(func() {
 				ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
 					ui.Textf(c, "%s %d", locales.PlanProgramTitle(), index+1).
 						FontSize(bodySize(t)).FontWeight(600)
 					ui.Spacer(c)
-					if action.ActionIcon(c, iconTrash, action.ActionIconProps{
-						Variant:   action.ActionIconBorderless,
-						Danger:    true,
-						BlockSize: t.Space(9),
-					}).Label(locales.PlanRemoveRow()).Clicked() {
+					if dangerIconButton(c, iconTrash, locales.PlanRemoveRow()).Clicked() {
 						removed = index
 					}
 				})
@@ -977,7 +933,7 @@ func (a *app) planValidationSection(c *ui.Context, p uiPalette) {
 func (a *app) planSwitch(c *ui.Context, value *bool, label string) {
 	t := *c.Theme()
 	ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-		choice.Switch(c, value, choice.SwitchProps{Size: theme.Small}).Label(label)
+		switchField(c, value, label)
 		ui.Text(c, label).FontSize(bodySize(t))
 	})
 }

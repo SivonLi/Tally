@@ -5,9 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/AstraFoundry/design/packages/mygo/sunbeam"
 	"github.com/egoist/mygo/ui"
-	"github.com/lobehub/lobe-mygo/pkg/motion"
-	"github.com/lobehub/lobe-mygo/pkg/theme"
 
 	"tally/locales"
 )
@@ -31,13 +30,13 @@ const (
 	pageHelp        pageID = "help"
 )
 
-// sidebarWidth 与 MyGo Music 的侧栏一致。
+// sidebarWidth 是左侧栏的固定宽度。
 const sidebarWidth = 232
 
 // topStripHeight 是窗口顶部留给拖动与标题的高度。
 const topStripHeight = 40
 
-// pagePadding 是页面内容距窗口两侧与底部的距离，与 MyGo Music 的分页内边距一致。
+// pagePadding 是页面内容距窗口两侧与底部的距离。
 const pagePadding = 28
 
 func (a *app) normalizedPage() pageID {
@@ -59,15 +58,10 @@ func pageInsets(c *ui.Context) (top, right, bottom, left float32) {
 
 func (a *app) view(c *ui.Context) {
 	p := uiPaletteFor(c)
-	if c.Vibrancy() {
-		c.Root().Background(ui.Transparent)
-	}
-	page := ui.Row(c).Fill().AlignItems(ui.Stretch)
-	if !c.Vibrancy() {
-		page.Background(p.canvas)
-	}
+	page := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(p.canvas)
 	page.Children(func() {
 		a.sidebar(c, p)
+		ui.Box(c).Width(1).FillHeight().Background(p.border).Shrink(0)
 		top, right, bottom, left := pageInsets(c)
 		ui.Column(c).Grow(1).Shrink(1).MinHeight(0).MinWidth(0).FillHeight().Background(p.canvas).
 			Padding(top, right, bottom, left).Role(ui.RoleMain).Children(func() {
@@ -99,9 +93,10 @@ func (a *app) view(c *ui.Context) {
 		c.Toast(a.mainToast)
 		a.mainToast = ""
 	}
+	sunbeam.Toasts(c, locales.Close())
 }
 
-// sidebar 是唯一的导航入口，顶部为级切换，底部为帮助与设置。
+// sidebar 是 Sunbeam Flat 材质的暖纸左侧栏，顶部为级切换，底部为帮助与设置。
 func (a *app) sidebar(c *ui.Context, p uiPalette) {
 	t := p.theme
 	top := t.Space(1)
@@ -109,14 +104,11 @@ func (a *app) sidebar(c *ui.Context, p uiPalette) {
 		top = topStrip(c)
 	}
 	side := ui.Column(c).Width(sidebarWidth).Shrink(0).FillHeight().
-		Padding(top, t.Space(4), t.Space(1), t.Space(4)).
+		Background(p.panelMuted).
+		Padding(top, t.Space(3), t.Space(1), t.Space(3)).
 		Gap(0).DragWindow()
-	if !c.Vibrancy() {
-		side.Background(p.panelMuted)
-	}
 	side.Children(func() {
 		a.cohortSwitcher(c, p)
-		// 负边距抵消滚动条占位，左右补偿统一为 8。
 		ui.Scroll(c.Key("nav")).Grow(1).Shrink(1).MinHeight(0).
 			Margin(0, -t.Space(2)).Padding(0, t.Space(2)).
 			Gap(0).Children(func() {
@@ -149,19 +141,17 @@ func (a *app) sidebar(c *ui.Context, p uiPalette) {
 	})
 }
 
-// cohortSwitcher 是侧栏顶部的年级切换，形态与 MyGo Music 的来源切换一致：
-// 一个轻量下拉，菜单里列出全部年级，当前年级下面接着它的阶段。
-// 没有年级时整块不显示。
+// cohortSwitcher 是侧栏顶部的年级切换：触发器遵循侧栏 Flat 材质，弹出菜单为 Sunbeam Raised 浮层。
 func (a *app) cohortSwitcher(c *ui.Context, p uiPalette) {
 	if len(a.cohorts) == 0 {
 		return
 	}
 	t := p.theme
-	height := t.Space(7)
+	height := float32(28)
 	chosen := a.selectedCohortID
 	sel := ui.SelectBase(c.Key("cohort"), &chosen)
-	trigger := sel.Trigger.Height(height).PaddingX(t.Space(2)).Gap(t.Space(1)).
-		Radius(t.Space(2)).AlignItems(ui.Center).
+	trigger := sel.Trigger.Height(height).PaddingX(10).Gap(6).
+		Radius(height / 2).AlignItems(ui.Center).
 		FocusRing(false).Label(locales.CohortSelectLabel())
 	if left := c.TitleBar().Left; left > 0 {
 		trigger.Absolute().Top((topStrip(c) - height) / 2).Left(left + t.Space(3)).
@@ -181,44 +171,45 @@ func (a *app) cohortSwitcher(c *ui.Context, p uiPalette) {
 		}
 		ui.Text(c, name).FontSize(captionSize(p.theme)).FontWeight(600).TextColor(color).
 			SingleLine().Shrink(1).MinWidth(0)
-		ui.Icon(c, iconUpDown).Size(t.Space(4), t.Space(4)).TextColor(p.muted)
+		ui.Icon(c, iconUpDown).Size(14, 14).TextColor(p.muted)
 	})
 	selectedCohort := a.selectedCohort()
 	sel.Popup(func(panel ui.Element) {
 		panel.Key("cohort-switcher")
-		panel.Margin(t.Space(1.5), 0, 0, 0).Padding(t.Space(2)).Gap(t.Space(0.5)).
-			MinWidth(t.Space(45)).MaxWidth(sidebarWidth+t.Space(15)).
-			Radius(t.Space(3)).Background(p.panel).Border(1, p.border).
-			Transition(motion.Popup()).AttachedOrigin()
-		theme.TokensOf(c).Elevate(panel, theme.BoxShadowSecondary)
-		ui.Scroll(c).MaxHeight(320).Children(func() {
-			ui.Column(c).FillWidth().Gap(t.Space(0.5)).Children(func() {
-				for _, cohort := range a.cohorts {
-					cohort := cohort
-					name := a.cohortName(cohort.EnrollmentYear)
-					selected := selectedCohort != nil && cohort.ID == selectedCohort.ID
-					item := sel.Item("cohort-" + strconv.FormatInt(cohort.ID, 10)).Label(name).
-						Height(t.Space(9)).PaddingX(t.Space(2)).Gap(t.Space(2)).
-						Radius(t.Space(2)).AlignItems(ui.Center).
-						TextColor(p.ink)
-					if item.Highlighted() {
-						item.Background(p.fill)
-					}
-					item.Children(func() {
-						checkOpacity := float32(0)
-						if selected {
-							checkOpacity = 1
+		sunbeam.PanelSurface(c, panel)
+		panel.Margin(6, 0, 0, 0).Padding(4).Gap(2).
+			MinWidth(180).MaxWidth(sidebarWidth + 60).
+			Radius(sunbeam.RadiusXL).Transition(popupTransition).AttachedOrigin()
+		sunbeam.Layer(sunbeam.Raised, func() {
+			ui.Scroll(c).MaxHeight(320).Children(func() {
+				ui.Column(c).FillWidth().Gap(2).Children(func() {
+					for _, cohort := range a.cohorts {
+						cohort := cohort
+						name := a.cohortName(cohort.EnrollmentYear)
+						selected := selectedCohort != nil && cohort.ID == selectedCohort.ID
+						item := sel.Item("cohort-" + strconv.FormatInt(cohort.ID, 10)).Label(name).
+							Height(34).PaddingX(10).Gap(8).
+							Radius(sunbeam.RadiusLG).AlignItems(ui.Center).
+							TextColor(p.ink)
+						if item.Highlighted() {
+							item.Background(p.hover)
 						}
-						ui.Icon(c, iconCheck).Size(t.Space(4), t.Space(4)).TextColor(p.ink).Shrink(0).
-							Opacity(checkOpacity)
-						ui.Text(c, name).FontSize(bodySize(t)).TextColor(p.ink).SingleLine().
-							Shrink(1).MinWidth(0)
-					})
-					if !selected {
-						continue
+						item.Children(func() {
+							checkOpacity := float32(0)
+							if selected {
+								checkOpacity = 1
+							}
+							ui.Icon(c, iconCheck).Size(14, 14).TextColor(p.ink).Shrink(0).
+								Opacity(checkOpacity)
+							ui.Text(c, name).FontSize(bodySize(t)).TextColor(p.ink).SingleLine().
+								Shrink(1).MinWidth(0)
+						})
+						if !selected {
+							continue
+						}
+						a.stageMenuItems(c, p, sel)
 					}
-					a.stageMenuItems(c, p, sel)
-				}
+				})
 			})
 		})
 	})
@@ -249,17 +240,17 @@ func (a *app) stageMenuItems(c *ui.Context, p uiPalette, sel ui.SelectParts[stri
 		label, id := label, ids[index]
 		selected := id == a.selectedStageID
 		item := sel.Item("stage-" + strconv.FormatInt(id, 10)).Label(label).
-			Height(t.Space(9)).PaddingStart(t.Space(8)).PaddingEnd(t.Space(2)).
-			Gap(t.Space(2)).Radius(t.Space(2)).AlignItems(ui.Center).
+			Height(34).PaddingStart(32).PaddingEnd(10).
+			Gap(8).Radius(sunbeam.RadiusLG).AlignItems(ui.Center).
 			TextColor(p.inkSecondary)
 		if item.Highlighted() {
-			item.Background(p.fill)
+			item.Background(p.hover)
 		}
 		item.Children(func() {
 			ui.Text(c, label).FontSize(bodySize(t)).TextColor(p.inkSecondary).Grow(1).
 				Shrink(1).MinWidth(0).SingleLine()
 			if selected {
-				ui.Icon(c, iconCheck).Size(t.Space(4), t.Space(4)).TextColor(p.accent)
+				ui.Icon(c, iconCheck).Size(14, 14).TextColor(p.ink)
 			}
 		})
 	}
@@ -282,35 +273,41 @@ func (a *app) selectStageByID(id string) {
 
 // navSection 是导航里的分组标题。
 func (a *app) navSection(c *ui.Context, p uiPalette, title string) {
-	ui.Text(c, title).FontSize(captionSize(p.theme)).FontWeight(600).TextColor(p.ink).
+	ui.Text(c, title).FontSize(captionSize(p.theme)).FontWeight(500).TextColor(p.muted).
 		LineHeight(1.2).
-		Padding(0, p.theme.Space(2)).
+		Padding(2, 10, 1, 10).
 		SingleLine()
 }
 
-// navItem 是导航里的一个页面入口。选中项用浅底色和强调色图标标记，
-// 与 MyGo Music 的侧栏条目一致。
+// navItem 是导航里的一个页面入口。遵循 Sunbeam 原则：选中项用暖灰底与深墨图标文字，
+// 不将明黄分散到侧栏图标中。
 func (a *app) navItem(c *ui.Context, p uiPalette, page pageID, icon *ui.SVG, label string) {
 	selected := a.normalizedPage() == page
-	b := ui.ButtonBase(c.Key(string(page))).Label(label).Height(p.theme.Space(9)).
-		PaddingX(p.theme.Space(2.5)).Gap(p.theme.Space(2.5)).
-		Radius(p.theme.Space(2)).AlignItems(ui.Center).Justify(ui.Start).FocusRing(false)
+	b := ui.ButtonBase(c.Key(string(page))).Label(label).Height(36).
+		PaddingX(10).Gap(10).
+		Radius(sunbeam.RadiusLG).AlignItems(ui.Center).Justify(ui.Start).
+		Cursor(ui.CursorPointer).FocusRing(false)
 	background := ui.Transparent
 	switch {
 	case selected:
 		background = p.fill
+	case b.Pressed():
+		background = p.sb.FlatFacePressed
 	case b.Hovered():
 		background = p.hover
 	}
 	b.Background(background)
-	color := p.ink
+	color := p.inkSecondary
 	iconColor := p.muted
+	weight := 400
 	if selected {
-		iconColor = p.accent
+		color = p.ink
+		iconColor = p.ink
+		weight = 500
 	}
 	b.Children(func() {
-		ui.Icon(c, icon).Size(p.theme.Space(5), p.theme.Space(5)).TextColor(iconColor)
-		ui.Text(c, label).FontSize(bodySize(p.theme)).FontWeight(500).TextColor(color).SingleLine()
+		ui.Icon(c, icon).Size(17, 17).TextColor(iconColor)
+		ui.Text(c, label).FontSize(bodySize(p.theme)).FontWeight(weight).TextColor(color).SingleLine()
 	})
 	if b.Clicked() {
 		a.page = page
@@ -322,15 +319,19 @@ func (a *app) navItem(c *ui.Context, p uiPalette, page pageID, icon *ui.SVG, lab
 
 func (a *app) sidebarAction(c *ui.Context, p uiPalette, key string, icon *ui.SVG, label string, action func()) {
 	t := p.theme
-	button := ui.ButtonBase(c.Key(key)).Label(label).Height(t.Space(9)).
-		Padding(0, t.Space(3)).Gap(t.Space(2)).Radius(t.Space(2)).
-		AlignItems(ui.Center).Justify(ui.Start).FocusRing(false)
-	if button.Hovered() {
+	button := ui.ButtonBase(c.Key(key)).Label(label).Height(36).
+		Padding(0, 10).Gap(10).Radius(sunbeam.RadiusLG).
+		AlignItems(ui.Center).Justify(ui.Start).
+		Cursor(ui.CursorPointer).FocusRing(false)
+	switch {
+	case button.Pressed():
+		button.Background(p.sb.FlatFacePressed)
+	case button.Hovered():
 		button.Background(p.hover)
 	}
 	button.Children(func() {
-		ui.Icon(c, icon).FontSize(t.Space(4)).TextColor(p.muted)
-		ui.Text(c, label).FontSize(bodySize(t)).TextColor(p.ink)
+		ui.Icon(c, icon).Size(16, 16).TextColor(p.muted)
+		ui.Text(c, label).FontSize(bodySize(t)).TextColor(p.inkSecondary)
 	})
 	if button.Clicked() {
 		action()

@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"image"
 	"image/color"
+	"math"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -839,7 +839,7 @@ func TestRuntimeAnalysisAndWorkbenchRegression(t *testing.T) {
 			badgeNode, ok := findNode(tt, ui.RoleText, locales.AssessmentOfficialResults())
 			if !ok {
 				failGeometry(t, tt, "工作台正式徽标_"+lang, "找不到正式结果徽标")
-			} else if badgeNode.Bounds.W < measureTextWidth(t, locales.AssessmentOfficialResults(), 14) {
+			} else if badgeNode.Bounds.W < measureTextWidth(t, locales.AssessmentOfficialResults(), captionSize(ui.Theme{FontSize: 14})) {
 				failGeometry(t, tt, "工作台正式徽标_"+lang, fmt.Sprintf(
 					"徽标宽度 %.1f 小于文字所需宽度", badgeNode.Bounds.W))
 			}
@@ -858,39 +858,42 @@ func TestRuntimeTabBarBoundaryAndSelection(t *testing.T) {
 	tt.SetDark(false)
 	settleTester(tt)
 
-	group, ok := findNode(tt, ui.RoleRadioGroup, locales.ExamViewLabel())
-	if !ok {
+	if _, ok := findNode(tt, ui.RoleRadioGroup, locales.ExamViewLabel()); !ok {
 		t.Fatalf("找不到页签栏")
 	}
 	var selected *ui.AccessInfo
-	segments := 0
+	var segWidths []float32
 	for _, info := range tt.AccessAll() {
 		if info.Role != ui.RoleRadio || !info.Segment {
 			continue
 		}
-		segments++
+		segWidths = append(segWidths, info.Bounds.W)
 		if info.Checked {
 			copy := info
 			selected = &copy
 		}
 	}
-	if segments == 0 {
+	if len(segWidths) == 0 {
 		t.Fatalf("页签栏没有页签")
 	}
 	if selected == nil {
 		t.Fatalf("页签栏没有选中项")
 	}
+	// Sunbeam 规范要求分段选择器的所有选项严格等宽，选中滑块移动时尺寸不变。
+	for i, w := range segWidths {
+		if math.Abs(float64(w-segWidths[0])) > 1 {
+			failGeometry(t, tt, "页签栏等宽约束", fmt.Sprintf("第 %d 个页签宽度 %.1f 与首项 %.1f 不一致", i, w, segWidths[0]))
+		}
+	}
 
 	palette := lightPalette(t)
 	img := tt.Image()
-	if !hasBorderRow(img, group.Bounds, palette.borderStrong) {
-		failGeometry(t, tt, "页签栏底部分割线", fmt.Sprintf(
-			"页签栏底部 8px 范围内找不到与 borderStrong #%02X%02X%02X 相符的 1px 分割线",
-			palette.borderStrong.R, palette.borderStrong.G, palette.borderStrong.B))
-	}
-	if ok, detail := tabSelectionHasAccent(img, selected.Bounds, group.Bounds, palette.accent, palette.accentSoft); !ok {
-		failGeometry(t, tt, "页签选中态对比度", fmt.Sprintf(
-			"选中页签 %q 未使用主色文字与主色指示条或主色柔和底色：%s", selected.Name, detail))
+	selectedBg := img.RGBAAt(int(selected.Bounds.X)+6, int(selected.Bounds.Y+selected.Bounds.H/2))
+	if !nearColor(selectedBg, palette.sb.FlatThumb, 12) {
+		failGeometry(t, tt, "页签选中滑块材质", fmt.Sprintf(
+			"选中页签 %q 底色 #%02X%02X%02X 与 Sunbeam FlatThumb #%02X%02X%02X 不符",
+			selected.Name, selectedBg.R, selectedBg.G, selectedBg.B,
+			palette.sb.FlatThumb.R, palette.sb.FlatThumb.G, palette.sb.FlatThumb.B))
 	}
 }
 
@@ -917,77 +920,4 @@ func nearColor(got color.RGBA, want ui.Color, tolerance int) bool {
 	return diff(got.R, want.R) <= tolerance &&
 		diff(got.G, want.G) <= tolerance &&
 		diff(got.B, want.B) <= tolerance
-}
-
-func hasBorderRow(img *image.RGBA, bounds ui.Rect, want ui.Color) bool {
-	startX := int(bounds.X) + 12
-	endX := int(rectRight(bounds)) - 12
-	startY := int(bounds.Y) + int(bounds.H) - 8
-	endY := int(bounds.Y) + int(bounds.H) + 4
-	imageBounds := img.Bounds()
-	for y := startY; y <= endY; y++ {
-		if y < imageBounds.Min.Y || y >= imageBounds.Max.Y {
-			continue
-		}
-		matched, total := 0, 0
-		for x := startX; x < endX; x += 2 {
-			if x < imageBounds.Min.X || x >= imageBounds.Max.X {
-				continue
-			}
-			total++
-			if nearColor(img.RGBAAt(x, y), want, 36) {
-				matched++
-			}
-		}
-		if total > 0 && matched*100/total >= 85 {
-			return true
-		}
-	}
-	return false
-}
-
-func tabSelectionHasAccent(img *image.RGBA, bounds, track ui.Rect, accent, accentSoft ui.Color) (bool, string) {
-	imageBounds := img.Bounds()
-	background := img.RGBAAt(int(bounds.X)+3, int(bounds.Y+bounds.H/2))
-	accentPixels, total := 0, 0
-	for y := int(bounds.Y); y < int(rectBottom(bounds)); y++ {
-		if y < imageBounds.Min.Y || y >= imageBounds.Max.Y {
-			continue
-		}
-		for x := int(bounds.X); x < int(rectRight(bounds)); x++ {
-			if x < imageBounds.Min.X || x >= imageBounds.Max.X {
-				continue
-			}
-			total++
-			if nearColor(img.RGBAAt(x, y), accent, 40) {
-				accentPixels++
-			}
-		}
-	}
-	underlineMatched, underlineTotal := 0, 0
-	for y := int(rectBottom(bounds)) - 3; y <= int(rectBottom(track))+1; y++ {
-		if y < imageBounds.Min.Y || y >= imageBounds.Max.Y {
-			continue
-		}
-		for x := int(bounds.X) + 4; x < int(rectRight(bounds))-4; x++ {
-			if x < imageBounds.Min.X || x >= imageBounds.Max.X {
-				continue
-			}
-			underlineTotal++
-			if nearColor(img.RGBAAt(x, y), accent, 40) {
-				underlineMatched++
-			}
-		}
-	}
-	backgroundOK := nearColor(background, accentSoft, 5)
-	underlineOK := underlineTotal > 0 && underlineMatched*100/underlineTotal >= 50
-	accentRatio := 0
-	if total > 0 {
-		accentRatio = accentPixels * 100 / total
-	}
-	detail := fmt.Sprintf(
-		"底色 #%02X%02X%02X，主色像素 %d/%d（%d%%），底部主色条 %d/%d",
-		background.R, background.G, background.B,
-		accentPixels, total, accentRatio, underlineMatched, underlineTotal)
-	return accentRatio >= 2 && (backgroundOK || underlineOK), detail
 }

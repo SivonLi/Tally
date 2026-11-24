@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/AstraFoundry/design/packages/mygo/sunbeam"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
-	"github.com/lobehub/lobe-mygo/pkg/display"
-	"github.com/lobehub/lobe-mygo/pkg/form"
 
 	"tally/internal/school"
 	"tally/internal/store"
@@ -16,12 +15,6 @@ import (
 
 // settingsSidebarWidth 是设置窗口左侧分类的宽度。
 const settingsSidebarWidth = 200
-
-// settingsFormValues 是设置窗口里可编辑的取值，与保存到数据库的草稿分开。
-type settingsFormValues struct {
-	Subjects []store.Subject
-	Tracks   []store.Track
-}
 
 // openSettings 打开设置窗口；已打开时把它带到前台。
 func (a *app) openSettings() {
@@ -43,7 +36,6 @@ func (a *app) openSettings() {
 		a.loadSyncSecrets()
 		a.syncLoaded = true
 	}
-	a.settingsForm = form.New(a.settingsFormValuesFromDrafts())
 	a.settingsWin = mygo.NewWindow(mygo.WindowOptions{
 		Title:                locales.NavSettings(),
 		Width:                760,
@@ -54,42 +46,14 @@ func (a *app) openSettings() {
 		TitleBarHeight:       int(topStripHeight),
 		TrafficLightPosition: &mygo.Point{X: 20, Y: 20},
 		StateKey:             "tally-settings",
-		BackgroundColor:      "light-dark(#ffffff, #000000)",
+		BackgroundColor:      "light-dark(#faf8f5, #090706)",
 		DisableMaximize:      true,
 		DisableMinimize:      true,
 		AutoHideMenuBar:      true,
-		Vibrancy:             mygo.VibrancySidebar,
 		Content:              ui.View(a.settingsView),
 	})
 	a.settingsWin.OnClosed(func() {
 		a.settingsWin = nil
-		a.settingsForm = nil
-	})
-}
-
-// settingsFormValuesFromDrafts 把当前的科目与选科草稿复制成表单初始值。
-func (a *app) settingsFormValuesFromDrafts() settingsFormValues {
-	return settingsFormValues{
-		Subjects: append([]store.Subject(nil), a.subjectDrafts...),
-		Tracks:   append([]store.Track(nil), a.trackDrafts...),
-	}
-}
-
-// syncSettingsForm 把表单的当前值写回保存用的草稿，并返回设置页共同的根节点。
-func (a *app) syncSettingsForm(c *ui.Context, content func(values *settingsFormValues)) ui.Element {
-	if a.settingsForm == nil {
-		a.settingsForm = form.New(a.settingsFormValuesFromDrafts())
-	}
-	return form.View(c, a.settingsForm, form.Props[settingsFormValues]{
-		Variant: form.Borderless,
-		Layout:  form.Vertical,
-		Gap:     c.Theme().Space(6),
-		OnValuesChange: func(values settingsFormValues) {
-			a.subjectDrafts = append([]store.Subject(nil), values.Subjects...)
-			a.trackDrafts = append([]store.Track(nil), values.Tracks...)
-		},
-	}, func() {
-		content(&a.settingsForm.Values)
 	})
 }
 
@@ -100,9 +64,6 @@ func (a *app) settingsWindow() *mygo.Window {
 func (a *app) settingsView(c *ui.Context) {
 	p := uiPaletteFor(c)
 	t := p.theme
-	if c.Vibrancy() {
-		c.Root().Background(ui.Transparent)
-	}
 	pages := a.settingsPages()
 	current := pages[0]
 	for _, item := range pages {
@@ -114,22 +75,18 @@ func (a *app) settingsView(c *ui.Context) {
 	if c.TitleBar().Left > 0 {
 		top = topStrip(c) + 4
 	}
-	root := ui.Row(c).Fill().AlignItems(ui.Stretch)
-	if !c.Vibrancy() {
-		root.Background(p.canvas)
-	}
+	root := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(p.canvas)
 	root.Children(func() {
 		side := ui.Column(c).Width(settingsSidebarWidth).Shrink(0).FillHeight().
-			Padding(top, t.Space(3), t.Space(4), t.Space(3)).Gap(t.Space(0.5)).DragWindow()
-		if !c.Vibrancy() {
-			side.Background(p.panelMuted)
-		}
+			Background(p.panelMuted).
+			Padding(top, t.Space(3), t.Space(4), t.Space(3)).Gap(2).DragWindow()
 		side.Children(func() {
 			for _, item := range pages {
 				item := item
 				a.settingsNavItem(c, p, item, item.id == current.id)
 			}
 		})
+		ui.Box(c).Width(1).FillHeight().Background(p.border).Shrink(0)
 		ui.Column(c).Grow(1).MinWidth(0).FillHeight().Background(p.canvas).Children(func() {
 			ui.Row(c).FillWidth().Height(topStrip(c)).Shrink(0).Background(p.canvas).
 				Padding(0, t.Space(7)).AlignItems(ui.Center).DragWindow().Children(func() {
@@ -138,7 +95,7 @@ func (a *app) settingsView(c *ui.Context) {
 			})
 			rule(c)
 			ui.Scroll(c).Clip().Grow(1).Shrink(1).MinHeight(0).FillWidth().
-				Padding(t.Space(4), t.Space(7), t.Space(8), t.Space(7)).
+				Padding(t.Space(5), t.Space(7), t.Space(8), t.Space(7)).
 				Children(func() {
 					current.build(c, p)
 				})
@@ -150,6 +107,7 @@ func (a *app) settingsView(c *ui.Context) {
 		c.Toast(a.settingsToast)
 		a.settingsToast = ""
 	}
+	sunbeam.Toasts(c, locales.Close())
 }
 
 type settingsPage struct {
@@ -171,23 +129,29 @@ func (a *app) settingsPages() []settingsPage {
 
 func (a *app) settingsNavItem(c *ui.Context, p uiPalette, item settingsPage, selected bool) {
 	t := p.theme
-	button := ui.ButtonBase(c.Key(item.id)).Label(item.title).Height(t.Space(9)).
-		Padding(0, t.Space(2)).Gap(t.Space(2)).Radius(t.Space(2)).
-		AlignItems(ui.Center).Justify(ui.Start).FocusRing(false)
+	button := ui.ButtonBase(c.Key(item.id)).Label(item.title).Height(36).
+		Padding(0, 10).Gap(10).Radius(sunbeam.RadiusLG).
+		AlignItems(ui.Center).Justify(ui.Start).
+		Cursor(ui.CursorPointer).FocusRing(false)
 	switch {
 	case selected:
 		button.Background(p.fill)
+	case button.Pressed():
+		button.Background(p.sb.FlatFacePressed)
 	case button.Hovered():
 		button.Background(p.hover)
 	}
 	iconColor := p.muted
-	textColor := p.ink
+	textColor := p.inkSecondary
+	weight := 400
 	if selected {
-		iconColor = p.accent
+		iconColor = p.ink
+		textColor = p.ink
+		weight = 500
 	}
 	button.Children(func() {
-		ui.Icon(c, item.icon).FontSize(t.Space(4)).TextColor(iconColor)
-		ui.Text(c, item.title).FontSize(bodySize(t)).FontWeight(500).
+		ui.Icon(c, item.icon).Size(16, 16).TextColor(iconColor)
+		ui.Text(c, item.title).FontSize(bodySize(t)).FontWeight(weight).
 			TextColor(textColor).SingleLine()
 	})
 	if button.Clicked() {
@@ -198,16 +162,9 @@ func (a *app) settingsNavItem(c *ui.Context, p uiPalette, item settingsPage, sel
 func (a *app) settingsSchoolSection(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Column(c).FillWidth().MaxWidth(t.Space(170)).Gap(t.Space(5)).Children(func() {
-		a.syncSettingsForm(c, func(*settingsFormValues) {
-			form.Group(c, a.settingsForm, form.GroupProps{Fixed: true}, func() {
-				form.Field(c, a.settingsForm, form.FieldProps{
-					Name:  "academic-year",
-					Label: locales.SettingsAcademicYear(),
-					Desc:  locales.SettingsAcademicYearHint(),
-					Value: a.academicYearStart,
-				}, func() {
-					a.academicYearSelect(c, p)
-				})
+		formGroup(c, p, "", "", nil, func() {
+			formFieldItem(c, p, locales.SettingsAcademicYear(), locales.SettingsAcademicYearHint(), false, func() {
+				a.academicYearSelect(c, p)
 			})
 		})
 		if a.settingsError != "" {
@@ -219,55 +176,35 @@ func (a *app) settingsSchoolSection(c *ui.Context, p uiPalette) {
 func (a *app) settingsSubjectsSection(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Column(c).FillWidth().MaxWidth(t.Space(170)).Gap(t.Space(5)).Children(func() {
-		a.syncSettingsForm(c, func(values *settingsFormValues) {
-			form.Group(c, a.settingsForm, form.GroupProps{
-				Title: locales.SettingsSubjects(),
-				Desc:  locales.SettingsSubjectsHint(),
-				Fixed: true,
-			}, func() {
-				for index := range values.Subjects {
-					index := index
-					subject := &values.Subjects[index]
-					form.Field(c, a.settingsForm, form.FieldProps{
-						Name:   "subject-" + subject.Key,
-						Label:  a.subjectName(subject.Key, subject.Name),
-						Layout: form.Vertical,
-						Value:  subject.Name,
-					}, func() {
-						ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-							ui.Column(c).Grow(1).Shrink(1).MinWidth(0).AlignItems(ui.Stretch).Children(func() {
-								textField(c, &subject.Name, locales.SubjectName(), "")
-							})
-							numberField(c, &subject.FullMark, 0, 300, 1, locales.SubjectFullMark()).
-								Width(t.Space(28)).Shrink(0)
-							switchField(c, &subject.Enabled, locales.SubjectEnabled()).Shrink(0)
+		formGroup(c, p, locales.SettingsSubjects(), locales.SettingsSubjectsHint(), nil, func() {
+			for index := range a.subjectDrafts {
+				index := index
+				subject := &a.subjectDrafts[index]
+				formFieldItem(c, p, a.subjectName(subject.Key, subject.Name), "", false, func() {
+					ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+						ui.Column(c).Grow(1).Shrink(1).MinWidth(0).AlignItems(ui.Stretch).Children(func() {
+							textField(c, &subject.Name, locales.SubjectName(), "")
 						})
+						numberField(c, &subject.FullMark, 0, 300, 1, locales.SubjectFullMark()).
+							Width(t.Space(28)).Shrink(0)
+						switchField(c, &subject.Enabled, locales.SubjectEnabled()).Shrink(0)
 					})
-				}
-			})
-			form.Group(c, a.settingsForm, form.GroupProps{
-				Title: locales.SettingsTracks(),
-				Desc:  locales.SettingsTracksHint(),
-				Fixed: true,
-			}, func() {
-				for index := range values.Tracks {
-					index := index
-					track := &values.Tracks[index]
-					form.Field(c, a.settingsForm, form.FieldProps{
-						Name:   "track-" + track.Key,
-						Label:  a.trackName(track.Key, track.Name),
-						Layout: form.Vertical,
-						Value:  track.Name,
-					}, func() {
-						ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-							ui.Column(c).Grow(1).Shrink(1).MinWidth(0).AlignItems(ui.Stretch).Children(func() {
-								textField(c, &track.Name, locales.TrackName(), "")
-							})
-							switchField(c, &track.Enabled, locales.TrackEnabled()).Shrink(0)
+				})
+			}
+		})
+		formGroup(c, p, locales.SettingsTracks(), locales.SettingsTracksHint(), nil, func() {
+			for index := range a.trackDrafts {
+				index := index
+				track := &a.trackDrafts[index]
+				formFieldItem(c, p, a.trackName(track.Key, track.Name), "", false, func() {
+					ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+						ui.Column(c).Grow(1).Shrink(1).MinWidth(0).AlignItems(ui.Stretch).Children(func() {
+							textField(c, &track.Name, locales.TrackName(), "")
 						})
+						switchField(c, &track.Enabled, locales.TrackEnabled()).Shrink(0)
 					})
-				}
-			})
+				})
+			}
 		})
 		ui.Row(c).Children(func() {
 			if labelledButton(c, locales.SettingsSaveSchool(), nil, true).Clicked() {
@@ -280,52 +217,41 @@ func (a *app) settingsSubjectsSection(c *ui.Context, p uiPalette) {
 func (a *app) settingsDataSection(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Column(c).FillWidth().MaxWidth(t.Space(170)).Gap(t.Space(5)).Children(func() {
-		a.syncSettingsForm(c, func(*settingsFormValues) {
-			form.Group(c, a.settingsForm, form.GroupProps{Fixed: true}, func() {
-				form.Field(c, a.settingsForm, form.FieldProps{
-					Name:  "data-dir",
-					Label: locales.SettingsDataDir(),
-					Value: a.dataDir,
-				}, func() {
-					a.settingsDataDirText(c, p)
-				})
+		formGroup(c, p, "", "", nil, func() {
+			formFieldItem(c, p, locales.SettingsDataDir(), "", false, func() {
+				a.settingsDataDirText(c, p)
 			})
-			items := make([]display.ListItem, 0, len(a.backups))
-			for _, backup := range a.backups {
-				backup := backup
-				items = append(items, display.ListItem{
-					Key:         backup.Name,
-					Label:       formatTime(backup.CreatedAt),
-					Description: fmt.Sprintf(locales.SettingsBackupSize(), float64(backup.Size)/(1024*1024)),
-					Actions: func() {
-						if plainButton(c, locales.SettingsRestore()).Clicked() {
-							a.restoreBackupName = backup.Name
-							a.restoreOpen = true
-							a.invalidateSettings()
-						}
-					},
-					ShowAction: true,
-				})
-			}
-			form.Group(c, a.settingsForm, form.GroupProps{
-				Title: locales.SettingsBackups(),
-				Fixed: true,
-				Extra: func() {
-					if labelledButton(c, locales.SettingsBackupNow(), iconImports, false).Clicked() {
-						a.backupNow()
+		})
+		items := make([]actionListItem, 0, len(a.backups))
+		for _, backup := range a.backups {
+			backup := backup
+			items = append(items, actionListItem{
+				Key:         backup.Name,
+				Label:       formatTime(backup.CreatedAt),
+				Description: fmt.Sprintf(locales.SettingsBackupSize(), float64(backup.Size)/(1024*1024)),
+				Actions: func() {
+					if plainButton(c, locales.SettingsRestore()).Clicked() {
+						a.restoreBackupName = backup.Name
+						a.restoreOpen = true
+						a.invalidateSettings()
 					}
 				},
-			}, func() {
-				if len(items) == 0 {
-					smallEmptyState(c, p, locales.SettingsBackupsEmpty())
-					return
-				}
-				if key := display.List(c, display.ListProps{Items: items, Variant: display.ListBorderless}); key != "" {
-					a.restoreBackupName = key
-					a.restoreOpen = true
-					a.invalidateSettings()
-				}
 			})
+		}
+		formGroup(c, p, locales.SettingsBackups(), "", func() {
+			if labelledButton(c, locales.SettingsBackupNow(), iconImports, false).Clicked() {
+				a.backupNow()
+			}
+		}, func() {
+			if len(items) == 0 {
+				smallEmptyState(c, p, locales.SettingsBackupsEmpty())
+				return
+			}
+			if key := actionList(c, p, items, true); key != "" {
+				a.restoreBackupName = key
+				a.restoreOpen = true
+				a.invalidateSettings()
+			}
 		})
 		if a.settingsError != "" {
 			notice(c, p, noticeDanger, a.settingsError)
@@ -341,40 +267,28 @@ func (a *app) settingsDataDirText(c *ui.Context, p uiPalette) {
 func (a *app) settingsAppearanceSection(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Column(c).FillWidth().MaxWidth(t.Space(170)).Gap(t.Space(5)).Children(func() {
-		a.syncSettingsForm(c, func(*settingsFormValues) {
-			form.Group(c, a.settingsForm, form.GroupProps{Fixed: true}, func() {
-				form.Field(c, a.settingsForm, form.FieldProps{
-					Name:   "language",
-					Label:  locales.LanguageLabel(),
-					Layout: form.Horizontal,
-					Value:  a.language,
-				}, func() {
-					a.languageSwitch(c)
-				})
-				form.Field(c, a.settingsForm, form.FieldProps{
-					Name:   "appearance",
-					Label:  locales.AppearanceTitle(),
-					Layout: form.Horizontal,
-					Value:  a.appearance,
-				}, func() {
-					values := []string{
-						store.AppearanceSystem, store.AppearanceLight, store.AppearanceDark,
+		formGroup(c, p, "", "", nil, func() {
+			formFieldItem(c, p, locales.LanguageLabel(), "", true, func() {
+				a.languageSwitch(c)
+			})
+			formFieldItem(c, p, locales.AppearanceTitle(), "", true, func() {
+				values := []string{
+					store.AppearanceSystem, store.AppearanceLight, store.AppearanceDark,
+				}
+				labels := []string{
+					locales.AppearanceSystem(), locales.AppearanceLight(), locales.AppearanceDark(),
+				}
+				chosen := 0
+				for index, value := range values {
+					if value == a.appearance {
+						chosen = index
 					}
-					labels := []string{
-						locales.AppearanceSystem(), locales.AppearanceLight(), locales.AppearanceDark(),
-					}
-					chosen := 0
-					for index, value := range values {
-						if value == a.appearance {
-							chosen = index
-						}
-					}
-					next := chosen
-					segmentedField(c, &next, labels, locales.AppearanceTitle())
-					if next != chosen {
-						a.setAppearance(values[next])
-					}
-				})
+				}
+				next := chosen
+				segmentedField(c, &next, labels, locales.AppearanceTitle())
+				if next != chosen {
+					a.setAppearance(values[next])
+				}
 			})
 		})
 	})

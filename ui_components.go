@@ -7,17 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AstraFoundry/design/packages/mygo/sunbeam"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
-	"github.com/lobehub/lobe-mygo/pkg/action"
-	"github.com/lobehub/lobe-mygo/pkg/choice"
-	"github.com/lobehub/lobe-mygo/pkg/field"
-	"github.com/lobehub/lobe-mygo/pkg/form"
-	"github.com/lobehub/lobe-mygo/pkg/layout"
-	"github.com/lobehub/lobe-mygo/pkg/lucide"
-	"github.com/lobehub/lobe-mygo/pkg/motion"
-	"github.com/lobehub/lobe-mygo/pkg/theme"
 
 	"tally/locales"
 )
@@ -41,15 +34,51 @@ const (
 	noticeDanger
 )
 
+// Sunbeam 标准动效曲线（见 DESIGN.md 与 .agents/skills/sunbeam/SKILL.md 第 8 节）。
+var (
+	sunbeamEaseOut    = ui.CubicBezier(0.22, 1, 0.36, 1)
+	sunbeamEaseSpring = ui.CubicBezier(0.34, 1.4, 0.64, 1)
+	sunbeamEaseInOut  = ui.CubicBezier(0.65, 0, 0.35, 1)
+	sunbeamEaseDrawer = ui.CubicBezier(0.32, 0.72, 0, 1)
+
+	buttonPress      = ui.Animation{Duration: sunbeam.DurationPress, Ease: sunbeamEaseOut}
+	microButtonPress = ui.Animation{Duration: 100 * time.Millisecond, Ease: sunbeamEaseOut}
+	selectTransition = ui.ElementTransition{Duration: sunbeam.DurationPress, Ease: sunbeamEaseOut, Colors: true}
+	segmentSpring    = ui.SpringOptions{Duration: sunbeam.DurationIndicator, Bounce: 0.2}
+	popupTransition  = ui.ElementTransition{
+		Duration:     sunbeam.DurationPopup,
+		Ease:         sunbeamEaseOut,
+		ExitDuration: sunbeam.DurationPopupExit,
+		ExitEase:     sunbeamEaseOut,
+		Enter:        &ui.Motion{Scale: 0.96, Y: -4},
+		Exit:         &ui.Motion{Scale: 0.96, Y: -4},
+	}
+	drawerTransition = ui.ElementTransition{
+		Duration:     sunbeam.DurationDrawer,
+		Ease:         sunbeamEaseDrawer,
+		ExitDuration: sunbeam.DurationDrawerExit,
+		ExitEase:     sunbeamEaseDrawer,
+		Enter:        &ui.Motion{X: 16},
+		Exit:         &ui.Motion{X: 16},
+	}
+	wizardDoneEnter = ui.ElementTransition{
+		Duration: sunbeam.DurationDialog,
+		Ease:     sunbeamEaseSpring,
+		Enter:    &ui.Motion{Scale: 0.9},
+	}
+)
+
+const busyDelay = 250 * time.Millisecond
+
+// panel 是文档流内的内容卡片：遵循 Sunbeam 规范，内容卡片始终保持 Flat（白/暖墨实底 + 1px 细边，不加浮层阴影）。
 func panel(c *ui.Context, p uiPalette) ui.Element {
 	return ui.Column(c).
 		Background(p.panel).
 		Border(1, p.border).
-		Radius(p.theme.Space(2))
+		Radius(sunbeam.Radius2XL)
 }
 
-// section 是页面内的一个平面分区。通过统一的分割线与间距划分层次，
-// 不再给每个分区套一层卡片边框。
+// section 是页面内的平面分区，通过统一的分割线与间距划分层次。
 func section(c *ui.Context, p uiPalette, body func()) ui.Element {
 	t := p.theme
 	return ui.Column(c).FillWidth().Gap(t.Space(3)).Children(body)
@@ -78,27 +107,27 @@ func (a *app) languageSwitch(c *ui.Context) {
 	}
 }
 
-// controlHeight 返回随系统文字缩放自适应的标准控件高度（默认缩放下为 36）。
-func controlHeight(t ui.Theme, tk *theme.Tokens) float32 {
-	return max(tk.ControlHeight, bodySize(t)*2.25)
+// controlHeight 返回随系统文字缩放自适应的 Sunbeam 标准控件高度（默认 40 DIP）。
+func controlHeight(t ui.Theme) float32 {
+	return max(40, bodySize(t)*2.75)
 }
 
-// controlHeightLG 返回随系统文字缩放自适应的大号按钮高度（默认缩放下为 44）。
-func controlHeightLG(t ui.Theme, tk *theme.Tokens) float32 {
-	return max(tk.ControlHeightLG, bodySize(t)*2.75)
+// controlHeightLG 返回页面级主操作按钮高度，与 Sunbeam 40 DIP 胶囊体系保持一致。
+func controlHeightLG(t ui.Theme) float32 {
+	return controlHeight(t)
 }
 
-// tableRowHeight 返回随系统文字缩放自适应的表格行高（默认缩放下为 40）。
+// tableRowHeight 返回随系统文字缩放自适应的表格行高（默认 40 DIP）。
 func tableRowHeight(t ui.Theme) float32 {
-	return max(t.Space(10), bodySize(t)*2.5)
+	return max(40, bodySize(t)*2.75)
 }
 
 func pageHeading(c *ui.Context, p uiPalette, title, subtitle string, actions func()) {
 	t := p.theme
 	ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
 		ui.Row(c).FillWidth().Wrap().AlignItems(ui.End).Gap(t.Space(4)).Children(func() {
-			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(0).Children(func() {
-				ui.Text(c, title).FontSize(titleSize(t)).FontWeight(600).LetterSpacing(-0.2).
+			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(t.Space(1)).Children(func() {
+				ui.Text(c, title).FontSize(titleSize(t)).FontWeight(500).
 					SingleLine().MinWidth(0).Shrink(1).Tooltip(title).
 					Role(ui.RoleHeading).Level(1)
 				if subtitle != "" {
@@ -115,7 +144,7 @@ func pageHeading(c *ui.Context, p uiPalette, title, subtitle string, actions fun
 func sectionHeading(c *ui.Context, p uiPalette, title string, count int) {
 	t := p.theme
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-		ui.Text(c, title).FontSize(sectionSize(t)).FontWeight(600).LetterSpacing(-0.2).
+		ui.Text(c, title).FontSize(sectionSize(t)).FontWeight(500).
 			SingleLine().MinWidth(0).Shrink(1).Tooltip(title)
 		if count >= 0 {
 			ui.Text(c, formatInt(count)).FontSize(captionSize(t)).TextColor(p.muted).
@@ -138,23 +167,32 @@ func listPanel(c *ui.Context, p uiPalette, title string, count int, body func())
 	})
 }
 
+// badge 是 Sunbeam 风格的安静胶囊徽标：暖灰底、墨色字，状态色只以 6px 圆点呈现，
+// 从不将主动作明黄用于徽标或正文。
 func badge(c *ui.Context, p uiPalette, text string, tone badgeTone) {
 	t := p.theme
-	accent, soft := p.inkSecondary, p.panelMuted
+	var dotColor *ui.Color
 	switch tone {
 	case toneAccent:
-		accent, soft = p.accent, p.accentSoft
+		col := p.info
+		dotColor = &col
 	case toneSuccess:
-		accent, soft = p.success, p.successSoft
+		col := p.success
+		dotColor = &col
 	case toneWarning:
-		accent, soft = p.warning, p.warningSoft
+		col := p.warning
+		dotColor = &col
 	case toneDanger:
-		accent, soft = p.danger, p.dangerSoft
+		col := p.danger
+		dotColor = &col
 	}
-	ui.Row(c).Height(t.Space(5)).PaddingX(t.Space(2)).Radius(t.Space(1)).
-		Shrink(0).AlignItems(ui.Center).Background(soft).Children(func() {
+	ui.Row(c).Height(24).PaddingX(10).Gap(6).Radius(12).
+		Shrink(0).AlignItems(ui.Center).Background(p.fill).Children(func() {
+		if dotColor != nil {
+			ui.Box(c).Size(6, 6).Radius(3).Background(*dotColor).Shrink(0)
+		}
 		ui.Text(c, text).FontSize(captionSize(t)).FontWeight(500).
-			TextColor(accent).SingleLine()
+			TextColor(p.inkSecondary).SingleLine()
 	})
 }
 
@@ -181,8 +219,8 @@ func kindBadge(c *ui.Context, p uiPalette, kind string, label string) {
 
 func metric(c *ui.Context, p uiPalette, value, label string) {
 	t := p.theme
-	ui.Column(c).Gap(0).Children(func() {
-		ui.Text(c, value).FontSize(titleSize(t)).FontWeight(600).FontFeatures("tnum")
+	ui.Column(c).Gap(2).Children(func() {
+		ui.Text(c, value).FontSize(titleSize(t)).FontWeight(500).FontFeatures("tnum")
 		ui.Text(c, label).FontSize(captionSize(t)).TextColor(p.muted)
 	})
 }
@@ -196,23 +234,24 @@ func metricInline(c *ui.Context, p uiPalette, value uint64, label string) {
 	})
 }
 
+// notice 遵循 Sunbeam 原则：实底卡片 + 1px 细边，状态色仅用于图标，正文保持暖墨色保证 AA 对比度。
 func notice(c *ui.Context, p uiPalette, tone noticeTone, text string) {
 	text = localizeErrorMessage(text)
 	t := p.theme
-	accent, icon, background := p.info, lucide.Info, p.infoSoft
+	accent, icon := p.info, iconInfo
 	switch tone {
 	case noticeSuccess:
-		accent, icon, background = p.success, lucide.CircleCheck, p.successSoft
+		accent, icon = p.success, iconCircleCheck
 	case noticeWarning:
-		accent, icon, background = p.warning, lucide.TriangleAlert, p.warningSoft
+		accent, icon = p.warning, iconAlert
 	case noticeDanger:
-		accent, icon, background = p.danger, lucide.CircleX, p.dangerSoft
+		accent, icon = p.danger, iconCircleX
 	}
-	ui.Row(c).Gap(t.Space(2)).AlignSelf(ui.Stretch).AlignItems(ui.Start).
-		Radius(t.Space(2)).Padding(t.Space(3), t.Space(4)).
-		Background(background).Border(1, accent.Alpha(0.18)).Children(func() {
-		ui.Row(c).Height(t.Space(6)).AlignItems(ui.Center).Shrink(0).Children(func() {
-			ui.Icon(c, icon()).FontSize(t.Space(4)).TextColor(accent)
+	ui.Row(c).Gap(t.Space(2.5)).AlignSelf(ui.Stretch).AlignItems(ui.Start).
+		Radius(sunbeam.RadiusXL).Padding(t.Space(3), t.Space(4)).
+		Background(p.panel).Border(1, p.border).Children(func() {
+		ui.Row(c).Height(t.Space(5.5)).AlignItems(ui.Center).Shrink(0).Children(func() {
+			ui.Icon(c, icon).FontSize(t.Space(4)).TextColor(accent)
 		})
 		ui.Text(c, text).FontSize(bodySize(t)).TextColor(p.ink).Grow(1).Shrink(1).MinWidth(0).Pretty().Selectable()
 	})
@@ -257,7 +296,7 @@ func mutedCellText(c *ui.Context, p uiPalette, value string) ui.Element {
 func emptyState(c *ui.Context, p uiPalette, icon *ui.SVG, title, body string, action func()) {
 	t := p.theme
 	ui.Column(c).Grow(1).FillWidth().Center().Padding(t.Space(8)).Children(func() {
-		ui.Column(c).Gap(t.Space(1)).AlignItems(ui.Center).Children(func() {
+		ui.Column(c).Gap(t.Space(1.5)).AlignItems(ui.Center).Children(func() {
 			if icon != nil {
 				ui.Icon(c, icon).FontSize(t.Space(8)).TextColor(p.muted)
 			}
@@ -300,79 +339,119 @@ func applyMicroPress(element ui.Element) {
 	element.AnimatePose(pose, microButtonPress)
 }
 
+func sunbeamPillBase(c *ui.Context, h float32, label string) ui.Element {
+	return ui.ButtonBase(c).Height(h).MinWidth(h).Radius(h / 2).
+		PaddingX(16).Gap(8).Center().Cursor(ui.CursorPointer).
+		Label(label).Shrink(0)
+}
+
 func labelledButton(c *ui.Context, label string, icon *ui.SVG, primary bool) ui.Element {
 	t := *c.Theme()
-	tk := theme.TokensOf(c)
-	props := action.ButtonProps{Variant: action.Default}
+	sb := sunbeam.Colors(c)
+	h := controlHeight(t)
+	element := sunbeamPillBase(c, h, label)
 	if primary {
-		props.Variant = action.Primary
+		element.TextColor(sb.PrimaryForeground)
+		sunbeam.PrimaryFace(c, element)
+	} else {
+		element.TextColor(sb.Foreground)
+		sunbeam.Face(c, element)
 	}
-	element := action.StyleButton(c, ui.ButtonBase(c), "", props)
-	element.Height(controlHeight(t, tk)).FontSize(bodySize(t)).Label(label).Shrink(0).Children(func() {
+	element.Children(func() {
 		if icon != nil {
-			ui.Icon(c, icon).FontSize(t.Space(4)).Shrink(0)
+			ui.Icon(c, icon).FontSize(16).Shrink(0)
 		}
-		ui.Text(c, label).FontSize(bodySize(t)).SingleLine()
+		ui.Text(c, label).FontSize(bodySize(t)).FontWeight(500).SingleLine()
 	})
 	applyButtonPress(element)
 	return element
 }
 
-// plainButton 是 Lobe MyGo 的次要按钮，带可访问名称。
+// plainButton 是 Sunbeam 次要胶囊按钮，自动跟随所在层的 Flat/Raised 材质。
 func plainButton(c *ui.Context, label string) ui.Element {
-	return standardButton(c, label, action.Default)
+	return labelledButton(c, label, nil, false)
 }
 
-// primaryButton 是 Lobe MyGo 的主按钮，带可访问名称。
+// primaryButton 是 Sunbeam 明黄主动作胶囊按钮，一个视图只用于核心主操作。
 func primaryButton(c *ui.Context, label string) ui.Element {
-	return standardButton(c, label, action.Primary)
+	return labelledButton(c, label, nil, true)
 }
 
-// textButton 是无底色的 Lobe MyGo 按钮，用于列表行和返回这类轻量动作。
+// textButton 是无底色胶囊幽灵按钮，悬停或按下时出现柔和暖墨填充。
 func textButton(c *ui.Context, label string) ui.Element {
-	return standardButton(c, label, action.Text)
-}
-
-// dangerButton 是危险动作按钮，使用危险色描边与柔和表面，悬停和按压均有清晰层次。
-func dangerButton(c *ui.Context, label string) ui.Element {
 	t := *c.Theme()
-	tk := theme.TokensOf(c)
-	element := ui.ButtonBase(c).Height(controlHeight(t, tk)).PaddingX(t.Space(4)).
-		Radius(tk.BorderRadiusSM).FontSize(bodySize(t)).FontWeight(500).
-		AlignItems(ui.Center).Justify(ui.Center).Cursor(ui.CursorPointer).
-		Label(label).Shrink(0).Transition(selectTransition)
-	bg, border, fg := tk.ErrorBg, tk.ErrorBorder, tk.ErrorText
+	sb := sunbeam.Colors(c)
+	h := controlHeight(t)
+	element := sunbeamPillBase(c, h, label).Border(1, ui.Transparent)
 	switch {
 	case element.Pressed():
-		bg, border, fg = tk.ErrorBgHover, tk.ErrorActive, tk.ErrorActive
+		element.Background(sb.FlatFacePressed).TextColor(sb.Foreground)
 	case element.Hovered():
-		bg, border, fg = tk.ErrorBgHover, tk.ErrorHover, tk.ErrorHover
+		element.Background(sb.FlatFaceHover).TextColor(sb.Foreground)
+	default:
+		element.TextColor(sb.MutedForeground)
+	}
+	element.Children(func() {
+		ui.Text(c, label).FontSize(bodySize(t)).FontWeight(500).SingleLine()
+	})
+	applyButtonPress(element)
+	return element
+}
+
+// dangerButton 是危险动作胶囊按钮：采用危险色细边与轻淡底色，避免大面积刺眼纯红块。
+func dangerButton(c *ui.Context, label string) ui.Element {
+	t := *c.Theme()
+	sb := sunbeam.Colors(c)
+	h := controlHeight(t)
+	element := sunbeamPillBase(c, h, label).Transition(selectTransition)
+	bg := sb.Danger.Alpha(0.08)
+	border := sb.Danger.Alpha(0.32)
+	fg := sb.Danger
+	switch {
+	case element.Pressed():
+		bg = sb.Danger.Alpha(0.20)
+		border = sb.Danger
+	case element.Hovered():
+		bg = sb.Danger.Alpha(0.14)
+		border = sb.Danger.Alpha(0.55)
 	}
 	element.Background(bg).Border(1, border).TextColor(fg).Children(func() {
-		ui.Text(c, label).FontSize(bodySize(t)).SingleLine()
+		ui.Text(c, label).FontSize(bodySize(t)).FontWeight(500).SingleLine()
 	})
 	applyButtonPress(element)
 	return element
 }
 
-func standardButton(c *ui.Context, label string, variant action.ButtonVariant) ui.Element {
+// dangerIconButton 是用于删除列表行等轻量危险动作的圆形图标按钮。
+func dangerIconButton(c *ui.Context, icon *ui.SVG, label string) ui.Element {
 	t := *c.Theme()
-	tk := theme.TokensOf(c)
-	element := action.StyleButton(c, ui.ButtonBase(c), "", action.ButtonProps{Variant: variant})
-	element.Height(controlHeight(t, tk)).FontSize(bodySize(t)).Label(label).Shrink(0).Children(func() {
-		ui.Text(c, label).FontSize(bodySize(t)).SingleLine()
+	sb := sunbeam.Colors(c)
+	size := controlHeight(t)
+	element := ui.ButtonBase(c).Size(size, size).Radius(size/2).Center().
+		Cursor(ui.CursorPointer).Label(label).Tooltip(label).Shrink(0).
+		Border(1, ui.Transparent).TextColor(sb.MutedForeground)
+	switch {
+	case element.Pressed():
+		element.Background(sb.Danger.Alpha(0.18)).TextColor(sb.Danger)
+	case element.Hovered():
+		element.Background(sb.Danger.Alpha(0.10)).TextColor(sb.Danger)
+	}
+	element.Children(func() {
+		ui.Icon(c, icon).Size(16, 16)
 	})
-	applyButtonPress(element)
+	applyMicroPress(element)
 	return element
 }
 
-// pageActionButton 是 44 高、16 字号的页面级主按钮。
+// pageActionButton 是页面级主动作胶囊按钮。
 func pageActionButton(c *ui.Context, label string) ui.Element {
 	t := *c.Theme()
-	tk := theme.TokensOf(c)
-	element := action.StyleButton(c, ui.ButtonBase(c), "", action.ButtonProps{Variant: action.Primary})
-	element.Height(controlHeightLG(t, tk)).FontSize(bodySize(t)).Label(label).Shrink(0).Children(func() {
-		ui.Text(c, label).FontSize(bodySize(t)).SingleLine()
+	sb := sunbeam.Colors(c)
+	h := controlHeightLG(t)
+	element := sunbeamPillBase(c, h, label).PaddingX(20).TextColor(sb.PrimaryForeground)
+	sunbeam.PrimaryFace(c, element)
+	element.Children(func() {
+		ui.Text(c, label).FontSize(bodySize(t)).FontWeight(500).SingleLine()
 	})
 	applyButtonPress(element)
 	return element
@@ -380,12 +459,13 @@ func pageActionButton(c *ui.Context, label string) ui.Element {
 
 func linkRow(c *ui.Context, p uiPalette, label string, body func()) ui.Element {
 	t := p.theme
-	element := action.StyleButton(c, ui.ButtonBase(c), "", action.ButtonProps{Variant: action.Text}).
-		FillWidth().Label(label).Height(0).MinHeight(t.Space(14)).
-		Padding(t.Space(3), t.Space(3)).Radius(t.Space(1.5))
+	element := ui.ButtonBase(c).
+		FillWidth().Label(label).MinHeight(t.Space(14)).
+		Padding(t.Space(3), t.Space(3)).Radius(sunbeam.RadiusLG).
+		Cursor(ui.CursorPointer).TextColor(p.ink)
 	switch {
 	case element.Pressed():
-		element.Background(p.fill)
+		element.Background(p.sb.FlatFacePressed)
 	case element.Hovered():
 		element.Background(p.hover)
 	}
@@ -395,40 +475,45 @@ func linkRow(c *ui.Context, p uiPalette, label string, body func()) ui.Element {
 	return element
 }
 
-// listRowButton 是用于列表项的透明背景文字按钮，只设置无障碍名称，不插入重复的视觉文本。
+// listRowButton 是用于列表项的透明背景行按钮，只设置无障碍名称，不插入重复视觉文本。
 func listRowButton(c *ui.Context, label string) ui.Element {
 	t := *c.Theme()
 	p := uiPaletteFor(c)
-	element := action.StyleButton(c, ui.ButtonBase(c), "", action.ButtonProps{Variant: action.Text}).
+	element := ui.ButtonBase(c).
 		FillWidth().Label(label).FontSize(bodySize(t)).Cursor(ui.CursorPointer).
-		Radius(t.Space(1.5))
+		Radius(sunbeam.RadiusLG).TextColor(p.ink)
 	switch {
 	case element.Pressed():
-		element.Background(p.fill)
+		element.Background(p.sb.FlatFacePressed)
 	case element.Hovered():
 		element.Background(p.hover)
 	}
 	return element
 }
 
-// backButton 是统一的返回按钮，带左箭头图标与返回文案。
+// backButton 是统一的返回胶囊按钮，带左箭头图标与返回文案。
 func backButton(c *ui.Context, p uiPalette) ui.Element {
 	t := p.theme
-	tk := theme.TokensOf(c)
-	element := action.StyleButton(c, ui.ButtonBase(c), "", action.ButtonProps{Variant: action.Text}).
-		Height(tk.ControlHeight).Padding(t.Space(1.5), t.Space(2)).Radius(t.Space(1.5)).
-		Label(locales.Back()).Cursor(ui.CursorPointer)
+	h := controlHeight(t)
+	element := sunbeamPillBase(c, h, locales.Back()).Padding(0, 12).
+		Border(1, ui.Transparent).TextColor(p.muted)
+	switch {
+	case element.Pressed():
+		element.Background(p.sb.FlatFacePressed).TextColor(p.ink)
+	case element.Hovered():
+		element.Background(p.hover).TextColor(p.ink)
+	}
 	element.Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(1.5)).Children(func() {
-			ui.Icon(c, iconArrowLeft).FontSize(t.Space(4))
-			ui.Text(c, locales.Back()).FontSize(bodySize(t)).SingleLine()
+			ui.Icon(c, iconArrowLeft).Size(16, 16)
+			ui.Text(c, locales.Back()).FontSize(bodySize(t)).FontWeight(500).SingleLine()
 		})
 	})
 	applyButtonPress(element)
 	return element
 }
 
-// progressBar 是静态直显的进度条：切换页面时直接展示当前进度，避免每次挂载从 0% 重播动画。
+// progressBar 是 Sunbeam 风格的进度条：凹槽轨道 + 暖墨填充（不用明黄，明黄仅留给唯一主按钮）。
 func progressBar(c *ui.Context, p uiPalette, percent float32, label string) ui.Element {
 	t := p.theme
 	pct := min(max(percent, 0), 100)
@@ -440,10 +525,12 @@ func progressBar(c *ui.Context, p uiPalette, percent float32, label string) ui.E
 		if label != "" {
 			ui.Text(c, label).FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
 		}
-		ui.Box(c).FillWidth().Height(t.Space(1)).Radius(t.Space(1)).Clip().Background(p.fill).Children(func() {
+		bar := ui.Box(c).FillWidth().Height(6).Radius(3).Clip()
+		sunbeam.Well(c, bar)
+		bar.Children(func() {
 			if pct > 0 {
 				ui.Box(c).Absolute().Left(0).Top(0).Bottom(0).WidthPercent(pct).
-					Radius(t.Space(1)).Background(p.accent)
+					Radius(3).Background(p.ink)
 			}
 		})
 	})
@@ -470,16 +557,16 @@ func showDelayedBusy(c *ui.Context, key string, busy bool) bool {
 	return false
 }
 
-// rule 是页面里的横向分割线，统一使用 Lobe MyGo 的分割线颜色。
+// rule 是页面里的 1px Sunbeam 横向分割线。
 func rule(c *ui.Context) {
-	layout.Divider(c, layout.DividerProps{})
+	sunbeam.Divider(c)
 }
 
-// selectField 是 Lobe MyGo 的下拉选择，选项文字同时作为取值。
-// label 是下拉的控件级名称，读屏软件随当前选中的选项一起读出。
-// key 必须全应用唯一：弹窗 overlay 节点按位置继承保留状态，后打开的下拉会占用
-// 先关闭下拉留下的 panel 节点，带着它正在进行的过渡和上次的尺寸，把选项裁掉。
-// 给 panel 上独立的 Key 后每个下拉的弹窗是全新节点，按自己的内容布局。
+// selectField 是基于 ui.SelectBase 与 Sunbeam Field/PanelSurface 的下拉选择。
+// 之所以保留薄包装而不是直接调用 sunbeam.Select，是因为 Tally 下拉需要支持：
+// 1. 几十项列表时的最大高度滚动（ui.Scroll）；
+// 2. 空选项禁用态与独立 Key 避免弹层切换裁切；
+// 3. 无需调用点额外维护 sunbeam.SelectState 结构体字段。
 func selectField(c *ui.Context, key string, value *string, labels []string, label string) ui.Element {
 	empty := len(labels) == 0
 	if empty {
@@ -493,34 +580,30 @@ func selectField(c *ui.Context, key string, value *string, labels []string, labe
 	}
 	current := strconv.Itoa(chosen)
 	t := *c.Theme()
-	tk := theme.TokensOf(c)
-	p := uiPaletteFor(c)
+	sb := sunbeam.Colors(c)
+	h := controlHeight(t)
 	sel := ui.SelectBase(c, &current)
-	trigger := sel.Trigger.Height(controlHeight(t, tk)).Padding(t.Space(1), t.Space(3)).
-		Gap(t.Space(2)).Radius(tk.BorderRadius).FontSize(bodySize(t)).
-		AlignItems(ui.Center).TextColor(tk.Text).Cursor(ui.CursorPointer).Unselectable().
-		Transition(selectTransition).
+	trigger := sel.Trigger.Height(h).Padding(0, 12).Gap(8).
+		FontSize(bodySize(t)).AlignItems(ui.Center).TextColor(sb.Foreground).
+		Cursor(ui.CursorPointer).Unselectable().Transition(selectTransition).
 		Label(label).Value(labels[chosen])
-	bg, border := p.panel, p.borderStrong
+	sunbeam.Field(c, trigger)
 	switch {
 	case empty:
-		trigger.Disabled(true).TextColor(tk.TextDisabled).Cursor(ui.CursorNotAllowed)
-		border = p.border
+		trigger.Disabled(true).TextColor(sb.MutedForeground).Cursor(ui.CursorNotAllowed)
 	case sel.Open():
-		border = p.accent
+		trigger.Border(1, sb.Ring)
 	case trigger.Hovered():
-		bg = p.hover
-		border = p.inkSecondary
+		trigger.Border(1, sb.Faint)
 	}
-	trigger.Background(bg).Border(1, border)
 	trigger.Children(func() {
-		ui.Row(c).Grow(1).MinWidth(0).Gap(t.Space(2)).AlignItems(ui.Center).Children(func() {
+		ui.Row(c).Grow(1).MinWidth(0).Gap(8).AlignItems(ui.Center).Children(func() {
 			text := ui.Text(c, labels[chosen]).SingleLine().MinWidth(0).Shrink(1)
 			if !empty && labels[chosen] != "" {
 				text.Tooltip(labels[chosen])
 			}
 		})
-		arrow := ui.Icon(c, lucide.ChevronDown()).FontSize(t.Space(4)).TextColor(tk.TextSecondary).Shrink(0)
+		arrow := ui.Icon(c, iconUpDown).Size(14, 14).TextColor(sb.MutedForeground).Shrink(0)
 		if sel.Open() {
 			arrow.Rotate(180)
 		}
@@ -529,31 +612,33 @@ func selectField(c *ui.Context, key string, value *string, labels []string, labe
 	popupMaxWidth := max(width, t.Space(96))
 	sel.Popup(func(panel ui.Element) {
 		panel.Key(key)
-		panel.Margin(t.Space(1), 0, 0, 0).Padding(t.Space(1)).Radius(tk.BorderRadius).
-			MinWidth(width).MaxWidth(popupMaxWidth).
-			Background(tk.BgElevated).Transition(motion.Popup()).AttachedOrigin()
-		tk.Elevate(panel, theme.BoxShadowSecondary)
-		// 选项多时滚动，避免列表超出窗口。
-		ui.Scroll(c).MaxHeight(t.Space(64)).Children(func() {
-			ui.Column(c).FillWidth().Children(func() {
-				for index, item := range labels {
-					index := index
-					selected := index == chosen
-					opt := sel.Item(strconv.Itoa(index)).Label(item).
-						Padding(t.Space(1.5), t.Space(3)).Height(controlHeight(t, tk)).
-						Gap(t.Space(2)).AlignItems(ui.Center).Radius(tk.BorderRadiusSM).
-						AlignSelf(ui.Stretch).FontSize(bodySize(t)).TextColor(tk.Text)
-					if opt.Highlighted() {
-						opt.Background(tk.FillTertiary)
-					}
-					opt.Children(func() {
-						ui.Text(c, item).Grow(1).Shrink(1).MinWidth(0).SingleLine().Tooltip(item)
-						if selected {
-							ui.Icon(c, lucide.Check()).FontSize(t.Space(4)).TextColor(tk.Primary).
-								Shrink(0).Margin(0, 0, 0, t.Space(2))
+		sunbeam.PanelSurface(c, panel)
+		// 同心圆角：浮层圆角 RadiusXL (14) - 内边距 4 = 列表项圆角 RadiusLG (10)。
+		panel.Margin(4, 0, 0, 0).Padding(4).Radius(sunbeam.RadiusXL).
+			MinWidth(max(width, 160)).MaxWidth(popupMaxWidth).
+			Transition(popupTransition).AttachedOrigin()
+		sunbeam.Layer(sunbeam.Raised, func() {
+			ui.Scroll(c).MaxHeight(256).Children(func() {
+				ui.Column(c).FillWidth().Gap(2).Children(func() {
+					for index, item := range labels {
+						index := index
+						selected := index == chosen
+						opt := sel.Item(strconv.Itoa(index)).Label(item).
+							Padding(0, 10).Height(34).
+							Gap(8).AlignItems(ui.Center).Radius(sunbeam.RadiusLG).
+							AlignSelf(ui.Stretch).FontSize(bodySize(t)).TextColor(sb.Foreground)
+						if opt.Highlighted() {
+							opt.Background(sb.FlatFaceHover)
 						}
-					})
-				}
+						opt.Children(func() {
+							ui.Text(c, item).Grow(1).Shrink(1).MinWidth(0).SingleLine().Tooltip(item)
+							if selected {
+								ui.Icon(c, iconCheck).Size(14, 14).TextColor(sb.Foreground).
+									Shrink(0).Margin(0, 0, 0, 8)
+							}
+						})
+					}
+				})
 			})
 		})
 	})
@@ -565,124 +650,101 @@ func selectField(c *ui.Context, key string, value *string, labels []string, labe
 	return trigger
 }
 
-const busyDelay = 250 * time.Millisecond
-
-var (
-	buttonPress      = ui.Animation{Duration: 120 * time.Millisecond, Ease: motion.EaseOutQuint}
-	microButtonPress = ui.Animation{Duration: 100 * time.Millisecond, Ease: motion.EaseOutQuint}
-	selectTransition = ui.ElementTransition{Duration: 120 * time.Millisecond, Ease: motion.EaseOut, Colors: true}
-	segmentPress     = ui.Animation{Duration: 120 * time.Millisecond, Ease: motion.EaseOut}
-	drawerTransition = ui.ElementTransition{
-		Duration:     200 * time.Millisecond,
-		Ease:         motion.EaseOutQuint,
-		ExitDuration: 140 * time.Millisecond,
-		ExitEase:     motion.ExitEase,
-		Enter:        &ui.Motion{X: 16},
-		Exit:         &ui.Motion{X: 16},
-	}
-	wizardDoneEnter = ui.ElementTransition{
-		Duration: 240 * time.Millisecond,
-		Ease:     motion.EaseOutBack,
-		Enter:    &ui.Motion{Scale: 0.85},
-	}
-)
-
 func inputRow(c *ui.Context) ui.Element {
 	t := *c.Theme()
-	tk := theme.TokensOf(c)
-	return ui.Row(c).Height(controlHeight(t, tk)).PaddingX(t.Space(3)).
-		Radius(tk.BorderRadius).AlignItems(ui.Center).Gap(t.Space(2)).
-		FontSize(bodySize(t)).TextColor(tk.Text).Cursor(ui.CursorText)
+	sb := sunbeam.Colors(c)
+	return ui.Row(c).Height(controlHeight(t)).PaddingX(12).
+		AlignItems(ui.Center).Gap(8).
+		FontSize(bodySize(t)).TextColor(sb.Foreground).Cursor(ui.CursorText)
 }
 
-// searchField 是 36 高、16 字号的搜索框。
+// searchField 是 40 高、Sunbeam Field 外观的搜索框，保留 MyGo 原生 Esc 清空行为。
 func searchField(c *ui.Context, value *string, label, placeholder string) ui.Element {
 	t := *c.Theme()
-	tk := theme.TokensOf(c)
-	return ui.SearchField(c, value).Label(label).Placeholder(placeholder).
-		MinHeight(controlHeight(t, tk)).FontSize(bodySize(t)).FillWidth()
+	e := ui.SearchField(c, value).Label(label).Placeholder(placeholder).
+		MinHeight(controlHeight(t)).FontSize(bodySize(t)).FillWidth()
+	return sunbeam.Field(c, e)
 }
 
-// dateField 是 36 高、16 字号的日期选择框。
-func dateField(c *ui.Context, value *time.Time, label string, props field.DatePickerProps) ui.Element {
+// dateField 使用 MyGo v0.10.0 原生 ui.DateInput，并套用 Sunbeam Field 外观。
+func dateField(c *ui.Context, value *time.Time, label string) ui.Element {
 	t := *c.Theme()
-	tk := theme.TokensOf(c)
-	return field.DatePicker(c, value, props).Label(label).
-		Height(controlHeight(t, tk)).FontSize(bodySize(t)).Radius(tk.BorderRadius)
+	e := ui.DateInput(c, value).Label(label).
+		Height(controlHeight(t)).FontSize(bodySize(t))
+	return sunbeam.Field(c, e)
 }
 
 func styleInputRow(c *ui.Context, root ui.Element, focused bool) {
-	p := uiPaletteFor(c)
-	border := p.borderStrong
+	sb := sunbeam.Colors(c)
+	sunbeam.Field(c, root)
 	if focused {
-		border = p.accent
+		root.Border(1, sb.Ring)
 	}
-	root.Background(p.panel).Border(1, border)
 }
 
-// textField 是 36 高、16 字号的单行输入框。
+// textField 是 40 高、Sunbeam Field 外观的单行输入框。
 func textField(c *ui.Context, value *string, label, placeholder string) ui.Element {
 	t := *c.Theme()
-	tk := theme.TokensOf(c)
+	sb := sunbeam.Colors(c)
 	root := inputRow(c)
 	var input ui.Element
 	root.Children(func() {
-		input = ui.TextInputBase(c, value).Grow(1).MinWidth(0).Height(controlHeight(t, tk)).Placeholder(placeholder).
-			PlaceholderColor(tk.TextPlaceholder)
+		input = ui.TextInputBase(c, value).Grow(1).MinWidth(0).Height(controlHeight(t)).
+			Placeholder(placeholder).PlaceholderColor(sb.MutedForeground).FocusRing(false)
 	})
 	styleInputRow(c, root, input.Focused())
 	input.Label(label)
 	return input
 }
 
-// textAreaField 是 16 字号的多行输入框，行数由调用点控制。
+// textAreaField 是 Sunbeam Field 外观的多行输入框，行数由调用点控制。
 func textAreaField(c *ui.Context, value *string, label, placeholder string, minRows, maxRows int) ui.Element {
 	t := *c.Theme()
-	tk := theme.TokensOf(c)
-	root := ui.Column(c).Padding(t.Space(2), t.Space(3)).Radius(tk.BorderRadius).
-		FontSize(bodySize(t)).TextColor(tk.Text).Cursor(ui.CursorText)
+	sb := sunbeam.Colors(c)
+	root := ui.Column(c).Padding(8, 12).
+		FontSize(bodySize(t)).TextColor(sb.Foreground).Cursor(ui.CursorText)
 	var area ui.Element
 	root.Children(func() {
 		area = ui.TextAreaBase(c, value).Lines(minRows, maxRows).FocusRing(false).
-			Placeholder(placeholder).PlaceholderColor(tk.TextPlaceholder)
+			Placeholder(placeholder).PlaceholderColor(sb.MutedForeground)
 	})
 	styleInputRow(c, root, area.Focused())
 	area.Label(label)
 	return area
 }
 
-// passwordField 是 36 高、16 字号的密码输入框。
+// passwordField 是 40 高、Sunbeam Field 外观的密码输入框。
 func passwordField(c *ui.Context, value *string, label, placeholder string) ui.Element {
 	t := *c.Theme()
-	tk := theme.TokensOf(c)
+	sb := sunbeam.Colors(c)
 	root := inputRow(c)
 	visible := ui.Local(root, "visible", func() bool { return false })
 	var input ui.Element
 	root.Children(func() {
-		input = ui.TextInputBase(c, value).Grow(1).MinWidth(0).Height(tk.ControlHeight).
-			Placeholder(placeholder).PlaceholderColor(tk.TextPlaceholder)
+		input = ui.TextInputBase(c, value).Grow(1).MinWidth(0).Height(controlHeight(t)).
+			Placeholder(placeholder).PlaceholderColor(sb.MutedForeground).FocusRing(false)
 		if !*visible {
 			input.Password()
 		}
-		text, glyph := locales.ShowPassword(), lucide.EyeOff()
+		text, glyph := locales.ShowPassword(), iconEyeOff
 		if *visible {
-			text, glyph = locales.HidePassword(), lucide.Eye()
+			text, glyph = locales.HidePassword(), iconEye
 		}
-		toggle := ui.ButtonBase(c).Label(text).Size(t.Space(7), t.Space(7)).
-			Radius(t.Space(1.5)).Center().Cursor(ui.CursorPointer).
-			TextColor(tk.TextTertiary)
+		toggle := ui.ButtonBase(c).Label(text).Size(28, 28).
+			Radius(6).Center().Cursor(ui.CursorPointer).
+			TextColor(sb.MutedForeground)
 		switch {
 		case toggle.Pressed():
-			toggle.Background(tk.Fill).TextColor(tk.Text)
+			toggle.Background(sb.FlatFacePressed).TextColor(sb.Foreground)
 		case toggle.Hovered():
-			toggle.Background(tk.FillSecondary).TextColor(tk.Text)
+			toggle.Background(sb.FlatFaceHover).TextColor(sb.Foreground)
 		}
 		applyMicroPress(toggle)
 		if toggle.Clicked() {
 			*visible = !*visible
 		}
 		toggle.Children(func() {
-			ui.Icon(c, glyph).FontSize(t.Space(4))
+			ui.Icon(c, glyph).Size(16, 16)
 		})
 	})
 	styleInputRow(c, root, input.Focused())
@@ -695,9 +757,10 @@ type numberDraft struct {
 	focused bool
 }
 
-// numberField 是 36 高、16 字号的数字输入框。
+// numberField 是 40 高、Sunbeam Field 外观的数字输入框，使用 ui.Local 托管输入草稿，无需调用点持有状态。
 func numberField(c *ui.Context, value *float64, lo, hi, step float64, label string) ui.Element {
-	tk := theme.TokensOf(c)
+	t := *c.Theme()
+	sb := sunbeam.Colors(c)
 	if step <= 0 {
 		step = 1
 	}
@@ -727,8 +790,8 @@ func numberField(c *ui.Context, value *float64, lo, hi, step float64, label stri
 
 	var input ui.Element
 	root.Children(func() {
-		input = ui.TextInputBase(c, &draft.text).Grow(1).MinWidth(0).Height(tk.ControlHeight).
-			PlaceholderColor(tk.TextPlaceholder).FontFeatures("tnum")
+		input = ui.TextInputBase(c, &draft.text).Grow(1).MinWidth(0).Height(controlHeight(t)).
+			PlaceholderColor(sb.MutedForeground).FontFeatures("tnum").FocusRing(false)
 		focused := input.Focused()
 		switch {
 		case input.Submitted(), draft.focused && !focused:
@@ -746,11 +809,11 @@ func numberField(c *ui.Context, value *float64, lo, hi, step float64, label stri
 		}
 		draft.focused = focused
 		ui.Column(c).Shrink(0).Justify(ui.Center).Children(func() {
-			if numberControl(c, lucide.ChevronUp(), locales.Increment()) {
+			if numberControl(c, iconChevronUp, locales.Increment()) {
 				set(*value + step)
 				draft.text = format(*value)
 			}
-			if numberControl(c, lucide.ChevronDown(), locales.Decrement()) {
+			if numberControl(c, iconUpDown, locales.Decrement()) {
 				set(*value - step)
 				draft.text = format(*value)
 			}
@@ -762,103 +825,335 @@ func numberField(c *ui.Context, value *float64, lo, hi, step float64, label stri
 }
 
 func numberControl(c *ui.Context, glyph *ui.SVG, label string) bool {
-	t := *c.Theme()
-	tk := theme.TokensOf(c)
-	button := ui.ButtonBase(c).Label(label).Size(t.Space(7), t.Space(4.5)).
-		Radius(t.Space(1)).Center().Cursor(ui.CursorPointer).
-		TextColor(tk.TextTertiary)
+	sb := sunbeam.Colors(c)
+	button := ui.ButtonBase(c).Label(label).Size(24, 17).
+		Radius(4).Center().Cursor(ui.CursorPointer).
+		TextColor(sb.MutedForeground)
 	switch {
 	case button.Pressed():
-		button.Background(tk.Fill).TextColor(tk.Text)
+		button.Background(sb.FlatFacePressed).TextColor(sb.Foreground)
 	case button.Hovered():
-		button.Background(tk.FillSecondary).TextColor(tk.Text)
+		button.Background(sb.FlatFaceHover).TextColor(sb.Foreground)
 	}
 	applyMicroPress(button)
 	button.Children(func() {
-		ui.Icon(c, glyph).FontSize(t.Space(4))
+		ui.Icon(c, glyph).Size(12, 12)
 	})
 	return button.Clicked()
 }
 
-// segmentedField 是 36 高、16 字号的分段选择。
+// segmentedField 是 Sunbeam 风格的等宽分段选择器：
+// 使用凹槽轨道（Well）与随弹簧滑动的选中滑块（Thumb），并保证窄容器下所有分段仍保持严格等宽且不溢出。
 func segmentedField(c *ui.Context, selected *int, labels []string, label string) ui.Element {
+	if len(labels) == 0 {
+		return ui.Row(c)
+	}
 	t := *c.Theme()
-	tk := theme.TokensOf(c)
-	p := uiPaletteFor(c)
+	sb := sunbeam.Colors(c)
+	const wellInset float32 = 4
+	const segPad float32 = 12
+	trackH := controlHeight(t)
+	segH := trackH - 2*wellInset
+
+	segW := float32(0)
+	for _, option := range labels {
+		w, _ := c.MeasureText(0, ui.Span{Text: option, Font: t.Font, Size: bodySize(t), Weight: 500})
+		segW = max(segW, w+2*segPad+2)
+	}
+
 	parts := ui.SegmentedBase(c, selected, len(labels))
-	track := parts.Track.Height(controlHeight(t, tk)).MaxWidthPercent(100).Padding(t.Space(1)).
-		Gap(t.Space(1)).Radius(tk.BorderRadiusLG).
-		Background(tk.BgLayout).Border(1, tk.FillQuaternary)
-	track.Label(label)
+	track := parts.Track.Height(trackH).MaxWidthPercent(100).
+		Padding(wellInset).Gap(wellInset).Radius(trackH / 2).Label(label)
+	sunbeam.Well(c, track)
+
+	// 若多页签场景下等宽总宽度超出父容器，按已提交宽度等比收缩，保持每段依然严格等宽。
+	if bounds := track.Bounds(); bounds.W > 0 {
+		totalNeed := float32(len(labels))*segW + float32(len(labels)-1)*wellInset + 2*wellInset
+		if totalNeed > bounds.W {
+			avail := (bounds.W - 2*wellInset - float32(len(labels)-1)*wellInset) / float32(len(labels))
+			if avail > 32 {
+				segW = avail
+			}
+		}
+	}
+
+	chosen := *selected
+	if chosen < 0 {
+		chosen = 0
+	} else if chosen >= len(labels) {
+		chosen = len(labels) - 1
+	}
+
 	track.Children(func() {
-		ui.Box(c).Absolute().Left(0).Right(0).Bottom(0).Height(1).
-			Background(p.borderStrong).ZIndex(-1)
+		x := track.AnimateTo("thumb", float32(chosen)*(segW+wellInset), ui.Animation{Spring: segmentSpring})
+		thumb := ui.Box(c).Width(segW).Height(segH).Radius(segH / 2).
+			Absolute().Left(wellInset + x).Top(wellInset).PassThrough()
+		sunbeam.Thumb(c, thumb)
+
 		for index, option := range labels {
-			segment := parts.Segment(index).FillHeight().MinWidth(0).Shrink(1).PaddingX(t.Space(3)).
-				Radius(tk.BorderRadius).FontSize(bodySize(t)).FontWeight(500).
-				Cursor(ui.CursorPointer)
-			color := tk.TextSecondary
-			if index == *selected {
-				color = p.accent
+			segment := parts.Segment(index).Width(segW).Height(segH).Radius(segH/2).
+				PaddingX(segPad).Center().Cursor(ui.CursorPointer).
+				Border(1, ui.Transparent).ZIndex(1)
+			color := sb.MutedForeground
+			if index == chosen {
+				color = sb.Foreground
 			} else if segment.Hovered() {
-				color = tk.Text
+				color = sb.Foreground
 			}
-			pose := ui.Pose{}
-			if segment.Pressed() {
-				pose.Scale = 0.98
-			}
-			segment.TextColor(color).AnimatePose(pose, segmentPress)
+			segment.TextColor(color)
 			segment.Children(func() {
-				if index == *selected {
-					ui.Box(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).
-						Radius(tk.BorderRadius).Background(p.accentSoft).
-						Border(1, p.accent).ZIndex(-1)
-					ui.Box(c).Absolute().Left(0).Right(0).Bottom(0).Height(2).
-						Background(p.accent).ZIndex(1)
-				}
-				ui.Text(c, option).SingleLine().MinWidth(0).Shrink(1).Tooltip(option)
+				ui.Text(c, option).FontSize(bodySize(t)).FontWeight(500).
+					SingleLine().MinWidth(0).Shrink(1).Tooltip(option)
 			})
 		}
 	})
 	return track
 }
 
-// switchField 是 Lobe MyGo 的开关。
+// switchField 使用 Sunbeam 开关（暖墨轨道 + 弹簧滑块）。
 func switchField(c *ui.Context, value *bool, label string) ui.Element {
-	return choice.Switch(c, value, choice.SwitchProps{}).Label(label)
+	return sunbeam.Switch(c, value).Label(label)
 }
 
-// checkboxField 是 Lobe MyGo 的复选框。
+// checkboxField 使用 Sunbeam 复选框（暖墨勾选框 + 白色对勾）。
 func checkboxField(c *ui.Context, value *bool, label string) ui.Element {
-	return choice.Checkbox(c, value, label, choice.CheckboxProps{}).Label(label)
+	return sunbeam.Checkbox(c, value, label).Label(label)
 }
 
-// dialogFormState 初始化弹窗表单的布局状态。
-func (a *app) dialogFormState() *form.Form[struct{}] {
-	if a.dialogFormHost == nil {
-		a.dialogFormHost = form.New(struct{}{})
+// toggleCodeOption 描述多选开关组的一个选项。
+type toggleCodeOption struct {
+	code  string
+	label string
+}
+
+// toggleCodeGroup 是多选胶囊开关组，遵循 Sunbeam「选中项用暖墨填充、未选中用柔和底色，不用明黄」原则，
+// 避免 Flat 模式下 sunbeam.Toggle 的白色 FlatThumb 与白色 Card 卡片底色融为一体。
+func toggleCodeGroup(c *ui.Context, values *[]string, options []toggleCodeOption, label string) ui.Element {
+	t := *c.Theme()
+	p := uiPaletteFor(c)
+	return ui.Row(c).Wrap().Gap(8).Role(ui.RoleGroup).Label(label).Children(func() {
+		for _, option := range options {
+			option := option
+			active := containsString(*values, option.code)
+			next := active
+			e := ui.ToggleBase(c, &next).Height(34).Padding(0, 14).Radius(17).
+				Center().Cursor(ui.CursorPointer).Label(option.label)
+			switch {
+			case active:
+				e.Background(p.ink).Border(1, p.ink).TextColor(p.canvas)
+			case e.Pressed():
+				e.Background(p.sb.FlatFacePressed).Border(1, p.border).TextColor(p.ink)
+			case e.Hovered():
+				e.Background(p.hover).Border(1, p.border).TextColor(p.ink)
+			default:
+				e.Background(p.fill).Border(1, ui.Transparent).TextColor(p.inkSecondary)
+			}
+			e.Children(func() {
+				ui.Text(c, option.label).FontSize(bodySize(t)).FontWeight(500).SingleLine()
+			})
+			applyMicroPress(e)
+			if next != active {
+				if next {
+					*values = append(*values, option.code)
+				} else {
+					filtered := make([]string, 0, len(*values))
+					for _, existing := range *values {
+						if existing != option.code {
+							filtered = append(filtered, existing)
+						}
+					}
+					*values = filtered
+				}
+			}
+		}
+	})
+}
+
+// formGroup 是替代 lobe-mygo/pkg/form.Group 的 Sunbeam 表单卡片分组。
+func formGroup(c *ui.Context, p uiPalette, title, desc string, extra func(), body func()) {
+	t := p.theme
+	panel(c, p).FillWidth().Padding(20).Gap(16).Children(func() {
+		if title != "" || desc != "" || extra != nil {
+			ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
+				ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(2).Children(func() {
+					if title != "" {
+						ui.Text(c, title).FontSize(sectionSize(t)).FontWeight(500).TextColor(p.ink).SingleLine()
+					}
+					if desc != "" {
+						ui.Text(c, desc).FontSize(captionSize(t)).TextColor(p.muted).Pretty()
+					}
+				})
+				if extra != nil {
+					ui.Row(c).Shrink(0).AlignItems(ui.Center).Gap(t.Space(2)).Children(extra)
+				}
+			})
+			rule(c)
+		}
+		ui.Column(c).FillWidth().Gap(16).Children(body)
+	})
+}
+
+// formFieldItem 是表单字段行：支持垂直（标签在上）或水平（标签在左、控件在右）两种排布。
+func formFieldItem(c *ui.Context, p uiPalette, label, desc string, horizontal bool, control func()) {
+	t := p.theme
+	if horizontal {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(4)).Children(func() {
+			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(2).Children(func() {
+				if label != "" {
+					ui.Text(c, label).FontSize(bodySize(t)).FontWeight(500).TextColor(p.ink)
+				}
+				if desc != "" {
+					ui.Text(c, desc).FontSize(captionSize(t)).TextColor(p.muted).Pretty()
+				}
+			})
+			ui.Row(c).Shrink(0).AlignItems(ui.Center).Children(control)
+		})
+		return
 	}
-	return a.dialogFormHost
+	ui.Column(c).FillWidth().Gap(6).Children(func() {
+		if label != "" {
+			ui.Text(c, label).FontSize(bodySize(t)).FontWeight(500).TextColor(p.ink)
+		}
+		control()
+		if desc != "" {
+			ui.Text(c, desc).FontSize(captionSize(t)).TextColor(p.muted).Pretty()
+		}
+	})
 }
 
-// dialogForm 用 Lobe 的表单视图承载弹窗里的字段，标签在控件上方。
+// dialogForm 承载弹窗内的垂直表单字段集合。
 func (a *app) dialogForm(c *ui.Context, body func()) {
-	form.View(c, a.dialogFormState(), form.Props[struct{}]{
-		Variant: form.Borderless,
-		Layout:  form.Vertical,
-	}, body)
+	ui.Column(c).FillWidth().Gap(16).Children(body)
 }
 
-// dialogField 是弹窗表单里的一个字段，标签、说明与控件都使用 Lobe 的排版。
-// name 用来区分同一个表单里的字段状态。
-func (a *app) dialogField(c *ui.Context, name, label, desc string, control func()) {
-	form.Field(c, a.dialogFormState(), form.FieldProps{
-		Name: name, Label: label, Desc: desc, Value: label, Layout: form.Vertical,
-	}, control)
+// dialogField 是弹窗内的垂直表单字段。
+func (a *app) dialogField(c *ui.Context, _ string, label, desc string, control func()) {
+	p := uiPaletteFor(c)
+	formFieldItem(c, p, label, desc, false, control)
+}
+
+// stepsBar 是步骤条组件。
+// 已核对 MyGo v0.10.0 官方组件清单与 sunbeam v0.2.0，两者均无内置步骤条控件，
+// 因此在此作为项目唯一薄封装实现，使用暖墨序号圆点与 1px 细线连接。
+func stepsBar(c *ui.Context, p uiPalette, labels []string, current int) {
+	t := p.theme
+	ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+		for index, title := range labels {
+			done := index < current
+			active := index == current
+			ui.Row(c).AlignItems(ui.Center).Gap(8).Shrink(0).Children(func() {
+				dot := ui.Box(c).Size(24, 24).Radius(12).Center().Shrink(0)
+				switch {
+				case done:
+					dot.Background(p.ink).TextColor(p.canvas)
+				case active:
+					dot.Background(p.ink).TextColor(p.canvas)
+				default:
+					dot.Background(p.fill).Border(1, p.border).TextColor(p.muted)
+				}
+				dot.Children(func() {
+					if done {
+						ui.Icon(c, iconCheck).Size(12, 12)
+					} else {
+						ui.Text(c, strconv.Itoa(index+1)).FontSize(12).FontWeight(600).FontFeatures("tnum")
+					}
+				})
+				textColor := p.muted
+				weight := 400
+				if active || done {
+					textColor = p.ink
+				}
+				if active {
+					weight = 600
+				}
+				ui.Text(c, title).FontSize(captionSize(t)).FontWeight(weight).
+					TextColor(textColor).SingleLine()
+			})
+			if index < len(labels)-1 {
+				ui.Box(c).Grow(1).MinWidth(16).Height(1).Background(p.border)
+			}
+		}
+	})
+}
+
+type actionListItem struct {
+	Key         string
+	Label       string
+	Description string
+	Extra       string
+	Actions     func()
+}
+
+// actionList 是替代 lobe-mygo/pkg/display.List 的轻量操作列表。
+func actionList(c *ui.Context, p uiPalette, items []actionListItem, borderless bool) string {
+	t := p.theme
+	clicked := ""
+	renderRows := func() {
+		for index, item := range items {
+			item := item
+			if index > 0 {
+				rule(c)
+			}
+			if item.Actions == nil {
+				btn := ui.ButtonBase(c.Key("alist-"+item.Key)).FillWidth().
+					MinHeight(44).Padding(t.Space(2), t.Space(3)).Radius(sunbeam.RadiusLG).
+					Cursor(ui.CursorPointer).Label(item.Label).TextColor(p.ink)
+				switch {
+				case btn.Pressed():
+					btn.Background(p.sb.FlatFacePressed)
+				case btn.Hovered():
+					btn.Background(p.hover)
+				}
+				btn.Children(func() {
+					ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
+						ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(2).Children(func() {
+							ui.Text(c, item.Label).FontSize(bodySize(t)).FontWeight(500).
+								TextColor(p.ink).SingleLine().Tooltip(item.Label)
+							if item.Description != "" {
+								ui.Text(c, item.Description).FontSize(captionSize(t)).
+									TextColor(p.muted).SingleLine().Tooltip(item.Description)
+							}
+						})
+						if item.Extra != "" {
+							ui.Text(c, item.Extra).FontSize(captionSize(t)).
+								TextColor(p.muted).SingleLine().Shrink(0)
+						}
+					})
+				})
+				if btn.Clicked() {
+					clicked = item.Key
+				}
+				continue
+			}
+			row := ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).
+				MinHeight(44).Padding(t.Space(2), t.Space(3))
+			row.Children(func() {
+				ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(2).Children(func() {
+					ui.Text(c, item.Label).FontSize(bodySize(t)).FontWeight(500).
+						TextColor(p.ink).SingleLine().Tooltip(item.Label)
+					if item.Description != "" {
+						ui.Text(c, item.Description).FontSize(captionSize(t)).
+							TextColor(p.muted).SingleLine().Tooltip(item.Description)
+					}
+				})
+				if item.Extra != "" {
+					ui.Text(c, item.Extra).FontSize(captionSize(t)).
+						TextColor(p.muted).SingleLine().Shrink(0)
+				}
+				ui.Row(c).Shrink(0).AlignItems(ui.Center).Gap(t.Space(2)).Children(item.Actions)
+			})
+		}
+	}
+	if borderless {
+		ui.Column(c).FillWidth().Children(renderRows)
+		return clicked
+	}
+	panel(c, p).FillWidth().Radius(sunbeam.RadiusXL).Padding(4).Children(renderRows)
+	return clicked
 }
 
 const (
-	modalWidthCompact float32 = 400
+	modalWidthCompact float32 = 420
 	modalDefaultWidth float32 = 520
 	modalWidthWide    float32 = 680
 )
@@ -878,11 +1173,11 @@ type dialogState struct {
 	entered bool
 }
 
+// modal 使用 Sunbeam Raised 浮层材质（PanelSurface + Layer(Raised) + 暖墨 Scrim）承载弹窗，
+// 保持同心圆角（RadiusTile 28px）与对称进出场动效。
 func modal(c *ui.Context, open *bool, p modalProps, content func()) bool {
 	t := *c.Theme()
-	tk := theme.TokensOf(c)
-	enter := motion.Modal()
-	fade := motion.Backdrop()
+	sb := sunbeam.Colors(c)
 	key := p.Key
 	if key == "" {
 		key = p.Title
@@ -908,63 +1203,59 @@ func modal(c *ui.Context, open *bool, p modalProps, content func()) bool {
 			backdrop.Jump("dim", 0)
 		}
 		target := float32(1)
-		show := ui.Animation{Duration: enter.Duration, Ease: enter.Ease}
+		show := ui.Animation{Duration: sunbeam.DurationDialog, Ease: sunbeamEaseOut}
 		if state.closing {
 			target = 0
-			show = ui.Animation{Duration: enter.ExitDuration, Ease: enter.ExitEase}
+			show = ui.Animation{Duration: sunbeam.DurationDialogExit, Ease: sunbeamEaseOut}
 			backdrop.IgnoreInput(true)
 		}
 		shown := panel.AnimateTo("shown", target, show)
-		dim := backdrop.AnimateTo("dim", target, ui.Animation{Duration: fade.Duration, Ease: fade.Ease})
+		dim := backdrop.AnimateTo("dim", target, show)
 		done = state.closing && shown <= 0 && dim <= 0
 
 		backdrop.Padding(t.Space(8), t.Space(4)).
-			Background(tk.BgContainer.Alpha(0.6 * dim))
+			Background(sb.Scrim.Alpha(0.28 * dim))
 		width := p.Width
 		if width == 0 {
 			width = modalDefaultWidth
 		}
-		from := enter.Enter.Scale
-		if state.closing {
-			from = enter.Exit.Scale
-		}
-		scale := from + (1-from)*shown
+		scale := 0.96 + 0.04*shown
+		sunbeam.PanelSurface(c, panel)
 		panel.Width(width).MaxWidthPercent(100).MaxHeightPercent(100).
-			Radius(t.Space(3)).Clip().Background(tk.BgElevated).
-			TextColor(tk.Text).FontSize(bodySize(t)).
+			Clip().TextColor(sb.Foreground).FontSize(bodySize(t)).
 			Scale(scale, scale).Opacity(shown)
-		tk.Elevate(panel, theme.BoxShadow)
 
 		panel.Children(func() {
-			if p.Title != "" {
-				ui.Row(c).MinHeight(t.Space(10)).Padding(t.Space(2), t.Space(4)).
-					AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-					ui.Text(c, p.Title).FontSize(sectionSize(t)).FontWeight(600).
-						Grow(1).Shrink(1).MinWidth(0).SingleLine().Tooltip(p.Title)
-					if modalCloseButton(c, tk).Clicked() {
-						*open = false
-					}
-				})
-			}
-			ui.Scroll(c).Shrink(1).Children(func() {
-				contentColumn := ui.Column(c).
-					Padding(0, t.Space(4), t.Space(4), t.Space(4))
-				if p.Title == "" {
-					contentColumn.Padding(t.Space(4))
+			sunbeam.Layer(sunbeam.Raised, func() {
+				if p.Title != "" {
+					ui.Row(c).MinHeight(56).Padding(16, 24, 12, 24).
+						AlignItems(ui.Center).Gap(12).Children(func() {
+						ui.Text(c, p.Title).FontSize(sectionSize(t)).FontWeight(500).
+							Grow(1).Shrink(1).MinWidth(0).SingleLine().Tooltip(p.Title)
+						if modalCloseButton(c, sb).Clicked() {
+							*open = false
+						}
+					})
 				}
-				contentColumn.Children(content)
-			})
-			if !p.NoFooter {
-				ui.Row(c).Gap(t.Space(2)).Padding(t.Space(3), t.Space(4)).
-					Justify(ui.End).Children(func() {
-					if plainButton(c, textOr(p.CancelText, locales.Close())).Clicked() {
-						*open = false
+				ui.Scroll(c).Shrink(1).Children(func() {
+					contentColumn := ui.Column(c).Padding(0, 24, 20, 24)
+					if p.Title == "" {
+						contentColumn.Padding(24)
 					}
-					if primaryButton(c, textOr(p.OkText, locales.Save())).Clicked() {
-						ok = true
-					}
+					contentColumn.Children(content)
 				})
-			}
+				if !p.NoFooter {
+					ui.Row(c).Gap(8).Padding(12, 24, 20, 24).
+						Justify(ui.End).Children(func() {
+						if plainButton(c, textOr(p.CancelText, locales.Close())).Clicked() {
+							*open = false
+						}
+						if primaryButton(c, textOr(p.OkText, locales.Save())).Clicked() {
+							ok = true
+						}
+					})
+				}
+			})
 		})
 	})
 
@@ -980,7 +1271,7 @@ func modal(c *ui.Context, open *bool, p modalProps, content func()) bool {
 }
 
 // confirmDangerModal 是不可恢复操作的统一确认弹窗：
-// 复用对称进出场动效，将默认焦点放在取消按钮，危险按钮以 16px 间距和危险色隔离。
+// 默认焦点放在取消按钮，危险按钮以 12px 间距与危险色描边隔离。
 func confirmDangerModal(c *ui.Context, p uiPalette, key string, open *bool, title, body, cancelText, confirmText string) bool {
 	t := p.theme
 	confirmed := false
@@ -994,7 +1285,7 @@ func confirmDangerModal(c *ui.Context, p uiPalette, key string, open *bool, titl
 			if body != "" {
 				ui.Text(c, body).FontSize(bodySize(t)).TextColor(p.inkSecondary).Pretty()
 			}
-			ui.Row(c).FillWidth().Wrap().Justify(ui.End).AlignItems(ui.Center).Gap(t.Space(4)).Children(func() {
+			ui.Row(c).FillWidth().Wrap().Justify(ui.End).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
 				cancel := plainButton(c, textOr(cancelText, locales.PlanCancel())).AutoFocus()
 				if cancel.Clicked() {
 					*open = false
@@ -1009,20 +1300,19 @@ func confirmDangerModal(c *ui.Context, p uiPalette, key string, open *bool, titl
 	return confirmed
 }
 
-func modalCloseButton(c *ui.Context, tk *theme.Tokens) ui.Element {
-	t := *c.Theme()
-	button := ui.ButtonBase(c).Label(locales.Close()).Size(t.Space(9), t.Space(9)).
-		Shrink(0).Radius(t.Space(2)).Center().Cursor(ui.CursorPointer).
-		TextColor(tk.TextTertiary)
+func modalCloseButton(c *ui.Context, sb *sunbeam.Palette) ui.Element {
+	button := ui.ButtonBase(c).Label(locales.Close()).Size(32, 32).
+		Shrink(0).Radius(16).Center().Cursor(ui.CursorPointer).
+		TextColor(sb.MutedForeground)
 	switch {
 	case button.Pressed():
-		button.Background(tk.Fill).TextColor(tk.Text)
+		button.Background(sb.FlatFacePressed).TextColor(sb.Foreground)
 	case button.Hovered():
-		button.Background(tk.FillSecondary).TextColor(tk.Text)
+		button.Background(sb.FlatFaceHover).TextColor(sb.Foreground)
 	}
 	applyMicroPress(button)
 	button.Children(func() {
-		ui.Icon(c, lucide.X()).FontSize(t.Space(4))
+		ui.Icon(c, iconX).Size(16, 16)
 	})
 	return button
 }

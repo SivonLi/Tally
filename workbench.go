@@ -11,7 +11,6 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
-	"github.com/lobehub/lobe-mygo/pkg/nav"
 
 	"tally/internal/assessment"
 	"tally/internal/calc"
@@ -315,7 +314,7 @@ func (a *app) assessmentPage(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
 		pageHeading(c, p, locales.AssessmentTitle(), locales.AssessmentSubtitle(), func() {
-			if labelledButton(c, locales.AssessmentNewExam(), iconPlus, true).Clicked() {
+			if labelledButton(c, locales.AssessmentNewExam(), iconPlus, len(a.assessments) == 0).Clicked() {
 				a.page = pageExams
 				a.openNewExam()
 			}
@@ -333,14 +332,14 @@ func (a *app) assessmentPage(c *ui.Context, p uiPalette) {
 			return
 		}
 		ui.Split(c, &a.batchSidebarWidth, func() {
-			ui.Column(c).Fill().MinWidth(0).Clip().Padding(0, t.Space(4), 0, 0).Children(func() {
+			ui.Column(c).Fill().MinWidth(0).MinHeight(0).Clip().Padding(0, t.Space(4), 0, 0).Children(func() {
 				a.assessmentList(c, p)
 			})
 		}, func() {
-			ui.Column(c).Fill().MinWidth(0).Padding(0, 0, 0, t.Space(4)).Children(func() {
+			ui.Column(c).Fill().MinWidth(0).MinHeight(0).Clip().Padding(0, 0, 0, t.Space(4)).Children(func() {
 				a.assessmentDetail(c, p)
 			})
-		}).Grow(1)
+		}).Grow(1).MinHeight(0)
 	})
 }
 
@@ -360,7 +359,7 @@ func (a *app) assessmentList(c *ui.Context, p uiPalette) {
 						Height(0).MinHeight(t.Space(14)).Padding(t.Space(3), t.Space(3)).
 						AlignItems(ui.Start)
 					if selected {
-						row.Background(p.accentSoft)
+						row.Background(p.fill)
 					}
 					row.Children(func() {
 						ui.Column(c).FillWidth().MinWidth(0).Gap(t.Space(0.5)).Children(func() {
@@ -427,7 +426,7 @@ func (a *app) assessmentDetail(c *ui.Context, p uiPalette) {
 	default:
 		stage = 1
 	}
-	ui.Column(c).Fill().Gap(t.Space(3)).Children(func() {
+	ui.Column(c).Fill().MinHeight(0).Gap(t.Space(2)).Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Start).Gap(t.Space(3)).Children(func() {
 			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(t.Space(1)).Children(func() {
 				ui.Text(c, overview.ExamName).FontSize(titleSize(t)).FontWeight(600).
@@ -462,12 +461,12 @@ func (a *app) assessmentDetail(c *ui.Context, p uiPalette) {
 }
 
 func (a *app) assessmentSteps(c *ui.Context, p uiPalette, current int) {
-	items := []nav.StepItem{
-		{Title: locales.AssessmentStepPrepare()},
-		{Title: locales.AssessmentStepCalculate()},
-		{Title: locales.AssessmentStepExport()},
+	labels := []string{
+		locales.AssessmentStepPrepare(),
+		locales.AssessmentStepCalculate(),
+		locales.AssessmentStepExport(),
 	}
-	nav.Steps(c, nav.StepsProps{Items: items, Current: current})
+	stepsBar(c, p, labels, current)
 }
 
 // assessmentStatusDisplay 返回状态徽标的取值与文字；
@@ -561,7 +560,7 @@ func (a *app) assessmentChecklist(c *ui.Context, p uiPalette, overview store.Ass
 				if missing {
 					ui.Icon(c, iconAlert).FontSize(t.Space(4)).TextColor(p.warning)
 				} else {
-					ui.Icon(c, iconCheck).FontSize(t.Space(4)).TextColor(p.accent)
+					ui.Icon(c, iconCheck).FontSize(t.Space(4)).TextColor(p.success)
 				}
 				ui.Text(c, item.Label).FontSize(bodySize(t)).Grow(1).SingleLine().
 					TextAlign(ui.Start)
@@ -651,7 +650,7 @@ func (a *app) assessmentActions(c *ui.Context, p uiPalette, overview store.Asses
 
 func (a *app) assessmentResults(c *ui.Context, p uiPalette) {
 	t := p.theme
-	ui.Column(c).Grow(1).Shrink(1).MinHeight(0).Fill().Gap(t.Space(2)).Children(func() {
+	ui.Column(c).Grow(1).Shrink(1).MinHeight(0).FillWidth().Gap(t.Space(2)).Children(func() {
 		a.assessmentResultsHeader(c, p)
 		if len(a.assessmentRows) == 0 {
 			smallEmptyState(c, p, locales.AssessmentNoResults())
@@ -772,7 +771,7 @@ func (a *app) assessmentSubjectResults(c *ui.Context, p uiPalette) {
 		case 7:
 			ui.Text(c, formatDecimal(item.Points, 1)).FontFeatures("tnum")
 		}
-	}).Label(locales.AssessmentViewBySubject()).Grow(1).Shrink(1).MinHeight(0).Fill()
+	}).Label(locales.AssessmentViewBySubject()).Grow(1).Shrink(1).MinHeight(0).FillWidth()
 }
 
 type classSummaryItem struct {
@@ -873,7 +872,7 @@ func (a *app) assessmentClassResults(c *ui.Context, p uiPalette) {
 		case col == len(columns)-1:
 			ui.Text(c, formatDecimal(item.Total, 1)).FontFeatures("tnum")
 		}
-	}).Label(locales.AssessmentViewByClass()).Grow(1).Shrink(1).MinHeight(0).Fill()
+	}).Label(locales.AssessmentViewByClass()).Grow(1).Shrink(1).MinHeight(0).FillWidth()
 }
 
 func (a *app) assessmentTeacherResults(c *ui.Context, p uiPalette) {
@@ -910,7 +909,7 @@ func (a *app) assessmentTeacherResults(c *ui.Context, p uiPalette) {
 		case 4:
 			ui.Text(c, formatDecimal(item.Score, 2)).FontFeatures("tnum")
 		}
-	}).Label(locales.AssessmentViewByTeacher()).Grow(1).Shrink(1).MinHeight(0).Fill()
+	}).Label(locales.AssessmentViewByTeacher()).Grow(1).Shrink(1).MinHeight(0).FillWidth()
 }
 
 func gradeLabel(grade string) string {
@@ -942,7 +941,11 @@ func (a *app) assessmentResultsHeader(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
 		ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-			sectionHeading(c, p, locales.AssessmentResults(), len(a.assessmentRows))
+			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Shrink(0).Children(func() {
+				ui.Text(c, locales.AssessmentResults()).FontSize(sectionSize(t)).FontWeight(500).SingleLine()
+				ui.Text(c, formatInt(len(a.assessmentRows))).FontSize(captionSize(t)).TextColor(p.muted).
+					FontFeatures("tnum").Shrink(0)
+			})
 			if a.assessmentRun.ID != 0 {
 				kind := locales.AssessmentTrialResults()
 				tone := toneNeutral

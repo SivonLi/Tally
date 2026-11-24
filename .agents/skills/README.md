@@ -16,8 +16,9 @@
 | `mygo-maintenance` | MyGo 自带模板 | 版本升级、崩溃修复、API 行为确认 |
 | `mygo-native-modules` | MyGo 自带模板 | Swift、Kotlin、Rust、Zig 原生模块 |
 | `excelize` | 项目本地 | xlsx 读取、写入、多工作表、样式与打印布局 |
+| `sunbeam` | `AstraFoundry/design` | Sunbeam 视觉规范：暖纸墨色、明黄主动作、Flat/Raised 材质分层、同心圆角与动效曲线 |
 
-`skills-lock.json` 记录前六个从 `transmit-bug/mygo-skills` 安装的技能。`mygo-maintenance` 和 `mygo-native-modules` 来自 MyGo 模板，`excelize` 是项目本地技能，三者不在锁定文件中。
+`skills-lock.json` 记录前六个从 `transmit-bug/mygo-skills` 安装的技能。`mygo-maintenance` 和 `mygo-native-modules` 来自 MyGo 模板，`excelize` 与 `sunbeam` 是项目本地接入的技能，不在锁定文件中。
 
 ## 使用规则
 

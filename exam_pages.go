@@ -7,7 +7,6 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/chart"
-	"github.com/lobehub/lobe-mygo/pkg/field"
 
 	"tally/internal/importer"
 	"tally/internal/store"
@@ -35,7 +34,7 @@ func (a *app) examsPage(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
 		pageHeading(c, p, locales.NavExams(), locales.ExamsPageSubtitle(), func() {
-			if labelledButton(c, locales.ExamNew(), iconPlus, true).Clicked() {
+			if labelledButton(c, locales.ExamNew(), iconPlus, len(a.exams) == 0).Clicked() {
 				a.openNewExam()
 			}
 		})
@@ -47,7 +46,7 @@ func (a *app) examsPage(c *ui.Context, p uiPalette) {
 		}
 		if len(a.exams) == 0 {
 			emptyState(c, p, iconExams, locales.ExamsEmpty(), locales.ExamsEmptyHint(), func() {
-				if labelledButton(c, locales.ExamNew(), iconPlus, true).Clicked() {
+				if labelledButton(c, locales.ExamNew(), iconPlus, len(a.exams) == 0).Clicked() {
 					a.openNewExam()
 				}
 			})
@@ -501,7 +500,7 @@ func (a *app) examScoreStatistics(c *ui.Context, p uiPalette) {
 			func(area ui.Element) {
 				for index, band := range bands {
 					bar := chart.Rect(c, x.Band(index), y.Span(0, float64(band.Count))).
-						Background(p.accent).Radius(t.Space(1))
+						Background(p.ink).Radius(t.Space(1))
 					bar.Label(labels[index] + " " + formatInt(band.Count))
 					bar.Tooltip(labels[index] + ": " + formatInt(band.Count))
 				}
@@ -811,7 +810,7 @@ func (a *app) examPrepPage(c *ui.Context, p uiPalette) {
 		})
 		if a.selectedExamID == 0 {
 			emptyState(c, p, iconExams, locales.ExamPrepNoExam(), locales.ExamPrepNoExamHint(), func() {
-				if labelledButton(c, locales.ExamNew(), iconPlus, true).Clicked() {
+				if labelledButton(c, locales.ExamNew(), iconPlus, len(a.exams) == 0).Clicked() {
 					a.openNewExam()
 				}
 			})
@@ -932,9 +931,7 @@ func (a *app) newExamModal(c *ui.Context, p uiPalette) {
 							textField(c, &a.newExamName, locales.ExamName(), "")
 						})
 						a.dialogField(c, "exam-date", locales.ExamDate(), locales.ExamDateHint(), func() {
-							dateField(c, &a.newExamDate, locales.ExamDate(), field.DatePickerProps{
-								Format: "2006-01-02",
-							})
+							dateField(c, &a.newExamDate, locales.ExamDate())
 						})
 					})
 				})
