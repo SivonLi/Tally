@@ -1406,3 +1406,372 @@ func textOr(value, fallback string) string {
 	}
 	return value
 }
+
+// kpiCardProps 描述桌面端总览与模块页 KPI 指标卡的展示参数。
+type kpiCardProps struct {
+	Key       string
+	Title     string
+	Value     string
+	Subtitle  string
+	BadgeText string
+	BadgeTone badgeTone
+	Clickable bool
+}
+
+// kpiCard 渲染 Sunbeam Flat 风格的数据台账指标卡。
+// 已核对 MyGo v0.10.0 与 sunbeam v0.2.0，两者均无内置 KPI 卡片控件（ui.Badge 仅用于短标签、
+// sunbeam.Card 为空白容器），因此在此统一封装数值等宽（tnum）、可选状态圆点徽标与整卡点击跳转。
+func kpiCard(c *ui.Context, p uiPalette, props kpiCardProps) bool {
+	t := p.theme
+	renderBody := func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+			ui.Text(c, props.Title).FontSize(captionSize(t)).FontWeight(500).
+				TextColor(p.muted).Grow(1).Shrink(1).MinWidth(0).SingleLine().Tooltip(props.Title)
+			if props.BadgeText != "" {
+				badge(c, p, props.BadgeText, props.BadgeTone)
+			}
+		})
+		ui.Text(c, props.Value).FontSize(titleSize(t)).FontWeight(600).
+			TextColor(p.ink).FontFeatures("tnum").SingleLine().Tooltip(props.Value)
+		if props.Subtitle != "" {
+			ui.Text(c, props.Subtitle).FontSize(captionSize(t)).TextColor(p.muted).
+				SingleLine().MinWidth(0).Tooltip(props.Subtitle)
+		}
+	}
+	if !props.Clickable {
+		panel(c, p).Grow(1).Shrink(1).MinWidth(0).Padding(t.Space(4), t.Space(4.5)).
+			Gap(t.Space(1.5)).Children(renderBody)
+		return false
+	}
+	key := props.Key
+	if key == "" {
+		key = props.Title
+	}
+	btn := ui.ButtonBase(c.Key("kpi-"+key)).Grow(1).Shrink(1).MinWidth(0).
+		Background(p.panel).Border(1, p.border).Radius(sunbeam.Radius2XL).
+		Padding(t.Space(4), t.Space(4.5)).Cursor(ui.CursorPointer).
+		Label(props.Title).TextColor(p.ink)
+	switch {
+	case btn.Pressed():
+		btn.Background(p.sb.FlatFacePressed).Border(1, p.borderStrong)
+	case btn.Hovered():
+		btn.Background(p.panelHover).Border(1, p.borderStrong)
+	}
+	btn.Children(func() {
+		ui.Column(c).FillWidth().Gap(t.Space(1.5)).Children(renderBody)
+	})
+	return btn.Clicked()
+}
+
+// returnContextBanner 渲染独立「数据导入」页顶部的来源上下文与返回条。
+// 已核对 MyGo v0.10.0（ui.Breadcrumbs 仅表达层级路径，不承载任务目标与动作返回按钮），
+// 在此统一封装导入上下文说明与单次点击返回原页面的能力。
+func returnContextBanner(c *ui.Context, p uiPalette, contextText, returnLabel string) bool {
+	t := p.theme
+	clicked := false
+	ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(t.Space(3)).
+		Background(p.panel).Border(1, p.border).Radius(sunbeam.RadiusXL).
+		Padding(t.Space(2.5), t.Space(4)).Children(func() {
+		ui.Icon(c, iconImport).Size(16, 16).TextColor(p.muted).Shrink(0)
+		ui.Text(c, contextText).FontSize(bodySize(t)).FontWeight(500).TextColor(p.ink).
+			Grow(1).Shrink(1).MinWidth(0).SingleLine().Tooltip(contextText)
+		if returnLabel != "" {
+			if labelledButton(c, returnLabel, iconArrowLeft, false).Clicked() {
+				clicked = true
+			}
+		}
+	})
+	return clicked
+}
+
+// filterPillOption 描述轻量筛选胶囊条的一个可选项。
+type filterPillOption struct {
+	Key      string
+	Label    string
+	Count    int
+	HasCount bool
+}
+
+// filterPillBar 渲染带可选计数的单选筛选胶囊条。
+// 已核对 MyGo v0.10.0（ui.Segmented 强制等宽不适合长短不一的计数筛选、ui.ToggleGroup 为无样式组），
+// 在此使用 ui.ToggleBase + Sunbeam 暖墨选中态实现零下拉单点筛选。
+func filterPillBar(c *ui.Context, p uiPalette, active *string, options []filterPillOption, label string) bool {
+	t := p.theme
+	changed := false
+	ui.Row(c).Wrap().AlignItems(ui.Center).Gap(t.Space(1.5)).
+		Role(ui.RoleGroup).Label(label).Children(func() {
+		for _, opt := range options {
+			opt := opt
+			selected := *active == opt.Key
+			next := selected
+			accessName := opt.Label
+			if opt.HasCount {
+				accessName = fmt.Sprintf("%s (%s)", opt.Label, formatInt(opt.Count))
+			}
+			pill := ui.ToggleBase(c.Key("fpill-"+opt.Key), &next).
+				Height(34).Padding(0, 14).Radius(17).Gap(6).
+				Center().Cursor(ui.CursorPointer).Label(accessName)
+			switch {
+			case selected:
+				pill.Background(p.ink).Border(1, p.ink).TextColor(p.canvas)
+			case pill.Pressed():
+				pill.Background(p.sb.FlatFacePressed).Border(1, p.border).TextColor(p.ink)
+			case pill.Hovered():
+				pill.Background(p.hover).Border(1, p.border).TextColor(p.ink)
+			default:
+				pill.Background(p.fill).Border(1, ui.Transparent).TextColor(p.inkSecondary)
+			}
+			pill.Children(func() {
+				ui.Text(c, opt.Label).FontSize(captionSize(t)).FontWeight(500).SingleLine()
+				if opt.HasCount {
+					countColor := p.muted
+					if selected {
+						countColor = p.canvas.Alpha(0.75)
+					}
+					ui.Text(c, formatInt(opt.Count)).FontSize(captionSize(t)).
+						FontFeatures("tnum").TextColor(countColor).SingleLine()
+				}
+			})
+			applyMicroPress(pill)
+			if next && !selected {
+				*active = opt.Key
+				changed = true
+			}
+		}
+	})
+	return changed
+}
+
+// fileDropZoneProps 描述文件拖拽与点击选择区域的配置。
+type fileDropZoneProps struct {
+	Key         string
+	Title       string
+	ActiveTitle string
+	Hint        string
+	ButtonLabel string
+}
+
+// fileDropZone 渲染支持桌面文件拖拽与点击浏览的上传区，底层直接使用 MyGo v0.10.0 原生
+// Element.FileDragOver 与 Element.DroppedFiles，并在拖拽悬停时展示 Sunbeam 焦点边框提示。
+func fileDropZone(c *ui.Context, p uiPalette, props fileDropZoneProps) (clicked bool, dropped []string) {
+	t := p.theme
+	key := props.Key
+	if key == "" {
+		key = "file-drop-zone"
+	}
+	zone := ui.ButtonBase(c.Key(key)).FillWidth().MinHeight(t.Space(36)).
+		Radius(sunbeam.Radius2XL).Padding(t.Space(6), t.Space(5)).
+		Center().Cursor(ui.CursorPointer).Label(textOr(props.ButtonLabel, props.Title)).
+		TextColor(p.ink)
+	dragOver := zone.FileDragOver()
+	dropped = zone.DroppedFiles()
+	switch {
+	case dragOver:
+		zone.Background(p.accentSoft).Border(2, p.sb.Ring)
+	case zone.Pressed():
+		zone.Background(p.sb.FlatFacePressed).Border(1, p.borderStrong)
+	case zone.Hovered():
+		zone.Background(p.panelHover).Border(1, p.borderStrong)
+	default:
+		zone.Background(p.panel).Border(1, p.borderStrong)
+	}
+	zone.Children(func() {
+		ui.Column(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+			iconColor := p.muted
+			heading := props.Title
+			if dragOver {
+				iconColor = p.ink
+				if props.ActiveTitle != "" {
+					heading = props.ActiveTitle
+				}
+			}
+			ui.Icon(c, iconUpload).Size(28, 28).TextColor(iconColor)
+			ui.Text(c, heading).FontSize(bodySize(t)).FontWeight(600).
+				TextColor(p.ink).TextAlign(ui.Center)
+			if props.Hint != "" {
+				ui.Text(c, props.Hint).FontSize(captionSize(t)).TextColor(p.muted).
+					TextAlign(ui.Center).Pretty().MaxWidth(t.Space(140))
+			}
+			if props.ButtonLabel != "" {
+				ui.Row(c).Margin(t.Space(1), 0, 0, 0).Padding(0, 16).Height(34).Radius(17).
+					AlignItems(ui.Center).Gap(6).Background(p.fill).TextColor(p.ink).Children(func() {
+					ui.Icon(c, iconFolder).Size(14, 14)
+					ui.Text(c, props.ButtonLabel).FontSize(captionSize(t)).FontWeight(500).SingleLine()
+				})
+			}
+		})
+	})
+	return zone.Clicked(), dropped
+}
+
+// detailInspectorHeader 渲染右侧分栏或抽屉顶部的统一标题、副标题与关闭按钮。
+func detailInspectorHeader(c *ui.Context, p uiPalette, title, subtitle string, onClose func()) {
+	t := p.theme
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
+		ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(2).Children(func() {
+			ui.Text(c, title).FontSize(sectionSize(t)).FontWeight(600).TextColor(p.ink).
+				SingleLine().Tooltip(title)
+			if subtitle != "" {
+				ui.Text(c, subtitle).FontSize(captionSize(t)).TextColor(p.muted).
+					SingleLine().Tooltip(subtitle)
+			}
+		})
+		if onClose != nil {
+			if modalCloseButton(c, p.sb).Clicked() {
+				onClose()
+			}
+		}
+	})
+}
+
+const sideDrawerDefaultWidth float32 = 520
+
+// sideDrawerProps 描述右侧滑出详情抽屉的属性。
+type sideDrawerProps struct {
+	Key      string
+	Title    string
+	Subtitle string
+	Width    float32
+}
+
+// sideDrawer 渲染右侧滑出浮层抽屉，保持主表上下文可见。
+// 已核对 MyGo v0.10.0（仅提供 DialogBase/Modal/Overlay/SplitPercent，尚无内置 Drawer/Sheet 控件），
+// 因此基于 ui.DialogBase + sunbeam.PanelSurface + Layer(Raised) 实现，支持 Esc/遮罩关闭与对称滑入滑出动效。
+func sideDrawer(c *ui.Context, open *bool, props sideDrawerProps, body func(), footer func()) {
+	t := *c.Theme()
+	sb := sunbeam.Colors(c)
+	p := uiPaletteFor(c)
+	key := props.Key
+	if key == "" {
+		key = props.Title
+	}
+	state := ui.Local(ui.Box(c.Key("drawer-"+key)).Absolute().Size(0, 0), "drawer", func() dialogState {
+		return dialogState{}
+	})
+	if *open {
+		state.shown, state.closing = true, false
+	} else if state.shown {
+		state.closing = true
+	}
+	if !state.shown {
+		return
+	}
+
+	done := false
+	ui.DialogBase(c, &state.shown, func(backdrop, drawerPanel ui.Element) {
+		if !state.entered {
+			state.entered = true
+			drawerPanel.Jump("shown", 0)
+			backdrop.Jump("dim", 0)
+		}
+		target := float32(1)
+		show := ui.Animation{Duration: sunbeam.DurationDrawer, Ease: sunbeamEaseDrawer}
+		if state.closing {
+			target = 0
+			show = ui.Animation{Duration: sunbeam.DurationDrawerExit, Ease: sunbeamEaseDrawer}
+			backdrop.IgnoreInput(true)
+		}
+		shown := drawerPanel.AnimateTo("shown", target, show)
+		dim := backdrop.AnimateTo("dim", target, show)
+		done = state.closing && shown <= 0 && dim <= 0
+
+		backdrop.Padding(t.Space(3)).AlignItems(ui.End).Justify(ui.Center).
+			Background(sb.Scrim.Alpha(0.24 * dim))
+		width := props.Width
+		if width == 0 {
+			width = sideDrawerDefaultWidth
+		}
+		sunbeam.PanelSurface(c, drawerPanel)
+		drawerPanel.Width(width).MaxWidthPercent(92).FillHeight().Clip().
+			TextColor(sb.Foreground).FontSize(bodySize(t)).
+			Translate((1-shown)*28, 0).Opacity(shown)
+
+		drawerPanel.Children(func() {
+			sunbeam.Layer(sunbeam.Raised, func() {
+				ui.Column(c).Fill().Children(func() {
+					ui.Column(c).FillWidth().Padding(16, 20, 12, 20).Children(func() {
+						detailInspectorHeader(c, p, props.Title, props.Subtitle, func() {
+							*open = false
+						})
+					})
+					rule(c)
+					ui.Scroll(c).Grow(1).Shrink(1).MinHeight(0).Children(func() {
+						ui.Column(c).FillWidth().Padding(16, 20).Gap(t.Space(3)).Children(body)
+					})
+					if footer != nil {
+						rule(c)
+						ui.Row(c).FillWidth().Wrap().Justify(ui.End).AlignItems(ui.Center).
+							Gap(t.Space(2)).Padding(12, 20, 16, 20).Children(footer)
+					}
+				})
+			})
+		})
+	})
+
+	switch {
+	case !state.shown:
+		*open, state.shown, state.closing = false, true, true
+		c.Invalidate()
+	case done:
+		*state = dialogState{}
+		c.Invalidate()
+	}
+}
+
+// deltaText 渲染带语义色与等宽数字的差值文本：direction > 0 为上升/改善（绿），< 0 为下降（红），0 为持平（次要灰）。
+func deltaText(c *ui.Context, p uiPalette, text string, direction int) ui.Element {
+	t := p.theme
+	color := p.muted
+	weight := 400
+	if direction > 0 {
+		color = p.success
+		weight = 600
+	} else if direction < 0 {
+		color = p.danger
+		weight = 600
+	}
+	return ui.Text(c, text).FontSize(bodySize(t)).FontWeight(weight).
+		FontFeatures("tnum").TextColor(color).SingleLine()
+}
+
+type unsavedGuardAction int
+
+const (
+	unsavedGuardNone unsavedGuardAction = iota
+	unsavedGuardStay
+	unsavedGuardDiscard
+	unsavedGuardSave
+)
+
+// unsavedGuardModal 是离开含未保存草稿页面时的三态保护弹窗（留在当前页 / 放弃修改 / 保存并继续）。
+// 默认焦点置于「留在当前页」，防止回车误丢弃草稿。
+func unsavedGuardModal(c *ui.Context, p uiPalette, key string, open *bool, title, body string) unsavedGuardAction {
+	t := p.theme
+	action := unsavedGuardNone
+	modal(c, open, modalProps{
+		Key:      key,
+		Title:    textOr(title, locales.UnsavedGuardTitle()),
+		Width:    modalWidthCompact,
+		NoFooter: true,
+	}, func() {
+		ui.Column(c).FillWidth().Gap(t.Space(4)).Children(func() {
+			ui.Text(c, textOr(body, locales.UnsavedGuardBody())).
+				FontSize(bodySize(t)).TextColor(p.inkSecondary).Pretty()
+			ui.Row(c).FillWidth().Wrap().Justify(ui.End).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+				if plainButton(c, locales.UnsavedGuardStay()).AutoFocus().Clicked() {
+					action = unsavedGuardStay
+					*open = false
+				}
+				if dangerButton(c, locales.UnsavedGuardDiscard()).Clicked() {
+					action = unsavedGuardDiscard
+					*open = false
+				}
+				if primaryButton(c, locales.UnsavedGuardSave()).Clicked() {
+					action = unsavedGuardSave
+					*open = false
+				}
+			})
+		})
+	})
+	return action
+}

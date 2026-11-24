@@ -386,3 +386,165 @@ func TestStudentDetailPanelSlideTransitionSettles(t *testing.T) {
 		t.Fatalf("student detail panel did not close/settle: open=%v pending=%v", a.studentDetailOpen, tt.FramePending())
 	}
 }
+
+func TestL2SharedComponentsInteractions(t *testing.T) {
+	var (
+		kpiClicks    int
+		returnClicks int
+		dropClicks   int
+		activeFilter = "all"
+		filterEvents int
+		drawerOpen   = false
+		drawerSaved  = false
+		guardOpen    = false
+		guardResult  = unsavedGuardNone
+	)
+	view := func(c *ui.Context) {
+		p := uiPaletteFor(c)
+		ui.Column(c).Fill().Padding(p.theme.Space(5)).Gap(p.theme.Space(3)).Children(func() {
+			if returnContextBanner(c, p, "Target: 2026 Cohort Students", "Back to Overview") {
+				returnClicks++
+			}
+			ui.Row(c).FillWidth().Gap(p.theme.Space(3)).Children(func() {
+				if kpiCard(c, p, kpiCardProps{
+					Key:       "students",
+					Title:     "Students",
+					Value:     "642",
+					Subtitle:  "Active 638 · Physics 410",
+					BadgeText: "Ready",
+					BadgeTone: toneSuccess,
+					Clickable: true,
+				}) {
+					kpiClicks++
+				}
+				kpiCard(c, p, kpiCardProps{
+					Key:      "classes",
+					Title:    "Classes",
+					Value:    "12",
+					Subtitle: "All covered",
+				})
+			})
+			if filterPillBar(c, p, &activeFilter, []filterPillOption{
+				{Key: "all", Label: "All", Count: 12, HasCount: true},
+				{Key: "blocking", Label: "Blocking", Count: 3, HasCount: true},
+				{Key: "warning", Label: "Warnings", Count: 9, HasCount: true},
+			}, "Issue filter") {
+				filterEvents++
+			}
+			clicked, _ := fileDropZone(c, p, fileDropZoneProps{
+				Key:         "l2-drop",
+				Title:       "Drop workbook here",
+				ActiveTitle: "Release to inspect",
+				Hint:        "Supports xlsx, xls, csv",
+				ButtonLabel: "Choose file",
+			})
+			if clicked {
+				dropClicks++
+			}
+			ui.Row(c).Gap(p.theme.Space(2)).AlignItems(ui.Center).Children(func() {
+				deltaText(c, p, "+2.4", 1)
+				deltaText(c, p, "-1.2", -1)
+				deltaText(c, p, "0.0", 0)
+				if plainButton(c, "Open drawer").Clicked() {
+					drawerOpen = true
+				}
+				if plainButton(c, "Open guard").Clicked() {
+					guardOpen = true
+				}
+				// Verify all new Lucide icons render without error.
+				for _, glyph := range []*ui.SVG{
+					iconUndo, iconUpload, iconRefresh, iconDiff,
+					iconFolder, iconExternalLink, iconSliders, iconSpreadsheet,
+				} {
+					ui.Icon(c, glyph).Size(16, 16)
+				}
+			})
+		})
+
+		sideDrawer(c, &drawerOpen, sideDrawerProps{
+			Key:      "l2-drawer",
+			Title:    "Score Breakdown",
+			Subtitle: "Class 1 · Chinese",
+			Width:    460,
+		}, func() {
+			ui.Text(c, "Participant rows").FontSize(bodySize(p.theme))
+		}, func() {
+			if primaryButton(c, "Save drawer").Clicked() {
+				drawerSaved = true
+				drawerOpen = false
+			}
+		})
+
+		if act := unsavedGuardModal(c, p, "l2-guard", &guardOpen, "", ""); act != unsavedGuardNone {
+			guardResult = act
+		}
+	}
+
+	tt := ui.NewTester(view, 1280, 800)
+	tt.SetLocale("en")
+	settleTester(tt)
+	if tt.FramePending() {
+		t.Fatal("initial L2 fixture did not settle")
+	}
+
+	if err := tt.Click("Back to Overview"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.Click("Students"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.Click("Blocking (3)"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.Click("Choose file"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if returnClicks != 1 || kpiClicks != 1 || activeFilter != "blocking" || filterEvents != 1 || dropClicks != 1 {
+		t.Fatalf("unexpected interaction counts: return=%d kpi=%d filter=%q(%d) drop=%d",
+			returnClicks, kpiClicks, activeFilter, filterEvents, dropClicks)
+	}
+
+	// Open sideDrawer, verify content and close via primary footer button with symmetric exit.
+	if err := tt.Click("Open drawer"); err != nil {
+		t.Fatal(err)
+	}
+	settleTester(tt)
+	if !tt.HasText("Score Breakdown") || !tt.HasText("Participant rows") {
+		t.Fatalf("drawer content missing: %q", tt.Texts())
+	}
+	if err := tt.Click("Save drawer"); err != nil {
+		t.Fatal(err)
+	}
+	settleTester(tt)
+	if !drawerSaved || drawerOpen || tt.HasText("Score Breakdown") || tt.FramePending() {
+		t.Fatalf("drawer did not save/close/settle: saved=%v open=%v pending=%v", drawerSaved, drawerOpen, tt.FramePending())
+	}
+
+	// Open unsavedGuardModal: Enter must trigger Stay here (autofocus), never Discard.
+	if err := tt.Click("Open guard"); err != nil {
+		t.Fatal(err)
+	}
+	settleTester(tt)
+	if !tt.HasText(locales.UnsavedGuardTitle()) {
+		t.Fatalf("guard modal missing title: %q", tt.Texts())
+	}
+	tt.Key(0, ui.KeyEnter)
+	settleTester(tt)
+	if guardResult != unsavedGuardStay || guardOpen {
+		t.Fatalf("Enter on guard modal = %v (open=%v), want unsavedGuardStay", guardResult, guardOpen)
+	}
+
+	// Reopen and explicitly click Save & continue.
+	if err := tt.Click("Open guard"); err != nil {
+		t.Fatal(err)
+	}
+	settleTester(tt)
+	if err := tt.Click(locales.UnsavedGuardSave()); err != nil {
+		t.Fatal(err)
+	}
+	settleTester(tt)
+	if guardResult != unsavedGuardSave || guardOpen || tt.FramePending() {
+		t.Fatalf("Save on guard modal = %v (open=%v pending=%v)", guardResult, guardOpen, tt.FramePending())
+	}
+}
