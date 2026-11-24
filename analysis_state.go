@@ -26,6 +26,7 @@ func (a *app) reloadAnalysis(ctx context.Context) {
 	if a.store == nil {
 		return
 	}
+	a.analysisError = ""
 	a.loadSavedViews(ctx)
 
 	cohort := a.selectedCohort()
@@ -52,9 +53,11 @@ func (a *app) loadSavedViews(ctx context.Context) {
 		return
 	}
 	views, err := a.store.ListViews(ctx, "analysis")
-	if err == nil {
-		a.analysisSavedViews = views
+	if err != nil {
+		a.analysisError = err.Error()
+		return
 	}
+	a.analysisSavedViews = views
 }
 
 func (a *app) queryTeacherTrend(ctx context.Context) {
@@ -65,6 +68,7 @@ func (a *app) queryTeacherTrend(ctx context.Context) {
 	}
 	res, err := a.store.QueryTeacherTrends(ctx, cohort.ID, a.analysisTeacherName, nil)
 	if err != nil {
+		a.analysisTeacherResult = store.TeacherTrendResult{}
 		a.analysisError = err.Error()
 		return
 	}
@@ -79,6 +83,7 @@ func (a *app) queryClassTrend(ctx context.Context) {
 	}
 	res, err := a.store.QueryClassTrends(ctx, cohort.ID, a.analysisClassID, "", nil)
 	if err != nil {
+		a.analysisClassResult = store.ClassTrendResult{}
 		a.analysisError = err.Error()
 		return
 	}
@@ -92,6 +97,7 @@ func (a *app) querySubjectComparison(ctx context.Context) {
 	}
 	res, err := a.store.QuerySubjectComparison(ctx, a.selectedAssessmentID, a.analysisSubject)
 	if err != nil {
+		a.analysisSubjectResult = store.SubjectComparisonResult{}
 		a.analysisError = err.Error()
 		return
 	}
@@ -106,6 +112,7 @@ func (a *app) queryStudentTracking(ctx context.Context) {
 	}
 	res, err := a.store.QueryStudentTracking(ctx, cohort.ID, a.analysisStudentID, "")
 	if err != nil {
+		a.analysisStudentResult = store.StudentTrackResult{}
 		a.analysisError = err.Error()
 		return
 	}
@@ -135,6 +142,7 @@ func (a *app) queryAssessmentComparison(ctx context.Context) {
 	}
 	res, err := a.store.QueryAssessmentComparison(ctx, ids)
 	if err != nil {
+		a.analysisComparisonResult = store.AssessmentComparisonResult{}
 		a.analysisError = err.Error()
 		return
 	}
@@ -168,6 +176,7 @@ func (a *app) saveCurrentView(ctx context.Context, name string) {
 	}
 	a.analysisSelectedViewID = id
 	a.analysisMessage = locales.AnalysisViewSaved()
+	a.notifyMain(a.analysisMessage)
 	a.loadSavedViews(ctx)
 }
 
@@ -196,6 +205,7 @@ func (a *app) deleteSavedView(ctx context.Context, id int64) {
 		return
 	}
 	a.analysisSelectedViewID = 0
+	a.notifyMain(locales.AnalysisViewDeleted())
 	a.loadSavedViews(ctx)
 }
 
@@ -234,6 +244,7 @@ func (a *app) chooseAnalysisExport() {
 		defaultName = fmt.Sprintf(locales.AnalysisExportAssessmentComparison(), cohortName)
 	}
 
+	defaultName = sanitizeExportFilename(defaultName, locales.AnalysisReportDefaultFileName())
 	go func() {
 		path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{
 			Title:       locales.AnalysisExport(),
@@ -272,4 +283,5 @@ func (a *app) performAnalysisExport(path string) {
 		return
 	}
 	a.analysisMessage = fmt.Sprintf(locales.AnalysisExportSuccess(), filepath.Base(path))
+	a.notifyMain(a.analysisMessage)
 }

@@ -87,6 +87,14 @@ func newPopulatedTestApp(t *testing.T) *app {
 	if a.assessmentError != "" {
 		t.Fatalf("calculate assessment: %v", a.assessmentError)
 	}
+	a.mainToast = ""
+
+	// 固定核算时间戳，保证视觉快照跨次运行完全确定
+	fixedRunTime := time.Date(2026, 11, 20, 10, 0, 0, 0, time.Local)
+	a.assessmentRun.CreatedAt = fixedRunTime
+	for i := range a.assessmentRuns {
+		a.assessmentRuns[i].CreatedAt = fixedRunTime
+	}
 
 	// 注入多维分析数据
 	a.analysisTeacherResult = store.TeacherTrendResult{
@@ -170,10 +178,17 @@ func newPopulatedTestApp(t *testing.T) *app {
 	a.syncSettings.LastSyncDevice = "教师工作站-A1"
 	a.syncRemoteStatus = &syncpkg.RemoteStatus{
 		Kind:    syncpkg.StatusUpToDate,
-		Message: locales.SettingsSyncStatusUpToDate(),
+		Message: locales.In("zh-Hans").SettingsSyncStatusUpToDate(),
 	}
 
 	return a
+}
+
+// newChinesePopulatedTestApp 在中文语言环境下创建预填充业务数据的应用实例。
+func newChinesePopulatedTestApp(t *testing.T) *app {
+	t.Helper()
+	useChineseUI(t)
+	return newPopulatedTestApp(t)
 }
 
 // =============================================================
@@ -184,6 +199,7 @@ func TestViewMatrix_Shell_Empty(t *testing.T) {
 	a := newTestApp(t)
 	a.page = pageOverview
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -195,6 +211,7 @@ func TestViewMatrix_Overview_Empty(t *testing.T) {
 	a := newTestApp(t)
 	a.page = pageOverview
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -206,6 +223,7 @@ func TestViewMatrix_Workbench_Empty(t *testing.T) {
 	a := newTestApp(t)
 	a.page = pageAssessments
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -217,6 +235,7 @@ func TestViewMatrix_Analysis_Empty(t *testing.T) {
 	a := newTestApp(t)
 	a.page = pageAnalysis
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -228,6 +247,7 @@ func TestViewMatrix_Quality_Empty(t *testing.T) {
 	a := newTestApp(t)
 	a.page = pageQuality
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -239,6 +259,7 @@ func TestViewMatrix_DataPages_Empty(t *testing.T) {
 	a := newTestApp(t)
 	a.page = pageStudents
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -250,6 +271,7 @@ func TestViewMatrix_ExamPages_Empty(t *testing.T) {
 	a := newTestApp(t)
 	a.page = pageExams
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -261,6 +283,7 @@ func TestViewMatrix_PlanPage_Empty(t *testing.T) {
 	a := newTestApp(t)
 	a.page = pagePlans
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -273,6 +296,7 @@ func TestViewMatrix_PrepWizard_Empty(t *testing.T) {
 	a.page = pageOverview
 	a.prepOpen = true
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -284,6 +308,7 @@ func TestViewMatrix_ImportWizard_Empty(t *testing.T) {
 	a := newTestApp(t)
 	a.openImportWizard(importer.KindStudents)
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -295,6 +320,7 @@ func TestViewMatrix_SettingsSchool_Empty(t *testing.T) {
 	a := newTestApp(t)
 	a.settingsPageID = "school"
 	tt := ui.NewTester(a.settingsView, 760, 620)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -306,6 +332,7 @@ func TestViewMatrix_SettingsSync_Empty(t *testing.T) {
 	a := newTestApp(t)
 	a.settingsPageID = "sync"
 	tt := ui.NewTester(a.settingsView, 760, 620)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -318,9 +345,10 @@ func TestViewMatrix_SettingsSync_Empty(t *testing.T) {
 // =============================================================
 
 func TestViewMatrix_Shell_WithData(t *testing.T) {
-	a := newPopulatedTestApp(t)
+	a := newChinesePopulatedTestApp(t)
 	a.page = pageOverview
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -328,9 +356,10 @@ func TestViewMatrix_Shell_WithData(t *testing.T) {
 }
 
 func TestViewMatrix_Overview_WithData(t *testing.T) {
-	a := newPopulatedTestApp(t)
+	a := newChinesePopulatedTestApp(t)
 	a.page = pageOverview
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -338,9 +367,10 @@ func TestViewMatrix_Overview_WithData(t *testing.T) {
 }
 
 func TestViewMatrix_Workbench_WithData(t *testing.T) {
-	a := newPopulatedTestApp(t)
+	a := newChinesePopulatedTestApp(t)
 	a.page = pageAssessments
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -348,9 +378,10 @@ func TestViewMatrix_Workbench_WithData(t *testing.T) {
 }
 
 func TestViewMatrix_Analysis_WithData(t *testing.T) {
-	a := newPopulatedTestApp(t)
+	a := newChinesePopulatedTestApp(t)
 	a.page = pageAnalysis
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -358,9 +389,10 @@ func TestViewMatrix_Analysis_WithData(t *testing.T) {
 }
 
 func TestViewMatrix_Quality_WithData(t *testing.T) {
-	a := newPopulatedTestApp(t)
+	a := newChinesePopulatedTestApp(t)
 	a.page = pageQuality
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -368,9 +400,10 @@ func TestViewMatrix_Quality_WithData(t *testing.T) {
 }
 
 func TestViewMatrix_DataPages_WithData(t *testing.T) {
-	a := newPopulatedTestApp(t)
+	a := newChinesePopulatedTestApp(t)
 	a.page = pageStudents
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -378,12 +411,13 @@ func TestViewMatrix_DataPages_WithData(t *testing.T) {
 }
 
 func TestViewMatrix_ExamPages_WithData(t *testing.T) {
-	a := newPopulatedTestApp(t)
+	a := newChinesePopulatedTestApp(t)
 	a.page = pageExams
 	if len(a.exams) > 0 {
 		a.selectExam(a.exams[0].ID)
 	}
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -391,9 +425,10 @@ func TestViewMatrix_ExamPages_WithData(t *testing.T) {
 }
 
 func TestViewMatrix_PlanPage_WithData(t *testing.T) {
-	a := newPopulatedTestApp(t)
+	a := newChinesePopulatedTestApp(t)
 	a.page = pagePlans
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -401,10 +436,11 @@ func TestViewMatrix_PlanPage_WithData(t *testing.T) {
 }
 
 func TestViewMatrix_PrepWizard_WithData(t *testing.T) {
-	a := newPopulatedTestApp(t)
+	a := newChinesePopulatedTestApp(t)
 	a.page = pageOverview
 	a.prepOpen = true
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -412,6 +448,7 @@ func TestViewMatrix_PrepWizard_WithData(t *testing.T) {
 }
 
 func TestViewMatrix_ImportWizard_WithData(t *testing.T) {
+	useChineseUI(t)
 	a := newTestApp(t)
 	a.openImportWizard(importer.KindStudents)
 	a.loadWizardFile(a.importWizard, guidedImportWorkbook(t))
@@ -423,9 +460,10 @@ func TestViewMatrix_ImportWizard_WithData(t *testing.T) {
 }
 
 func TestViewMatrix_SettingsSchool_WithData(t *testing.T) {
-	a := newPopulatedTestApp(t)
+	a := newChinesePopulatedTestApp(t)
 	a.settingsPageID = "school"
 	tt := ui.NewTester(a.settingsView, 760, 620)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -433,9 +471,10 @@ func TestViewMatrix_SettingsSchool_WithData(t *testing.T) {
 }
 
 func TestViewMatrix_SettingsSync_WithData(t *testing.T) {
-	a := newPopulatedTestApp(t)
+	a := newChinesePopulatedTestApp(t)
 	a.settingsPageID = "sync"
 	tt := ui.NewTester(a.settingsView, 760, 620)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -451,6 +490,7 @@ func TestModalMatrix_NewCohort(t *testing.T) {
 	a.page = pageOverview
 	a.newCohortOpen = true
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -473,6 +513,7 @@ func TestModalMatrix_StageReview(t *testing.T) {
 	a.page = pageOverview
 	a.stageReviewOpen = true
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -484,9 +525,10 @@ func TestModalMatrix_StageReview(t *testing.T) {
 }
 
 func TestModalMatrix_NewExam(t *testing.T) {
+	useChineseUI(t)
 	a := newTestApp(t)
 	a.page = pageExams
-	a.newExamOpen = true
+	a.openNewExam()
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
@@ -511,6 +553,7 @@ func TestModalMatrix_StatGroup(t *testing.T) {
 	}
 	a.statGroupOpen = true
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -534,6 +577,7 @@ func TestModalMatrix_Zero(t *testing.T) {
 	}
 	a.initZeroValues()
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -560,6 +604,7 @@ func TestModalMatrix_ResultDetail(t *testing.T) {
 		PlanLabel: "默认方案",
 	}
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -575,6 +620,7 @@ func TestModalMatrix_AnalysisSaveView(t *testing.T) {
 	a.page = pageAnalysis
 	a.analysisSaveViewOpen = true
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -590,6 +636,7 @@ func TestModalMatrix_PlanSave(t *testing.T) {
 	a.page = pagePlans
 	a.planSaveChoice = planSaveAsking
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -605,6 +652,7 @@ func TestModalMatrix_SyncConflict(t *testing.T) {
 	a.settingsPageID = "sync"
 	a.syncConflictOpen = true
 	tt := ui.NewTester(a.settingsView, 760, 620)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -620,11 +668,12 @@ func TestModalMatrix_SyncConflict(t *testing.T) {
 // =============================================================
 
 func TestModalMatrix_NewCohort_WithData(t *testing.T) {
-	a := newPopulatedTestApp(t)
+	a := newChinesePopulatedTestApp(t)
 	a.page = pageOverview
 	a.newCohortOpen = true
 	a.newCohortYear = 2027
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -632,10 +681,11 @@ func TestModalMatrix_NewCohort_WithData(t *testing.T) {
 }
 
 func TestModalMatrix_StageReview_WithData(t *testing.T) {
-	a := newPopulatedTestApp(t)
+	a := newChinesePopulatedTestApp(t)
 	a.page = pageOverview
 	a.stageReviewOpen = true
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -643,12 +693,13 @@ func TestModalMatrix_StageReview_WithData(t *testing.T) {
 }
 
 func TestModalMatrix_NewExam_WithData(t *testing.T) {
-	a := newPopulatedTestApp(t)
+	a := newChinesePopulatedTestApp(t)
 	a.page = pageExams
-	a.newExamOpen = true
+	a.openNewExam()
 	a.newExamName = "高一第一学期期中质量调研"
 	a.newExamDate = time.Date(2026, 11, 15, 0, 0, 0, 0, time.Local)
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -656,7 +707,7 @@ func TestModalMatrix_NewExam_WithData(t *testing.T) {
 }
 
 func TestModalMatrix_StatGroup_WithData(t *testing.T) {
-	a := newPopulatedTestApp(t)
+	a := newChinesePopulatedTestApp(t)
 	a.page = pageExams
 	if len(a.exams) > 0 {
 		a.selectedExamID = a.exams[0].ID
@@ -666,6 +717,7 @@ func TestModalMatrix_StatGroup_WithData(t *testing.T) {
 	a.statGroupName = "高一物理走班创新组"
 	a.statGroupTarget = 45
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -673,7 +725,7 @@ func TestModalMatrix_StatGroup_WithData(t *testing.T) {
 }
 
 func TestModalMatrix_Zero_WithData(t *testing.T) {
-	a := newPopulatedTestApp(t)
+	a := newChinesePopulatedTestApp(t)
 	a.page = pageAssessments
 	a.zeroOpen = true
 	a.zeroIssues = []calc.ZeroTargetIssue{
@@ -692,6 +744,7 @@ func TestModalMatrix_Zero_WithData(t *testing.T) {
 	val := 15.0
 	a.zeroValues["1:本科"] = &val
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -699,7 +752,7 @@ func TestModalMatrix_Zero_WithData(t *testing.T) {
 }
 
 func TestModalMatrix_ResultDetail_WithData(t *testing.T) {
-	a := newPopulatedTestApp(t)
+	a := newChinesePopulatedTestApp(t)
 	a.page = pageAssessments
 	a.resultDetailOpen = true
 	a.resultDetail = resultDetail{
@@ -727,6 +780,7 @@ func TestModalMatrix_ResultDetail_WithData(t *testing.T) {
 		},
 	}
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -734,11 +788,12 @@ func TestModalMatrix_ResultDetail_WithData(t *testing.T) {
 }
 
 func TestModalMatrix_AnalysisSaveView_WithData(t *testing.T) {
-	a := newPopulatedTestApp(t)
+	a := newChinesePopulatedTestApp(t)
 	a.page = pageAnalysis
 	a.analysisSaveViewOpen = true
 	a.analysisSaveViewName = "语文教学质量跟踪与趋势对比"
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -746,10 +801,11 @@ func TestModalMatrix_AnalysisSaveView_WithData(t *testing.T) {
 }
 
 func TestModalMatrix_PlanSave_WithData(t *testing.T) {
-	a := newPopulatedTestApp(t)
+	a := newChinesePopulatedTestApp(t)
 	a.page = pagePlans
 	a.planSaveChoice = planSaveAsking
 	tt := ui.NewTester(a.view, 1280, 800)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -757,10 +813,11 @@ func TestModalMatrix_PlanSave_WithData(t *testing.T) {
 }
 
 func TestModalMatrix_SyncConflict_WithData(t *testing.T) {
-	a := newPopulatedTestApp(t)
+	a := newChinesePopulatedTestApp(t)
 	a.settingsPageID = "sync"
 	a.syncConflictOpen = true
 	tt := ui.NewTester(a.settingsView, 760, 620)
+	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
@@ -776,9 +833,10 @@ func TestSecondBatchMinimumSizeViews(t *testing.T) {
 		{name: "view_planpage_1024", page: pagePlans},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			a := newPopulatedTestApp(t)
+			a := newChinesePopulatedTestApp(t)
 			a.page = tc.page
 			tt := ui.NewTester(a.view, 1024, 640)
+			useChineseUI(t)
 			tt.SetLocale("zh-Hans")
 			settleTester(tt)
 			if tt.FramePending() {
@@ -846,7 +904,7 @@ func TestSecondBatchMinimumSizeModals(t *testing.T) {
 			name: "modal_new_exam_1024",
 			setup: func(a *app) {
 				a.page = pageExams
-				a.newExamOpen = true
+				a.openNewExam()
 				a.newExamName = "高一第一学期期中质量调研"
 				a.newExamDate = time.Date(2026, 11, 15, 0, 0, 0, 0, time.Local)
 			},
@@ -867,9 +925,10 @@ func TestSecondBatchMinimumSizeModals(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			a := newPopulatedTestApp(t)
+			a := newChinesePopulatedTestApp(t)
 			tc.setup(a)
 			tt := ui.NewTester(a.view, 1024, 640)
+			useChineseUI(t)
 			tt.SetLocale("zh-Hans")
 			settleTester(tt)
 			if tt.FramePending() {
@@ -924,13 +983,14 @@ func TestThirdBatchMinimumSizeViews(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			a := newPopulatedTestApp(t)
+			a := newChinesePopulatedTestApp(t)
 			tc.setup(a)
 			view := a.view
 			if tc.name == "view_settings_1024" {
 				view = a.settingsView
 			}
 			tt := ui.NewTester(view, 1024, 640)
+			useChineseUI(t)
 			tt.SetLocale("zh-Hans")
 			settleTester(tt)
 			if tt.FramePending() {
@@ -974,9 +1034,10 @@ func TestThirdBatchMinimumSizeModals(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			a := newPopulatedTestApp(t)
+			a := newChinesePopulatedTestApp(t)
 			tc.setup(a)
 			tt := ui.NewTester(a.view, 1024, 640)
+			useChineseUI(t)
 			tt.SetLocale("zh-Hans")
 			settleTester(tt)
 			if tt.FramePending() {

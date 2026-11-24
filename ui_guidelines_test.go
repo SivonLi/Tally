@@ -93,17 +93,17 @@ func TestThirdBatchTableRowHeights(t *testing.T) {
 		}
 	}
 
-	a.selectedExamID = a.exams[0].ID
+	a.selectExam(a.exams[0].ID)
 	for tab, name := range map[int]string{0: "考生表", 1: "成绩表", 3: "目标表"} {
 		a.examTab = tab
 		render(pageExams)
 		switch tab {
 		case 0:
-			assertTableRowHeight(t, &a.studentTable, name)
+			assertTableRowHeight(t, &a.examRosterTable, name)
 		case 1:
-			assertTableRowHeight(t, &a.baselineTable, name)
+			assertTableRowHeight(t, &a.examScoresTable, name)
 		case 3:
-			assertTableRowHeight(t, &a.classTable, name)
+			assertTableRowHeight(t, &a.examTargetsTable, name)
 		}
 	}
 }

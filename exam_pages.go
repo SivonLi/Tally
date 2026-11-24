@@ -20,6 +20,12 @@ func (a *app) examsPage(c *ui.Context, p uiPalette) {
 		return
 	}
 	if a.store == nil {
+		errorState(c, p, locales.StoreUnavailable(), locales.StoreUnavailableHint(), func() {
+			a.loadError = ""
+			a.load()
+		}, func() {
+			a.openSettings()
+		})
 		return
 	}
 	if a.selectedExamID != 0 {
@@ -51,19 +57,22 @@ func (a *app) examsPage(c *ui.Context, p uiPalette) {
 			ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
 				for _, exam := range a.exams {
 					exam := exam
-					row := linkRow(c, p, a.examBatchLabel(exam), func() {
-						ui.Column(c).Grow(1).Gap(0).Children(func() {
-							ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-								ui.Text(c, a.examBatchLabel(exam)).FontSize(bodySize(t)).FontWeight(600)
+					title := a.examBatchLabel(exam)
+					row := linkRow(c, p, title, func() {
+						ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(0).Children(func() {
+							ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+								ui.Text(c, title).FontSize(bodySize(t)).FontWeight(600).
+									SingleLine().MinWidth(0).Shrink(1).Tooltip(title)
 								badge(c, p, a.examTypeName(exam.ExamType), toneAccent)
 							})
 							ui.Textf(c, locales.ExamListMeta(), a.academicYearLabel(exam.AcademicYearStart),
 								a.examTermName(exam.Term), exam.ExamDate).
-								FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum")
+								FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum").
+								SingleLine().MinWidth(0)
 						})
-						ui.Column(c).Gap(0).AlignItems(ui.End).Children(func() {
-							ui.Textf(c, locales.ExamCohortCount(), formatInt(len(exam.Cohorts))).
-								FontSize(bodySize(t)).FontFeatures("tnum")
+						ui.Column(c).Shrink(0).Gap(0).AlignItems(ui.End).Children(func() {
+							ui.Text(c, pluralCount(len(exam.Cohorts), locales.ExamCohortCountOne(), locales.ExamCohortCount())).
+								FontSize(bodySize(t)).FontFeatures("tnum").SingleLine()
 							statusBadge(c, p, exam.Status, a.examStatusName(exam.Status))
 						})
 					})
@@ -74,7 +83,6 @@ func (a *app) examsPage(c *ui.Context, p uiPalette) {
 			})
 		})
 	})
-	a.newExamModal(c, p)
 }
 
 func (a *app) examDetailPage(c *ui.Context, p uiPalette) {
@@ -85,7 +93,7 @@ func (a *app) examDetailPage(c *ui.Context, p uiPalette) {
 		return
 	}
 	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
+		ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
 			if backButton(c, p).Clicked() {
 				a.selectedExamID = 0
 				a.exam = store.Exam{}
@@ -93,17 +101,18 @@ func (a *app) examDetailPage(c *ui.Context, p uiPalette) {
 				a.examMessage = ""
 				return
 			}
-			ui.Column(c).Grow(1).Gap(0).Children(func() {
-				ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(0).Children(func() {
+				ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
 					ui.Text(c, a.exam.Name).FontSize(titleSize(t)).FontWeight(600).
+						SingleLine().MinWidth(0).Shrink(1).Tooltip(a.exam.Name).
 						Role(ui.RoleHeading).Level(1)
 					badge(c, p, a.examTypeName(a.exam.ExamType), toneAccent)
 				})
 				ui.Textf(c, locales.ExamDetailMeta(), a.examAcademicYearLabel(),
 					a.examTermName(a.exam.Term), a.exam.ExamDate).
-					FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum")
+					FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum").SingleLine()
 			})
-			ui.Row(c).Gap(t.Space(2)).Children(func() {
+			ui.Row(c).Wrap().Shrink(0).Gap(t.Space(2)).Children(func() {
 				if labelledButton(c, locales.ExamPrepOpen(), iconQuality, false).Clicked() {
 					a.examPrepOpen = true
 				}
@@ -161,8 +170,6 @@ func (a *app) examDetailPage(c *ui.Context, p uiPalette) {
 			a.examRosterTab(c, p)
 		}
 	})
-	a.newExamModal(c, p)
-	a.statGroupModal(c, p)
 }
 
 func (a *app) examSummary(c *ui.Context, p uiPalette) {
@@ -200,13 +207,14 @@ func examIssueCounts(issues []store.ExamQualityIssue) (int, int) {
 
 func (a *app) examRosterTab(c *ui.Context, p uiPalette) {
 	t := p.theme
-	ui.Column(c).Grow(1).Gap(t.Space(2)).Children(func() {
-		ui.Row(c).AlignItems(ui.End).Wrap().Gap(t.Space(2)).Children(func() {
+	ui.Column(c).Grow(1).Shrink(1).MinHeight(0).Gap(t.Space(2)).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.End).Wrap().Gap(t.Space(2)).Children(func() {
 			ui.Column(c).Width(t.Space(72)).Children(func() {
 				next := a.examRosterQuery
 				searchField(c, &next, locales.ExamSearchRoster(), locales.ExamSearchRoster())
 				if next != a.examRosterQuery {
 					a.examRosterQuery = next
+					a.examRosterPage = 0
 					a.reloadExamData(context.Background())
 				}
 			})
@@ -247,49 +255,64 @@ func (a *app) examRosterTab(c *ui.Context, p uiPalette) {
 			}
 		})
 		if len(a.examRoster) == 0 {
+			if strings.TrimSpace(a.examRosterQuery) != "" {
+				emptyState(c, p, iconStudents, locales.FilterEmptyTitle(), locales.FilterEmptyHint(), func() {
+					if plainButton(c, locales.ClearFilters()).Clicked() {
+						a.examRosterQuery = ""
+						a.examRosterPage = 0
+						a.reloadExamData(context.Background())
+					}
+				})
+				return
+			}
 			emptyState(c, p, iconStudents, locales.ExamRosterEmpty(), locales.ExamRosterEmptyHint(), nil)
 			return
 		}
-		ui.Textf(c, locales.DataRecordCount(), formatInt(a.examRosterTotal)).FontSize(captionSize(t)).
-			TextColor(p.muted).FontFeatures("tnum")
-		a.studentTable.RowHeight = t.Space(10)
+		ui.Text(c, pluralCount(a.examRosterTotal, locales.DataRecordCountOne(), locales.DataRecordCount())).
+			FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum")
+		a.examRosterTable.RowHeight = tableRowHeight(t)
+		a.examRosterTable.Key = func(row int) any { return a.examRoster[row].StudentID }
 		columns := []ui.TableColumn{
-			{Title: locales.ColumnStudentNo(), Width: t.Space(18)},
+			{Title: locales.ColumnStudentNo(), Width: t.Space(24)},
 			{Title: locales.ColumnName(), Width: t.Space(28)},
 			{Title: locales.ColumnClass(), Width: t.Space(24)},
-			{Title: locales.ImportFieldExamNo(), Width: t.Space(24)},
-			{Title: locales.ColumnTrack(), Width: t.Space(20)},
+			{Title: locales.ImportFieldExamNo(), Width: t.Space(28)},
+			{Title: locales.ColumnTrack(), Width: t.Space(24)},
 			{Title: locales.ColumnStatus(), Width: 0},
 		}
-		ui.Table(c, &a.studentTable, columns, len(a.examRoster), func(row, col int) {
+		ui.Table(c, &a.examRosterTable, columns, len(a.examRoster), func(row, col int) {
 			entry := a.examRoster[row]
 			switch col {
 			case 0:
-				ui.Text(c, entry.StudentNo).SingleLine().FontFeatures("tnum")
+				cellText(c, p, entry.StudentNo).FontFeatures("tnum")
 			case 1:
-				ui.Text(c, entry.Name).SingleLine()
+				cellText(c, p, entry.Name)
 			case 2:
-				ui.Text(c, entry.ClassName).SingleLine()
+				cellText(c, p, entry.ClassName)
 			case 3:
-				ui.Text(c, entry.ExamNo).TextColor(p.muted).SingleLine().FontFeatures("tnum")
+				mutedCellText(c, p, entry.ExamNo).FontFeatures("tnum")
 			case 4:
-				ui.Text(c, a.trackName(entry.Track, entry.Track)).SingleLine()
+				cellText(c, p, a.trackName(entry.Track, entry.Track))
 			case 5:
-				ui.Text(c, a.statusName(entry.Status)).TextColor(p.muted).SingleLine()
+				mutedCellText(c, p, a.statusName(entry.Status))
 			}
-		}).Label(locales.ExamTabRoster()).Grow(1).FillWidth()
+		}).Label(locales.ExamTabRoster()).Grow(1).Shrink(1).MinHeight(0).Fill()
+		paginationBar(c, p, "exam-roster", &a.examRosterPage, &a.examRosterPageSize, a.examRosterTotal, func() {
+			a.reloadExamData(context.Background())
+		})
 	})
 }
 
 func (a *app) examScoresTab(c *ui.Context, p uiPalette) {
 	t := p.theme
-	ui.Column(c).Grow(1).Gap(t.Space(2)).Children(func() {
-		ui.Row(c).AlignItems(ui.End).Wrap().Gap(t.Space(2)).Children(func() {
+	ui.Column(c).Grow(1).Shrink(1).MinHeight(0).Gap(t.Space(2)).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.End).Wrap().Gap(t.Space(2)).Children(func() {
 			ui.Column(c).Width(t.Space(56)).Children(func() {
 				next := a.examScoreQuery
 				searchField(c, &next, locales.ExamSearchScores(), locales.ExamSearchScores())
 				if next != a.examScoreQuery {
 					a.examScoreQuery = next
+					a.examScorePage = 0
 					a.reloadExamData(context.Background())
 				}
 			})
@@ -306,6 +329,7 @@ func (a *app) examScoresTab(c *ui.Context, p uiPalette) {
 				for index, label := range subjectLabels {
 					if label == nextSubject {
 						a.examScoreSubject = subjectCodes[index]
+						a.examScorePage = 0
 						a.reloadExamData(context.Background())
 						break
 					}
@@ -324,6 +348,7 @@ func (a *app) examScoresTab(c *ui.Context, p uiPalette) {
 				for index, label := range classLabels {
 					if label == nextClass {
 						a.examScoreClass = classIDs[index]
+						a.examScorePage = 0
 						a.reloadExamData(context.Background())
 						break
 					}
@@ -334,30 +359,53 @@ func (a *app) examScoresTab(c *ui.Context, p uiPalette) {
 				a.openExamImportWizard(importer.KindScores, a.exam.ID, a.examCohort.CohortID)
 			}
 		})
-		if len(a.examScoreSummaries) > 0 {
-			ui.Row(c).Wrap().Gap(t.Space(5)).Children(func() {
-				for _, summary := range a.examScoreSummaries {
-					ui.Column(c).Width(t.Space(30)).Gap(0).Children(func() {
-						ui.Row(c).AlignItems(ui.Center).Children(func() {
-							ui.Text(c, a.subjectName(summary.Subject, summary.Subject)).
-								FontSize(captionSize(t)).TextColor(p.muted).Grow(1)
-							ui.Textf(c, locales.ExamAverage(), summary.Average).FontSize(captionSize(t)).
-								TextColor(p.inkSecondary).FontFeatures("tnum")
+		if len(a.examScoreSummaries) > 0 || len(a.examScoreBands) > 0 {
+			ui.Collapsible(c, locales.ExamScoreStatsToggle(), &a.examScoresStatsOpen, func() {
+				ui.Column(c).FillWidth().Gap(t.Space(3)).Padding(t.Space(2), 0).Children(func() {
+					if len(a.examScoreSummaries) > 0 {
+						ui.Row(c).FillWidth().Wrap().Gap(t.Space(5)).Children(func() {
+							for _, summary := range a.examScoreSummaries {
+								ui.Column(c).Width(t.Space(30)).Gap(0).Children(func() {
+									ui.Row(c).AlignItems(ui.Center).Gap(t.Space(1)).Children(func() {
+										subj := a.subjectName(summary.Subject, summary.Subject)
+										ui.Text(c, subj).FontSize(captionSize(t)).TextColor(p.muted).
+											Grow(1).Shrink(1).MinWidth(0).SingleLine().Tooltip(subj)
+										ui.Textf(c, locales.ExamAverage(), summary.Average).FontSize(captionSize(t)).
+											TextColor(p.inkSecondary).FontFeatures("tnum").Shrink(0)
+									})
+									ui.Textf(c, locales.ExamScoreMeta(), formatInt(summary.Count), formatInt(summary.Missing)).
+										FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum").SingleLine()
+								})
+							}
 						})
-						ui.Textf(c, locales.ExamScoreMeta(), formatInt(summary.Count), formatInt(summary.Missing)).
-							FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum")
-					})
-				}
-			})
+					}
+					a.examScoreStatistics(c, p)
+				})
+			}).FillWidth()
 		}
-		a.examScoreStatistics(c, p)
 		if len(a.examScores) == 0 {
+			if strings.TrimSpace(a.examScoreQuery) != "" || a.examScoreSubject != "" || a.examScoreClass != 0 {
+				emptyState(c, p, iconExams, locales.FilterEmptyTitle(), locales.FilterEmptyHint(), func() {
+					if plainButton(c, locales.ClearFilters()).Clicked() {
+						a.examScoreQuery = ""
+						a.examScoreSubject = ""
+						a.examScoreClass = 0
+						a.examScorePage = 0
+						a.reloadExamData(context.Background())
+					}
+				})
+				return
+			}
 			emptyState(c, p, iconExams, locales.ExamScoresEmpty(), locales.ExamScoresEmptyHint(), nil)
 			return
 		}
-		ui.Textf(c, locales.DataRecordCount(), formatInt(a.examScoresTotal)).FontSize(captionSize(t)).
-			TextColor(p.muted).FontFeatures("tnum")
-		a.baselineTable.RowHeight = t.Space(10)
+		ui.Text(c, pluralCount(a.examScoresTotal, locales.DataRecordCountOne(), locales.DataRecordCount())).
+			FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum")
+		a.examScoresTable.RowHeight = tableRowHeight(t)
+		a.examScoresTable.Key = func(row int) any {
+			item := a.examScores[row]
+			return fmt.Sprintf("%s:%s", item.StudentNo, item.Subject)
+		}
 		columns := []ui.TableColumn{
 			{Title: locales.ColumnStudentNo(), Width: t.Space(18)},
 			{Title: locales.ColumnName(), Width: t.Space(28)},
@@ -366,17 +414,17 @@ func (a *app) examScoresTab(c *ui.Context, p uiPalette) {
 			{Title: locales.ExamScore(), Width: t.Space(18), Align: ui.End},
 			{Title: locales.ExamFlag(), Width: 0},
 		}
-		ui.Table(c, &a.baselineTable, columns, len(a.examScores), func(row, col int) {
+		ui.Table(c, &a.examScoresTable, columns, len(a.examScores), func(row, col int) {
 			item := a.examScores[row]
 			switch col {
 			case 0:
-				ui.Text(c, item.StudentNo).SingleLine().FontFeatures("tnum")
+				cellText(c, p, item.StudentNo).FontFeatures("tnum")
 			case 1:
-				ui.Text(c, item.Name).SingleLine()
+				cellText(c, p, item.Name)
 			case 2:
-				ui.Text(c, item.ClassName).SingleLine()
+				cellText(c, p, item.ClassName)
 			case 3:
-				ui.Text(c, a.subjectName(item.Subject, item.Subject)).SingleLine()
+				cellText(c, p, a.subjectName(item.Subject, item.Subject))
 			case 4:
 				if item.Score == nil {
 					ui.Text(c, "-").TextColor(p.muted)
@@ -390,7 +438,10 @@ func (a *app) examScoresTab(c *ui.Context, p uiPalette) {
 					badge(c, p, a.examFlagName(item.Flag), toneWarning)
 				}
 			}
-		}).Label(locales.ExamTabScores()).Grow(1).FillWidth()
+		}).Label(locales.ExamTabScores()).Grow(1).Shrink(1).MinHeight(t.Space(40)).Fill()
+		paginationBar(c, p, "exam-scores", &a.examScorePage, &a.examScorePageSize, a.examScoresTotal, func() {
+			a.reloadExamData(context.Background())
+		})
 	})
 }
 
@@ -486,7 +537,7 @@ func (a *app) examFlagName(flag string) string {
 
 func (a *app) examCutoffsTab(c *ui.Context, p uiPalette) {
 	t := p.theme
-	ui.Column(c).Grow(1).Gap(t.Space(3)).Children(func() {
+	ui.Column(c).Grow(1).Shrink(1).MinHeight(0).Gap(t.Space(3)).Children(func() {
 		ui.Row(c).Children(func() {
 			ui.Spacer(c)
 			if labelledButton(c, locales.ExamImportCutoffs(), iconImports, true).Clicked() {
@@ -556,10 +607,10 @@ func (a *app) examCutoffsTab(c *ui.Context, p uiPalette) {
 
 func (a *app) examTargetsTab(c *ui.Context, p uiPalette) {
 	t := p.theme
-	ui.Column(c).Grow(1).Gap(t.Space(2)).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-			ui.Text(c, locales.ExamTargetsHint()).FontSize(captionSize(t)).TextColor(p.muted).Grow(1).
-				Pretty()
+	ui.Column(c).Grow(1).Shrink(1).MinHeight(0).Gap(t.Space(2)).Children(func() {
+		ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+			ui.Text(c, locales.ExamTargetsHint()).FontSize(captionSize(t)).TextColor(p.muted).
+				Grow(1).Shrink(1).MinWidth(0).Pretty()
 			if labelledButton(c, locales.ExamImportTargets(), iconImports, false).Clicked() {
 				a.openExamImportWizard(importer.KindTargets, a.exam.ID, a.examCohort.CohortID)
 			}
@@ -571,15 +622,16 @@ func (a *app) examTargetsTab(c *ui.Context, p uiPalette) {
 			emptyState(c, p, iconBaseline, locales.ExamTargetsEmpty(), locales.ExamTargetsEmptyHint(), nil)
 			return
 		}
-		a.classTable.RowHeight = t.Space(10)
+		a.examTargetsTable.RowHeight = tableRowHeight(t)
+		a.examTargetsTable.Key = func(row int) any { return a.examClasses[row].ID }
 		columns := []ui.TableColumn{{Title: locales.ColumnClass(), Width: t.Space(18)}}
 		for _, tier := range a.examTierKeys {
 			columns = append(columns, ui.TableColumn{Title: a.tierName(tier), Width: t.Space(32), Align: ui.End})
 		}
-		ui.Table(c, &a.classTable, columns, len(a.examClasses), func(row, col int) {
+		ui.Table(c, &a.examTargetsTable, columns, len(a.examClasses), func(row, col int) {
 			class := a.examClasses[row]
 			if col == 0 {
-				ui.Text(c, class.Name).SingleLine()
+				cellText(c, p, class.Name)
 				return
 			}
 			tier := a.examTierKeys[col-1]
@@ -589,13 +641,13 @@ func (a *app) examTargetsTab(c *ui.Context, p uiPalette) {
 				value = &empty
 			}
 			numberField(c, value, 0, 10000, 1, class.Name+" "+a.tierName(tier))
-		}).Label(locales.ExamTabTargets()).Grow(1).FillWidth()
+		}).Label(locales.ExamTabTargets()).Grow(1).Shrink(1).MinHeight(0).Fill()
 	})
 }
 
 func (a *app) examStatGroupsTab(c *ui.Context, p uiPalette) {
 	t := p.theme
-	ui.Column(c).Grow(1).Gap(t.Space(2)).Children(func() {
+	ui.Column(c).Grow(1).Shrink(1).MinHeight(0).Gap(t.Space(2)).Children(func() {
 		ui.Row(c).Children(func() {
 			ui.Spacer(c)
 			if labelledButton(c, locales.ExamNewStatGroup(), iconPlus, true).Clicked() {
@@ -612,13 +664,14 @@ func (a *app) examStatGroupsTab(c *ui.Context, p uiPalette) {
 					group := group
 					rule(c)
 					ui.Column(c).FillWidth().Padding(t.Space(3), 0).Gap(t.Space(1.5)).Children(func() {
-						ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-							ui.Text(c, group.Name).FontSize(bodySize(t)).FontWeight(600).Grow(1)
+						ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+							ui.Text(c, group.Name).FontSize(bodySize(t)).FontWeight(600).
+								Grow(1).Shrink(1).MinWidth(0).SingleLine().Tooltip(group.Name)
 							ui.Text(c, a.subjectName(group.Subject, group.Subject)).
-								FontSize(captionSize(t)).TextColor(p.muted)
+								FontSize(captionSize(t)).TextColor(p.muted).Shrink(0)
 							if group.Target == nil || *group.Target == 0 {
 								ui.Text(c, locales.ExamTargetMissing()).FontSize(captionSize(t)).
-									TextColor(p.warning)
+									TextColor(p.warning).Shrink(0)
 							}
 						})
 						ui.Textf(c, locales.ExamStatGroupMeta(), group.LeadClassName,
@@ -648,13 +701,13 @@ func (a *app) examStatGroupsTab(c *ui.Context, p uiPalette) {
 			})
 		})
 	})
-	if a.statGroupDeleteOpen {
-		title := fmt.Sprintf(locales.ExamStatGroupDeleteTitle(), a.statGroupDeleteName)
-		switch ui.AlertDialog(c, &a.statGroupDeleteOpen, title, locales.ExamStatGroupDeleteBody(),
-			locales.PlanCancel(), locales.Delete()) {
-		case 1:
-			a.deleteStatGroup(a.statGroupDeleteID)
-		}
+}
+
+func (a *app) statGroupDeleteDialog(c *ui.Context, p uiPalette) {
+	title := fmt.Sprintf(locales.ExamStatGroupDeleteTitle(), a.statGroupDeleteName)
+	if confirmDangerModal(c, p, "stat-group-delete", &a.statGroupDeleteOpen, title,
+		locales.ExamStatGroupDeleteBody(), locales.PlanCancel(), locales.Delete()) {
+		a.deleteStatGroup(a.statGroupDeleteID)
 	}
 }
 
@@ -668,35 +721,39 @@ func statGroupTargetText(group store.ExamStatGroup) string {
 func (a *app) examQualityTab(c *ui.Context, p uiPalette) {
 	t := p.theme
 	blocking, warnings := examIssueCounts(a.examQuality)
-	ui.Column(c).Grow(1).Gap(t.Space(2)).Children(func() {
-		ui.Row(c).Gap(t.Space(2)).Children(func() {
+	ui.Column(c).Grow(1).Shrink(1).MinHeight(0).Gap(t.Space(2)).Children(func() {
+		ui.Row(c).FillWidth().Wrap().Gap(t.Space(2)).Children(func() {
 			badge(c, p, fmt.Sprintf(locales.ExamQualityBlockingCount(), blocking), toneDanger)
 			badge(c, p, fmt.Sprintf(locales.ExamQualityWarningCount(), warnings), toneWarning)
 			ui.Spacer(c)
 			if plainButton(c, locales.ExamRevalidate()).Clicked() {
 				a.reloadExamData(context.Background())
+				if a.examError == "" {
+					a.notifyMain(locales.QualityRevalidatedToast())
+				}
 			}
 		})
 		if len(a.examQuality) == 0 {
 			emptyState(c, p, iconQuality, locales.ExamQualityEmpty(), locales.ExamQualityEmptyHint(), nil)
 			return
 		}
-		ui.Scroll(c).Grow(1).Shrink(1).MinHeight(0).Children(func() {
-			ui.Column(c).FillWidth().Gap(t.Space(1)).Children(func() {
-				for _, issue := range a.examQuality {
-					issue := issue
-					tone := toneWarning
-					if issue.Severity == "blocking" {
-						tone = toneDanger
-					}
-					ui.Row(c).FillWidth().AlignItems(ui.Start).Gap(t.Space(2)).
-						Padding(t.Space(1.5), 0).Children(func() {
-						badge(c, p, a.examSeverityName(issue.Severity), tone)
-						ui.Text(c, a.examQualityText(issue)).FontSize(bodySize(t)).Grow(1).Pretty()
-					})
-				}
+		a.examQualityListState.Key = func(row int) any {
+			issue := a.examQuality[row]
+			return fmt.Sprintf("%d:%s:%s:%s:%d", row, issue.Code, issue.StudentNo, issue.Subject, issue.Row)
+		}
+		ui.List(c, &a.examQualityListState, len(a.examQuality), func(row int) {
+			issue := a.examQuality[row]
+			tone := toneWarning
+			if issue.Severity == "blocking" {
+				tone = toneDanger
+			}
+			ui.Row(c).FillWidth().AlignItems(ui.Start).Gap(t.Space(2)).
+				Padding(t.Space(1.5), 0).Children(func() {
+				badge(c, p, a.examSeverityName(issue.Severity), tone)
+				ui.Text(c, a.examQualityText(issue)).FontSize(bodySize(t)).
+					Grow(1).Shrink(1).MinWidth(0).Pretty()
 			})
-		})
+		}).Label(locales.ExamTabQuality()).Grow(1).Shrink(1).MinHeight(0).Fill()
 	})
 }
 
@@ -799,7 +856,6 @@ func (a *app) examPrepPage(c *ui.Context, p uiPalette) {
 			})
 		})
 	})
-	a.newExamModal(c, p)
 }
 
 func examKindTab(kind string) int {
@@ -818,12 +874,10 @@ func examKindTab(kind string) int {
 }
 
 func (a *app) newExamModal(c *ui.Context, p uiPalette) {
-	if !a.newExamOpen {
-		return
-	}
 	t := p.theme
-	open := true
-	if modal(c, &open, modalProps{
+	wasOpen := a.newExamOpen
+	if modal(c, &a.newExamOpen, modalProps{
+		Key:        "new-exam",
 		Title:      locales.ExamNewTitle(),
 		OkText:     locales.ExamCreate(),
 		CancelText: locales.PlanCancel(),
@@ -932,19 +986,16 @@ func (a *app) newExamModal(c *ui.Context, p uiPalette) {
 		a.createExam()
 		return
 	}
-	if !open {
-		a.newExamOpen = false
+	if wasOpen && !a.newExamOpen {
 		a.examError = ""
 	}
 }
 
 func (a *app) statGroupModal(c *ui.Context, p uiPalette) {
-	if !a.statGroupOpen {
-		return
-	}
 	t := p.theme
-	open := true
-	if modal(c, &open, modalProps{
+	wasOpen := a.statGroupOpen
+	if modal(c, &a.statGroupOpen, modalProps{
+		Key:        "stat-group",
 		Title:      locales.ExamStatGroupTitle(),
 		OkText:     locales.Save(),
 		CancelText: locales.PlanCancel(),
@@ -1009,24 +1060,22 @@ func (a *app) statGroupModal(c *ui.Context, p uiPalette) {
 					})
 				})
 			})
-			ui.Column(c).Gap(t.Space(1)).Children(func() {
+			ui.Column(c).FillWidth().Gap(t.Space(1)).Children(func() {
 				ui.Text(c, locales.ExamStatGroupMembers()).FontSize(captionSize(t)).
 					TextColor(p.muted)
-				ui.Scroll(c).Height(t.Space(48)).Children(func() {
-					ui.Column(c).FillWidth().Gap(0).Children(func() {
-						for _, group := range a.examTeachingGroups {
-							group := group
-							if group.Subject != a.statGroupSubject {
-								continue
-							}
-							if a.statGroupMembers == nil {
-								a.statGroupMembers = map[int64]bool{}
-							}
-							checked := a.statGroupMembers[group.ID]
-							checkboxField(c, &checked, fmt.Sprintf(locales.LabelQualifier(), group.Name, group.ClassNames))
-							a.statGroupMembers[group.ID] = checked
+				ui.Column(c).FillWidth().Gap(0).Children(func() {
+					for _, group := range a.examTeachingGroups {
+						group := group
+						if group.Subject != a.statGroupSubject {
+							continue
 						}
-					})
+						if a.statGroupMembers == nil {
+							a.statGroupMembers = map[int64]bool{}
+						}
+						checked := a.statGroupMembers[group.ID]
+						checkboxField(c, &checked, fmt.Sprintf(locales.LabelQualifier(), group.Name, group.ClassNames))
+						a.statGroupMembers[group.ID] = checked
+					}
 				})
 			})
 			if a.statGroupError != "" {
@@ -1037,8 +1086,7 @@ func (a *app) statGroupModal(c *ui.Context, p uiPalette) {
 		a.saveStatGroup()
 		return
 	}
-	if !open {
-		a.statGroupOpen = false
+	if wasOpen && !a.statGroupOpen {
 		a.statGroupError = ""
 	}
 }

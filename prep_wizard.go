@@ -2,8 +2,6 @@ package main
 
 import (
 	"github.com/egoist/mygo/ui"
-	"github.com/lobehub/lobe-mygo/pkg/feedback"
-	"github.com/lobehub/lobe-mygo/pkg/theme"
 
 	"tally/internal/importer"
 	"tally/locales"
@@ -56,10 +54,11 @@ func (a *app) prepPage(c *ui.Context, p uiPalette) {
 			ui.Textf(c, locales.ReadinessProgress(), formatInt(done), formatInt(len(steps))).FontSize(bodySize(t)).
 				TextColor(p.inkSecondary).FontFeatures("tnum")
 		})
-		feedback.Progress(c, float32(done)/float32(len(steps))*100, feedback.ProgressProps{
-			Label: locales.ReadinessTitle(),
-			Size:  theme.Middle,
-		}).FillWidth()
+		percent := float32(0)
+		if len(steps) > 0 {
+			percent = float32(done) / float32(len(steps)) * 100
+		}
+		progressBar(c, p, percent, locales.ReadinessTitle()).FillWidth()
 		if !editable {
 			notice(c, p, noticeInfo, locales.StageReadOnly())
 		}

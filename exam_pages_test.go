@@ -120,6 +120,13 @@ func TestExamPagesShowRosterScoresAndStatistics(t *testing.T) {
 	}
 	f.App.examTab = 1
 	tt.Frame()
+	if !tt.HasText("Score distribution and class averages") {
+		t.Fatalf("missing collapsible stats toggle in %q", tt.Texts())
+	}
+	if err := tt.Click("Score distribution and class averages"); err != nil {
+		t.Fatal(err)
+	}
+	settleTester(tt)
 	for _, text := range []string{"120.0", "90.0", "Absent", "Score distribution: 语文"} {
 		if !tt.HasText(text) {
 			t.Fatalf("missing %q in %q", text, tt.Texts())
@@ -415,6 +422,10 @@ func TestExamPagesAtMinimumSizeInChineseAndDarkTheme(t *testing.T) {
 	}
 	f.App.examTab = 1
 	tt.Frame()
+	if err := tt.Click("分数分布与班级均分"); err != nil {
+		t.Fatal(err)
+	}
+	settleTester(tt)
 	if !tt.HasText("成绩分布") {
 		t.Fatalf("texts = %q", tt.Texts())
 	}

@@ -25,7 +25,10 @@ mkdir -p build
 go build -tags automation -o build/tally-autotest .
 
 SOCKET="/tmp/tally-auto-$$.sock"
+ISOLATED_HOME="/tmp/tally-auto-home-$$"
 rm -f "$SOCKET"
+rm -rf "$ISOLATED_HOME"
+mkdir -p "$ISOLATED_HOME/Library/Application Support"
 
 cleanup() {
   echo "清理自动化环境..."
@@ -34,15 +37,16 @@ cleanup() {
     wait "$APP_PID" 2>/dev/null || true
   fi
   rm -f "$SOCKET"
+  rm -rf "$ISOLATED_HOME"
 }
 trap cleanup EXIT
 
 echo "=== 3. 启动 Tally 实例并监听 Unix Domain Socket ==="
-MYGO_AUTOMATION="$SOCKET" ./build/tally-autotest &
+HOME="$ISOLATED_HOME" MYGO_LOCALE="zh-Hans" MYGO_AUTOMATION="$SOCKET" ./build/tally-autotest &
 APP_PID=$!
 
 echo "等待 Socket 建立 ($SOCKET)..."
-for i in {1..30}; do
+for i in {1..40}; do
   if [[ -S "$SOCKET" ]]; then
     break
   fi
@@ -58,17 +62,20 @@ if [[ ! -S "$SOCKET" ]]; then
   exit 1
 fi
 
-# 等待主窗口就绪
-sleep 1.2
-
 echo "=== 4. 使用 mygo-automation 执行端到端操作 ==="
 SESSION="test-$$"
 
-# 4.1 连接会话并列出视窗
+# 4.1 连接会话并轮询等待主窗口就绪
 echo ">> 连接 Socket 会话..."
 "$MYGO_AUTO_BIN" open --socket "$SOCKET" --session "$SESSION"
 
-echo ">> 获取视窗列表..."
+echo ">> 等待主窗口建立..."
+for i in {1..50}; do
+  if "$MYGO_AUTO_BIN" windows --session "$SESSION" | grep -q '^w1 '; then
+    break
+  fi
+  sleep 0.2
+done
 "$MYGO_AUTO_BIN" windows --session "$SESSION"
 
 # 4.2 获取可交互控件树快照

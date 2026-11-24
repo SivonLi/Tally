@@ -7,8 +7,6 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/lobehub/lobe-mygo/pkg/display"
-	"github.com/lobehub/lobe-mygo/pkg/feedback"
-	"github.com/lobehub/lobe-mygo/pkg/theme"
 
 	"tally/internal/importer"
 	"tally/internal/school"
@@ -37,7 +35,7 @@ func (a *app) overviewPage(c *ui.Context, p uiPalette) {
 			}
 			pageHeading(c, p, locales.OverviewTitle(), locales.OverviewSubtitle(), actions)
 			if len(a.cohorts) == 0 {
-				emptyState(c, p, iconCohort, locales.OverviewNoCohort(), "", func() {
+				emptyState(c, p, iconCohort, locales.OverviewNoCohort(), locales.OverviewNoCohortHint(), func() {
 					if labelledButton(c, locales.NewCohort(), iconPlus, true).Clicked() {
 						a.openNewCohort()
 					}
@@ -53,8 +51,6 @@ func (a *app) overviewPage(c *ui.Context, p uiPalette) {
 			a.gaokaoPanel(c, p)
 		})
 	})
-	a.newCohortModal(c, p)
-	a.stageReviewModal(c, p)
 }
 
 func (a *app) overviewHero(c *ui.Context, p uiPalette) {
@@ -76,9 +72,11 @@ func (a *app) overviewHero(c *ui.Context, p uiPalette) {
 				FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum").Shrink(0)
 		})
 		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(4)).Children(func() {
-			feedback.Progress(c, float32(ready)/float32(total)*100, feedback.ProgressProps{
-				Size: theme.Middle,
-			}).Grow(1)
+			percent := float32(0)
+			if total > 0 {
+				percent = float32(ready) / float32(total) * 100
+			}
+			progressBar(c, p, percent, "").Grow(1)
 			ui.Textf(c, locales.ReadinessProgress(), formatInt(ready), formatInt(total)).
 				FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum").Shrink(0)
 		})
@@ -93,22 +91,25 @@ func (a *app) stageReviewBanner(c *ui.Context, p uiPalette) {
 	t := p.theme
 	panel(c, p).FillWidth().Padding(t.Space(3)).Gap(t.Space(2)).
 		Background(p.warningSoft).Border(1, p.warning.Alpha(0.35)).Children(func() {
-		ui.Row(c).AlignItems(ui.Start).Gap(t.Space(2)).Children(func() {
-			ui.Icon(c, iconAlert).FontSize(t.Space(4)).TextColor(p.warning)
-			ui.Column(c).Grow(1).Gap(0).Children(func() {
-				ui.Textf(c, locales.StageAdvanceTitle(),
-					a.academicYearLabel(stage.AcademicYearStart)).FontSize(bodySize(t)).FontWeight(600)
-				ui.Textf(c, locales.StageAdvanceBody(), a.stageName(stage.GradeLevel),
-					a.stageCounts.Classes, a.stageCounts.TeachingGroups, a.stageCounts.Assignments).
-					FontSize(bodySize(t)).TextColor(p.inkSecondary).Pretty()
+		ui.Row(c).FillWidth().Wrap().AlignItems(ui.Start).Gap(t.Space(3)).Children(func() {
+			ui.Row(c).Grow(1).Shrink(1).MinWidth(t.Space(60)).AlignItems(ui.Start).Gap(t.Space(2)).Children(func() {
+				ui.Icon(c, iconAlert).FontSize(t.Space(4)).TextColor(p.warning).Shrink(0)
+				ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(0).Children(func() {
+					ui.Textf(c, locales.StageAdvanceTitle(),
+						a.academicYearLabel(stage.AcademicYearStart)).FontSize(bodySize(t)).FontWeight(600)
+					ui.Textf(c, locales.StageAdvanceBody(), a.stageName(stage.GradeLevel),
+						a.stageCounts.Classes, a.stageCounts.TeachingGroups, a.stageCounts.Assignments).
+						FontSize(bodySize(t)).TextColor(p.inkSecondary).Pretty()
+				})
 			})
-			ui.Row(c).Gap(t.Space(2)).Children(func() {
+			ui.Row(c).Wrap().Shrink(0).Gap(t.Space(2)).Children(func() {
 				if plainButton(c, locales.StageReviewConfirm()).Clicked() {
 					if err := a.store.ConfirmStageReview(context.Background(), stage.ID); err != nil {
 						a.settingsError = err.Error()
 						return
 					}
 					a.reloadSelectedCohort(context.Background())
+					a.notifyMain(locales.StageReviewConfirmedToast())
 				}
 				if plainButton(c, locales.StageReviewView()).Clicked() {
 					a.stageReviewOpen = true
@@ -125,17 +126,13 @@ func (a *app) stageReviewBanner(c *ui.Context, p uiPalette) {
 }
 
 func (a *app) stageReviewModal(c *ui.Context, p uiPalette) {
-	if !a.stageReviewOpen {
-		return
-	}
 	stage := a.displayStage()
-	if stage.ID == 0 {
+	if a.stageReviewOpen && stage.ID == 0 {
 		a.stageReviewOpen = false
-		return
 	}
 	t := p.theme
-	open := true
-	confirmed := modal(c, &open, modalProps{
+	confirmed := modal(c, &a.stageReviewOpen, modalProps{
+		Key:        "stage-review",
 		Title:      fmt.Sprintf(locales.StageReviewTitle(), a.copiedStageLabel(stage)),
 		OkText:     locales.StageReviewOpenPrep(),
 		CancelText: locales.Close(),
@@ -155,10 +152,6 @@ func (a *app) stageReviewModal(c *ui.Context, p uiPalette) {
 	if confirmed {
 		a.stageReviewOpen = false
 		a.prepOpen = true
-		return
-	}
-	if !open {
-		a.stageReviewOpen = false
 	}
 }
 
@@ -234,9 +227,7 @@ func (a *app) recentExamsPanel(c *ui.Context, p uiPalette) {
 		rule(c)
 		sectionHeading(c, p, locales.OverviewRecentExams(), -1)
 		if count == 0 {
-			ui.Text(c, locales.OverviewNoExams()).FontSize(captionSize(t)).
-				TextColor(p.muted).Pretty()
-			ui.Row(c).Children(func() {
+			emptyState(c, p, iconExams, locales.ExamsEmpty(), locales.OverviewNoExams(), func() {
 				if labelledButton(c, locales.AssessmentNewExam(), iconPlus, false).Clicked() {
 					a.page = pageExams
 					a.openNewExam()
@@ -255,19 +246,20 @@ func (a *app) recentExamsPanel(c *ui.Context, p uiPalette) {
 			}
 			shown++
 			exam := exam
-			row := listRowButton(c, a.examBatchLabel(exam)).
+			title := a.examBatchLabel(exam)
+			row := listRowButton(c, title).
 				Height(0).MinHeight(t.Space(14)).Padding(t.Space(3), t.Space(3)).
-				Background(ui.Transparent).AlignItems(ui.Center)
+				AlignItems(ui.Center)
 			row.Children(func() {
-				ui.Column(c).Grow(1).Gap(0).Children(func() {
-					ui.Text(c, a.examBatchLabel(exam)).FontSize(bodySize(t)).SingleLine().
-						TextAlign(ui.Start)
+				ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(0).Children(func() {
+					ui.Text(c, title).FontSize(bodySize(t)).SingleLine().MinWidth(0).Shrink(1).
+						Tooltip(title).TextAlign(ui.Start)
 					ui.Textf(c, locales.ExamListMeta(), a.academicYearLabel(exam.AcademicYearStart),
 						a.examTermName(exam.Term), exam.ExamDate).FontSize(captionSize(t)).
-						TextColor(p.muted).SingleLine()
+						TextColor(p.muted).SingleLine().MinWidth(0).Shrink(1)
 				})
 				ui.Text(c, a.examStatusName(exam.Status)).FontSize(captionSize(t)).
-					TextColor(p.muted)
+					TextColor(p.muted).Shrink(0)
 			})
 			if row.Clicked() {
 				a.page = pageExams
@@ -332,12 +324,10 @@ func (a *app) gaokaoPanel(c *ui.Context, p uiPalette) {
 }
 
 func (a *app) newCohortModal(c *ui.Context, p uiPalette) {
-	if !a.newCohortOpen {
-		return
-	}
 	t := p.theme
-	open := true
-	confirmed := modal(c, &open, modalProps{
+	wasOpen := a.newCohortOpen
+	confirmed := modal(c, &a.newCohortOpen, modalProps{
+		Key:        "new-cohort",
 		Title:      locales.NewCohortTitle(),
 		OkText:     locales.CohortCreate(),
 		CancelText: locales.PlanCancel(),
@@ -362,8 +352,7 @@ func (a *app) newCohortModal(c *ui.Context, p uiPalette) {
 	})
 	if confirmed {
 		a.createCohort()
-	} else if !open {
-		a.newCohortOpen = false
+	} else if wasOpen && !a.newCohortOpen {
 		a.newCohortError = ""
 	}
 }
@@ -385,7 +374,11 @@ func (a *app) cohortPage(c *ui.Context, p uiPalette) {
 			}
 		})
 		if len(a.cohorts) == 0 {
-			emptyState(c, p, iconCohort, locales.OverviewNoCohort(), "", nil)
+			emptyState(c, p, iconCohort, locales.OverviewNoCohort(), locales.OverviewNoCohortHint(), func() {
+				if labelledButton(c, locales.NewCohort(), iconPlus, true).Clicked() {
+					a.openNewCohort()
+				}
+			})
 		} else {
 			if a.selectedStage() != nil && !a.stageEditable() {
 				notice(c, p, noticeInfo, locales.StageReadOnly())
@@ -401,7 +394,6 @@ func (a *app) cohortPage(c *ui.Context, p uiPalette) {
 			}).Grow(1)
 		}
 	})
-	a.newCohortModal(c, p)
 }
 
 func (a *app) cohortSidebar(c *ui.Context, p uiPalette) {
@@ -477,7 +469,8 @@ func (a *app) cohortDetails(c *ui.Context, p uiPalette) {
 				smallEmptyState(c, p, locales.CohortNoClasses())
 				return
 			}
-			a.classTable.RowHeight = t.Space(10)
+			a.classTable.RowHeight = tableRowHeight(t)
+			a.classTable.Key = func(row int) any { return a.classes[row].ID }
 			columns := []ui.TableColumn{
 				{Title: locales.ColumnClass(), Width: t.Space(24)},
 				{Title: locales.ReadinessStudents(), Width: 0, Align: ui.End},
@@ -487,15 +480,11 @@ func (a *app) cohortDetails(c *ui.Context, p uiPalette) {
 				class := a.classes[row]
 				switch col {
 				case 0:
-					ui.Text(c, class.Name).SingleLine()
+					cellText(c, p, class.Name)
 				case 1:
 					ui.Text(c, formatInt(class.Students)).FontFeatures("tnum")
 				case 2:
-					if class.HeadTeacher == "" {
-						ui.Text(c, "-").TextColor(p.muted)
-					} else {
-						ui.Text(c, class.HeadTeacher).SingleLine()
-					}
+					cellText(c, p, class.HeadTeacher)
 				}
 			}).Label(locales.CohortClasses()).Grow(1).Shrink(1).MinHeight(0).Fill()
 		})

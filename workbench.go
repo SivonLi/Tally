@@ -342,9 +342,6 @@ func (a *app) assessmentPage(c *ui.Context, p uiPalette) {
 			})
 		}).Grow(1)
 	})
-	a.zeroModal(c, p)
-	a.resultDetailModal(c, p)
-	a.newExamModal(c, p)
 }
 
 func (a *app) assessmentList(c *ui.Context, p uiPalette) {
@@ -358,21 +355,21 @@ func (a *app) assessmentList(c *ui.Context, p uiPalette) {
 				for _, item := range a.assessments {
 					item := item
 					selected := item.AssessmentID == a.selectedAssessmentID
-					background := ui.Transparent
-					if selected {
-						background = p.accentSoft
-					}
-					row := listRowButton(c, a.assessmentOverviewLabel(item)).
+					label := a.assessmentOverviewLabel(item)
+					row := listRowButton(c, label).
 						Height(0).MinHeight(t.Space(14)).Padding(t.Space(3), t.Space(3)).
-						Background(background).AlignItems(ui.Start)
+						AlignItems(ui.Start)
+					if selected {
+						row.Background(p.accentSoft)
+					}
 					row.Children(func() {
-						ui.Column(c).FillWidth().Gap(t.Space(0.5)).Children(func() {
-							ui.Text(c, a.assessmentOverviewLabel(item)).FontSize(bodySize(t)).
-								FontWeight(500).SingleLine()
+						ui.Column(c).FillWidth().MinWidth(0).Gap(t.Space(0.5)).Children(func() {
+							ui.Text(c, label).FontSize(bodySize(t)).
+								FontWeight(500).SingleLine().MinWidth(0).Shrink(1).Tooltip(label)
 							ui.Textf(c, locales.AssessmentListMeta(), a.academicYearLabel(item.AcademicYearStart),
 								a.examTermName(item.Term),
 								fmt.Sprintf(locales.AssessmentStudentCount(), formatInt(item.RosterCount))).
-								FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
+								FontSize(captionSize(t)).TextColor(p.muted).SingleLine().MinWidth(0).Shrink(1)
 						})
 					})
 					if row.Clicked() {
@@ -431,18 +428,19 @@ func (a *app) assessmentDetail(c *ui.Context, p uiPalette) {
 		stage = 1
 	}
 	ui.Column(c).Fill().Gap(t.Space(3)).Children(func() {
-		ui.Row(c).AlignItems(ui.Start).Gap(t.Space(3)).Children(func() {
-			ui.Column(c).Grow(1).Gap(t.Space(1)).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Start).Gap(t.Space(3)).Children(func() {
+			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(t.Space(1)).Children(func() {
 				ui.Text(c, overview.ExamName).FontSize(titleSize(t)).FontWeight(600).
-					LetterSpacing(-0.2).Role(ui.RoleHeading).Level(1)
-				ui.Row(c).Gap(t.Space(1)).Children(func() {
+					LetterSpacing(-0.2).SingleLine().MinWidth(0).Shrink(1).Tooltip(overview.ExamName).
+					Role(ui.RoleHeading).Level(1)
+				ui.Row(c).FillWidth().Wrap().Gap(t.Space(1)).Children(func() {
 					badge(c, p, a.examTypeName(overview.ExamType), toneAccent)
 					badge(c, p, overview.CohortName, toneNeutral)
 					badge(c, p, a.stageName(overview.GradeLevel), toneNeutral)
 				})
 				ui.Textf(c, locales.AssessmentDetailMeta(), a.academicYearLabel(overview.AcademicYearStart),
 					a.examTermName(overview.Term), overview.ExamDate).FontSize(captionSize(t)).
-					TextColor(p.muted).FontFeatures("tnum")
+					TextColor(p.muted).FontFeatures("tnum").SingleLine()
 			})
 			status, statusLabel := a.assessmentStatusDisplay(*overview)
 			statusBadge(c, p, status, statusLabel)
@@ -558,7 +556,7 @@ func (a *app) assessmentChecklist(c *ui.Context, p uiPalette, overview store.Ass
 			missing := item.Count == 0
 			row := listRowButton(c, item.Label).
 				MinHeight(t.Space(9)).Padding(t.Space(2), t.Space(3)).
-				Background(ui.Transparent).AlignItems(ui.Center)
+				AlignItems(ui.Center)
 			row.Children(func() {
 				if missing {
 					ui.Icon(c, iconAlert).FontSize(t.Space(4)).TextColor(p.warning)
@@ -612,8 +610,8 @@ func (a *app) assessmentActions(c *ui.Context, p uiPalette, overview store.Asses
 			})
 			ui.Spacer(c)
 			ui.Row(c).Wrap().Gap(t.Space(2)).Children(func() {
-				if labelledButton(c, fmt.Sprintf(locales.AssessmentFixExam(), overview.ExamName),
-					iconExams, false).Clicked() {
+				if labelledButton(c, locales.AssessmentFixExamShort(), iconExams, false).
+					Tooltip(fmt.Sprintf(locales.AssessmentFixExam(), overview.ExamName)).Clicked() {
 					a.openExamTab(overview, 0)
 				}
 				trial := labelledButton(c, locales.AssessmentTrial(), iconCalculate, false)
@@ -635,7 +633,7 @@ func (a *app) assessmentActions(c *ui.Context, p uiPalette, overview store.Asses
 				}
 			})
 		})
-		if a.assessmentBusy {
+		if showDelayedBusy(c, "assessment-busy", a.assessmentBusy) {
 			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
 				ui.Spinner(c).Label(locales.BatchWorking())
 				ui.Text(c, locales.BatchWorking()).FontSize(bodySize(t)).TextColor(p.muted)
@@ -656,7 +654,7 @@ func (a *app) assessmentResults(c *ui.Context, p uiPalette) {
 	ui.Column(c).Grow(1).Shrink(1).MinHeight(0).Fill().Gap(t.Space(2)).Children(func() {
 		a.assessmentResultsHeader(c, p)
 		if len(a.assessmentRows) == 0 {
-			ui.Text(c, locales.AssessmentNoResults()).FontSize(bodySize(t)).TextColor(p.muted)
+			smallEmptyState(c, p, locales.AssessmentNoResults())
 			return
 		}
 		switch a.assessmentResultTab {
@@ -742,7 +740,7 @@ func (a *app) assessmentSubjectResults(c *ui.Context, p uiPalette) {
 		return fmt.Sprintf("%d:%s", rows[row].StatGroupID, rows[row].Subject)
 	}
 	a.resultTable.Selection = &a.resultSelection
-	a.resultTable.RowHeight = t.Space(10)
+	a.resultTable.RowHeight = tableRowHeight(t)
 	columns := []ui.TableColumn{
 		{Title: locales.ColumnClass(), Width: t.Space(18)},
 		{Title: locales.ColumnSubject(), Width: t.Space(20)},
@@ -758,19 +756,19 @@ func (a *app) assessmentSubjectResults(c *ui.Context, p uiPalette) {
 		item := rows[row]
 		switch col {
 		case 0:
-			ui.Text(c, item.LeadClassName).SingleLine()
+			cellText(c, p, item.LeadClassName)
 		case 1:
-			ui.Text(c, subjectLabel(item.Subject)).SingleLine()
+			cellText(c, p, subjectLabel(item.Subject))
 		case 2:
-			ui.Text(c, item.StatGroupName).SingleLine()
+			cellText(c, p, item.StatGroupName)
 		case 3:
-			ui.Text(c, decodeNames(item.TeacherNames)).SingleLine()
+			cellText(c, p, decodeNames(item.TeacherNames))
 		case 4:
 			ui.Text(c, formatDecimal(item.Total, 1)).FontFeatures("tnum")
 		case 5:
 			ui.Text(c, formatInt(item.Rank)).FontFeatures("tnum")
 		case 6:
-			ui.Text(c, levelLabel(item.TierIndex))
+			cellText(c, p, levelLabel(item.TierIndex))
 		case 7:
 			ui.Text(c, formatDecimal(item.Points, 1)).FontFeatures("tnum")
 		}
@@ -835,7 +833,7 @@ func (a *app) assessmentClassResults(c *ui.Context, p uiPalette) {
 		return items[row].ClassName
 	}
 	a.classResultTable.Selection = &a.classSelection
-	a.classResultTable.RowHeight = t.Space(10)
+	a.classResultTable.RowHeight = tableRowHeight(t)
 	columns := []ui.TableColumn{
 		{Title: locales.ColumnClass(), Width: t.Space(18)},
 		{Title: locales.ColumnClassCompletionScore(), Width: t.Space(20), Align: ui.End},
@@ -852,7 +850,7 @@ func (a *app) assessmentClassResults(c *ui.Context, p uiPalette) {
 		item := items[row]
 		switch {
 		case col == 0:
-			ui.Text(c, item.ClassName).SingleLine()
+			cellText(c, p, item.ClassName)
 		case col == 1:
 			if item.HasCompletion {
 				ui.Text(c, formatDecimal(item.CompletionScore, 1)).FontFeatures("tnum")
@@ -864,7 +862,7 @@ func (a *app) assessmentClassResults(c *ui.Context, p uiPalette) {
 			isTeacher := (col-2)%2 == 1
 			s := subjects[subIdx]
 			if isTeacher {
-				ui.Text(c, item.SubjectTeachers[s]).SingleLine()
+				cellText(c, p, item.SubjectTeachers[s])
 			} else {
 				if score, ok := item.SubjectScores[s]; ok {
 					ui.Text(c, formatDecimal(score, 1)).FontFeatures("tnum")
@@ -889,7 +887,7 @@ func (a *app) assessmentTeacherResults(c *ui.Context, p uiPalette) {
 		return fmt.Sprintf("%s:%s", scores[row].TeacherName, scores[row].Subject)
 	}
 	a.teacherResultTable.Selection = &a.teacherSelection
-	a.teacherResultTable.RowHeight = t.Space(10)
+	a.teacherResultTable.RowHeight = tableRowHeight(t)
 	columns := []ui.TableColumn{
 		{Title: locales.ColumnTeacherName(), Width: t.Space(28)},
 		{Title: locales.ColumnGrade(), Width: t.Space(18)},
@@ -902,13 +900,13 @@ func (a *app) assessmentTeacherResults(c *ui.Context, p uiPalette) {
 		item := scores[row]
 		switch col {
 		case 0:
-			ui.Text(c, item.TeacherName).SingleLine()
+			cellText(c, p, item.TeacherName)
 		case 1:
-			ui.Text(c, gradeLabel(item.Grade)).SingleLine()
+			cellText(c, p, gradeLabel(item.Grade))
 		case 2:
-			ui.Text(c, subjectLabel(item.Subject)).SingleLine()
+			cellText(c, p, subjectLabel(item.Subject))
 		case 3:
-			ui.Text(c, formatPoints(item.GroupPoints)).SingleLine()
+			cellText(c, p, formatPoints(item.GroupPoints))
 		case 4:
 			ui.Text(c, formatDecimal(item.Score, 2)).FontFeatures("tnum")
 		}
@@ -942,38 +940,43 @@ func formatPoints(value string) string {
 
 func (a *app) assessmentResultsHeader(c *ui.Context, p uiPalette) {
 	t := p.theme
-	ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-		sectionHeading(c, p, locales.AssessmentResults(), len(a.assessmentRows))
-		if a.assessmentRun.ID != 0 {
-			kind := locales.AssessmentTrialResults()
-			tone := toneNeutral
-			if a.assessmentRun.IsOfficial {
-				kind = locales.AssessmentOfficialResults()
-				tone = toneAccent
+	ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
+		ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+			sectionHeading(c, p, locales.AssessmentResults(), len(a.assessmentRows))
+			if a.assessmentRun.ID != 0 {
+				kind := locales.AssessmentTrialResults()
+				tone := toneNeutral
+				if a.assessmentRun.IsOfficial {
+					kind = locales.AssessmentOfficialResults()
+					tone = toneAccent
+				}
+				badge(c, p, kind, tone)
 			}
-			badge(c, p, kind, tone)
-		}
-		if len(a.assessmentRuns) > 1 {
-			chosen := a.runOptionLabelForID(a.assessmentRunID)
-			next := chosen
-			selectField(c, "workbench-runs", &next, a.runOptions(), locales.AssessmentRunSelect()).
-				Width(t.Space(40)).Label(locales.AssessmentRunSelect())
-			if next != chosen {
-				if id, ok := a.runIDForLabel(next); ok {
-					a.selectAssessmentRun(id)
+			if len(a.assessmentRuns) > 1 {
+				chosen := a.runOptionLabelForID(a.assessmentRunID)
+				next := chosen
+				selectField(c, "workbench-runs", &next, a.runOptions(), locales.AssessmentRunSelect()).
+					Width(t.Space(40)).Label(locales.AssessmentRunSelect())
+				if next != chosen {
+					if id, ok := a.runIDForLabel(next); ok {
+						a.selectAssessmentRun(id)
+					}
 				}
 			}
-		}
-		ui.Spacer(c)
-		segmentedField(c, &a.assessmentResultTab, []string{
-			locales.AssessmentViewBySubject(),
-			locales.AssessmentViewByClass(),
-			locales.AssessmentViewByTeacher(),
-		}, locales.AssessmentViewMode())
-		if a.assessmentRun.ID != 0 {
-			ui.Textf(c, locales.AssessmentRunMeta(), formatTime(a.assessmentRun.CreatedAt)).
-				FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum")
-		}
+			ui.Spacer(c)
+			if a.assessmentRun.ID != 0 {
+				ui.Textf(c, locales.AssessmentRunMeta(), formatTime(a.assessmentRun.CreatedAt)).
+					FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum").
+					SingleLine().Shrink(0)
+			}
+		})
+		ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+			segmentedField(c, &a.assessmentResultTab, []string{
+				locales.AssessmentViewBySubject(),
+				locales.AssessmentViewByClass(),
+				locales.AssessmentViewByTeacher(),
+			}, locales.AssessmentViewMode())
+		})
 	})
 }
 
@@ -1062,7 +1065,6 @@ type resultDetail struct {
 
 func (a *app) closeResultDetail() {
 	a.resultDetailOpen = false
-	a.resultDetail = resultDetail{}
 	a.resultSelection.Clear()
 	a.classSelection.Clear()
 	a.teacherSelection.Clear()
@@ -1183,6 +1185,7 @@ func (a *app) finishAssessmentCalculate(result calc.Result, err error, trial boo
 	} else {
 		a.assessmentMessage = fmt.Sprintf(locales.AssessmentCalculated(), len(result.Rows), len(result.Personal))
 	}
+	a.notifyMain(a.assessmentMessage)
 	a.assessmentRunChosen = false
 	a.reloadAssessments(context.Background())
 }
@@ -1190,7 +1193,7 @@ func (a *app) finishAssessmentCalculate(result calc.Result, err error, trial boo
 func (a *app) chooseAssessmentExport() {
 	name := "Tally.xlsx"
 	if overview := a.selectedAssessmentOverview(); overview != nil {
-		name = overview.CohortName + a.examTypeName(overview.ExamType) + ".xlsx"
+		name = sanitizeExportFilename(overview.CohortName+a.examTypeName(overview.ExamType)+".xlsx", "Tally.xlsx")
 	}
 	go func() {
 		path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{
@@ -1244,6 +1247,7 @@ func (a *app) finishAssessmentExport(path string, err error) {
 	}
 	a.assessmentError = ""
 	a.assessmentMessage = fmt.Sprintf(locales.BatchExported(), path)
+	a.notifyMain(a.assessmentMessage)
 }
 
 func (a *app) initZeroValues() {
@@ -1266,14 +1270,11 @@ func (a *app) initZeroValues() {
 }
 
 func (a *app) zeroModal(c *ui.Context, p uiPalette) {
-	if !a.zeroOpen {
-		return
-	}
 	t := p.theme
 	excludeClass := int64(0)
 	fill := false
-	open := true
-	if modal(c, &open, modalProps{
+	if modal(c, &a.zeroOpen, modalProps{
+		Key:        "zero-target",
 		Title:      locales.ZeroTitle(),
 		OkText:     locales.ZeroFill(),
 		CancelText: locales.ZeroClose(),
@@ -1289,14 +1290,12 @@ func (a *app) zeroModal(c *ui.Context, p uiPalette) {
 					ui.Text(c, locales.ZeroIntro()).FontSize(bodySize(t)).TextColor(p.muted).Pretty()
 				})
 			})
-			ui.Scroll(c).MaxHeight(t.Space(72)).FillWidth().Children(func() {
-				ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
-					for index := range a.zeroIssues {
-						a.zeroIssueCard(c, p, index, func(classID int64) {
-							excludeClass = classID
-						})
-					}
-				})
+			ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
+				for index := range a.zeroIssues {
+					a.zeroIssueCard(c, p, index, func(classID int64) {
+						excludeClass = classID
+					})
+				}
 			})
 			a.dialogField(c, "zero-reason", locales.ZeroReason(), "", func() {
 				textField(c, &a.zeroReason, locales.ZeroReason(), "")
@@ -1307,9 +1306,6 @@ func (a *app) zeroModal(c *ui.Context, p uiPalette) {
 		})
 	}) {
 		fill = true
-	}
-	if !open {
-		a.zeroOpen = false
 	}
 	if excludeClass != 0 {
 		a.startExcludeAssessmentClass(excludeClass)
@@ -1323,8 +1319,9 @@ func (a *app) zeroIssueCard(c *ui.Context, p uiPalette, index int, exclude func(
 	t := p.theme
 	issue := a.zeroIssues[index]
 	panel(c, p).Background(p.panelMuted).Padding(t.Space(3)).Gap(t.Space(2)).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-			ui.Text(c, issue.ClassName).FontSize(bodySize(t)).FontWeight(600).Grow(1)
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+			ui.Text(c, issue.ClassName).FontSize(bodySize(t)).FontWeight(600).
+				Grow(1).Shrink(1).MinWidth(0).SingleLine().Tooltip(issue.ClassName)
 			if plainButton(c, locales.ZeroExclude()).Clicked() {
 				classID, _ := strconv.ParseInt(issue.ClassID, 10, 64)
 				exclude(classID)
@@ -1362,20 +1359,18 @@ type detailOperand struct {
 // resultDetailModal 是一条结果行的详情弹窗：
 // 指标明细、计算依据、合并组与参与学生。
 func (a *app) resultDetailModal(c *ui.Context, p uiPalette) {
-	if !a.resultDetailOpen {
-		return
-	}
 	t := p.theme
 	detail := a.resultDetail
-	open := true
-	modal(c, &open, modalProps{
+	wasOpen := a.resultDetailOpen
+	modal(c, &a.resultDetailOpen, modalProps{
+		Key:      "result-detail",
 		Title:    locales.AssessmentDetailTitle(),
 		Width:    modalWidthWide,
 		NoFooter: true,
 	}, func() {
 		row := detail.Row
 		ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
-			ui.Row(c).Gap(t.Space(1)).Children(func() {
+			ui.Row(c).FillWidth().Wrap().Gap(t.Space(1)).Children(func() {
 				badge(c, p, row.LeadClassName, toneNeutral)
 				badge(c, p, subjectLabel(row.Subject), toneNeutral)
 				badge(c, p, row.StatGroupName, toneNeutral)
@@ -1409,48 +1404,31 @@ func (a *app) resultDetailModal(c *ui.Context, p uiPalette) {
 					ui.Text(c, locales.AssessmentDetailNoCompletion()).FontSize(bodySize(t)).TextColor(p.muted)
 				})
 			}
-			ui.Row(c).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, locales.AssessmentDetailBasis()).FontSize(captionSize(t)).TextColor(p.muted)
-				ui.Spacer(c)
-				ui.Text(c, detail.PlanLabel).FontSize(bodySize(t)).SingleLine()
-			})
-			ui.Row(c).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, locales.AssessmentDetailGroup()).FontSize(captionSize(t)).TextColor(p.muted)
-				ui.Spacer(c)
-				ui.Text(c, a.detailGroupMembers(detail)).FontSize(bodySize(t)).SingleLine()
-			})
-			ui.Row(c).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, locales.AssessmentDetailLeadClass()).FontSize(captionSize(t)).TextColor(p.muted)
-				ui.Spacer(c)
-				ui.Text(c, row.LeadClassName).FontSize(bodySize(t)).SingleLine()
-			})
-			ui.Row(c).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, locales.AssessmentDetailTeachers()).FontSize(captionSize(t)).TextColor(p.muted)
-				ui.Spacer(c)
-				ui.Text(c, decodeNames(row.TeacherNames)).FontSize(bodySize(t)).SingleLine()
-			})
+			a.detailRow(c, p, locales.AssessmentDetailBasis(), detail.PlanLabel)
+			a.detailRow(c, p, locales.AssessmentDetailGroup(), a.detailGroupMembers(detail))
+			a.detailRow(c, p, locales.AssessmentDetailLeadClass(), row.LeadClassName)
+			a.detailRow(c, p, locales.AssessmentDetailTeachers(), decodeNames(row.TeacherNames))
 			sectionHeading(c, p, locales.AssessmentDetailStudents(), len(detail.Students))
 			rule(c)
-			ui.Scroll(c).MaxHeight(t.Space(48)).FillWidth().Children(func() {
-				ui.Column(c).FillWidth().Gap(t.Space(1)).Children(func() {
-					for _, student := range detail.Students {
-						student := student
-						ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-							ui.Text(c, student.StudentNo).FontSize(captionSize(t)).TextColor(p.muted).
-								Width(t.Space(14)).FontFeatures("tnum")
-							ui.Text(c, student.Name).FontSize(bodySize(t)).SingleLine()
-						})
-					}
-				})
+			ui.Column(c).FillWidth().Gap(t.Space(1)).Children(func() {
+				for _, student := range detail.Students {
+					student := student
+					ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+						ui.Text(c, dashOr(student.StudentNo)).FontSize(captionSize(t)).TextColor(p.muted).
+							Width(t.Space(20)).Shrink(0).SingleLine().FontFeatures("tnum")
+						ui.Text(c, dashOr(student.Name)).FontSize(bodySize(t)).
+							Grow(1).Shrink(1).MinWidth(0).SingleLine().Tooltip(student.Name)
+					})
+				}
 			})
 			ui.Row(c).FillWidth().Justify(ui.End).Children(func() {
 				if plainButton(c, locales.AssessmentDetailClose()).Clicked() {
-					open = false
+					a.resultDetailOpen = false
 				}
 			})
 		})
 	})
-	if !open {
+	if wasOpen && !a.resultDetailOpen {
 		a.closeResultDetail()
 	}
 }
@@ -1460,21 +1438,23 @@ func (a *app) detailIndicator(c *ui.Context, p uiPalette, name, formulaText stri
 	operands []detailOperand, raw, score string) {
 	t := p.theme
 	panel(c, p).Background(p.panelMuted).Padding(t.Space(3)).Gap(t.Space(1.5)).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-			ui.Text(c, name).FontSize(bodySize(t)).FontWeight(600).Grow(1).SingleLine()
-			ui.Text(c, locales.AssessmentDetailUncapped()).FontSize(captionSize(t)).TextColor(p.muted)
-			ui.Text(c, raw).FontSize(bodySize(t)).FontFeatures("tnum")
-			ui.Text(c, locales.AssessmentDetailScore()).FontSize(captionSize(t)).TextColor(p.muted)
-			ui.Text(c, score).FontSize(bodySize(t)).FontWeight(600).FontFeatures("tnum")
+		ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+			ui.Text(c, name).FontSize(bodySize(t)).FontWeight(600).
+				Grow(1).Shrink(1).MinWidth(0).SingleLine().Tooltip(name)
+			ui.Text(c, locales.AssessmentDetailUncapped()).FontSize(captionSize(t)).TextColor(p.muted).Shrink(0)
+			ui.Text(c, raw).FontSize(bodySize(t)).FontFeatures("tnum").Shrink(0)
+			ui.Text(c, locales.AssessmentDetailScore()).FontSize(captionSize(t)).TextColor(p.muted).Shrink(0)
+			ui.Text(c, score).FontSize(bodySize(t)).FontWeight(600).FontFeatures("tnum").Shrink(0)
 		})
 		if formulaText != "" {
-			ui.Text(c, formulaText).FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
+			ui.Text(c, formulaText).FontSize(captionSize(t)).TextColor(p.muted).Pretty().Selectable()
 		}
 		for _, operand := range operands {
 			operand := operand
-			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-				ui.Text(c, operand.Label).FontSize(captionSize(t)).TextColor(p.muted).Grow(1).SingleLine()
-				ui.Text(c, operand.Value).FontSize(captionSize(t)).FontFeatures("tnum")
+			ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+				ui.Text(c, operand.Label).FontSize(captionSize(t)).TextColor(p.muted).
+					Grow(1).Shrink(1).MinWidth(0).SingleLine().Tooltip(operand.Label)
+				ui.Text(c, operand.Value).FontSize(captionSize(t)).FontFeatures("tnum").Shrink(0)
 			})
 		}
 	})
@@ -1499,6 +1479,10 @@ func (a *app) startFillZero() {
 	reason := strings.TrimSpace(a.zeroReason)
 	if reason == "" {
 		a.zeroError = locales.ZeroReasonRequired()
+		return
+	}
+	if msg := validateRuneLength(reason, locales.ZeroReason(), maxDescRunes); msg != "" {
+		a.zeroError = msg
 		return
 	}
 	var adjustments []targetAdjustment
@@ -1534,6 +1518,10 @@ func (a *app) startExcludeAssessmentClass(classID int64) {
 	reason := strings.TrimSpace(a.zeroReason)
 	if reason == "" {
 		a.zeroError = locales.ZeroReasonRequired()
+		return
+	}
+	if msg := validateRuneLength(reason, locales.ZeroReason(), maxDescRunes); msg != "" {
+		a.zeroError = msg
 		return
 	}
 	a.runZeroWork(func(ctx context.Context, assessmentID int64) error {
@@ -1601,6 +1589,7 @@ func (a *app) finishZeroWork(result calc.Result, err error) {
 	} else {
 		a.assessmentMessage = fmt.Sprintf(locales.AssessmentCalculated(), len(result.Rows), len(result.Personal))
 	}
+	a.notifyMain(a.assessmentMessage)
 	a.assessmentRunChosen = false
 	a.reloadAssessments(context.Background())
 }
@@ -1662,5 +1651,4 @@ func (a *app) resultsPage(c *ui.Context, p uiPalette) {
 		}
 		a.assessmentResults(c, p)
 	})
-	a.resultDetailModal(c, p)
 }

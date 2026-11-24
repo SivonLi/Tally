@@ -4,9 +4,9 @@ import (
 	"context"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/lobehub/lobe-mygo/pkg/motion"
 	"github.com/lobehub/lobe-mygo/pkg/theme"
 
 	"tally/locales"
@@ -72,7 +72,12 @@ func (a *app) view(c *ui.Context) {
 		ui.Column(c).Grow(1).Shrink(1).MinHeight(0).MinWidth(0).FillHeight().Background(p.canvas).
 			Padding(top, right, bottom, left).Role(ui.RoleMain).Children(func() {
 			if a.loadError != "" {
-				notice(c, p, noticeDanger, locales.PlanLoadError()+": "+a.loadError)
+				errorState(c, p, locales.PlanLoadError(), a.loadError, func() {
+					a.loadError = ""
+					a.load()
+				}, func() {
+					a.openSettings()
+				})
 				return
 			}
 			a.pageContent(c, p)
@@ -83,19 +88,29 @@ func (a *app) view(c *ui.Context) {
 	a.newCohortModal(c, p)
 	a.stageReviewModal(c, p)
 	a.newExamModal(c, p)
+	a.statGroupModal(c, p)
+	a.statGroupDeleteDialog(c, p)
 	a.zeroModal(c, p)
+	a.resultDetailModal(c, p)
+	a.analysisSaveViewModal(c, p)
+	a.analysisDeleteViewDialog(c, p)
+	a.planSaveDialog(c, p)
+	if a.mainToast != "" {
+		c.Toast(a.mainToast)
+		a.mainToast = ""
+	}
 }
 
 // sidebar 是唯一的导航入口，顶部为级切换，底部为帮助与设置。
 func (a *app) sidebar(c *ui.Context, p uiPalette) {
 	t := p.theme
-	top := t.Space(2)
+	top := t.Space(1)
 	if c.TitleBar().Left > 0 {
-		top = topStrip(c) + 4
+		top = topStrip(c)
 	}
 	side := ui.Column(c).Width(sidebarWidth).Shrink(0).FillHeight().
-		Padding(top, t.Space(4), t.Space(2), t.Space(4)).
-		Gap(t.Space(0.5)).DragWindow()
+		Padding(top, t.Space(4), t.Space(1), t.Space(4)).
+		Gap(0).DragWindow()
 	if !c.Vibrancy() {
 		side.Background(p.panelMuted)
 	}
@@ -123,11 +138,11 @@ func (a *app) sidebar(c *ui.Context, p uiPalette) {
 			a.navItem(c, p, pagePlans, iconPlans, locales.NavPlans())
 		})
 		rule(c)
-		ui.Column(c).Gap(0).Padding(t.Space(1), 0, 0, 0).Children(func() {
-			a.sidebarAction(c, p, iconHelp, locales.NavHelp(), func() {
+		ui.Column(c).Gap(0).Padding(t.Space(0.5), 0, 0, 0).Children(func() {
+			a.sidebarAction(c, p, "help", iconHelp, locales.NavHelp(), func() {
 				a.page = pageHelp
 			})
-			a.sidebarAction(c, p, iconSettings, locales.NavSettings(), func() {
+			a.sidebarAction(c, p, "settings", iconSettings, locales.NavSettings(), func() {
 				a.openSettings()
 			})
 		})
@@ -173,7 +188,8 @@ func (a *app) cohortSwitcher(c *ui.Context, p uiPalette) {
 		panel.Key("cohort-switcher")
 		panel.Margin(t.Space(1.5), 0, 0, 0).Padding(t.Space(2)).Gap(t.Space(0.5)).
 			MinWidth(t.Space(45)).MaxWidth(sidebarWidth+t.Space(15)).
-			Radius(t.Space(3)).Background(p.panel).Border(1, p.border)
+			Radius(t.Space(3)).Background(p.panel).Border(1, p.border).
+			Transition(motion.Popup()).AttachedOrigin()
 		theme.TokensOf(c).Elevate(panel, theme.BoxShadowSecondary)
 		ui.Scroll(c).MaxHeight(320).Children(func() {
 			ui.Column(c).FillWidth().Gap(t.Space(0.5)).Children(func() {
@@ -267,7 +283,8 @@ func (a *app) selectStageByID(id string) {
 // navSection 是导航里的分组标题。
 func (a *app) navSection(c *ui.Context, p uiPalette, title string) {
 	ui.Text(c, title).FontSize(captionSize(p.theme)).FontWeight(600).TextColor(p.ink).
-		Padding(p.theme.Space(1), p.theme.Space(2), 0, p.theme.Space(2)).
+		LineHeight(1.2).
+		Padding(0, p.theme.Space(2)).
 		SingleLine()
 }
 
@@ -285,7 +302,7 @@ func (a *app) navItem(c *ui.Context, p uiPalette, page pageID, icon *ui.SVG, lab
 	case b.Hovered():
 		background = p.hover
 	}
-	b.Background(b.AnimateColor("bg", background, ui.Animation{Duration: 120 * time.Millisecond}))
+	b.Background(background)
 	color := p.ink
 	iconColor := p.muted
 	if selected {
@@ -303,9 +320,9 @@ func (a *app) navItem(c *ui.Context, p uiPalette, page pageID, icon *ui.SVG, lab
 	}
 }
 
-func (a *app) sidebarAction(c *ui.Context, p uiPalette, icon *ui.SVG, label string, action func()) {
+func (a *app) sidebarAction(c *ui.Context, p uiPalette, key string, icon *ui.SVG, label string, action func()) {
 	t := p.theme
-	button := ui.ButtonBase(c.Key(label)).Label(label).Height(t.Space(9)).
+	button := ui.ButtonBase(c.Key(key)).Label(label).Height(t.Space(9)).
 		Padding(0, t.Space(3)).Gap(t.Space(2)).Radius(t.Space(2)).
 		AlignItems(ui.Center).Justify(ui.Start).FocusRing(false)
 	if button.Hovered() {

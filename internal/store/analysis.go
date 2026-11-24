@@ -2,11 +2,40 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 )
+
+// decodeTeacherNames 解析数据库中保存的任课教师名单（兼容 JSON 数组与顿号分隔文本）。
+func decodeTeacherNames(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	var parsed []string
+	if err := json.Unmarshal([]byte(raw), &parsed); err == nil {
+		names := make([]string, 0, len(parsed))
+		for _, item := range parsed {
+			item = strings.TrimSpace(item)
+			if item != "" {
+				names = append(names, item)
+			}
+		}
+		return names
+	}
+	parts := strings.Split(raw, "、")
+	names := make([]string, 0, len(parts))
+	for _, item := range parts {
+		item = strings.TrimSpace(item)
+		if item != "" {
+			names = append(names, item)
+		}
+	}
+	return names
+}
 
 // TeacherTrendPoint 记录教师在单场考试/考核中的得分明细。
 type TeacherTrendPoint struct {
@@ -259,8 +288,8 @@ func (s *Store) QueryTeacherTrends(ctx context.Context, cohortID int64, teacherN
 				teachers, _ := r[15].(string)
 				// 严格确认姓名在任课教师列表中
 				found := false
-				for _, name := range strings.Split(teachers, "、") {
-					if strings.TrimSpace(name) == teacherName {
+				for _, name := range decodeTeacherNames(teachers) {
+					if name == teacherName {
 						found = true
 						break
 					}
@@ -417,13 +446,7 @@ func (s *Store) QueryClassTrends(ctx context.Context, cohortID int64, classID in
 					compCount++
 				}
 
-				teachers := make([]string, 0)
-				for _, t := range strings.Split(tNames, "、") {
-					t = strings.TrimSpace(t)
-					if t != "" {
-						teachers = append(teachers, t)
-					}
-				}
+				teachers := decodeTeacherNames(tNames)
 
 				tierIndex := int(tierVal)
 				tierStr := fmt.Sprintf("%d", tierIndex)
@@ -494,13 +517,7 @@ func (s *Store) QuerySubjectComparison(ctx context.Context, assessmentID int64, 
 			continue
 		}
 
-		teachers := make([]string, 0)
-		for _, t := range strings.Split(row.TeacherNames, "、") {
-			t = strings.TrimSpace(t)
-			if t != "" {
-				teachers = append(teachers, t)
-			}
-		}
+		teachers := decodeTeacherNames(row.TeacherNames)
 
 		scoreSum += row.Total
 		impSum += row.ImprovementScore

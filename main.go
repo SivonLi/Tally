@@ -90,6 +90,7 @@ type app struct {
 	analysisSelectedViewID          int64
 	analysisSaveViewOpen            bool
 	analysisSaveViewName            string
+	analysisSaveViewError           string
 	analysisDeleteViewOpen          bool
 	analysisDeleteViewID            int64
 	analysisDeleteViewName          string
@@ -128,11 +129,20 @@ type app struct {
 	classes              []store.SchoolClass
 	students             []store.DataStudent
 	studentsTotal        int
+	studentPage          int
+	studentPageSize      int
 	studentTable         ui.ListState
 	classTable           ui.ListState
 	teacherTable         ui.ListState
 	groupTable           ui.ListState
 	baselineTable        ui.ListState
+	examRosterTable      ui.ListState
+	examScoresTable      ui.ListState
+	examTargetsTable     ui.ListState
+	importsListState     ui.ListState
+	qualityListState     ui.ListState
+	examQualityListState ui.ListState
+	wizardIssuesList     ui.ListState
 	selectedStudentID    int64
 	studentDetail        store.DataStudent
 	studentDetailOpen    bool
@@ -177,8 +187,13 @@ type app struct {
 	examTab              int
 	examRoster           []store.ExamRosterEntry
 	examRosterTotal      int
+	examRosterPage       int
+	examRosterPageSize   int
 	examScores           []store.ExamScoreRow
 	examScoresTotal      int
+	examScorePage        int
+	examScorePageSize    int
+	examScoresStatsOpen  bool
 	examScoreSummaries   []store.ExamScoreSummary
 	examScoreBands       []store.ExamScoreBand
 	examClassAverages    []store.ExamClassAverage
@@ -233,6 +248,26 @@ type app struct {
 	appearance     string
 	settingsPageID string
 	settingsForm   *form.Form[settingsFormValues]
+	mainToast      string
+	settingsToast  string
+}
+
+func (a *app) notifyMain(message string) {
+	if message == "" {
+		return
+	}
+	a.mainToast = message
+	if a.win != nil {
+		a.win.Invalidate()
+	}
+}
+
+func (a *app) notifySettings(message string) {
+	if message == "" {
+		return
+	}
+	a.settingsToast = message
+	a.invalidateSettings()
 }
 
 func (a *app) load() {
@@ -404,6 +439,9 @@ func main() {
 		mygo.App.OnLocaleChanged(func(string) {
 			if a.win != nil {
 				a.win.SetTitle(locales.AppTitle())
+			}
+			if a.settingsWin != nil {
+				a.settingsWin.SetTitle(locales.NavSettings())
 			}
 			a.invalidateSettings()
 		})

@@ -125,7 +125,7 @@ func (a *app) planFormulaShapeField(c *ui.Context, p uiPalette, key string, form
 		}
 	})
 	if code == planFormulaShapeOther {
-		ui.Text(c, *formula).FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
+		ui.Text(c, *formula).FontSize(captionSize(t)).TextColor(p.muted).SingleLine().Tooltip(*formula)
 		return
 	}
 	ui.Text(c, a.planFormulaShapeLabel(key, code)).FontSize(captionSize(t)).TextColor(p.muted)
@@ -176,7 +176,6 @@ func (a *app) planPage(c *ui.Context, p uiPalette) {
 			a.planSaveBar(c, p)
 		})
 	})
-	a.planSaveDialog(c, p)
 }
 
 // loadPlanConfig 把当前方案的版本读入可编辑配置。
@@ -902,7 +901,7 @@ func (a *app) planCompletionOverrideField(c *ui.Context, p uiPalette, program *a
 			}
 		})
 		if code == planFormulaShapeOther {
-			ui.Text(c, formula).FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
+			ui.Text(c, formula).FontSize(captionSize(t)).TextColor(p.muted).SingleLine().Tooltip(formula)
 			return
 		}
 		if code != "weighted" {
@@ -998,13 +997,11 @@ func (a *app) planSaveBar(c *ui.Context, p uiPalette) {
 }
 
 func (a *app) planSaveDialog(c *ui.Context, p uiPalette) {
-	if a.planSaveChoice != planSaveAsking {
-		return
-	}
 	t := p.theme
 	chosen := planSaveNone
-	open := true
+	open := a.planSaveChoice == planSaveAsking
 	modal(c, &open, modalProps{
+		Key:      "plan-save",
 		Title:    locales.PlanSaveTitle(),
 		NoFooter: true,
 		Width:    modalWidthCompact,
@@ -1029,7 +1026,7 @@ func (a *app) planSaveDialog(c *ui.Context, p uiPalette) {
 		})
 	})
 	if chosen == planSaveNone {
-		if !open {
+		if !open && a.planSaveChoice == planSaveAsking {
 			a.planSaveChoice = planSaveNone
 		}
 		return
@@ -1053,6 +1050,14 @@ func (a *app) savePlan(update bool) {
 	a.planConfig.Name = strings.TrimSpace(a.planConfig.Name)
 	if a.planConfig.Name == "" {
 		a.planError = locales.PlanNameRequired()
+		return
+	}
+	if msg := validateRuneLength(a.planConfig.Name, locales.PlanNameLabel(), maxNameRunes); msg != "" {
+		a.planError = msg
+		return
+	}
+	if msg := validateRuneLength(a.planConfig.Description, locales.PlanDescriptionLabel(), maxDescRunes); msg != "" {
+		a.planError = msg
 		return
 	}
 	ctx := context.Background()

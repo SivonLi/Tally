@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -77,19 +78,35 @@ func (a *app) languageSwitch(c *ui.Context) {
 	}
 }
 
+// controlHeight 返回随系统文字缩放自适应的标准控件高度（默认缩放下为 36）。
+func controlHeight(t ui.Theme, tk *theme.Tokens) float32 {
+	return max(tk.ControlHeight, bodySize(t)*2.25)
+}
+
+// controlHeightLG 返回随系统文字缩放自适应的大号按钮高度（默认缩放下为 44）。
+func controlHeightLG(t ui.Theme, tk *theme.Tokens) float32 {
+	return max(tk.ControlHeightLG, bodySize(t)*2.75)
+}
+
+// tableRowHeight 返回随系统文字缩放自适应的表格行高（默认缩放下为 40）。
+func tableRowHeight(t ui.Theme) float32 {
+	return max(t.Space(10), bodySize(t)*2.5)
+}
+
 func pageHeading(c *ui.Context, p uiPalette, title, subtitle string, actions func()) {
 	t := p.theme
 	ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
-		ui.Row(c).AlignItems(ui.End).Gap(t.Space(4)).Children(func() {
-			ui.Column(c).Grow(1).Gap(0).Children(func() {
+		ui.Row(c).FillWidth().Wrap().AlignItems(ui.End).Gap(t.Space(4)).Children(func() {
+			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(0).Children(func() {
 				ui.Text(c, title).FontSize(titleSize(t)).FontWeight(600).LetterSpacing(-0.2).
+					SingleLine().MinWidth(0).Shrink(1).Tooltip(title).
 					Role(ui.RoleHeading).Level(1)
 				if subtitle != "" {
 					ui.Text(c, subtitle).FontSize(bodySize(t)).TextColor(p.muted).Pretty()
 				}
 			})
 			if actions != nil {
-				ui.Row(c).Gap(t.Space(2)).Children(actions)
+				ui.Row(c).Wrap().Shrink(0).AlignItems(ui.Center).Gap(t.Space(2)).Children(actions)
 			}
 		})
 	})
@@ -97,23 +114,25 @@ func pageHeading(c *ui.Context, p uiPalette, title, subtitle string, actions fun
 
 func sectionHeading(c *ui.Context, p uiPalette, title string, count int) {
 	t := p.theme
-	ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-		ui.Text(c, title).FontSize(sectionSize(t)).FontWeight(600).LetterSpacing(-0.2)
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+		ui.Text(c, title).FontSize(sectionSize(t)).FontWeight(600).LetterSpacing(-0.2).
+			SingleLine().MinWidth(0).Shrink(1).Tooltip(title)
 		if count >= 0 {
-			ui.Textf(c, "%d", count).FontSize(captionSize(t)).TextColor(p.muted).
-				FontFeatures("tnum")
+			ui.Text(c, formatInt(count)).FontSize(captionSize(t)).TextColor(p.muted).
+				FontFeatures("tnum").Shrink(0)
 		}
 	})
 }
 
 func listPanel(c *ui.Context, p uiPalette, title string, count int, body func()) {
 	t := p.theme
-	ui.Column(c).Fill().Role(ui.RoleComplementary).Label(title).
+	ui.Column(c).Fill().MinWidth(0).MinHeight(0).Role(ui.RoleComplementary).Label(title).
 		Gap(t.Space(2)).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-			ui.Text(c, title).FontSize(bodySize(t)).FontWeight(600)
-			ui.Textf(c, "%d", count).FontSize(captionSize(t)).TextColor(p.muted).
-				FontFeatures("tnum")
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+			ui.Text(c, title).FontSize(bodySize(t)).FontWeight(600).
+				SingleLine().MinWidth(0).Shrink(1).Tooltip(title)
+			ui.Text(c, formatInt(count)).FontSize(captionSize(t)).TextColor(p.muted).
+				FontFeatures("tnum").Shrink(0)
 		})
 		body()
 	})
@@ -133,7 +152,7 @@ func badge(c *ui.Context, p uiPalette, text string, tone badgeTone) {
 		accent, soft = p.danger, p.dangerSoft
 	}
 	ui.Row(c).Height(t.Space(5)).PaddingX(t.Space(2)).Radius(t.Space(1)).
-		AlignItems(ui.Center).Background(soft).Children(func() {
+		Shrink(0).AlignItems(ui.Center).Background(soft).Children(func() {
 		ui.Text(c, text).FontSize(captionSize(t)).FontWeight(500).
 			TextColor(accent).SingleLine()
 	})
@@ -172,7 +191,7 @@ func metric(c *ui.Context, p uiPalette, value, label string) {
 func metricInline(c *ui.Context, p uiPalette, value uint64, label string) {
 	t := p.theme
 	ui.Row(c).AlignItems(ui.Center).Gap(t.Space(1)).Children(func() {
-		ui.Textf(c, "%d", value).FontSize(bodySize(t)).FontWeight(600).FontFeatures("tnum")
+		ui.Text(c, formatCount(int64(value))).FontSize(bodySize(t)).FontWeight(600).FontFeatures("tnum")
 		ui.Text(c, label).FontSize(captionSize(t)).TextColor(p.muted)
 	})
 }
@@ -195,8 +214,44 @@ func notice(c *ui.Context, p uiPalette, tone noticeTone, text string) {
 		ui.Row(c).Height(t.Space(6)).AlignItems(ui.Center).Shrink(0).Children(func() {
 			ui.Icon(c, icon()).FontSize(t.Space(4)).TextColor(accent)
 		})
-		ui.Text(c, text).FontSize(bodySize(t)).TextColor(p.ink).Pretty().Selectable()
+		ui.Text(c, text).FontSize(bodySize(t)).TextColor(p.ink).Grow(1).Shrink(1).MinWidth(0).Pretty().Selectable()
 	})
+}
+
+// errorState 在启动或存储不可用时展示带恢复动作的错误空状态，避免整页死锁或纯白屏。
+func errorState(c *ui.Context, p uiPalette, title, detail string, onRetry, onSettings func()) {
+	t := p.theme
+	detail = localizeErrorMessage(detail)
+	emptyState(c, p, iconAlert, title, detail, func() {
+		ui.Row(c).Wrap().Gap(t.Space(2)).Children(func() {
+			if onRetry != nil {
+				if primaryButton(c, locales.RetryLoad()).Clicked() {
+					onRetry()
+				}
+			}
+			if onSettings != nil {
+				if plainButton(c, locales.OpenSettings()).Clicked() {
+					onSettings()
+				}
+			}
+		})
+	})
+}
+
+// cellText 渲染表格单行单元格文本：空值显示次要 "-"，非空值单行省略并提供完整 Tooltip。
+func cellText(c *ui.Context, p uiPalette, value string) ui.Element {
+	if strings.TrimSpace(value) == "" {
+		return ui.Text(c, "-").TextColor(p.muted).SingleLine()
+	}
+	return ui.Text(c, value).SingleLine().Tooltip(value)
+}
+
+// mutedCellText 渲染表格次要颜色单行单元格文本：空值显示 "-"，非空值单行省略并提供 Tooltip。
+func mutedCellText(c *ui.Context, p uiPalette, value string) ui.Element {
+	if strings.TrimSpace(value) == "" {
+		return ui.Text(c, "-").TextColor(p.muted).SingleLine()
+	}
+	return ui.Text(c, value).TextColor(p.muted).SingleLine().Tooltip(value)
 }
 
 func emptyState(c *ui.Context, p uiPalette, icon *ui.SVG, title, body string, action func()) {
@@ -229,6 +284,22 @@ func smallEmptyState(c *ui.Context, p uiPalette, body string) {
 	})
 }
 
+func applyButtonPress(element ui.Element) {
+	pose := ui.Pose{}
+	if element.Pressed() && !element.IsDisabled() {
+		pose.Scale = 0.97
+	}
+	element.AnimatePose(pose, buttonPress)
+}
+
+func applyMicroPress(element ui.Element) {
+	pose := ui.Pose{}
+	if element.Pressed() && !element.IsDisabled() {
+		pose.Scale = 0.94
+	}
+	element.AnimatePose(pose, microButtonPress)
+}
+
 func labelledButton(c *ui.Context, label string, icon *ui.SVG, primary bool) ui.Element {
 	t := *c.Theme()
 	tk := theme.TokensOf(c)
@@ -237,12 +308,13 @@ func labelledButton(c *ui.Context, label string, icon *ui.SVG, primary bool) ui.
 		props.Variant = action.Primary
 	}
 	element := action.StyleButton(c, ui.ButtonBase(c), "", props)
-	element.Height(tk.ControlHeight).FontSize(bodySize(t)).Label(label).Children(func() {
+	element.Height(controlHeight(t, tk)).FontSize(bodySize(t)).Label(label).Shrink(0).Children(func() {
 		if icon != nil {
-			ui.Icon(c, icon).FontSize(t.Space(4))
+			ui.Icon(c, icon).FontSize(t.Space(4)).Shrink(0)
 		}
 		ui.Text(c, label).FontSize(bodySize(t)).SingleLine()
 	})
+	applyButtonPress(element)
 	return element
 }
 
@@ -261,13 +333,36 @@ func textButton(c *ui.Context, label string) ui.Element {
 	return standardButton(c, label, action.Text)
 }
 
+// dangerButton 是危险动作按钮，使用危险色描边与柔和表面，悬停和按压均有清晰层次。
+func dangerButton(c *ui.Context, label string) ui.Element {
+	t := *c.Theme()
+	tk := theme.TokensOf(c)
+	element := ui.ButtonBase(c).Height(controlHeight(t, tk)).PaddingX(t.Space(4)).
+		Radius(tk.BorderRadiusSM).FontSize(bodySize(t)).FontWeight(500).
+		AlignItems(ui.Center).Justify(ui.Center).Cursor(ui.CursorPointer).
+		Label(label).Shrink(0).Transition(selectTransition)
+	bg, border, fg := tk.ErrorBg, tk.ErrorBorder, tk.ErrorText
+	switch {
+	case element.Pressed():
+		bg, border, fg = tk.ErrorBgHover, tk.ErrorActive, tk.ErrorActive
+	case element.Hovered():
+		bg, border, fg = tk.ErrorBgHover, tk.ErrorHover, tk.ErrorHover
+	}
+	element.Background(bg).Border(1, border).TextColor(fg).Children(func() {
+		ui.Text(c, label).FontSize(bodySize(t)).SingleLine()
+	})
+	applyButtonPress(element)
+	return element
+}
+
 func standardButton(c *ui.Context, label string, variant action.ButtonVariant) ui.Element {
 	t := *c.Theme()
 	tk := theme.TokensOf(c)
 	element := action.StyleButton(c, ui.ButtonBase(c), "", action.ButtonProps{Variant: variant})
-	element.Height(tk.ControlHeight).FontSize(bodySize(t)).Label(label).Children(func() {
+	element.Height(controlHeight(t, tk)).FontSize(bodySize(t)).Label(label).Shrink(0).Children(func() {
 		ui.Text(c, label).FontSize(bodySize(t)).SingleLine()
 	})
+	applyButtonPress(element)
 	return element
 }
 
@@ -276,9 +371,10 @@ func pageActionButton(c *ui.Context, label string) ui.Element {
 	t := *c.Theme()
 	tk := theme.TokensOf(c)
 	element := action.StyleButton(c, ui.ButtonBase(c), "", action.ButtonProps{Variant: action.Primary})
-	element.Height(tk.ControlHeightLG).FontSize(bodySize(t)).Label(label).Children(func() {
+	element.Height(controlHeightLG(t, tk)).FontSize(bodySize(t)).Label(label).Shrink(0).Children(func() {
 		ui.Text(c, label).FontSize(bodySize(t)).SingleLine()
 	})
+	applyButtonPress(element)
 	return element
 }
 
@@ -287,7 +383,10 @@ func linkRow(c *ui.Context, p uiPalette, label string, body func()) ui.Element {
 	element := action.StyleButton(c, ui.ButtonBase(c), "", action.ButtonProps{Variant: action.Text}).
 		FillWidth().Label(label).Height(0).MinHeight(t.Space(14)).
 		Padding(t.Space(3), t.Space(3)).Radius(t.Space(1.5))
-	if element.Hovered() {
+	switch {
+	case element.Pressed():
+		element.Background(p.fill)
+	case element.Hovered():
 		element.Background(p.hover)
 	}
 	element.Children(func() {
@@ -299,9 +398,17 @@ func linkRow(c *ui.Context, p uiPalette, label string, body func()) ui.Element {
 // listRowButton 是用于列表项的透明背景文字按钮，只设置无障碍名称，不插入重复的视觉文本。
 func listRowButton(c *ui.Context, label string) ui.Element {
 	t := *c.Theme()
-	element := action.StyleButton(c, ui.ButtonBase(c), "", action.ButtonProps{Variant: action.Text})
-	return element.FillWidth().Label(label).FontSize(bodySize(t)).Cursor(ui.CursorPointer).
+	p := uiPaletteFor(c)
+	element := action.StyleButton(c, ui.ButtonBase(c), "", action.ButtonProps{Variant: action.Text}).
+		FillWidth().Label(label).FontSize(bodySize(t)).Cursor(ui.CursorPointer).
 		Radius(t.Space(1.5))
+	switch {
+	case element.Pressed():
+		element.Background(p.fill)
+	case element.Hovered():
+		element.Background(p.hover)
+	}
+	return element
 }
 
 // backButton 是统一的返回按钮，带左箭头图标与返回文案。
@@ -317,7 +424,50 @@ func backButton(c *ui.Context, p uiPalette) ui.Element {
 			ui.Text(c, locales.Back()).FontSize(bodySize(t)).SingleLine()
 		})
 	})
+	applyButtonPress(element)
 	return element
+}
+
+// progressBar 是静态直显的进度条：切换页面时直接展示当前进度，避免每次挂载从 0% 重播动画。
+func progressBar(c *ui.Context, p uiPalette, percent float32, label string) ui.Element {
+	t := p.theme
+	pct := min(max(percent, 0), 100)
+	root := ui.Column(c).FillWidth().Gap(t.Space(1.5)).Role(ui.RoleProgress).Range(0, 100, float64(pct))
+	if label != "" {
+		root.Label(label)
+	}
+	root.Children(func() {
+		if label != "" {
+			ui.Text(c, label).FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
+		}
+		ui.Box(c).FillWidth().Height(t.Space(1)).Radius(t.Space(1)).Clip().Background(p.fill).Children(func() {
+			if pct > 0 {
+				ui.Box(c).Absolute().Left(0).Top(0).Bottom(0).WidthPercent(pct).
+					Radius(t.Space(1)).Background(p.accent)
+			}
+		})
+	})
+	return root
+}
+
+// showDelayedBusy 在异步任务超过 250ms 后才显示加载指示器，避免 <300ms 的本地计算闪现造成画面抖动。
+func showDelayedBusy(c *ui.Context, key string, busy bool) bool {
+	since := ui.Local(ui.Box(c.Key(key)).Absolute().Size(0, 0), "busy-since", func() time.Time {
+		return time.Time{}
+	})
+	if !busy {
+		*since = time.Time{}
+		return false
+	}
+	if since.IsZero() {
+		*since = c.Now()
+	}
+	elapsed := c.Now().Sub(*since)
+	if elapsed >= busyDelay {
+		return true
+	}
+	c.After(busyDelay - elapsed)
+	return false
 }
 
 // rule 是页面里的横向分割线，统一使用 Lobe MyGo 的分割线颜色。
@@ -331,8 +481,9 @@ func rule(c *ui.Context) {
 // 先关闭下拉留下的 panel 节点，带着它正在进行的过渡和上次的尺寸，把选项裁掉。
 // 给 panel 上独立的 Key 后每个下拉的弹窗是全新节点，按自己的内容布局。
 func selectField(c *ui.Context, key string, value *string, labels []string, label string) ui.Element {
-	if len(labels) == 0 {
-		labels = []string{""}
+	empty := len(labels) == 0
+	if empty {
+		labels = []string{locales.SelectNoOptions()}
 	}
 	chosen := 0
 	for index, item := range labels {
@@ -343,27 +494,43 @@ func selectField(c *ui.Context, key string, value *string, labels []string, labe
 	current := strconv.Itoa(chosen)
 	t := *c.Theme()
 	tk := theme.TokensOf(c)
+	p := uiPaletteFor(c)
 	sel := ui.SelectBase(c, &current)
-	trigger := sel.Trigger.Height(tk.ControlHeight).Padding(t.Space(1), t.Space(3)).
+	trigger := sel.Trigger.Height(controlHeight(t, tk)).Padding(t.Space(1), t.Space(3)).
 		Gap(t.Space(2)).Radius(tk.BorderRadius).FontSize(bodySize(t)).
 		AlignItems(ui.Center).TextColor(tk.Text).Cursor(ui.CursorPointer).Unselectable().
-		Transition(selectTransition).Background(tk.BgContainer).Border(1, ui.Transparent).
+		Transition(selectTransition).
 		Label(label).Value(labels[chosen])
+	bg, border := p.panel, p.borderStrong
+	switch {
+	case empty:
+		trigger.Disabled(true).TextColor(tk.TextDisabled).Cursor(ui.CursorNotAllowed)
+		border = p.border
+	case sel.Open():
+		border = p.accent
+	case trigger.Hovered():
+		bg = p.hover
+		border = p.inkSecondary
+	}
+	trigger.Background(bg).Border(1, border)
 	trigger.Children(func() {
 		ui.Row(c).Grow(1).MinWidth(0).Gap(t.Space(2)).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, labels[chosen]).SingleLine()
+			text := ui.Text(c, labels[chosen]).SingleLine().MinWidth(0).Shrink(1)
+			if !empty && labels[chosen] != "" {
+				text.Tooltip(labels[chosen])
+			}
 		})
-		turn := float32(0)
-		if sel.Open() {
-			turn = 180
-		}
 		arrow := ui.Icon(c, lucide.ChevronDown()).FontSize(t.Space(4)).TextColor(tk.TextSecondary).Shrink(0)
-		arrow.Rotate(arrow.AnimateTo("turn", turn, selectArrowTurn))
+		if sel.Open() {
+			arrow.Rotate(180)
+		}
 	})
 	width := trigger.Bounds().W
+	popupMaxWidth := max(width, t.Space(96))
 	sel.Popup(func(panel ui.Element) {
 		panel.Key(key)
-		panel.Margin(t.Space(1), 0, 0, 0).Padding(t.Space(1)).Radius(tk.BorderRadius).MinWidth(width).
+		panel.Margin(t.Space(1), 0, 0, 0).Padding(t.Space(1)).Radius(tk.BorderRadius).
+			MinWidth(width).MaxWidth(popupMaxWidth).
 			Background(tk.BgElevated).Transition(motion.Popup()).AttachedOrigin()
 		tk.Elevate(panel, theme.BoxShadowSecondary)
 		// 选项多时滚动，避免列表超出窗口。
@@ -373,44 +540,59 @@ func selectField(c *ui.Context, key string, value *string, labels []string, labe
 					index := index
 					selected := index == chosen
 					opt := sel.Item(strconv.Itoa(index)).Label(item).
-						Padding(t.Space(1.5), t.Space(3)).Height(tk.ControlHeight).
+						Padding(t.Space(1.5), t.Space(3)).Height(controlHeight(t, tk)).
 						Gap(t.Space(2)).AlignItems(ui.Center).Radius(tk.BorderRadiusSM).
 						AlignSelf(ui.Stretch).FontSize(bodySize(t)).TextColor(tk.Text)
 					if opt.Highlighted() {
 						opt.Background(tk.FillTertiary)
 					}
 					opt.Children(func() {
-						ui.Text(c, item).Grow(1).SingleLine()
+						ui.Text(c, item).Grow(1).Shrink(1).MinWidth(0).SingleLine().Tooltip(item)
 						if selected {
 							ui.Icon(c, lucide.Check()).FontSize(t.Space(4)).TextColor(tk.Primary).
-								Margin(0, 0, 0, t.Space(2))
+								Shrink(0).Margin(0, 0, 0, t.Space(2))
 						}
 					})
 				}
 			})
 		})
 	})
-	if index, err := strconv.Atoi(current); err == nil && index != chosen && index < len(labels) {
-		*value = labels[index]
+	if !empty {
+		if index, err := strconv.Atoi(current); err == nil && index != chosen && index < len(labels) {
+			*value = labels[index]
+		}
 	}
 	return trigger
 }
 
+const busyDelay = 250 * time.Millisecond
+
 var (
-	selectTransition = ui.ElementTransition{Duration: 150 * time.Millisecond, Ease: motion.EaseOut, Colors: true}
-	selectArrowTurn  = ui.Animation{Duration: 150 * time.Millisecond, Ease: motion.EaseOut}
-	inputTransition  = ui.ElementTransition{Duration: 150 * time.Millisecond, Ease: motion.EaseOut, Colors: true}
-	segmentSlide     = ui.ElementTransition{Duration: 240 * time.Millisecond, Ease: motion.EaseOut}
+	buttonPress      = ui.Animation{Duration: 120 * time.Millisecond, Ease: motion.EaseOutQuint}
+	microButtonPress = ui.Animation{Duration: 100 * time.Millisecond, Ease: motion.EaseOutQuint}
+	selectTransition = ui.ElementTransition{Duration: 120 * time.Millisecond, Ease: motion.EaseOut, Colors: true}
 	segmentPress     = ui.Animation{Duration: 120 * time.Millisecond, Ease: motion.EaseOut}
+	drawerTransition = ui.ElementTransition{
+		Duration:     200 * time.Millisecond,
+		Ease:         motion.EaseOutQuint,
+		ExitDuration: 140 * time.Millisecond,
+		ExitEase:     motion.ExitEase,
+		Enter:        &ui.Motion{X: 16},
+		Exit:         &ui.Motion{X: 16},
+	}
+	wizardDoneEnter = ui.ElementTransition{
+		Duration: 240 * time.Millisecond,
+		Ease:     motion.EaseOutBack,
+		Enter:    &ui.Motion{Scale: 0.85},
+	}
 )
 
 func inputRow(c *ui.Context) ui.Element {
 	t := *c.Theme()
 	tk := theme.TokensOf(c)
-	return ui.Row(c).Height(tk.ControlHeight).PaddingX(t.Space(3)).
+	return ui.Row(c).Height(controlHeight(t, tk)).PaddingX(t.Space(3)).
 		Radius(tk.BorderRadius).AlignItems(ui.Center).Gap(t.Space(2)).
-		FontSize(bodySize(t)).TextColor(tk.Text).Cursor(ui.CursorText).
-		Transition(inputTransition)
+		FontSize(bodySize(t)).TextColor(tk.Text).Cursor(ui.CursorText)
 }
 
 // searchField 是 36 高、16 字号的搜索框。
@@ -418,7 +600,7 @@ func searchField(c *ui.Context, value *string, label, placeholder string) ui.Ele
 	t := *c.Theme()
 	tk := theme.TokensOf(c)
 	return ui.SearchField(c, value).Label(label).Placeholder(placeholder).
-		MinHeight(tk.ControlHeight).FontSize(bodySize(t)).FillWidth()
+		MinHeight(controlHeight(t, tk)).FontSize(bodySize(t)).FillWidth()
 }
 
 // dateField 是 36 高、16 字号的日期选择框。
@@ -426,7 +608,7 @@ func dateField(c *ui.Context, value *time.Time, label string, props field.DatePi
 	t := *c.Theme()
 	tk := theme.TokensOf(c)
 	return field.DatePicker(c, value, props).Label(label).
-		Height(tk.ControlHeight).FontSize(bodySize(t)).Radius(tk.BorderRadius)
+		Height(controlHeight(t, tk)).FontSize(bodySize(t)).Radius(tk.BorderRadius)
 }
 
 func styleInputRow(c *ui.Context, root ui.Element, focused bool) {
@@ -440,11 +622,12 @@ func styleInputRow(c *ui.Context, root ui.Element, focused bool) {
 
 // textField 是 36 高、16 字号的单行输入框。
 func textField(c *ui.Context, value *string, label, placeholder string) ui.Element {
+	t := *c.Theme()
 	tk := theme.TokensOf(c)
 	root := inputRow(c)
 	var input ui.Element
 	root.Children(func() {
-		input = ui.TextInputBase(c, value).Grow(1).Height(tk.ControlHeight).Placeholder(placeholder).
+		input = ui.TextInputBase(c, value).Grow(1).MinWidth(0).Height(controlHeight(t, tk)).Placeholder(placeholder).
 			PlaceholderColor(tk.TextPlaceholder)
 	})
 	styleInputRow(c, root, input.Focused())
@@ -457,8 +640,7 @@ func textAreaField(c *ui.Context, value *string, label, placeholder string, minR
 	t := *c.Theme()
 	tk := theme.TokensOf(c)
 	root := ui.Column(c).Padding(t.Space(2), t.Space(3)).Radius(tk.BorderRadius).
-		FontSize(bodySize(t)).TextColor(tk.Text).Cursor(ui.CursorText).
-		Transition(inputTransition)
+		FontSize(bodySize(t)).TextColor(tk.Text).Cursor(ui.CursorText)
 	var area ui.Element
 	root.Children(func() {
 		area = ui.TextAreaBase(c, value).Lines(minRows, maxRows).FocusRing(false).
@@ -489,9 +671,13 @@ func passwordField(c *ui.Context, value *string, label, placeholder string) ui.E
 		toggle := ui.ButtonBase(c).Label(text).Size(t.Space(7), t.Space(7)).
 			Radius(t.Space(1.5)).Center().Cursor(ui.CursorPointer).
 			TextColor(tk.TextTertiary)
-		if toggle.Hovered() {
-			toggle.TextColor(tk.Text)
+		switch {
+		case toggle.Pressed():
+			toggle.Background(tk.Fill).TextColor(tk.Text)
+		case toggle.Hovered():
+			toggle.Background(tk.FillSecondary).TextColor(tk.Text)
 		}
+		applyMicroPress(toggle)
 		if toggle.Clicked() {
 			*visible = !*visible
 		}
@@ -581,9 +767,13 @@ func numberControl(c *ui.Context, glyph *ui.SVG, label string) bool {
 	button := ui.ButtonBase(c).Label(label).Size(t.Space(7), t.Space(4.5)).
 		Radius(t.Space(1)).Center().Cursor(ui.CursorPointer).
 		TextColor(tk.TextTertiary)
-	if button.Hovered() {
+	switch {
+	case button.Pressed():
+		button.Background(tk.Fill).TextColor(tk.Text)
+	case button.Hovered():
 		button.Background(tk.FillSecondary).TextColor(tk.Text)
 	}
+	applyMicroPress(button)
 	button.Children(func() {
 		ui.Icon(c, glyph).FontSize(t.Space(4))
 	})
@@ -596,7 +786,7 @@ func segmentedField(c *ui.Context, selected *int, labels []string, label string)
 	tk := theme.TokensOf(c)
 	p := uiPaletteFor(c)
 	parts := ui.SegmentedBase(c, selected, len(labels))
-	track := parts.Track.Height(tk.ControlHeight).Padding(t.Space(1)).
+	track := parts.Track.Height(controlHeight(t, tk)).MaxWidthPercent(100).Padding(t.Space(1)).
 		Gap(t.Space(1)).Radius(tk.BorderRadiusLG).
 		Background(tk.BgLayout).Border(1, tk.FillQuaternary)
 	track.Label(label)
@@ -604,7 +794,7 @@ func segmentedField(c *ui.Context, selected *int, labels []string, label string)
 		ui.Box(c).Absolute().Left(0).Right(0).Bottom(0).Height(1).
 			Background(p.borderStrong).ZIndex(-1)
 		for index, option := range labels {
-			segment := parts.Segment(index).FillHeight().PaddingX(t.Space(4)).
+			segment := parts.Segment(index).FillHeight().MinWidth(0).Shrink(1).PaddingX(t.Space(3)).
 				Radius(tk.BorderRadius).FontSize(bodySize(t)).FontWeight(500).
 				Cursor(ui.CursorPointer)
 			color := tk.TextSecondary
@@ -622,11 +812,11 @@ func segmentedField(c *ui.Context, selected *int, labels []string, label string)
 				if index == *selected {
 					ui.Box(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).
 						Radius(tk.BorderRadius).Background(p.accentSoft).
-						Border(1, p.accent).ZIndex(-1).Transition(segmentSlide)
+						Border(1, p.accent).ZIndex(-1)
 					ui.Box(c).Absolute().Left(0).Right(0).Bottom(0).Height(2).
 						Background(p.accent).ZIndex(1)
 				}
-				ui.Text(c, option).SingleLine()
+				ui.Text(c, option).SingleLine().MinWidth(0).Shrink(1).Tooltip(option)
 			})
 		}
 	})
@@ -674,6 +864,7 @@ const (
 )
 
 type modalProps struct {
+	Key        string
 	Title      string
 	Width      float32
 	OkText     string
@@ -692,7 +883,11 @@ func modal(c *ui.Context, open *bool, p modalProps, content func()) bool {
 	tk := theme.TokensOf(c)
 	enter := motion.Modal()
 	fade := motion.Backdrop()
-	state := ui.Local(ui.Box(c).Absolute().Size(0, 0), "dialog", func() dialogState {
+	key := p.Key
+	if key == "" {
+		key = p.Title
+	}
+	state := ui.Local(ui.Box(c.Key("modal-"+key)).Absolute().Size(0, 0), "dialog", func() dialogState {
 		return dialogState{}
 	})
 	if *open {
@@ -745,7 +940,7 @@ func modal(c *ui.Context, open *bool, p modalProps, content func()) bool {
 				ui.Row(c).MinHeight(t.Space(10)).Padding(t.Space(2), t.Space(4)).
 					AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
 					ui.Text(c, p.Title).FontSize(sectionSize(t)).FontWeight(600).
-						Grow(1).SingleLine()
+						Grow(1).Shrink(1).MinWidth(0).SingleLine().Tooltip(p.Title)
 					if modalCloseButton(c, tk).Clicked() {
 						*open = false
 					}
@@ -784,18 +979,135 @@ func modal(c *ui.Context, open *bool, p modalProps, content func()) bool {
 	return ok
 }
 
+// confirmDangerModal 是不可恢复操作的统一确认弹窗：
+// 复用对称进出场动效，将默认焦点放在取消按钮，危险按钮以 16px 间距和危险色隔离。
+func confirmDangerModal(c *ui.Context, p uiPalette, key string, open *bool, title, body, cancelText, confirmText string) bool {
+	t := p.theme
+	confirmed := false
+	modal(c, open, modalProps{
+		Key:      key,
+		Title:    title,
+		Width:    modalWidthCompact,
+		NoFooter: true,
+	}, func() {
+		ui.Column(c).FillWidth().Gap(t.Space(4)).Children(func() {
+			if body != "" {
+				ui.Text(c, body).FontSize(bodySize(t)).TextColor(p.inkSecondary).Pretty()
+			}
+			ui.Row(c).FillWidth().Wrap().Justify(ui.End).AlignItems(ui.Center).Gap(t.Space(4)).Children(func() {
+				cancel := plainButton(c, textOr(cancelText, locales.PlanCancel())).AutoFocus()
+				if cancel.Clicked() {
+					*open = false
+				}
+				if dangerButton(c, confirmText).Clicked() {
+					confirmed = true
+					*open = false
+				}
+			})
+		})
+	})
+	return confirmed
+}
+
 func modalCloseButton(c *ui.Context, tk *theme.Tokens) ui.Element {
 	t := *c.Theme()
 	button := ui.ButtonBase(c).Label(locales.Close()).Size(t.Space(9), t.Space(9)).
-		Radius(t.Space(2)).Center().Cursor(ui.CursorPointer).
+		Shrink(0).Radius(t.Space(2)).Center().Cursor(ui.CursorPointer).
 		TextColor(tk.TextTertiary)
-	if button.Hovered() {
+	switch {
+	case button.Pressed():
+		button.Background(tk.Fill).TextColor(tk.Text)
+	case button.Hovered():
 		button.Background(tk.FillSecondary).TextColor(tk.Text)
 	}
+	applyMicroPress(button)
 	button.Children(func() {
 		ui.Icon(c, lucide.X()).FontSize(t.Space(4))
 	})
 	return button
+}
+
+var pageSizeOptions = []int{50, 100, 200, 500}
+
+// normalizePageSize 返回合法的每页条数，未设置时默认 200。
+func normalizePageSize(size int) int {
+	for _, option := range pageSizeOptions {
+		if size == option {
+			return size
+		}
+	}
+	return 200
+}
+
+// paginationBar 渲染带每页条数切换、范围统计与上一页/下一页的通用翻页栏。
+func paginationBar(c *ui.Context, p uiPalette, keyPrefix string, page, pageSize *int, total int, onChange func()) {
+	if total <= 0 {
+		return
+	}
+	t := p.theme
+	size := normalizePageSize(*pageSize)
+	*pageSize = size
+	totalPages := (total + size - 1) / size
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if *page >= totalPages {
+		*page = totalPages - 1
+	}
+	if *page < 0 {
+		*page = 0
+	}
+	start := *page*size + 1
+	end := min((*page+1)*size, total)
+
+	ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(t.Space(2)).
+		Padding(t.Space(1), 0, 0, 0).Children(func() {
+		ui.Textf(c, locales.PaginationSummary(), formatInt(start), formatInt(end), formatInt(total)).
+			FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum").SingleLine()
+		ui.Spacer(c)
+		labels := make([]string, 0, len(pageSizeOptions))
+		chosen := ""
+		for _, opt := range pageSizeOptions {
+			lbl := fmt.Sprintf(locales.PaginationPerPageOption(), formatInt(opt))
+			labels = append(labels, lbl)
+			if opt == size {
+				chosen = lbl
+			}
+		}
+		nextSizeLabel := chosen
+		selectField(c, keyPrefix+"-page-size", &nextSizeLabel, labels, locales.PaginationPageSize()).
+			Width(t.Space(40))
+		if nextSizeLabel != chosen {
+			for idx, lbl := range labels {
+				if lbl == nextSizeLabel {
+					*pageSize = pageSizeOptions[idx]
+					*page = 0
+					if onChange != nil {
+						onChange()
+					}
+					break
+				}
+			}
+		}
+		prev := plainButton(c, locales.PaginationPrev())
+		prev.Disabled(*page <= 0)
+		if prev.Clicked() {
+			*page--
+			if onChange != nil {
+				onChange()
+			}
+		}
+		ui.Text(c, formatInt(*page+1)+" / "+formatInt(totalPages)).
+			FontSize(captionSize(t)).TextColor(p.inkSecondary).FontFeatures("tnum").Shrink(0)
+		next := plainButton(c, locales.PaginationNext())
+		next.Disabled(*page >= totalPages-1)
+		if next.Clicked() {
+			*page++
+			if onChange != nil {
+				onChange()
+			}
+		}
+	})
 }
 
 func textOr(value, fallback string) string {

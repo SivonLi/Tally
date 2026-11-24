@@ -32,7 +32,7 @@ func (a *app) saveSchoolSettings() {
 	a.reloadSchoolSettings(ctx)
 	a.reloadDataPages(ctx)
 	a.settingsForm = form.New(a.settingsFormValuesFromDrafts())
-	a.invalidateSettings()
+	a.notifySettings(locales.SettingsSchoolSaved())
 }
 
 func (a *app) backupNow() {
@@ -55,6 +55,7 @@ func (a *app) backupNow() {
 	}
 	a.settingsError = ""
 	a.reloadSchoolSettings(ctx)
+	a.notifySettings(locales.SettingsBackupCreated())
 }
 
 func (a *app) restoreBackup(name string) {
@@ -84,6 +85,7 @@ func (a *app) restoreBackup(name string) {
 	a.reloadAssessments(ctx)
 	a.reloadSchoolSettings(ctx)
 	a.settingsForm = form.New(a.settingsFormValuesFromDrafts())
+	a.notifySettings(locales.SettingsBackupRestored())
 }
 
 func (a *app) reopenStore() bool {

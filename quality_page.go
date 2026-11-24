@@ -92,9 +92,61 @@ func (a *app) qualityImportFilterOptions(overviews []qualityExamOverview, runs [
 	return labels
 }
 
+type qualityListRowKind int
+
+const (
+	qualityRowExam qualityListRowKind = iota
+	qualityRowGroup
+	qualityRowIssue
+)
+
+type qualityListRow struct {
+	Kind     qualityListRowKind
+	Key      string
+	Overview qualityExamOverview
+	GroupKey string
+	Count    int
+	Issue    store.ExamQualityIssue
+}
+
+func buildQualityRows(visible []qualityExamOverview) []qualityListRow {
+	rows := make([]qualityListRow, 0, len(visible)*4)
+	for _, overview := range visible {
+		rows = append(rows, qualityListRow{
+			Kind:     qualityRowExam,
+			Key:      fmt.Sprintf("exam:%d:%d", overview.ExamID, overview.CohortID),
+			Overview: overview,
+		})
+		for _, group := range qualityIssueGroups(overview.Issues) {
+			rows = append(rows, qualityListRow{
+				Kind:     qualityRowGroup,
+				Key:      fmt.Sprintf("group:%d:%d:%s", overview.ExamID, overview.CohortID, group.Key),
+				Overview: overview,
+				GroupKey: group.Key,
+				Count:    len(group.Issues),
+			})
+			for idx, issue := range group.Issues {
+				rows = append(rows, qualityListRow{
+					Kind:     qualityRowIssue,
+					Key:      fmt.Sprintf("issue:%d:%d:%s:%d:%s:%d", overview.ExamID, overview.CohortID, group.Key, idx, issue.Code, issue.Row),
+					Overview: overview,
+					Issue:    issue,
+				})
+			}
+		}
+	}
+	return rows
+}
+
 func (a *app) qualityPage(c *ui.Context, p uiPalette) {
 	t := p.theme
 	if a.store == nil {
+		errorState(c, p, locales.StoreUnavailable(), locales.StoreUnavailableHint(), func() {
+			a.loadError = ""
+			a.load()
+		}, func() {
+			a.openSettings()
+		})
 		return
 	}
 	if !a.qualityLoaded {
@@ -115,12 +167,15 @@ func (a *app) qualityPage(c *ui.Context, p uiPalette) {
 		pageHeading(c, p, locales.NavQuality(), locales.QualityPageSubtitle(), func() {
 			if plainButton(c, locales.ExamRevalidate()).Clicked() {
 				a.reloadQuality(context.Background())
+				if a.qualityError == "" {
+					a.notifyMain(locales.QualityRevalidatedToast())
+				}
 			}
 		})
 		if a.qualityError != "" {
 			notice(c, p, noticeDanger, a.qualityError)
 		}
-		ui.Row(c).AlignItems(ui.End).Wrap().Gap(t.Space(2)).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.End).Wrap().Gap(t.Space(2)).Children(func() {
 			segmentedField(c, &a.qualitySeverity,
 				[]string{locales.ExamQualityAll(), locales.ExamQualityBlocking(),
 					locales.ExamQualityWarnings()}, locales.ExamQualitySeverity())
@@ -133,44 +188,67 @@ func (a *app) qualityPage(c *ui.Context, p uiPalette) {
 			badge(c, p, fmt.Sprintf(locales.ExamQualityWarningCount(), warnings), toneWarning)
 		})
 		if len(visible) == 0 {
+			if a.qualitySeverity != 0 || a.qualityDataItem != "" || a.qualityImportRun != 0 {
+				emptyState(c, p, iconQuality, locales.FilterEmptyTitle(), locales.FilterEmptyHint(), func() {
+					if plainButton(c, locales.ClearFilters()).Clicked() {
+						a.qualitySeverity = 0
+						a.qualityDataItem = ""
+						a.qualityImportRun = 0
+					}
+				})
+				return
+			}
 			emptyState(c, p, iconQuality, locales.ExamQualityEmpty(), locales.ExamQualityEmptyHint(), nil)
 			return
 		}
-		ui.Scroll(c).Fill().Children(func() {
-			ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
-				for _, overview := range visible {
-					overview := overview
-					ui.Column(c).FillWidth().Gap(t.Space(2)).Padding(t.Space(1), 0).
-						Children(func() {
-							rule(c)
-							row := linkRow(c, p, overview.ExamLabel, func() {
-								ui.Column(c).Grow(1).Gap(0).Children(func() {
-									ui.Text(c, overview.ExamLabel).FontSize(bodySize(t)).FontWeight(600)
-									ui.Textf(c, locales.ExamQualityCohortMeta(), overview.CohortName,
-										a.stageName(overview.GradeLevel)).FontSize(captionSize(t)).
-										TextColor(p.muted)
-								})
-								if plainButton(c, locales.View()).Clicked() {
-									a.openQualityExam(overview)
-								}
-							})
-							if row.Clicked() {
-								a.openQualityExam(overview)
-							}
-							for _, group := range qualityIssueGroups(overview.Issues) {
-								group := group
-								sectionHeading(c, p, a.qualityDataItemName(group.Key), len(group.Issues))
-								for _, issue := range group.Issues {
-									issue := issue
-									a.qualityIssueRow(c, p, issue, func() {
-										a.openQualityIssue(overview, issue)
-									})
-								}
-							}
+		rows := buildQualityRows(visible)
+		var openExam *qualityExamOverview
+		var openIssueExam *qualityExamOverview
+		var openIssue *store.ExamQualityIssue
+		a.qualityListState.Key = func(row int) any { return rows[row].Key }
+		ui.List(c, &a.qualityListState, len(rows), func(row int) {
+			entry := rows[row]
+			switch entry.Kind {
+			case qualityRowExam:
+				overview := entry.Overview
+				ui.Column(c).FillWidth().Gap(t.Space(1)).Padding(t.Space(1), 0).Children(func() {
+					rule(c)
+					btn := linkRow(c, p, overview.ExamLabel, func() {
+						ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(0).Children(func() {
+							ui.Text(c, overview.ExamLabel).FontSize(bodySize(t)).FontWeight(600).
+								SingleLine().MinWidth(0).Shrink(1).Tooltip(overview.ExamLabel)
+							ui.Textf(c, locales.ExamQualityCohortMeta(), overview.CohortName,
+								a.stageName(overview.GradeLevel)).FontSize(captionSize(t)).
+								TextColor(p.muted).SingleLine().MinWidth(0).Shrink(1)
 						})
-				}
-			})
-		})
+						ui.Text(c, locales.View()).FontSize(captionSize(t)).TextColor(p.accent).Shrink(0)
+						ui.Icon(c, iconArrowRight).FontSize(t.Space(4)).TextColor(p.muted).Shrink(0)
+					})
+					if btn.Clicked() {
+						copied := overview
+						openExam = &copied
+					}
+				})
+			case qualityRowGroup:
+				ui.Column(c).FillWidth().Padding(t.Space(2), 0, t.Space(1), 0).Children(func() {
+					sectionHeading(c, p, a.qualityDataItemName(entry.GroupKey), entry.Count)
+				})
+			case qualityRowIssue:
+				overview := entry.Overview
+				issue := entry.Issue
+				a.qualityIssueRow(c, p, issue, func() {
+					copiedOverview := overview
+					copiedIssue := issue
+					openIssueExam = &copiedOverview
+					openIssue = &copiedIssue
+				})
+			}
+		}).Label(locales.NavQuality()).Grow(1).Shrink(1).MinHeight(0).Fill()
+		if openExam != nil {
+			a.openQualityExam(*openExam)
+		} else if openIssueExam != nil && openIssue != nil {
+			a.openQualityIssue(*openIssueExam, *openIssue)
+		}
 	})
 }
 
@@ -245,18 +323,18 @@ func (a *app) qualityIssueRow(c *ui.Context, p uiPalette, issue store.ExamQualit
 	}
 	label := a.examQualityText(issue)
 	element := listRowButton(c, label).
-		Height(0).MinHeight(t.Space(14)).Padding(t.Space(3), t.Space(3)).
-		Background(ui.Transparent)
+		Height(0).MinHeight(t.Space(14)).Padding(t.Space(3), t.Space(3))
 	element.Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Start).Gap(t.Space(2)).Children(func() {
 			badge(c, p, a.examSeverityName(issue.Severity), tone)
-			ui.Column(c).Grow(1).Gap(0).Children(func() {
+			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(0).Children(func() {
 				ui.Text(c, label).FontSize(bodySize(t)).Pretty()
 				if meta := a.qualityIssueMeta(issue); meta != "" {
-					ui.Text(c, meta).FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
+					ui.Text(c, meta).FontSize(captionSize(t)).TextColor(p.muted).
+						SingleLine().MinWidth(0).Shrink(1).Tooltip(meta)
 				}
 			})
-			ui.Icon(c, iconArrowRight).FontSize(t.Space(4)).TextColor(p.muted)
+			ui.Icon(c, iconArrowRight).FontSize(t.Space(4)).TextColor(p.muted).Shrink(0)
 		})
 	})
 	if element.Clicked() {

@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -45,8 +44,8 @@ type importWizardState struct {
 	ConfirmedWarnings bool
 	Error             string
 	Busy              bool
+	Reading           bool
 	Summary           *store.ImportSummary
-	Started           time.Time
 	RosterSkipped     int
 }
 
@@ -149,6 +148,9 @@ func (a *app) wizardContinueKind(kind string) {
 
 func (a *app) wizardChooseFile() {
 	wizard := a.importWizard
+	if wizard == nil || wizard.Reading {
+		return
+	}
 	go func() {
 		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
 			Title:   locales.ImportWizardChooseFile(),
@@ -157,8 +159,25 @@ func (a *app) wizardChooseFile() {
 		if err != nil || len(paths) == 0 || a.win == nil {
 			return
 		}
+		path := paths[0]
 		a.win.Update(func() {
-			a.loadWizardFile(wizard, paths[0])
+			if a.importWizard != wizard {
+				return
+			}
+			wizard.Reading = true
+			wizard.Error = ""
+			wizard.FilePath = path
+			wizard.FileName = filepath.Base(path)
+		})
+		workbook, inspectErr := importer.InspectWorkbook(path, importer.Options{
+			ConversionDir: filepath.Join(a.dataDir, "converted"),
+		})
+		a.win.Update(func() {
+			if a.importWizard != wizard {
+				return
+			}
+			wizard.Reading = false
+			a.applyWizardWorkbook(wizard, path, workbook, inspectErr)
 		})
 	}()
 }
@@ -171,6 +190,13 @@ func (a *app) loadWizardFile(wizard *importWizardState, path string) {
 	workbook, err := importer.InspectWorkbook(path, importer.Options{
 		ConversionDir: filepath.Join(a.dataDir, "converted"),
 	})
+	a.applyWizardWorkbook(wizard, path, workbook, err)
+}
+
+func (a *app) applyWizardWorkbook(wizard *importWizardState, path string, workbook *importer.Workbook, err error) {
+	if wizard == nil {
+		return
+	}
 	if err != nil {
 		wizard.Error = err.Error()
 		return
@@ -413,6 +439,7 @@ func (a *app) writeWizardIssues(wizard *importWizardState, path string) {
 		wizard.Error = err.Error()
 		return
 	}
+	a.notifyMain(fmt.Sprintf(locales.ImportWizardIssuesExported(), filepath.Base(path)))
 }
 func (a *app) wizardApply() {
 	wizard := a.importWizard
@@ -421,7 +448,6 @@ func (a *app) wizardApply() {
 		return
 	}
 	wizard.Busy = true
-	wizard.Started = time.Now()
 	work := func() (store.ImportSummary, error) {
 		stored, err := a.store.StoreImportFile(wizard.FilePath, wizard.Report.FileHash)
 		if err != nil {
@@ -512,6 +538,7 @@ func (a *app) writeWizardTemplate(wizard *importWizardState, path string) {
 		return
 	}
 	wizard.Error = ""
+	a.notifyMain(fmt.Sprintf(locales.ImportWizardTemplateSaved(), filepath.Base(path)))
 }
 
 func (a *app) importWizardPage(c *ui.Context, p uiPalette) {
@@ -537,8 +564,17 @@ func (a *app) importWizardPage(c *ui.Context, p uiPalette) {
 		if wizard.Error != "" {
 			notice(c, p, noticeDanger, wizard.Error)
 		}
-		if wizard.Busy {
-			notice(c, p, noticeInfo, locales.ImportBusy())
+		if showDelayedBusy(c, "wizard-reading", wizard.Reading) {
+			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+				ui.Spinner(c).Label(locales.ImportWizardReadingFile())
+				ui.Text(c, locales.ImportWizardReadingFile()).FontSize(bodySize(t)).TextColor(p.muted)
+			})
+		}
+		if showDelayedBusy(c, "wizard-busy", wizard.Busy) {
+			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+				ui.Spinner(c).Label(locales.ImportBusy())
+				ui.Text(c, locales.ImportBusy()).FontSize(bodySize(t)).TextColor(p.muted)
+			})
 		}
 		switch wizard.Step {
 		case wizardStepItem:
@@ -626,7 +662,9 @@ func (a *app) wizardFileStep(c *ui.Context, p uiPalette, wizard *importWizardSta
 		ui.Text(c, a.importKindColumns(wizard.Kind)).FontSize(captionSize(t)).
 			TextColor(p.muted).Pretty()
 		ui.Row(c).Gap(t.Space(2)).Children(func() {
-			if labelledButton(c, locales.ImportWizardChooseFile(), iconImports, true).Clicked() {
+			choose := labelledButton(c, locales.ImportWizardChooseFile(), iconImports, true)
+			choose.Disabled(wizard.Reading)
+			if choose.Clicked() {
 				a.wizardChooseFile()
 			}
 			if plainButton(c, locales.ImportWizardDownloadTemplate()).Clicked() {
@@ -634,8 +672,9 @@ func (a *app) wizardFileStep(c *ui.Context, p uiPalette, wizard *importWizardSta
 			}
 		})
 		if wizard.FileName != "" {
-			ui.Textf(c, locales.ImportWizardSelectedFile(), wizard.FileName).
-				FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
+			shown := fmt.Sprintf(locales.ImportWizardSelectedFile(), wizard.FileName)
+			ui.Text(c, shown).FontSize(captionSize(t)).TextColor(p.muted).
+				SingleLine().TruncateMiddle().MinWidth(0).Tooltip(wizard.FilePath)
 		}
 	})
 }
@@ -763,31 +802,31 @@ func (a *app) wizardValidateStep(c *ui.Context, p uiPalette, wizard *importWizar
 				TextColor(p.muted).Pretty()
 		}
 		if len(wizard.Issues) == 0 {
-			ui.Text(c, locales.ImportWizardNoIssues()).FontSize(bodySize(t)).TextColor(p.muted)
+			smallEmptyState(c, p, locales.ImportWizardNoIssues())
 		} else {
-			ui.Scroll(c).Grow(1).Shrink(1).MinHeight(0).Children(func() {
-				ui.Column(c).FillWidth().Gap(t.Space(1)).Children(func() {
-					for _, issue := range wizard.Issues {
-						issue := issue
-						tone := p.warning
-						if issue.Severity == "blocking" {
-							tone = p.danger
+			a.wizardIssuesList.Key = func(row int) any {
+				issue := wizard.Issues[row]
+				return fmt.Sprintf("%d:%s:%d:%s", row, issue.Code, issue.Row, issue.Column)
+			}
+			ui.List(c, &a.wizardIssuesList, len(wizard.Issues), func(row int) {
+				issue := wizard.Issues[row]
+				tone := p.warning
+				if issue.Severity == "blocking" {
+					tone = p.danger
+				}
+				ui.Row(c).FillWidth().AlignItems(ui.Start).Gap(t.Space(2)).Padding(t.Space(1), 0).Children(func() {
+					ui.Box(c).Width(t.Space(1)).Height(t.Space(4)).Radius(t.Space(1)).
+						Shrink(0).Background(tone)
+					ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(0).Children(func() {
+						ui.Text(c, a.importIssueText(issue)).FontSize(bodySize(t)).Pretty()
+						if issue.Row > 0 {
+							ui.Textf(c, locales.ImportIssueLocation(), issue.Row,
+								a.importColumnName(issue.Column)).FontSize(captionSize(t)).
+								TextColor(p.muted).FontFeatures("tnum")
 						}
-						ui.Row(c).FillWidth().AlignItems(ui.Start).Gap(t.Space(2)).Children(func() {
-							ui.Box(c).Width(t.Space(1)).Height(t.Space(4)).Radius(t.Space(1)).
-								Background(tone)
-							ui.Column(c).Grow(1).Gap(0).Children(func() {
-								ui.Text(c, a.importIssueText(issue)).FontSize(bodySize(t)).Pretty()
-								if issue.Row > 0 {
-									ui.Textf(c, locales.ImportIssueLocation(), issue.Row,
-										a.importColumnName(issue.Column)).FontSize(captionSize(t)).
-										TextColor(p.muted).FontFeatures("tnum")
-								}
-							})
-						})
-					}
+					})
 				})
-			})
+			}).Label(locales.ImportStepValidate()).Grow(1).Shrink(1).MinHeight(0).Fill()
 			if wizard.Kind == importer.KindScores && a.wizardUnknownRosterCount(wizard) > 0 {
 				ui.Column(c).FillWidth().Gap(t.Space(1)).Children(func() {
 					ui.Row(c).Gap(t.Space(2)).Wrap().Children(func() {
@@ -803,7 +842,7 @@ func (a *app) wizardValidateStep(c *ui.Context, p uiPalette, wizard *importWizar
 				})
 			}
 		}
-		ui.Row(c).Gap(t.Space(2)).Children(func() {
+		ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
 			if plainButton(c, locales.ImportWizardBackToMapping()).Clicked() {
 				wizard.Step = wizardStepMapping
 			}
@@ -833,7 +872,9 @@ func (a *app) wizardResultStep(c *ui.Context, p uiPalette, wizard *importWizardS
 	summary := wizard.Summary
 	panel(c, p).FillWidth().Padding(t.Space(5)).Gap(t.Space(3)).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-			ui.Icon(c, iconCheck).FontSize(t.Space(5)).TextColor(p.success)
+			ui.Box(c.Key("wizard-result-icon")).Transition(wizardDoneEnter).Children(func() {
+				ui.Icon(c, iconCheck).FontSize(t.Space(5)).TextColor(p.success)
+			})
 			ui.Text(c, locales.ImportWizardFinished()).FontSize(sectionSize(t)).FontWeight(600)
 		})
 		if summary != nil {

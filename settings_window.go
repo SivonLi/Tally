@@ -131,10 +131,12 @@ func (a *app) settingsView(c *ui.Context) {
 			}
 		})
 		ui.Column(c).Grow(1).MinWidth(0).FillHeight().Background(p.canvas).Children(func() {
-			ui.Row(c).FillWidth().Height(topStrip(c)).Shrink(0).
+			ui.Row(c).FillWidth().Height(topStrip(c)).Shrink(0).Background(p.canvas).
 				Padding(0, t.Space(7)).AlignItems(ui.Center).DragWindow().Children(func() {
-				ui.Text(c, current.title).FontSize(bodySize(t)).FontWeight(600)
+				ui.Text(c, current.title).FontSize(bodySize(t)).FontWeight(600).
+					SingleLine().MinWidth(0).Shrink(1).Tooltip(current.title)
 			})
+			rule(c)
 			ui.Scroll(c).Clip().Grow(1).Shrink(1).MinHeight(0).FillWidth().
 				Padding(t.Space(4), t.Space(7), t.Space(8), t.Space(7)).
 				Children(func() {
@@ -144,6 +146,10 @@ func (a *app) settingsView(c *ui.Context) {
 	})
 	a.restoreDialog(c, p)
 	a.syncConflictDialog(c, p)
+	if a.settingsToast != "" {
+		c.Toast(a.settingsToast)
+		a.settingsToast = ""
+	}
 }
 
 type settingsPage struct {
@@ -170,18 +176,19 @@ func (a *app) settingsNavItem(c *ui.Context, p uiPalette, item settingsPage, sel
 		AlignItems(ui.Center).Justify(ui.Start).FocusRing(false)
 	switch {
 	case selected:
-		button.Background(p.panelHover)
+		button.Background(p.fill)
 	case button.Hovered():
-		button.Background(p.panelHover)
+		button.Background(p.hover)
 	}
-	color := p.muted
+	iconColor := p.muted
+	textColor := p.ink
 	if selected {
-		color = p.ink
+		iconColor = p.accent
 	}
 	button.Children(func() {
-		ui.Icon(c, item.icon).FontSize(t.Space(4)).TextColor(color)
+		ui.Icon(c, item.icon).FontSize(t.Space(4)).TextColor(iconColor)
 		ui.Text(c, item.title).FontSize(bodySize(t)).FontWeight(500).
-			TextColor(color).SingleLine()
+			TextColor(textColor).SingleLine()
 	})
 	if button.Clicked() {
 		a.settingsPageID = item.id
@@ -224,16 +231,16 @@ func (a *app) settingsSubjectsSection(c *ui.Context, p uiPalette) {
 					form.Field(c, a.settingsForm, form.FieldProps{
 						Name:   "subject-" + subject.Key,
 						Label:  a.subjectName(subject.Key, subject.Name),
-						Layout: form.Horizontal,
+						Layout: form.Vertical,
 						Value:  subject.Name,
 					}, func() {
-						ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-							ui.Column(c).Grow(1).MinWidth(0).AlignItems(ui.Stretch).Children(func() {
+						ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+							ui.Column(c).Grow(1).Shrink(1).MinWidth(0).AlignItems(ui.Stretch).Children(func() {
 								textField(c, &subject.Name, locales.SubjectName(), "")
 							})
 							numberField(c, &subject.FullMark, 0, 300, 1, locales.SubjectFullMark()).
-								Width(t.Space(28))
-							switchField(c, &subject.Enabled, locales.SubjectEnabled())
+								Width(t.Space(28)).Shrink(0)
+							switchField(c, &subject.Enabled, locales.SubjectEnabled()).Shrink(0)
 						})
 					})
 				}
@@ -249,14 +256,14 @@ func (a *app) settingsSubjectsSection(c *ui.Context, p uiPalette) {
 					form.Field(c, a.settingsForm, form.FieldProps{
 						Name:   "track-" + track.Key,
 						Label:  a.trackName(track.Key, track.Name),
-						Layout: form.Horizontal,
+						Layout: form.Vertical,
 						Value:  track.Name,
 					}, func() {
-						ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-							ui.Column(c).Grow(1).MinWidth(0).AlignItems(ui.Stretch).Children(func() {
+						ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+							ui.Column(c).Grow(1).Shrink(1).MinWidth(0).AlignItems(ui.Stretch).Children(func() {
 								textField(c, &track.Name, locales.TrackName(), "")
 							})
-							switchField(c, &track.Enabled, locales.TrackEnabled())
+							switchField(c, &track.Enabled, locales.TrackEnabled()).Shrink(0)
 						})
 					})
 				}
@@ -278,7 +285,6 @@ func (a *app) settingsDataSection(c *ui.Context, p uiPalette) {
 				form.Field(c, a.settingsForm, form.FieldProps{
 					Name:  "data-dir",
 					Label: locales.SettingsDataDir(),
-					Desc:  a.dataDir,
 					Value: a.dataDir,
 				}, func() {
 					a.settingsDataDirText(c, p)
@@ -291,10 +297,14 @@ func (a *app) settingsDataSection(c *ui.Context, p uiPalette) {
 					Key:         backup.Name,
 					Label:       formatTime(backup.CreatedAt),
 					Description: fmt.Sprintf(locales.SettingsBackupSize(), float64(backup.Size)/(1024*1024)),
-					Extra:       locales.SettingsRestore(),
 					Actions: func() {
-						plainButton(c, locales.SettingsRestore())
+						if plainButton(c, locales.SettingsRestore()).Clicked() {
+							a.restoreBackupName = backup.Name
+							a.restoreOpen = true
+							a.invalidateSettings()
+						}
 					},
+					ShowAction: true,
 				})
 			}
 			form.Group(c, a.settingsForm, form.GroupProps{
@@ -324,8 +334,8 @@ func (a *app) settingsDataSection(c *ui.Context, p uiPalette) {
 }
 
 func (a *app) settingsDataDirText(c *ui.Context, p uiPalette) {
-	ui.Text(c, a.dataDir).FontSize(captionSize(p.theme)).TextColor(p.muted).
-		Selectable().SingleLine()
+	ui.Text(c, dashOr(a.dataDir)).FontSize(captionSize(p.theme)).TextColor(p.muted).
+		Selectable().SingleLine().TruncateMiddle().MinWidth(0).Tooltip(a.dataDir)
 }
 
 func (a *app) settingsAppearanceSection(c *ui.Context, p uiPalette) {
@@ -382,6 +392,7 @@ func (a *app) setAppearance(value string) {
 	}
 	if a.win != nil {
 		mygo.Theme.SetSource(source)
+		a.win.Invalidate()
 	}
 	if a.store == nil {
 		return
@@ -401,11 +412,10 @@ func (a *app) invalidateSettings() {
 }
 
 func (a *app) restoreDialog(c *ui.Context, p uiPalette) {
-	if ui.AlertDialog(c, &a.restoreOpen, locales.SettingsRestoreTitle(),
+	if confirmDangerModal(c, p, "settings-restore", &a.restoreOpen, locales.SettingsRestoreTitle(),
 		fmt.Sprintf(locales.SettingsRestoreConfirm(), a.restoreBackupName),
-		locales.PlanCancel(), locales.SettingsRestore()) == 1 {
+		locales.PlanCancel(), locales.SettingsRestore()) {
 		name := a.restoreBackupName
-		a.restoreBackupName = ""
 		a.restoreBackup(name)
 		a.invalidateSettings()
 	}

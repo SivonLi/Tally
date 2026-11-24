@@ -106,7 +106,45 @@ func (a *app) saveSyncSettings() {
 	a.saveSyncSecrets()
 	a.syncMessage = locales.SettingsSyncSaved()
 	a.syncError = ""
+	a.notifySettings(a.syncMessage)
+}
+
+func (a *app) runSyncAsync(work func() func()) {
+	if a.syncBusy {
+		return
+	}
+	a.syncBusy = true
+	a.syncError = ""
+	a.syncMessage = ""
 	a.invalidateSettings()
+	if a.settingsWin == nil && a.win == nil {
+		apply := work()
+		a.syncBusy = false
+		if apply != nil {
+			apply()
+		}
+		a.invalidateSettings()
+		return
+	}
+	go func() {
+		apply := work()
+		finish := func() {
+			a.syncBusy = false
+			if apply != nil {
+				apply()
+			}
+			a.invalidateSettings()
+		}
+		if a.settingsWin != nil {
+			a.settingsWin.Update(finish)
+			return
+		}
+		if a.win != nil {
+			a.win.Update(finish)
+			return
+		}
+		finish()
+	}()
 }
 
 func (a *app) testWebDAVConnection() {
@@ -117,41 +155,37 @@ func (a *app) testWebDAVConnection() {
 		a.invalidateSettings()
 		return
 	}
-	client, err := syncpkg.NewClient(rawURL, a.syncSettings.Username, a.syncWebDAVPassword)
-	if err != nil {
-		a.syncError = err.Error()
-		a.syncMessage = ""
-		a.invalidateSettings()
-		return
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	if err := client.Ping(ctx); err != nil {
-		a.syncError = err.Error()
-		a.syncMessage = ""
-		a.invalidateSettings()
-		return
-	}
-	a.syncMessage = locales.SettingsConnectionSuccess()
-	a.syncError = ""
-	a.invalidateSettings()
+	username := a.syncSettings.Username
+	password := a.syncWebDAVPassword
+	a.runSyncAsync(func() func() {
+		client, err := syncpkg.NewClient(rawURL, username, password)
+		if err != nil {
+			return func() {
+				a.syncError = err.Error()
+				a.syncMessage = ""
+			}
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := client.Ping(ctx); err != nil {
+			return func() {
+				a.syncError = err.Error()
+				a.syncMessage = ""
+			}
+		}
+		return func() {
+			a.syncMessage = locales.SettingsConnectionSuccess()
+			a.syncError = ""
+			a.notifySettings(a.syncMessage)
+		}
+	})
 }
 
 func (a *app) checkRemoteSync() {
 	if a.store == nil {
 		return
 	}
-	client, err := syncpkg.NewClient(a.syncSettings.WebDAVURL, a.syncSettings.Username, a.syncWebDAVPassword)
-	if err != nil {
-		a.syncError = err.Error()
-		a.syncMessage = ""
-		a.invalidateSettings()
-		return
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-
+	ctx := context.Background()
 	dbID, err := a.store.GetDatabaseID(ctx)
 	if err != nil {
 		a.syncError = err.Error()
@@ -166,38 +200,41 @@ func (a *app) checkRemoteSync() {
 		a.invalidateSettings()
 		return
 	}
-
-	status, err := syncpkg.CheckRemote(ctx, client, a.syncSettings.RemoteDir, dbID, localRev, a.syncSettings.LastSyncRev, a.syncSettings.LastPackageHash, localBatches)
-	if err != nil {
-		a.syncError = err.Error()
-		a.syncMessage = ""
-		a.invalidateSettings()
-		return
-	}
-
-	a.syncRemoteStatus = status
-	a.syncMessage = status.Message
-	a.syncError = ""
-	if status.Kind == syncpkg.StatusConflict {
-		a.syncConflictOpen = true
-	}
-	a.invalidateSettings()
+	cfg := a.syncSettings
+	password := a.syncWebDAVPassword
+	a.runSyncAsync(func() func() {
+		client, err := syncpkg.NewClient(cfg.WebDAVURL, cfg.Username, password)
+		if err != nil {
+			return func() {
+				a.syncError = err.Error()
+				a.syncMessage = ""
+			}
+		}
+		reqCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		status, err := syncpkg.CheckRemote(reqCtx, client, cfg.RemoteDir, dbID, localRev, cfg.LastSyncRev, cfg.LastPackageHash, localBatches)
+		if err != nil {
+			return func() {
+				a.syncError = err.Error()
+				a.syncMessage = ""
+			}
+		}
+		return func() {
+			a.syncRemoteStatus = status
+			a.syncMessage = status.Message
+			a.syncError = ""
+			if status.Kind == syncpkg.StatusConflict {
+				a.syncConflictOpen = true
+			}
+		}
+	})
 }
 
 func (a *app) startSyncUpload() {
-	if a.store == nil {
+	if a.store == nil || a.syncBusy {
 		return
 	}
-	client, err := syncpkg.NewClient(a.syncSettings.WebDAVURL, a.syncSettings.Username, a.syncWebDAVPassword)
-	if err != nil {
-		a.syncError = err.Error()
-		a.syncMessage = ""
-		a.invalidateSettings()
-		return
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
+	ctx := context.Background()
 	// 1. 获取全局标识与版本
 	dbID, err := a.store.GetDatabaseID(ctx)
 	if err != nil {
@@ -243,188 +280,234 @@ func (a *app) startSyncUpload() {
 		return
 	}
 
-	// 3. 构建同步元数据与执行上传
+	// 3. 在后台执行加密打包与 WebDAV 上传
+	cfg := a.syncSettings
+	webdavPass := a.syncWebDAVPassword
+	pkgPass := a.syncPackagePassword
+	filesDir := filepath.Join(a.dataDir, "files")
 	baseManifest := syncpkg.SyncManifest{
 		DatabaseID:     dbID,
 		Revision:       localRev,
-		BaseRevision:   a.syncSettings.LastSyncRev,
-		DeviceID:       a.syncSettings.DeviceID,
-		DeviceName:     a.syncSettings.DeviceName,
+		BaseRevision:   cfg.LastSyncRev,
+		DeviceID:       cfg.DeviceID,
+		DeviceName:     cfg.DeviceName,
 		BatchRevisions: batchRevs,
 	}
-	filesDir := filepath.Join(a.dataDir, "files")
 
-	finalManifest, err := syncpkg.UploadSync(ctx, client, a.syncSettings.RemoteDir, dbBytes, filesDir, baseManifest, a.syncSettings.EncryptEnabled, a.syncPackagePassword)
-	if err != nil {
-		a.syncError = err.Error()
-		a.syncMessage = ""
-		a.invalidateSettings()
-		return
-	}
+	a.runSyncAsync(func() func() {
+		client, err := syncpkg.NewClient(cfg.WebDAVURL, cfg.Username, webdavPass)
+		if err != nil {
+			return func() {
+				a.syncError = err.Error()
+				a.syncMessage = ""
+			}
+		}
+		reqCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		finalManifest, err := syncpkg.UploadSync(reqCtx, client, cfg.RemoteDir, dbBytes, filesDir, baseManifest, cfg.EncryptEnabled, pkgPass)
+		if err != nil {
+			return func() {
+				a.syncError = err.Error()
+				a.syncMessage = ""
+			}
+		}
+		return func() {
+			// 4. 记录本地同步状态
+			a.syncSettings.LastSyncTime = finalManifest.ExportedAt.Local().Format("2006-01-02 15:04:05")
+			a.syncSettings.LastSyncRev = finalManifest.Revision
+			a.syncSettings.LastPackageHash = finalManifest.PackageHash
+			a.syncSettings.LastSyncDevice = a.syncSettings.DeviceName
+			if a.store != nil {
+				_ = a.store.SaveSyncSettings(context.Background(), a.syncSettings)
+			}
+			a.saveSyncSecrets()
 
-	// 4. 记录本地同步状态
-	a.syncSettings.LastSyncTime = finalManifest.ExportedAt.Local().Format("2006-01-02 15:04:05")
-	a.syncSettings.LastSyncRev = finalManifest.Revision
-	a.syncSettings.LastPackageHash = finalManifest.PackageHash
-	a.syncSettings.LastSyncDevice = a.syncSettings.DeviceName
-	_ = a.store.SaveSyncSettings(ctx, a.syncSettings)
-	a.saveSyncSecrets()
-
-	a.syncMessage = locales.SettingsSyncSuccess()
-	a.syncError = ""
-	a.syncRemoteStatus = &syncpkg.RemoteStatus{
-		Kind:           syncpkg.StatusUpToDate,
-		Message:        a.syncMessage,
-		RemoteManifest: finalManifest,
-	}
-	a.invalidateSettings()
+			a.syncMessage = locales.SettingsSyncSuccess()
+			a.syncError = ""
+			a.notifySettings(a.syncMessage)
+			a.syncRemoteStatus = &syncpkg.RemoteStatus{
+				Kind:           syncpkg.StatusUpToDate,
+				Message:        a.syncMessage,
+				RemoteManifest: finalManifest,
+			}
+		}
+	})
 }
 
 func (a *app) startSyncPull(force bool) {
-	if a.store == nil {
+	if a.store == nil || a.syncBusy {
 		return
 	}
-	client, err := syncpkg.NewClient(a.syncSettings.WebDAVURL, a.syncSettings.Username, a.syncWebDAVPassword)
-	if err != nil {
-		a.syncError = err.Error()
-		a.syncMessage = ""
-		a.invalidateSettings()
-		return
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
+	ctx := context.Background()
+	var dbID string
+	var localRev int64
+	var localBatches map[string]int64
 	if !force {
-		dbID, err := a.store.GetDatabaseID(ctx)
-		if err == nil {
-			localRev, localBatches, err := a.store.GetGlobalRevision(ctx)
-			if err == nil {
-				status, err := syncpkg.CheckRemote(ctx, client, a.syncSettings.RemoteDir, dbID, localRev, a.syncSettings.LastSyncRev, a.syncSettings.LastPackageHash, localBatches)
-				if err == nil {
+		var err error
+		dbID, err = a.store.GetDatabaseID(ctx)
+		if err != nil {
+			a.syncError = err.Error()
+			a.syncMessage = ""
+			a.invalidateSettings()
+			return
+		}
+		localRev, localBatches, err = a.store.GetGlobalRevision(ctx)
+		if err != nil {
+			a.syncError = err.Error()
+			a.syncMessage = ""
+			a.invalidateSettings()
+			return
+		}
+	}
+	cfg := a.syncSettings
+	webdavPass := a.syncWebDAVPassword
+	pkgPass := a.syncPackagePassword
+	dataDir := a.dataDir
+	filesDir := filepath.Join(dataDir, "files")
+
+	a.runSyncAsync(func() func() {
+		client, err := syncpkg.NewClient(cfg.WebDAVURL, cfg.Username, webdavPass)
+		if err != nil {
+			return func() {
+				a.syncError = err.Error()
+				a.syncMessage = ""
+			}
+		}
+		reqCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+
+		if !force {
+			status, err := syncpkg.CheckRemote(reqCtx, client, cfg.RemoteDir, dbID, localRev, cfg.LastSyncRev, cfg.LastPackageHash, localBatches)
+			if err != nil {
+				return func() {
+					a.syncError = err.Error()
+					a.syncMessage = ""
+				}
+			}
+			if status.Kind == syncpkg.StatusConflict {
+				return func() {
 					a.syncRemoteStatus = status
-					if status.Kind == syncpkg.StatusConflict {
-						a.syncConflictOpen = true
-						a.invalidateSettings()
-						return
-					}
-					if status.Kind == syncpkg.StatusUpToDate {
-						a.syncMessage = locales.SettingsSyncStatusUpToDate()
-						a.syncError = ""
-						a.invalidateSettings()
-						return
-					}
+					a.syncConflictOpen = true
+				}
+			}
+			if status.Kind == syncpkg.StatusUpToDate {
+				return func() {
+					a.syncRemoteStatus = status
+					a.syncMessage = locales.SettingsSyncStatusUpToDate()
+					a.syncError = ""
 				}
 			}
 		}
-	}
 
-	// 1. 创建临时解压目录
-	tempDir, err := os.MkdirTemp("", "tally-pull-*")
-	if err != nil {
-		a.syncError = err.Error()
-		a.syncMessage = ""
-		a.invalidateSettings()
-		return
-	}
-	defer os.RemoveAll(tempDir)
+		// 1. 创建临时解压目录并下载解密
+		tempDir, err := os.MkdirTemp("", "tally-pull-*")
+		if err != nil {
+			return func() {
+				a.syncError = err.Error()
+				a.syncMessage = ""
+			}
+		}
+		tempDB := filepath.Join(tempDir, "tally.db")
+		manifest, err := syncpkg.DownloadSync(reqCtx, client, cfg.RemoteDir, pkgPass, tempDB, filesDir)
+		if err != nil {
+			_ = os.RemoveAll(tempDir)
+			return func() {
+				a.syncError = err.Error()
+				a.syncMessage = ""
+			}
+		}
 
-	tempDB := filepath.Join(tempDir, "tally.db")
-	filesDir := filepath.Join(a.dataDir, "files")
+		// 2. SQLite 完整性校验
+		verifyDB, err := sqlite.Open(reqCtx, tempDB, sqlite.OpenOptions{ReadOnly: true})
+		if err != nil {
+			_ = os.RemoveAll(tempDir)
+			return func() {
+				a.syncError = fmt.Sprintf(locales.SettingsSyncOpenTempDBFailed(), err)
+				a.syncMessage = ""
+			}
+		}
+		rows, err := verifyDB.Query(reqCtx, "PRAGMA integrity_check")
+		verifyDB.Close()
+		if err != nil || len(rows.Values) == 0 || rows.Values[0][0] != "ok" {
+			_ = os.RemoveAll(tempDir)
+			return func() {
+				a.syncError = locales.SettingsSyncIntegrityCheckFailed()
+				a.syncMessage = ""
+			}
+		}
 
-	// 2. 下载并解压解密
-	manifest, err := syncpkg.DownloadSync(ctx, client, a.syncSettings.RemoteDir, a.syncPackagePassword, tempDB, filesDir)
-	if err != nil {
-		a.syncError = err.Error()
-		a.syncMessage = ""
-		a.invalidateSettings()
-		return
-	}
+		tempData, err := os.ReadFile(tempDB)
+		_ = os.RemoveAll(tempDir)
+		if err != nil {
+			return func() {
+				a.syncError = err.Error()
+				a.syncMessage = ""
+			}
+		}
 
-	// 3. SQLite 完整性校验
-	verifyDB, err := sqlite.Open(ctx, tempDB, sqlite.OpenOptions{ReadOnly: true})
-	if err != nil {
-		a.syncError = fmt.Sprintf(locales.SettingsSyncOpenTempDBFailed(), err)
-		a.syncMessage = ""
-		a.invalidateSettings()
-		return
-	}
-	rows, err := verifyDB.Query(ctx, "PRAGMA integrity_check")
-	verifyDB.Close()
-	if err != nil || len(rows.Values) == 0 || rows.Values[0][0] != "ok" {
-		a.syncError = locales.SettingsSyncIntegrityCheckFailed()
-		a.syncMessage = ""
-		a.invalidateSettings()
-		return
-	}
+		return func() {
+			if a.store == nil {
+				return
+			}
+			uiCtx := context.Background()
+			// 3. 关闭本地数据库并自动备份当前数据
+			if err := a.store.Close(); err != nil {
+				a.syncError = err.Error()
+				a.syncMessage = ""
+				return
+			}
+			a.store = nil
 
-	// 4. 关闭本地数据库并自动备份当前数据
-	if err := a.store.Close(); err != nil {
-		a.syncError = err.Error()
-		a.syncMessage = ""
-		a.invalidateSettings()
-		return
-	}
-	a.store = nil
+			if _, err := store.CreateBackup(a.dataDir); err != nil {
+				a.syncError = fmt.Sprintf(locales.SettingsSyncBackupFailed(), err)
+				a.reopenStore()
+				return
+			}
 
-	if _, err := store.CreateBackup(a.dataDir); err != nil {
-		a.syncError = fmt.Sprintf(locales.SettingsSyncBackupFailed(), err)
-		a.reopenStore()
-		a.invalidateSettings()
-		return
-	}
+			// 4. 替换本地 tally.db 并重新打开
+			dbCurrent := filepath.Join(a.dataDir, "tally.db")
+			if err := os.WriteFile(dbCurrent, tempData, 0o644); err != nil {
+				a.syncError = err.Error()
+				a.reopenStore()
+				return
+			}
+			if !a.reopenStore() {
+				return
+			}
 
-	// 5. 替换本地 tally.db 并重新打开
-	dbCurrent := filepath.Join(a.dataDir, "tally.db")
-	tempData, err := os.ReadFile(tempDB)
-	if err != nil {
-		a.syncError = err.Error()
-		a.reopenStore()
-		a.invalidateSettings()
-		return
-	}
-	if err := os.WriteFile(dbCurrent, tempData, 0o644); err != nil {
-		a.syncError = err.Error()
-		a.reopenStore()
-		a.invalidateSettings()
-		return
-	}
+			// 5. 记录对齐同步状态
+			_ = a.store.SetDatabaseID(uiCtx, manifest.DatabaseID)
+			a.syncSettings.LastSyncTime = manifest.ExportedAt.Local().Format("2006-01-02 15:04:05")
+			a.syncSettings.LastSyncRev = manifest.Revision
+			a.syncSettings.LastPackageHash = manifest.PackageHash
+			a.syncSettings.LastSyncDevice = manifest.DeviceName
+			_ = a.store.SaveSyncSettings(uiCtx, a.syncSettings)
+			a.saveSyncSecrets()
 
-	if !a.reopenStore() {
-		return
-	}
+			// 6. 重新加载应用界面数据
+			a.reloadPlans(uiCtx)
+			a.reloadCohorts(uiCtx)
+			a.reloadExams(uiCtx)
+			a.reloadAssessments(uiCtx)
+			a.reloadSchoolSettings(uiCtx)
+			a.settingsForm = form.New(a.settingsFormValuesFromDrafts())
 
-	// 6. 记录对齐同步状态
-	_ = a.store.SetDatabaseID(ctx, manifest.DatabaseID)
-	a.syncSettings.LastSyncTime = manifest.ExportedAt.Local().Format("2006-01-02 15:04:05")
-	a.syncSettings.LastSyncRev = manifest.Revision
-	a.syncSettings.LastPackageHash = manifest.PackageHash
-	a.syncSettings.LastSyncDevice = manifest.DeviceName
-	_ = a.store.SaveSyncSettings(ctx, a.syncSettings)
-	a.saveSyncSecrets()
-
-	// 7. 重新加载应用界面数据
-	a.reloadPlans(ctx)
-	a.reloadCohorts(ctx)
-	a.reloadExams(ctx)
-	a.reloadAssessments(ctx)
-	a.reloadSchoolSettings(ctx)
-	a.settingsForm = form.New(a.settingsFormValuesFromDrafts())
-
-	a.syncMessage = locales.SettingsPullSuccess()
-	a.syncError = ""
-	a.syncRemoteStatus = &syncpkg.RemoteStatus{
-		Kind:           syncpkg.StatusUpToDate,
-		Message:        a.syncMessage,
-		RemoteManifest: manifest,
-	}
-	a.invalidateSettings()
+			a.syncMessage = locales.SettingsPullSuccess()
+			a.syncError = ""
+			a.notifySettings(a.syncMessage)
+			a.syncRemoteStatus = &syncpkg.RemoteStatus{
+				Kind:           syncpkg.StatusUpToDate,
+				Message:        a.syncMessage,
+				RemoteManifest: manifest,
+			}
+		}
+	})
 }
 
 func (a *app) syncConflictDialog(c *ui.Context, p uiPalette) {
-	if ui.AlertDialog(c, &a.syncConflictOpen, locales.SettingsSyncConflictModalTitle(),
+	if confirmDangerModal(c, p, "sync-conflict", &a.syncConflictOpen, locales.SettingsSyncConflictModalTitle(),
 		locales.SettingsSyncConflictModalBody(),
-		locales.SettingsSyncConflictCancel(), locales.SettingsSyncConflictOverwrite()) == 1 {
-		a.syncConflictOpen = false
+		locales.SettingsSyncConflictCancel(), locales.SettingsSyncConflictOverwrite()) {
 		a.startSyncPull(true)
 		a.invalidateSettings()
 	}
@@ -435,7 +518,6 @@ func (a *app) settingsSyncSection(c *ui.Context, p uiPalette) {
 	ui.Column(c).FillWidth().MaxWidth(t.Space(170)).Gap(t.Space(5)).Children(func() {
 		a.syncSettingsForm(c, func(*settingsFormValues) {
 			form.Group(c, a.settingsForm, form.GroupProps{
-				Title: locales.SettingsSync(),
 				Desc:  locales.SettingsSyncHint(),
 				Fixed: true,
 			}, func() {
@@ -459,28 +541,20 @@ func (a *app) settingsSyncSection(c *ui.Context, p uiPalette) {
 				form.Field(c, a.settingsForm, form.FieldProps{
 					Name:   "webdav-username",
 					Label:  locales.SettingsWebDAVUsername(),
-					Layout: form.Horizontal,
+					Layout: form.Vertical,
 					Value:  a.syncSettings.Username,
 				}, func() {
-					ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-						ui.Column(c).Grow(1).MinWidth(0).AlignItems(ui.Stretch).Children(func() {
-							textField(c, &a.syncSettings.Username, locales.SettingsWebDAVUsername(), "")
-						})
-					})
+					textField(c, &a.syncSettings.Username, locales.SettingsWebDAVUsername(), "")
 				})
 
 				form.Field(c, a.settingsForm, form.FieldProps{
 					Name:   "webdav-password",
 					Label:  locales.SettingsWebDAVPassword(),
 					Desc:   locales.SettingsWebDAVPasswordHint(),
-					Layout: form.Horizontal,
+					Layout: form.Vertical,
 					Value:  a.syncWebDAVPassword,
 				}, func() {
-					ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-						ui.Column(c).Grow(1).MinWidth(0).AlignItems(ui.Stretch).Children(func() {
-							passwordField(c, &a.syncWebDAVPassword, locales.SettingsWebDAVPassword(), "")
-						})
-					})
+					passwordField(c, &a.syncWebDAVPassword, locales.SettingsWebDAVPassword(), "")
 				})
 
 				// 3. 远端目录与设备名称
@@ -488,28 +562,20 @@ func (a *app) settingsSyncSection(c *ui.Context, p uiPalette) {
 					Name:   "remote-dir",
 					Label:  locales.SettingsRemoteDir(),
 					Desc:   locales.SettingsRemoteDirHint(),
-					Layout: form.Horizontal,
+					Layout: form.Vertical,
 					Value:  a.syncSettings.RemoteDir,
 				}, func() {
-					ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-						ui.Column(c).Grow(1).MinWidth(0).AlignItems(ui.Stretch).Children(func() {
-							textField(c, &a.syncSettings.RemoteDir, locales.SettingsRemoteDir(), "Tally")
-						})
-					})
+					textField(c, &a.syncSettings.RemoteDir, locales.SettingsRemoteDir(), "Tally")
 				})
 
 				form.Field(c, a.settingsForm, form.FieldProps{
 					Name:   "device-name",
 					Label:  locales.SettingsDeviceName(),
 					Desc:   locales.SettingsDeviceNameHint(),
-					Layout: form.Horizontal,
+					Layout: form.Vertical,
 					Value:  a.syncSettings.DeviceName,
 				}, func() {
-					ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-						ui.Column(c).Grow(1).MinWidth(0).AlignItems(ui.Stretch).Children(func() {
-							textField(c, &a.syncSettings.DeviceName, locales.SettingsDeviceName(), "Office PC")
-						})
-					})
+					textField(c, &a.syncSettings.DeviceName, locales.SettingsDeviceName(), "Office PC")
 				})
 
 				// 4. 数据包加密开关与同步密码
@@ -528,24 +594,24 @@ func (a *app) settingsSyncSection(c *ui.Context, p uiPalette) {
 						Name:   "sync-password",
 						Label:  locales.SettingsSyncPassword(),
 						Desc:   locales.SettingsSyncPasswordHint(),
-						Layout: form.Horizontal,
+						Layout: form.Vertical,
 						Value:  a.syncPackagePassword,
 					}, func() {
-						ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-							ui.Column(c).Grow(1).MinWidth(0).AlignItems(ui.Stretch).Children(func() {
-								passwordField(c, &a.syncPackagePassword, locales.SettingsSyncPassword(), "")
-							})
-						})
+						passwordField(c, &a.syncPackagePassword, locales.SettingsSyncPassword(), "")
 					})
 				}
 			})
 
 			// 按钮行: 保存与测试连接
-			ui.Row(c).Gap(t.Space(2)).AlignItems(ui.Center).Children(func() {
-				if labelledButton(c, locales.SettingsSaveSync(), nil, true).Clicked() {
+			ui.Row(c).FillWidth().Wrap().Gap(t.Space(2)).AlignItems(ui.Center).Children(func() {
+				saveBtn := labelledButton(c, locales.SettingsSaveSync(), nil, true)
+				saveBtn.Disabled(a.syncBusy)
+				if saveBtn.Clicked() {
 					a.saveSyncSettings()
 				}
-				if plainButton(c, locales.SettingsTestConnection()).Clicked() {
+				testBtn := plainButton(c, locales.SettingsTestConnection())
+				testBtn.Disabled(a.syncBusy)
+				if testBtn.Clicked() {
 					a.testWebDAVConnection()
 				}
 			})
@@ -555,19 +621,28 @@ func (a *app) settingsSyncSection(c *ui.Context, p uiPalette) {
 				Title: locales.SettingsSyncStatusTitle(),
 				Fixed: true,
 				Extra: func() {
-					if plainButton(c, locales.SettingsSyncCheckRemote()).Clicked() {
+					checkBtn := plainButton(c, locales.SettingsSyncCheckRemote())
+					checkBtn.Disabled(a.syncBusy)
+					if checkBtn.Clicked() {
 						a.checkRemoteSync()
 					}
 				},
 			}, func() {
-				ui.Column(c).Gap(t.Space(2)).Children(func() {
+				ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
 					if a.syncSettings.LastSyncTime != "" {
 						ui.Text(c, fmt.Sprintf(locales.SettingsLastSyncTime(), a.syncSettings.LastSyncTime)).
 							FontSize(captionSize(t)).TextColor(p.muted)
 					}
 					if a.syncSettings.LastSyncDevice != "" {
 						ui.Text(c, fmt.Sprintf(locales.SettingsLastSyncDevice(), a.syncSettings.LastSyncDevice)).
-							FontSize(captionSize(t)).TextColor(p.muted)
+							FontSize(captionSize(t)).TextColor(p.muted).SingleLine().Tooltip(a.syncSettings.LastSyncDevice)
+					}
+
+					if a.syncBusy {
+						ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+							ui.Spinner(c).Label(locales.SettingsSyncBusy())
+							ui.Text(c, locales.SettingsSyncBusy()).FontSize(bodySize(t)).TextColor(p.muted)
+						})
 					}
 
 					if a.syncRemoteStatus != nil {
@@ -583,11 +658,15 @@ func (a *app) settingsSyncSection(c *ui.Context, p uiPalette) {
 						}
 					}
 
-					ui.Row(c).Gap(t.Space(2)).AlignItems(ui.Center).Children(func() {
-						if labelledButton(c, locales.SettingsSyncNow(), iconSync, true).Clicked() {
+					ui.Row(c).FillWidth().Wrap().Gap(t.Space(2)).AlignItems(ui.Center).Children(func() {
+						uploadBtn := labelledButton(c, locales.SettingsSyncNow(), iconSync, true)
+						uploadBtn.Disabled(a.syncBusy)
+						if uploadBtn.Clicked() {
 							a.startSyncUpload()
 						}
-						if plainButton(c, locales.SettingsPullNow()).Clicked() {
+						pullBtn := plainButton(c, locales.SettingsPullNow())
+						pullBtn.Disabled(a.syncBusy)
+						if pullBtn.Clicked() {
 							a.startSyncPull(false)
 						}
 					})

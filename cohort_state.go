@@ -205,6 +205,7 @@ func (a *app) setAcademicYear(start int) {
 	a.academicYearStart = start
 	a.selectedStageID = 0
 	a.reloadCohorts(context.Background())
+	a.notifySettings(locales.SettingsAcademicYearSaved())
 }
 
 func (a *app) openNewCohort() {
@@ -233,6 +234,7 @@ func (a *app) createCohort() {
 	a.selectedStageID = 0
 	a.reloadCohorts(context.Background())
 	a.page = pageOverview
+	a.notifyMain(fmt.Sprintf(locales.CohortCreatedToast(), a.cohortName(cohort.EnrollmentYear)))
 }
 
 func (a *app) cohortName(enrollmentYear int) string {

@@ -185,27 +185,32 @@ func TestRuntimeScrollStaysInsideItsContainer(t *testing.T) {
 			tt.Scroll(500, 400, 0, 200)
 			settleTester(tt)
 
+			var contentScroll *ui.AccessInfo
 			for _, info := range tt.AccessAll() {
-				if info.Offscreen || info.Bounds.W <= 0 || info.Bounds.H <= 0 {
-					continue
+				if info.Role == ui.RoleScroll && info.Bounds.X >= settingsSidebarWidth && info.Bounds.W > 0 && info.Bounds.H > 0 {
+					copied := info
+					contentScroll = &copied
+					break
 				}
-				if info.Bounds.X < settingsSidebarWidth {
-					continue
-				}
-				if info.Role != ui.RoleText && info.Role != ui.RoleTextField &&
-					info.Role != ui.RoleButton && info.Role != ui.RoleSwitch &&
-					info.Role != ui.RolePopUpButton && info.Role != ui.RoleStepper {
-					continue
-				}
-				if info.Name == tc.title && rectBottom(info.Bounds) <= topStripHeight+1 {
-					continue
-				}
-				if info.Bounds.Y < topStripHeight && rectBottom(info.Bounds) > 0 {
-					failGeometry(t, tt, tc.name+"滚动穿透", fmt.Sprintf(
-						"%v %q 顶边 %.1f、底边 %.1f，侵入了 0–%d 的页头区域",
-						info.Role, info.Name, info.Bounds.Y, rectBottom(info.Bounds), topStripHeight))
-					return
-				}
+			}
+			if contentScroll == nil {
+				failGeometry(t, tt, tc.name+"缺少滚动区", "找不到右侧内容滚动容器")
+				return
+			}
+			if contentScroll.Bounds.Y < topStripHeight {
+				failGeometry(t, tt, tc.name+"滚动穿透", fmt.Sprintf(
+					"滚动区顶边 %.1f 高于页头底边 %d，侵入了页头区域",
+					contentScroll.Bounds.Y, topStripHeight))
+			}
+			if rectBottom(contentScroll.Bounds) > 620 {
+				failGeometry(t, tt, tc.name+"滚动溢出", fmt.Sprintf(
+					"滚动区底边 %.1f 超出窗口高度 620", rectBottom(contentScroll.Bounds)))
+			}
+			if header, ok := findNode(tt, ui.RoleText, tc.title); !ok {
+				failGeometry(t, tt, tc.name+"缺少标题", "滚动后找不到页头标题 "+tc.title)
+			} else if rectBottom(header.Bounds) > contentScroll.Bounds.Y+1 {
+				failGeometry(t, tt, tc.name+"标题重叠", fmt.Sprintf(
+					"页头标题底边 %.1f 越过滚动区顶边 %.1f", rectBottom(header.Bounds), contentScroll.Bounds.Y))
 			}
 		})
 	}
@@ -701,6 +706,22 @@ func TestRuntimeSearchAndSelectWidthsAndSidebar(t *testing.T) {
 		a.page = pageOverview
 		tt := newChineseTester(t, a.view, 1024, 640)
 
+		var navScroll *ui.AccessInfo
+		for _, info := range tt.AccessAll() {
+			if info.Role == ui.RoleScroll && info.Bounds.X < sidebarWidth && info.Bounds.W > 0 && info.Bounds.H > 0 {
+				copy := info
+				navScroll = &copy
+				break
+			}
+		}
+		if navScroll == nil {
+			t.Fatal("找不到侧边栏导航滚动容器")
+		}
+
+		bottomActions := map[string]bool{
+			locales.NavHelp():     true,
+			locales.NavSettings(): true,
+		}
 		for _, label := range []string{
 			locales.NavOverview(), locales.NavCohorts(), locales.NavStudents(),
 			locales.NavFaculty(), locales.NavGroups(), locales.NavBaseline(),
@@ -726,8 +747,104 @@ func TestRuntimeSearchAndSelectWidthsAndSidebar(t *testing.T) {
 				failGeometry(t, tt, "侧边栏完整性", fmt.Sprintf(
 					"导航项 %q 边界 %+v 超出侧边栏或窗口", label, item.Bounds))
 			}
+			if !bottomActions[label] &&
+				(item.Bounds.Y < navScroll.Bounds.Y-0.5 || rectBottom(item.Bounds) > rectBottom(navScroll.Bounds)+0.5) {
+				failGeometry(t, tt, "侧边栏完整性", fmt.Sprintf(
+					"导航项 %q（%.1f–%.1f）超出导航滚动区可视范围（%.1f–%.1f），出现半截行",
+					label, item.Bounds.Y, rectBottom(item.Bounds), navScroll.Bounds.Y, rectBottom(navScroll.Bounds)))
+			}
 		}
 	})
+}
+
+func TestRuntimeAnalysisAndWorkbenchRegression(t *testing.T) {
+	t.Run("分析页无原始JSON教师名与未格式化占位符", func(t *testing.T) {
+		useChineseUI(t)
+		a := newPopulatedTestApp(t)
+		a.page = pageAnalysis
+		a.analysisTeacherName = ""
+		tt := newChineseTester(t, a.view, 1280, 800)
+
+		for _, text := range tt.Texts() {
+			if strings.Contains(text, "%d") {
+				failGeometry(t, tt, "分析页占位符", fmt.Sprintf("出现未格式化占位符：%q", text))
+			}
+			if strings.Contains(text, `["`) {
+				failGeometry(t, tt, "分析页教师名JSON", fmt.Sprintf("出现原始 JSON 数组文案：%q", text))
+			}
+		}
+	})
+
+	for _, lang := range []string{"zh-Hans", "en"} {
+		t.Run("分析页最小窗口页签不裁切_"+lang, func(t *testing.T) {
+			i18n.SetLocaleFunc(func() string { return lang })
+			t.Cleanup(func() { i18n.SetLocaleFunc(nil) })
+
+			a := newPopulatedTestApp(t)
+			a.page = pageAnalysis
+			tt := ui.NewTester(a.view, 1024, 640)
+			tt.SetLocale(lang)
+			settleTester(tt)
+			if tt.FramePending() {
+				t.Fatalf("分析页未稳定 (%s)", lang)
+			}
+
+			for _, tab := range []string{
+				locales.AnalysisTabTeacherTrend(),
+				locales.AnalysisTabClassTrend(),
+				locales.AnalysisTabSubjectComparison(),
+				locales.AnalysisTabStudentTrack(),
+				locales.AnalysisTabAssessmentComparison(),
+			} {
+				node, ok := findNode(tt, ui.RoleRadio, tab)
+				if !ok {
+					failGeometry(t, tt, "分析页签_"+lang, fmt.Sprintf("找不到页签 %q", tab))
+					continue
+				}
+				if rectRight(node.Bounds) > 1024-pagePadding+1 {
+					failGeometry(t, tt, "分析页签_"+lang, fmt.Sprintf(
+						"页签 %q 右边界 %.1f 超出内容区 %.1f", tab, rectRight(node.Bounds), float32(1024-pagePadding)))
+				}
+			}
+		})
+
+		t.Run("工作台结果顶栏最小窗口不裁切_"+lang, func(t *testing.T) {
+			i18n.SetLocaleFunc(func() string { return lang })
+			t.Cleanup(func() { i18n.SetLocaleFunc(nil) })
+
+			a := newPopulatedTestApp(t)
+			a.page = pageAssessments
+			tt := ui.NewTester(a.view, 1024, 640)
+			tt.SetLocale(lang)
+			settleTester(tt)
+			if tt.FramePending() {
+				t.Fatalf("工作台未稳定 (%s)", lang)
+			}
+
+			for _, tab := range []string{
+				locales.AssessmentViewBySubject(),
+				locales.AssessmentViewByClass(),
+				locales.AssessmentViewByTeacher(),
+			} {
+				node, ok := findNode(tt, ui.RoleRadio, tab)
+				if !ok {
+					failGeometry(t, tt, "工作台结果页签_"+lang, fmt.Sprintf("找不到结果页签 %q", tab))
+					continue
+				}
+				if rectRight(node.Bounds) > 1024-pagePadding+1 {
+					failGeometry(t, tt, "工作台结果页签_"+lang, fmt.Sprintf(
+						"结果页签 %q 右边界 %.1f 超出内容区 %.1f", tab, rectRight(node.Bounds), float32(1024-pagePadding)))
+				}
+			}
+			badgeNode, ok := findNode(tt, ui.RoleText, locales.AssessmentOfficialResults())
+			if !ok {
+				failGeometry(t, tt, "工作台正式徽标_"+lang, "找不到正式结果徽标")
+			} else if badgeNode.Bounds.W < measureTextWidth(t, locales.AssessmentOfficialResults(), 14) {
+				failGeometry(t, tt, "工作台正式徽标_"+lang, fmt.Sprintf(
+					"徽标宽度 %.1f 小于文字所需宽度", badgeNode.Bounds.W))
+			}
+		})
+	}
 }
 
 func TestRuntimeTabBarBoundaryAndSelection(t *testing.T) {

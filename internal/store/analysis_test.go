@@ -180,6 +180,9 @@ func TestAnalysisQueries(t *testing.T) {
 	if teacherTrends.Points[0].PersonalScore != 96.0 || teacherTrends.Points[1].PersonalScore != 98.5 {
 		t.Fatalf("unexpected scores: %v, %v", teacherTrends.Points[0].PersonalScore, teacherTrends.Points[1].PersonalScore)
 	}
+	if len(teacherTrends.Points[0].Rows) != 1 || teacherTrends.Points[0].Rows[0].StatGroupName != "1班语文" {
+		t.Fatalf("expected teacher trend row parsed from JSON teacher_names, got %+v", teacherTrends.Points[0].Rows)
+	}
 
 	// 6. 测试 QueryClassTrends
 	classTrends, err := s.QueryClassTrends(ctx, cohort.ID, 1, "1班", nil)
@@ -192,6 +195,9 @@ func TestAnalysisQueries(t *testing.T) {
 	if classTrends.ClassName != "1班" {
 		t.Fatalf("unexpected class trend name: %s", classTrends.ClassName)
 	}
+	if len(classTrends.Points[0].Rows) != 1 || len(classTrends.Points[0].Rows[0].TeacherNames) != 1 || classTrends.Points[0].Rows[0].TeacherNames[0] != "李老师" {
+		t.Fatalf("expected clean decoded TeacherNames in class trend, got %+v", classTrends.Points[0].Rows)
+	}
 
 	// 7. 测试 QuerySubjectComparison
 	subjComp, err := s.QuerySubjectComparison(ctx, assess1.ID, "chinese")
@@ -203,6 +209,9 @@ func TestAnalysisQueries(t *testing.T) {
 	}
 	if subjComp.Groups[0].Total != 96.0 {
 		t.Fatalf("unexpected total score: %f", subjComp.Groups[0].Total)
+	}
+	if len(subjComp.Groups[0].TeacherNames) != 1 || subjComp.Groups[0].TeacherNames[0] != "李老师" {
+		t.Fatalf("expected clean decoded TeacherNames in subject comparison, got %+v", subjComp.Groups[0].TeacherNames)
 	}
 
 	// 8. 测试 QueryAssessmentComparison

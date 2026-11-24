@@ -52,15 +52,18 @@ func (a *app) studentsPage(c *ui.Context, p uiPalette) {
 		if a.dataError != "" {
 			notice(c, p, noticeDanger, a.dataError)
 		}
-		if a.dataBusy {
-			notice(c, p, noticeInfo, locales.ImportBusy())
+		if showDelayedBusy(c, "students-busy", a.dataBusy) {
+			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+				ui.Spinner(c).Label(locales.ImportBusy())
+				ui.Text(c, locales.ImportBusy()).FontSize(bodySize(t)).TextColor(p.muted)
+			})
 		}
 		if a.dataMessage != "" {
 			notice(c, p, noticeSuccess, a.dataMessage)
 		}
-		ui.Row(c).Grow(1).Shrink(1).MinHeight(0).AlignItems(ui.Stretch).Gap(t.Space(3)).Children(func() {
-			ui.Column(c).Grow(1).Shrink(1).MinHeight(0).FillHeight().Gap(t.Space(2)).Children(func() {
-				a.studentTable.RowHeight = t.Space(10)
+		ui.Row(c).Grow(1).Shrink(1).MinHeight(0).MinWidth(0).AlignItems(ui.Stretch).Gap(t.Space(3)).Children(func() {
+			ui.Column(c).Grow(1).Shrink(1).MinHeight(0).MinWidth(0).FillHeight().Gap(t.Space(2)).Children(func() {
+				a.studentTable.RowHeight = tableRowHeight(t)
 				selected := -1
 				for index, student := range a.students {
 					if student.ID == a.selectedStudentID {
@@ -69,8 +72,25 @@ func (a *app) studentsPage(c *ui.Context, p uiPalette) {
 					}
 				}
 				if len(a.students) == 0 {
+					hasFilter := strings.TrimSpace(a.dataQuery) != "" || a.dataClassFilter != 0 ||
+						a.dataTrackFilter != "" || a.dataStatusFilter != ""
+					if hasFilter {
+						emptyState(c, p, iconStudents, locales.FilterEmptyTitle(), locales.FilterEmptyHint(), func() {
+							if plainButton(c, locales.ClearFilters()).Clicked() {
+								a.dataQuery = ""
+								a.dataClassFilter = 0
+								a.dataTrackFilter = ""
+								a.dataStatusFilter = ""
+								a.studentPage = 0
+								a.reloadStudents(context.Background())
+							}
+						})
+						return
+					}
 					emptyState(c, p, iconStudents, locales.StudentsEmpty(), locales.StudentsEmptyHint(), func() {
-						if labelledButton(c, locales.ImportStudents(), iconImports, true).Clicked() {
+						btn := labelledButton(c, locales.ImportStudents(), iconImports, true)
+						btn.Disabled(a.dataBusy || !a.stageEditable())
+						if btn.Clicked() {
 							a.openImportWizard(importer.KindStudents)
 						}
 					})
@@ -82,15 +102,15 @@ func (a *app) studentsPage(c *ui.Context, p uiPalette) {
 					student := a.students[row]
 					switch col {
 					case 0:
-						ui.Text(c, student.StudentNo).SingleLine().FontFeatures("tnum")
+						cellText(c, p, student.StudentNo).FontFeatures("tnum")
 					case 1:
-						ui.Text(c, student.Name).SingleLine()
+						cellText(c, p, student.Name)
 					case 2:
-						ui.Text(c, student.ClassName).SingleLine()
+						cellText(c, p, student.ClassName)
 					case 3:
-						ui.Text(c, a.trackName(student.Track, student.Track)).SingleLine()
+						cellText(c, p, a.trackName(student.Track, student.Track))
 					case 4:
-						ui.Text(c, a.statusName(student.Status)).SingleLine()
+						cellText(c, p, a.statusName(student.Status))
 					case 5:
 						if student.TotalScore == nil {
 							ui.Text(c, "-").TextColor(p.muted)
@@ -102,9 +122,16 @@ func (a *app) studentsPage(c *ui.Context, p uiPalette) {
 				if table.Changed() && selected >= 0 {
 					a.selectStudent(a.students[selected].ID)
 				}
+				paginationBar(c, p, "students", &a.studentPage, &a.studentPageSize, a.studentsTotal, func() {
+					a.selectedStudentID = 0
+					a.reloadStudents(context.Background())
+				})
 			})
 			if a.studentDetailOpen {
-				a.studentPanel(c, p)
+				ui.Column(c.Key("student-detail-panel")).Width(t.Space(80)).Shrink(0).FillHeight().MinHeight(0).
+					Transition(drawerTransition).Children(func() {
+					a.studentPanel(c, p)
+				})
 			}
 		})
 	})
@@ -112,11 +139,11 @@ func (a *app) studentsPage(c *ui.Context, p uiPalette) {
 
 func studentColumns(t ui.Theme) []ui.TableColumn {
 	return []ui.TableColumn{
-		{Title: locales.ColumnStudentNo(), Width: t.Space(18)},
+		{Title: locales.ColumnStudentNo(), Width: t.Space(24)},
 		{Title: locales.ColumnName(), Width: t.Space(28)},
 		{Title: locales.ColumnClass(), Width: t.Space(24)},
-		{Title: locales.ColumnTrack(), Width: t.Space(20)},
-		{Title: locales.ColumnStatus(), Width: t.Space(20)},
+		{Title: locales.ColumnTrack(), Width: t.Space(24)},
+		{Title: locales.ColumnStatus(), Width: t.Space(28)},
 		{Title: locales.ColumnStudentTotal(), Width: 0, Align: ui.End},
 	}
 }
@@ -124,11 +151,12 @@ func studentColumns(t ui.Theme) []ui.TableColumn {
 func (a *app) studentFilters(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Row(c).FillWidth().Wrap().AlignItems(ui.End).Gap(t.Space(2)).Children(func() {
-		ui.Column(c).Width(t.Space(56)).Gap(0).Children(func() {
+		ui.Column(c).Width(t.Space(72)).Gap(0).Children(func() {
 			nextQuery := a.dataQuery
 			searchField(c, &nextQuery, locales.DataSearchStudents(), locales.DataSearchStudents())
 			if nextQuery != a.dataQuery {
 				a.dataQuery = nextQuery
+				a.studentPage = 0
 				a.selectedStudentID = 0
 				a.reloadStudents(context.Background())
 			}
@@ -150,6 +178,7 @@ func (a *app) studentFilters(c *ui.Context, p uiPalette) {
 					break
 				}
 			}
+			a.studentPage = 0
 			a.selectedStudentID = 0
 			a.reloadStudents(context.Background())
 		}
@@ -171,6 +200,7 @@ func (a *app) studentFilters(c *ui.Context, p uiPalette) {
 					break
 				}
 			}
+			a.studentPage = 0
 			a.selectedStudentID = 0
 			a.reloadStudents(context.Background())
 		}
@@ -184,7 +214,7 @@ func (a *app) studentFilters(c *ui.Context, p uiPalette) {
 			}
 		}
 		nextStatus := chosenStatus
-		selectField(c, "students-status", &nextStatus, statusLabels, locales.DataFilterStatus()).Width(t.Space(32))
+		selectField(c, "students-status", &nextStatus, statusLabels, locales.DataFilterStatus()).Width(t.Space(40))
 		if nextStatus != chosenStatus {
 			for index, label := range statusLabels {
 				if label == nextStatus {
@@ -192,12 +222,13 @@ func (a *app) studentFilters(c *ui.Context, p uiPalette) {
 					break
 				}
 			}
+			a.studentPage = 0
 			a.selectedStudentID = 0
 			a.reloadStudents(context.Background())
 		}
 		ui.Spacer(c)
-		ui.Textf(c, locales.DataStudentCount(), formatInt(a.studentsTotal)).FontSize(captionSize(t)).
-			TextColor(p.muted).FontFeatures("tnum")
+		ui.Text(c, pluralCount(a.studentsTotal, locales.DataStudentCountOne(), locales.DataStudentCount())).
+			FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum").Shrink(0)
 	})
 }
 
@@ -263,9 +294,31 @@ func (a *app) studentPanel(c *ui.Context, p uiPalette) {
 
 func (a *app) detailRow(c *ui.Context, p uiPalette, label, value string) {
 	t := p.theme
-	ui.Row(c).FillWidth().Gap(t.Space(2)).Children(func() {
-		ui.Text(c, label).FontSize(captionSize(t)).TextColor(p.muted).Width(t.Space(20))
-		ui.Text(c, value).FontSize(bodySize(t)).Grow(1).SingleLine()
+	shown := dashOr(value)
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+		ui.Text(c, label).FontSize(captionSize(t)).TextColor(p.muted).
+			Width(t.Space(24)).Shrink(0).SingleLine().Tooltip(label)
+		text := ui.Text(c, shown).FontSize(bodySize(t)).Grow(1).Shrink(1).MinWidth(0).SingleLine()
+		if strings.TrimSpace(value) == "" {
+			text.TextColor(p.muted)
+		} else {
+			text.Tooltip(value)
+		}
+	})
+}
+
+func (a *app) detailPathRow(c *ui.Context, p uiPalette, label, path string) {
+	t := p.theme
+	shown := dashOr(path)
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+		ui.Text(c, label).FontSize(captionSize(t)).TextColor(p.muted).
+			Width(t.Space(24)).Shrink(0).SingleLine().Tooltip(label)
+		text := ui.Text(c, shown).FontSize(bodySize(t)).Grow(1).Shrink(1).MinWidth(0).SingleLine().TruncateMiddle()
+		if strings.TrimSpace(path) == "" {
+			text.TextColor(p.muted)
+		} else {
+			text.Tooltip(path)
+		}
 	})
 }
 
@@ -304,8 +357,11 @@ func (a *app) facultyPage(c *ui.Context, p uiPalette) {
 		if a.dataError != "" {
 			notice(c, p, noticeDanger, a.dataError)
 		}
-		if a.dataBusy {
-			notice(c, p, noticeInfo, locales.ImportBusy())
+		if showDelayedBusy(c, "students-busy", a.dataBusy) {
+			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+				ui.Spinner(c).Label(locales.ImportBusy())
+				ui.Text(c, locales.ImportBusy()).FontSize(bodySize(t)).TextColor(p.muted)
+			})
 		}
 		if a.dataMessage != "" {
 			notice(c, p, noticeSuccess, a.dataMessage)
@@ -321,10 +377,26 @@ func (a *app) facultyPage(c *ui.Context, p uiPalette) {
 			return
 		}
 		if len(a.teachers) == 0 {
-			emptyState(c, p, iconFaculty, locales.FacultyEmpty(), locales.FacultyEmptyHint(), nil)
+			if strings.TrimSpace(a.teacherQuery) != "" {
+				emptyState(c, p, iconFaculty, locales.FilterEmptyTitle(), locales.FilterEmptyHint(), func() {
+					if plainButton(c, locales.ClearFilters()).Clicked() {
+						a.teacherQuery = ""
+						a.reloadDataPages(context.Background())
+					}
+				})
+				return
+			}
+			emptyState(c, p, iconFaculty, locales.FacultyEmpty(), locales.FacultyEmptyHint(), func() {
+				btn := labelledButton(c, locales.ImportAssignments(), iconImports, true)
+				btn.Disabled(a.dataBusy || !a.stageEditable())
+				if btn.Clicked() {
+					a.openImportWizard(importer.KindAssignments)
+				}
+			})
 			return
 		}
-		a.teacherTable.RowHeight = t.Space(10)
+		a.teacherTable.RowHeight = tableRowHeight(t)
+		a.teacherTable.Key = func(row int) any { return a.teachers[row].ID }
 		columns := []ui.TableColumn{
 			{Title: locales.ColumnName(), Width: t.Space(24)},
 			{Title: locales.TeacherNo(), Width: t.Space(18)},
@@ -337,20 +409,19 @@ func (a *app) facultyPage(c *ui.Context, p uiPalette) {
 			teacher := a.teachers[row]
 			switch col {
 			case 0:
-				ui.Text(c, teacher.Name).SingleLine()
+				cellText(c, p, teacher.Name)
 			case 1:
-				ui.Text(c, teacher.TeacherNo).TextColor(p.muted).SingleLine().FontFeatures("tnum")
+				mutedCellText(c, p, teacher.TeacherNo).FontFeatures("tnum")
 			case 2:
-				ui.Text(c, a.subjectName(teacher.Subject, teacher.Subject)).SingleLine()
+				cellText(c, p, a.subjectName(teacher.Subject, teacher.Subject))
 			case 3:
 				ui.Text(c, formatInt(teacher.Groups)).FontFeatures("tnum")
 			case 4:
 				ui.Text(c, formatInt(teacher.Assignments)).FontFeatures("tnum")
 			case 5:
-				ui.Text(c, dataSourceLabel(teacher.ImportRunID, teacher.SourceSheet, teacher.SourceRow)).
-					TextColor(p.muted).SingleLine()
+				mutedCellText(c, p, dataSourceLabel(teacher.ImportRunID, teacher.SourceSheet, teacher.SourceRow))
 			}
-		}).Label(locales.NavFaculty()).Grow(1).FillWidth()
+		}).Label(locales.NavFaculty()).Grow(1).Shrink(1).MinHeight(0).Fill()
 	})
 }
 
@@ -376,18 +447,33 @@ func (a *app) facultyFilters(c *ui.Context, p uiPalette) {
 		})
 		ui.Spacer(c)
 		if a.facultyTab == 1 {
-			ui.Textf(c, locales.DataRecordCount(), formatInt(len(a.teachingGroups))).FontSize(captionSize(t)).
-				TextColor(p.muted).FontFeatures("tnum")
+			ui.Text(c, pluralCount(len(a.teachingGroups), locales.DataRecordCountOne(), locales.DataRecordCount())).
+				FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum").Shrink(0)
 		} else {
-			ui.Textf(c, locales.DataRecordCount(), formatInt(len(a.teachers))).FontSize(captionSize(t)).
-				TextColor(p.muted).FontFeatures("tnum")
+			ui.Text(c, pluralCount(len(a.teachers), locales.DataRecordCountOne(), locales.DataRecordCount())).
+				FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum").Shrink(0)
 		}
 	})
 }
 
 func (a *app) teachingGroupTable(c *ui.Context, p uiPalette, label string) {
 	if len(a.teachingGroups) == 0 {
-		emptyState(c, p, iconGroups, locales.GroupsEmpty(), locales.GroupsEmptyHint(), nil)
+		if strings.TrimSpace(a.groupQuery) != "" {
+			emptyState(c, p, iconGroups, locales.FilterEmptyTitle(), locales.FilterEmptyHint(), func() {
+				if plainButton(c, locales.ClearFilters()).Clicked() {
+					a.groupQuery = ""
+					a.reloadDataPages(context.Background())
+				}
+			})
+			return
+		}
+		emptyState(c, p, iconGroups, locales.GroupsEmpty(), locales.GroupsEmptyHint(), func() {
+			btn := labelledButton(c, locales.ImportAssignments(), iconImports, true)
+			btn.Disabled(a.dataBusy || !a.stageEditable())
+			if btn.Clicked() {
+				a.openImportWizard(importer.KindAssignments)
+			}
+		})
 		return
 	}
 	a.groupTableWith(c, p, label, a.teachingGroups)
@@ -404,25 +490,40 @@ func (a *app) groupsPage(c *ui.Context, p uiPalette) {
 		if a.dataError != "" {
 			notice(c, p, noticeDanger, a.dataError)
 		}
-		if a.dataBusy {
-			notice(c, p, noticeInfo, locales.ImportBusy())
+		if showDelayedBusy(c, "students-busy", a.dataBusy) {
+			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+				ui.Spinner(c).Label(locales.ImportBusy())
+				ui.Text(c, locales.ImportBusy()).FontSize(bodySize(t)).TextColor(p.muted)
+			})
 		}
 		if a.dataMessage != "" {
 			notice(c, p, noticeSuccess, a.dataMessage)
 		}
-		if len(a.teachingGroups) == 0 {
-			emptyState(c, p, iconGroups, locales.GroupsEmpty(), locales.GroupsEmptyHint(), nil)
+		if len(a.teachingGroups) == 0 && strings.TrimSpace(a.groupQuery) == "" {
+			emptyState(c, p, iconGroups, locales.GroupsEmpty(), locales.GroupsEmptyHint(), func() {
+				btn := labelledButton(c, locales.ImportAssignments(), iconImports, true)
+				btn.Disabled(a.dataBusy || !a.stageEditable())
+				if btn.Clicked() {
+					a.openImportWizard(importer.KindAssignments)
+				}
+			})
 			return
 		}
 		a.groupFilters(c, p)
 		groups := a.visibleTeachingGroups()
 		if len(groups) == 0 {
-			emptyState(c, p, iconGroups, locales.GroupsEmpty(), locales.GroupsEmptyHint(), nil)
+			emptyState(c, p, iconGroups, locales.FilterEmptyTitle(), locales.FilterEmptyHint(), func() {
+				if plainButton(c, locales.ClearFilters()).Clicked() {
+					a.groupQuery = ""
+					a.groupSubjectFilter = ""
+					a.reloadDataPages(context.Background())
+				}
+			})
 			return
 		}
 		ui.Row(c).AlignItems(ui.Center).Children(func() {
-			ui.Textf(c, locales.GroupsCount(), formatInt(len(groups))).FontSize(bodySize(t)).
-				TextColor(p.muted)
+			ui.Text(c, pluralCount(len(groups), locales.GroupsCountOne(), locales.GroupsCount())).
+				FontSize(bodySize(t)).TextColor(p.muted).FontFeatures("tnum")
 		})
 		a.groupTableWith(c, p, locales.NavGroups(), groups)
 	})
@@ -477,7 +578,8 @@ func (a *app) visibleTeachingGroups() []store.DataTeachingGroup {
 
 func (a *app) groupTableWith(c *ui.Context, p uiPalette, label string, groups []store.DataTeachingGroup) {
 	t := p.theme
-	a.groupTable.RowHeight = t.Space(10)
+	a.groupTable.RowHeight = tableRowHeight(t)
+	a.groupTable.Key = func(row int) any { return groups[row].ID }
 	columns := []ui.TableColumn{
 		{Title: locales.GroupSubject(), Width: t.Space(18)},
 		{Title: locales.GroupName(), Width: t.Space(20)},
@@ -490,20 +592,19 @@ func (a *app) groupTableWith(c *ui.Context, p uiPalette, label string, groups []
 		group := groups[row]
 		switch col {
 		case 0:
-			ui.Text(c, a.subjectName(group.Subject, group.Subject)).SingleLine()
+			cellText(c, p, a.subjectName(group.Subject, group.Subject))
 		case 1:
-			ui.Text(c, group.Name).SingleLine()
+			cellText(c, p, group.Name)
 		case 2:
-			ui.Text(c, group.ClassNames).TextColor(p.muted).SingleLine()
+			mutedCellText(c, p, group.ClassNames)
 		case 3:
-			ui.Text(c, group.Teachers).TextColor(p.muted).SingleLine()
+			mutedCellText(c, p, group.Teachers)
 		case 4:
 			ui.Text(c, formatInt(group.Students)).FontFeatures("tnum")
 		case 5:
-			ui.Text(c, dataSourceLabel(group.ImportRunID, group.SourceSheet, group.SourceRow)).
-				TextColor(p.muted).SingleLine()
+			mutedCellText(c, p, dataSourceLabel(group.ImportRunID, group.SourceSheet, group.SourceRow))
 		}
-	}).Label(label).Grow(1).FillWidth()
+	}).Label(label).Grow(1).Shrink(1).MinHeight(0).Fill()
 }
 
 func (a *app) baselinePage(c *ui.Context, p uiPalette) {
@@ -526,18 +627,41 @@ func (a *app) baselinePage(c *ui.Context, p uiPalette) {
 		if a.dataError != "" {
 			notice(c, p, noticeDanger, a.dataError)
 		}
-		if a.dataBusy {
-			notice(c, p, noticeInfo, locales.ImportBusy())
+		if showDelayedBusy(c, "students-busy", a.dataBusy) {
+			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+				ui.Spinner(c).Label(locales.ImportBusy())
+				ui.Text(c, locales.ImportBusy()).FontSize(bodySize(t)).TextColor(p.muted)
+			})
 		}
 		if a.dataMessage != "" {
 			notice(c, p, noticeSuccess, a.dataMessage)
 		}
 		a.baselineFilters(c, p)
 		if len(a.baselines) == 0 {
-			emptyState(c, p, iconBaseline, locales.BaselineEmpty(), locales.BaselineEmptyHint(), nil)
+			if strings.TrimSpace(a.baselineQuery) != "" || a.baselineClassFilter != 0 {
+				emptyState(c, p, iconBaseline, locales.FilterEmptyTitle(), locales.FilterEmptyHint(), func() {
+					if plainButton(c, locales.ClearFilters()).Clicked() {
+						a.baselineQuery = ""
+						a.baselineClassFilter = 0
+						a.reloadDataPages(context.Background())
+					}
+				})
+				return
+			}
+			emptyState(c, p, iconBaseline, locales.BaselineEmpty(), locales.BaselineEmptyHint(), func() {
+				btn := labelledButton(c, locales.ImportBaselines(), iconImports, true)
+				btn.Disabled(a.dataBusy || !a.stageEditable())
+				if btn.Clicked() {
+					a.openImportWizard(importer.KindBaselines)
+				}
+			})
 			return
 		}
-		a.baselineTable.RowHeight = t.Space(10)
+		a.baselineTable.RowHeight = tableRowHeight(t)
+		a.baselineTable.Key = func(row int) any {
+			item := a.baselines[row]
+			return fmt.Sprintf("%s:%s:%s", item.ClassName, item.Subject, item.SetName)
+		}
 		columns := []ui.TableColumn{
 			{Title: locales.ColumnClass(), Width: t.Space(18)},
 			{Title: locales.BaselineSubject(), Width: t.Space(20)},
@@ -551,9 +675,9 @@ func (a *app) baselinePage(c *ui.Context, p uiPalette) {
 			item := a.baselines[row]
 			switch col {
 			case 0:
-				ui.Text(c, item.ClassName).SingleLine()
+				cellText(c, p, item.ClassName)
 			case 1:
-				ui.Text(c, a.subjectName(item.Subject, item.Subject)).SingleLine()
+				cellText(c, p, a.subjectName(item.Subject, item.Subject))
 			case 2:
 				ui.Text(c, formatDecimal(item.Average, 2)).FontFeatures("tnum")
 			case 3:
@@ -561,12 +685,11 @@ func (a *app) baselinePage(c *ui.Context, p uiPalette) {
 			case 4:
 				ui.Text(c, formatRatio(item.Ratio)).FontFeatures("tnum")
 			case 5:
-				ui.Text(c, item.SetName).TextColor(p.muted).SingleLine()
+				mutedCellText(c, p, item.SetName)
 			case 6:
-				ui.Text(c, dataSourceLabel(item.ImportRunID, item.SourceSheet, item.SourceRow)).
-					TextColor(p.muted).SingleLine()
+				mutedCellText(c, p, dataSourceLabel(item.ImportRunID, item.SourceSheet, item.SourceRow))
 			}
-		}).Label(locales.NavBaseline()).Grow(1).FillWidth()
+		}).Label(locales.NavBaseline()).Grow(1).Shrink(1).MinHeight(0).Fill()
 	})
 }
 
@@ -601,8 +724,8 @@ func (a *app) baselineFilters(c *ui.Context, p uiPalette) {
 			}
 		}
 		ui.Spacer(c)
-		ui.Textf(c, locales.DataRecordCount(), formatInt(len(a.baselines))).FontSize(captionSize(t)).
-			TextColor(p.muted).FontFeatures("tnum")
+		ui.Text(c, pluralCount(len(a.baselines), locales.DataRecordCountOne(), locales.DataRecordCount())).
+			FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum").Shrink(0)
 	})
 }
 
@@ -623,44 +746,61 @@ func (a *app) importsPage(c *ui.Context, p uiPalette) {
 		a.importFilters(c, p)
 		runs := a.visibleImportRuns()
 		if len(runs) == 0 {
+			if strings.TrimSpace(a.importQuery) != "" {
+				emptyState(c, p, iconImports, locales.FilterEmptyTitle(), locales.FilterEmptyHint(), func() {
+					if plainButton(c, locales.ClearFilters()).Clicked() {
+						a.importQuery = ""
+					}
+				})
+				return
+			}
 			emptyState(c, p, iconImports, locales.ImportsEmpty(), locales.ImportsEmptyHint(), nil)
 			return
 		}
-		ui.Row(c).Grow(1).Shrink(1).MinHeight(0).AlignItems(ui.Start).Gap(t.Space(3)).Children(func() {
-			ui.Scroll(c).Grow(1).Shrink(1).MinHeight(0).Children(func() {
-				ui.Column(c).FillWidth().Gap(0).Dividers(1, p.border).Children(func() {
-					for _, run := range runs {
-						run := run
-						ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).
-							Padding(t.Space(2), 0).Children(func() {
-							ui.Column(c).Grow(1).MinWidth(0).Gap(t.Space(0.5)).Children(func() {
-								ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-									ui.Text(c, importFileLabel(run)).FontSize(bodySize(t)).
-										FontWeight(500).SingleLine().Shrink(1).MinWidth(0)
-									badge(c, p, importKindName(run.DataKind), toneNeutral)
-									if run.Status == "undone" {
-										badge(c, p, locales.ImportStatusUndone(), toneNeutral)
-									}
-								})
-								ui.Textf(c, locales.ImportRunMeta(), formatTime(run.CreatedAt),
-									formatInt(run.RowCount)).FontSize(captionSize(t)).
-									TextColor(p.muted).FontFeatures("tnum").SingleLine()
-							})
-							if run.Warnings > 0 {
-								ui.Textf(c, locales.ImportWarningCount(), formatInt(run.Warnings)).
-									FontSize(captionSize(t)).TextColor(p.warning).Shrink(0)
-							}
-							detailButton := plainButton(c, locales.ImportViewDetail()).
-								Label(locales.ImportViewDetail() + " " + importKindName(run.DataKind))
-							if detailButton.Clicked() {
-								a.selectImportRun(run.ID)
-							}
-						})
+		ui.Row(c).Grow(1).Shrink(1).MinHeight(0).MinWidth(0).AlignItems(ui.Stretch).Gap(t.Space(3)).Children(func() {
+			selectedRunID := int64(0)
+			a.importsListState.Key = func(row int) any { return runs[row].ID }
+			ui.List(c, &a.importsListState, len(runs), func(row int) {
+				run := runs[row]
+				fileLabel := importFileLabel(run)
+				ui.Column(c).FillWidth().Gap(0).Children(func() {
+					if row > 0 {
+						rule(c)
 					}
+					ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).
+						Padding(t.Space(2), 0).Children(func() {
+						ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(t.Space(0.5)).Children(func() {
+							ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+								ui.Text(c, fileLabel).FontSize(bodySize(t)).
+									FontWeight(500).SingleLine().TruncateMiddle().
+									Shrink(1).MinWidth(0).Tooltip(fileLabel)
+								badge(c, p, importKindName(run.DataKind), toneNeutral)
+								if run.Status == "undone" {
+									badge(c, p, locales.ImportStatusUndone(), toneNeutral)
+								}
+							})
+							ui.Textf(c, locales.ImportRunMeta(), formatTime(run.CreatedAt),
+								formatInt(run.RowCount)).FontSize(captionSize(t)).
+								TextColor(p.muted).FontFeatures("tnum").SingleLine().MinWidth(0)
+						})
+						if run.Warnings > 0 {
+							ui.Text(c, pluralCount(run.Warnings, locales.ImportWarningCountOne(), locales.ImportWarningCount())).
+								FontSize(captionSize(t)).TextColor(p.warning).Shrink(0)
+						}
+						detailButton := plainButton(c, locales.ImportViewDetail()).
+							Label(locales.ImportViewDetail() + " " + importKindName(run.DataKind))
+						if detailButton.Clicked() {
+							selectedRunID = run.ID
+						}
+					})
 				})
-			})
+			}).Label(locales.NavImports()).Grow(1).Shrink(1).MinHeight(0).MinWidth(0).Fill()
+			if selectedRunID != 0 {
+				a.selectImportRun(selectedRunID)
+			}
 			if a.importDetail != nil {
-				ui.Column(c).Width(t.Space(84)).Children(func() {
+				ui.Column(c.Key("import-detail-panel")).Width(t.Space(84)).Shrink(0).FillHeight().MinHeight(0).
+					Transition(drawerTransition).Children(func() {
 					a.importDetailPanel(c, p)
 				})
 			}
@@ -689,12 +829,12 @@ func (a *app) importDetailPanel(c *ui.Context, p uiPalette) {
 		ui.Scroll(c).Fill().Children(func() {
 			ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
 				a.detailRow(c, p, locales.ImportDetailKind(), importKindName(detail.Run.DataKind))
-				a.detailRow(c, p, locales.ImportDetailFile(), importFileLabel(detail.Run))
+				a.detailPathRow(c, p, locales.ImportDetailFile(), importFileLabel(detail.Run))
 				a.detailRow(c, p, locales.ImportDetailStatus(),
 					importStatusName(detail.Run.Status))
 				a.detailRow(c, p, locales.ImportDetailRows(), formatInt(detail.Run.RowCount))
 				if detail.Run.RelativePath != "" {
-					a.detailRow(c, p, locales.ImportSourcePath(), detail.Run.RelativePath)
+					a.detailPathRow(c, p, locales.ImportSourcePath(), detail.Run.RelativePath)
 				}
 				for _, sheet := range detail.Run.Sheets {
 					ui.Textf(c, locales.ImportSheetRow(), sheet.Name, sheet.Role, sheet.Rows).
@@ -760,8 +900,8 @@ func (a *app) importFilters(c *ui.Context, p uiPalette) {
 			}
 		})
 		ui.Spacer(c)
-		ui.Textf(c, locales.DataRecordCount(), formatInt(len(a.visibleImportRuns()))).
-			FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum")
+		ui.Text(c, pluralCount(len(a.visibleImportRuns()), locales.DataRecordCountOne(), locales.DataRecordCount())).
+			FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum").Shrink(0)
 	})
 }
 

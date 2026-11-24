@@ -72,17 +72,43 @@ func (a *app) reloadStudents(ctx context.Context) {
 		a.studentsTotal = 0
 		return
 	}
+	pageSize := normalizePageSize(a.studentPageSize)
+	a.studentPageSize = pageSize
+	if a.studentPage < 0 {
+		a.studentPage = 0
+	}
 	students, total, err := a.store.ListStudents(ctx, store.StudentFilter{
 		StageID:  stage.ID,
 		ClassID:  a.dataClassFilter,
 		Track:    a.dataTrackFilter,
 		Status:   a.dataStatusFilter,
 		Query:    a.dataQuery,
-		PageSize: 200,
+		Page:     a.studentPage,
+		PageSize: pageSize,
 	})
 	if err != nil {
 		a.dataError = err.Error()
+		a.students = nil
+		a.studentsTotal = 0
 		return
+	}
+	if total > 0 && len(students) == 0 && a.studentPage > 0 {
+		a.studentPage = (total - 1) / pageSize
+		students, total, err = a.store.ListStudents(ctx, store.StudentFilter{
+			StageID:  stage.ID,
+			ClassID:  a.dataClassFilter,
+			Track:    a.dataTrackFilter,
+			Status:   a.dataStatusFilter,
+			Query:    a.dataQuery,
+			Page:     a.studentPage,
+			PageSize: pageSize,
+		})
+		if err != nil {
+			a.dataError = err.Error()
+			a.students = nil
+			a.studentsTotal = 0
+			return
+		}
 	}
 	a.students = students
 	a.studentsTotal = total
@@ -188,6 +214,7 @@ func (a *app) importStudentFile(path string) {
 		}
 		a.dataError = ""
 		a.dataMessage = fmt.Sprintf(locales.ImportStudentsDone(), summary.Students, summary.Classes)
+		a.notifyMain(a.dataMessage)
 		ctx := context.Background()
 		a.reloadCohorts(ctx)
 		a.reloadDataPages(ctx)
@@ -239,6 +266,7 @@ func (a *app) importAssignmentFile(path string) {
 		a.dataError = ""
 		a.dataMessage = fmt.Sprintf(locales.ImportAssignmentsDone(), summary.Teachers,
 			summary.TeachingGroups, summary.Assignments)
+		a.notifyMain(a.dataMessage)
 		ctx := context.Background()
 		a.reloadCohorts(ctx)
 		a.reloadDataPages(ctx)
@@ -289,6 +317,7 @@ func (a *app) importBaselineFile(path string) {
 		}
 		a.dataError = ""
 		a.dataMessage = fmt.Sprintf(locales.ImportBaselinesDone(), summary.Baselines)
+		a.notifyMain(a.dataMessage)
 		ctx := context.Background()
 		a.reloadCohorts(ctx)
 		a.reloadDataPages(ctx)
@@ -333,6 +362,7 @@ func (a *app) undoSelectedImport() {
 		return
 	}
 	a.dataMessage = locales.ImportUndoDone()
+	a.notifyMain(a.dataMessage)
 	a.importRunID = 0
 	a.importDetail = nil
 	ctx := context.Background()

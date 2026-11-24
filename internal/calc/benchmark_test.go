@@ -122,9 +122,13 @@ func Test10KCalculationPerformance(t *testing.T) {
 		t.Fatalf("expected %d rows, got %d", len(statGroups), len(output.Rows))
 	}
 
-	t.Logf("10,000 students (%d scores) calculation took %v", studentCount*len(subjects), duration)
-	if duration > 1*time.Second {
-		t.Fatalf("calculation performance exceeded 1s limit: took %v", duration)
+	limit := 1 * time.Second
+	if raceDetectorActive {
+		limit = 5 * time.Second
+	}
+	t.Logf("10,000 students (%d scores) calculation took %v (limit: %v)", studentCount*len(subjects), duration, limit)
+	if duration > limit {
+		t.Fatalf("calculation performance exceeded %v limit: took %v", limit, duration)
 	}
 }
 

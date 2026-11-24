@@ -99,7 +99,7 @@ func TestAssessmentOpenExamData(t *testing.T) {
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
-	if err := tt.Click("Open 期中考试 data"); err != nil {
+	if err := tt.Click("Edit exam data"); err != nil {
 		t.Fatal(err)
 	}
 	if a.page != pageExams || a.selectedExamID != fixture.ExamID {
