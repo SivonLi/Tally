@@ -83,11 +83,16 @@ func contentNodes(tt *ui.Tester, minX, minY float32) []ui.AccessInfo {
 
 func measureTextWidth(t *testing.T, text string, size float32) float32 {
 	t.Helper()
+	return measureTextWidthWithWeight(t, text, size, 0)
+}
+
+func measureTextWidthWithWeight(t *testing.T, text string, size float32, weight int) float32 {
+	t.Helper()
 	width := float32(-1)
 	view := func(c *ui.Context) {
 		applySunbeamTheme(c)
 		if width < 0 {
-			width, _ = c.MeasureText(0, ui.Span{Text: text, Font: c.Theme().Font, Size: size})
+			width, _ = c.MeasureText(0, ui.Span{Text: text, Font: c.Theme().Font, Size: size, Weight: weight})
 		}
 		ui.Text(c, "measure")
 	}
@@ -840,9 +845,12 @@ func TestRuntimeAnalysisAndWorkbenchRegression(t *testing.T) {
 			badgeNode, ok := findNode(tt, ui.RoleText, locales.AssessmentOfficialResults())
 			if !ok {
 				failGeometry(t, tt, "工作台正式徽标_"+lang, "找不到正式结果徽标")
-			} else if badgeNode.Bounds.W < measureTextWidth(t, locales.AssessmentOfficialResults(), captionSize(ui.Theme{FontSize: 14})) {
+			} else if badgeNode.Bounds.W+1 < measureTextWidthWithWeight(t, locales.AssessmentOfficialResults(), captionSize(ui.Theme{FontSize: 14}), 500) {
 				failGeometry(t, tt, "工作台正式徽标_"+lang, fmt.Sprintf(
 					"徽标宽度 %.1f 小于文字所需宽度", badgeNode.Bounds.W))
+			} else if rectRight(badgeNode.Bounds) > 1024-pagePadding+1 {
+				failGeometry(t, tt, "工作台正式徽标_"+lang, fmt.Sprintf(
+					"徽标右边界 %.1f 超出内容区 %.1f", rectRight(badgeNode.Bounds), float32(1024-pagePadding)))
 			}
 		})
 	}
