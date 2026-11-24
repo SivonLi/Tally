@@ -27,13 +27,17 @@ func (a *app) reloadDataPages(ctx context.Context) {
 		return
 	}
 	var err error
-	a.importRuns, err = a.store.ListAllImportRuns(ctx)
+	cohort := a.selectedCohort()
+	stage := a.selectedStage()
+	if cohort != nil && stage != nil {
+		a.importRuns, err = a.store.ListWorkspaceImportRuns(ctx, cohort.ID, stage.ID)
+	} else {
+		a.importRuns, err = a.store.ListAllImportRuns(ctx)
+	}
 	if err != nil {
 		a.dataError = err.Error()
 		return
 	}
-	cohort := a.selectedCohort()
-	stage := a.selectedStage()
 	if cohort == nil || stage == nil {
 		return
 	}
@@ -72,17 +76,43 @@ func (a *app) reloadStudents(ctx context.Context) {
 		a.studentsTotal = 0
 		return
 	}
+	pageSize := normalizePageSize(a.studentPageSize)
+	a.studentPageSize = pageSize
+	if a.studentPage < 0 {
+		a.studentPage = 0
+	}
 	students, total, err := a.store.ListStudents(ctx, store.StudentFilter{
 		StageID:  stage.ID,
 		ClassID:  a.dataClassFilter,
 		Track:    a.dataTrackFilter,
 		Status:   a.dataStatusFilter,
 		Query:    a.dataQuery,
-		PageSize: 200,
+		Page:     a.studentPage,
+		PageSize: pageSize,
 	})
 	if err != nil {
 		a.dataError = err.Error()
+		a.students = nil
+		a.studentsTotal = 0
 		return
+	}
+	if total > 0 && len(students) == 0 && a.studentPage > 0 {
+		a.studentPage = (total - 1) / pageSize
+		students, total, err = a.store.ListStudents(ctx, store.StudentFilter{
+			StageID:  stage.ID,
+			ClassID:  a.dataClassFilter,
+			Track:    a.dataTrackFilter,
+			Status:   a.dataStatusFilter,
+			Query:    a.dataQuery,
+			Page:     a.studentPage,
+			PageSize: pageSize,
+		})
+		if err != nil {
+			a.dataError = err.Error()
+			a.students = nil
+			a.studentsTotal = 0
+			return
+		}
 	}
 	a.students = students
 	a.studentsTotal = total
@@ -169,6 +199,7 @@ func (a *app) importStudentFile(path string) {
 		ctx := context.Background()
 		data, report, err := importer.ImportWorkspace(path, importer.Options{
 			ConversionDir: filepath.Join(a.dataDir, "converted"),
+			SofficePath:   a.sofficePath,
 		})
 		if err != nil {
 			return store.ImportSummary{}, err
@@ -188,6 +219,7 @@ func (a *app) importStudentFile(path string) {
 		}
 		a.dataError = ""
 		a.dataMessage = fmt.Sprintf(locales.ImportStudentsDone(), summary.Students, summary.Classes)
+		a.notifyMain(a.dataMessage)
 		ctx := context.Background()
 		a.reloadCohorts(ctx)
 		a.reloadDataPages(ctx)
@@ -219,6 +251,7 @@ func (a *app) importAssignmentFile(path string) {
 		ctx := context.Background()
 		data, report, err := importer.ImportWorkspace(path, importer.Options{
 			ConversionDir: filepath.Join(a.dataDir, "converted"),
+			SofficePath:   a.sofficePath,
 		})
 		if err != nil {
 			return store.ImportSummary{}, err
@@ -239,6 +272,7 @@ func (a *app) importAssignmentFile(path string) {
 		a.dataError = ""
 		a.dataMessage = fmt.Sprintf(locales.ImportAssignmentsDone(), summary.Teachers,
 			summary.TeachingGroups, summary.Assignments)
+		a.notifyMain(a.dataMessage)
 		ctx := context.Background()
 		a.reloadCohorts(ctx)
 		a.reloadDataPages(ctx)
@@ -270,6 +304,7 @@ func (a *app) importBaselineFile(path string) {
 		ctx := context.Background()
 		data, report, err := importer.ImportWorkspace(path, importer.Options{
 			ConversionDir: filepath.Join(a.dataDir, "converted"),
+			SofficePath:   a.sofficePath,
 		})
 		if err != nil {
 			return store.ImportSummary{}, err
@@ -289,6 +324,7 @@ func (a *app) importBaselineFile(path string) {
 		}
 		a.dataError = ""
 		a.dataMessage = fmt.Sprintf(locales.ImportBaselinesDone(), summary.Baselines)
+		a.notifyMain(a.dataMessage)
 		ctx := context.Background()
 		a.reloadCohorts(ctx)
 		a.reloadDataPages(ctx)
@@ -333,11 +369,16 @@ func (a *app) undoSelectedImport() {
 		return
 	}
 	a.dataMessage = locales.ImportUndoDone()
+	a.notifyMain(locales.ImportCenterUndoSuccess())
 	a.importRunID = 0
 	a.importDetail = nil
 	ctx := context.Background()
 	a.reloadCohorts(ctx)
 	a.reloadDataPages(ctx)
+	a.reloadExams(ctx)
+	a.reloadAssessments(ctx)
+	a.qualityLoaded = false
+	a.reloadWorkspaceSummary(ctx)
 }
 
 func (a *app) classFilterLabels() (labels []string, ids []int64) {

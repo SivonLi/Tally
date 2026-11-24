@@ -17,6 +17,7 @@ func calculateRow(input Input, group StatGroup, classes map[string]AdminClass, t
 	count := 0
 	sum := 0.0
 	passCount := 0
+	var participants []Participant
 	reference := input.References[group.Subject]
 	for _, student := range input.Students {
 		if !studentValid(student, input.Plan.Data) {
@@ -35,6 +36,7 @@ func calculateRow(input Input, group StatGroup, classes map[string]AdminClass, t
 		}
 		count++
 		sum += score
+		participants = append(participants, Participant{StudentNo: student.ID, Name: student.Name})
 		cutoff := reference.Cutoff
 		if value, ok := reference.Cutoffs[student.Track]; ok {
 			cutoff = value
@@ -178,6 +180,7 @@ func calculateRow(input Input, group StatGroup, classes map[string]AdminClass, t
 		CompletionScore:         values["completion"],
 		CompletionParticipating: completionParticipating,
 		MemberCount:             len(group.MemberTeachingGroupIDs),
+		Participants:            participants,
 		IndicatorValues:         values,
 	}
 	if !completionParticipating {
@@ -253,39 +256,33 @@ func weightedTiers(tiers []assessment.TierConfig, target ClassTarget, actualCoun
 	base := 0.0
 	for _, tier := range tiers {
 		actualCount := actualCounts[tier.Key]
-		targetCount, ok := target.Counts[tier.Key]
-		if !ok || targetCount == nil {
-			return 0, 0, nil, nil, fmt.Errorf("班级 %s 缺少档位 %s 的目标", target.ClassID, tier.Key)
+		var count float64
+		if targetCount, ok := target.Counts[tier.Key]; ok && targetCount != nil {
+			count = *targetCount
 		}
 		actual += actualCount * tier.Weight
-		base += *targetCount * tier.Weight
+		base += count * tier.Weight
 		actualValues[tier.Key] = formula.Number(actualCount)
-		targetValues[tier.Key] = formula.Number(*targetCount)
+		targetValues[tier.Key] = formula.Number(count)
 	}
 	return actual, base, actualValues, targetValues, nil
 }
 
 func undergraduatePassRatio(tiers []assessment.TierConfig, target ClassTarget, actualCounts map[string]float64) float64 {
-	var undergraduate assessment.TierConfig
-	found := false
+	totalTarget := 0.0
+	totalActual := 0.0
 	for _, tier := range tiers {
-		if tier.Key == "undergraduate" {
-			undergraduate = tier
-			found = true
-			break
+		if t, ok := target.Counts[tier.Key]; ok && t != nil {
+			totalTarget += *t
+		}
+		if a, ok := actualCounts[tier.Key]; ok {
+			totalActual += a
 		}
 	}
-	if !found {
+	if totalTarget == 0 {
 		return 0
 	}
-	targetCount, ok := target.Counts[undergraduate.Key]
-	if !ok || targetCount == nil {
-		return 0
-	}
-	if *targetCount == 0 {
-		return 0
-	}
-	return actualCounts[undergraduate.Key] / *targetCount
+	return totalActual / totalTarget
 }
 
 func numberObject(values map[string]float64) map[string]formula.Value {

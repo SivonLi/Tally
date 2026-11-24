@@ -2,9 +2,11 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"path/filepath"
 	"testing"
 
+	"tally/internal/assessment"
 	"tally/internal/calc"
 )
 
@@ -217,25 +219,70 @@ func TestSaveAssessmentRunAndLatest(t *testing.T) {
 		Rows: []calc.Row{{
 			StatGroupID: "1", StatGroupName: "1班", Subject: "chinese", LeadClassID: "1",
 			LeadClassName: "1班", ClassCount: 2, ClassAverage: 95, Total: 88, Rank: 1,
+			ImprovementRaw: 7, ImprovementScore: 5, PassCount: 9, PassTarget: 10,
+			CompletionActual: 0.8, CompletionBase: 0.9, CompletionParticipating: true,
+			Participants: []calc.Participant{
+				{StudentNo: "001", Name: "甲"}, {StudentNo: "002", Name: "乙"},
+			},
 			IndicatorValues: map[string]float64{"improvement": 5},
 		}},
 		Personal: []calc.PersonalScore{{
 			TeacherID: "1", TeacherName: "张老师", Grade: "g1", Subject: "chinese", Score: 88,
 		}},
 	}
-	runID, err := fixture.Store.SaveAssessmentRun(ctx, fixture.AssessmentID, fixture.VersionID, "hash", result)
+	summary := map[string]string{"plan": "p", "roster": "r"}
+	runID, err := fixture.Store.SaveAssessmentRun(ctx, fixture.AssessmentID, fixture.VersionID, "hash", summary, result, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	run, rows, personal, err := fixture.Store.LatestAssessmentRun(ctx, fixture.AssessmentID)
+	run, rows, personal, err := fixture.Store.LatestOfficialAssessmentRun(ctx, fixture.AssessmentID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if run.ID != runID || len(rows) != 1 || len(personal) != 1 {
+	if run.ID != runID || !run.IsOfficial || len(rows) != 1 || len(personal) != 1 {
 		t.Fatalf("run=%+v rows=%d personal=%d", run, len(rows), len(personal))
 	}
 	if rows[0].Total != 88 || personal[0].TeacherName != "张老师" {
 		t.Fatalf("rows = %+v personal=%+v", rows, personal)
+	}
+	if rows[0].ImprovementRaw != 7 || !rows[0].CompletionParticipate {
+		t.Fatalf("row detail = %+v", rows[0])
+	}
+	if run.InputSummary == "" {
+		t.Fatal("run summary is empty")
+	}
+	students, err := fixture.Store.AssessmentRowStudents(ctx, runID, 1, "chinese")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(students) != 2 || students[0].Name != "甲" || students[1].StudentNo != "002" {
+		t.Fatalf("students = %+v", students)
+	}
+	trialID, err := fixture.Store.SaveAssessmentRun(ctx, fixture.AssessmentID, fixture.VersionID, "hash2", summary, result, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	official, _, _, err := fixture.Store.LatestOfficialAssessmentRun(ctx, fixture.AssessmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if official.ID != runID || !official.IsOfficial {
+		t.Fatalf("official run = %+v", official)
+	}
+	runs, err := fixture.Store.ListAssessmentRuns(ctx, fixture.AssessmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(runs) != 2 || runs[0].ID != trialID || runs[0].IsOfficial ||
+		runs[1].ID != runID || !runs[1].IsOfficial {
+		t.Fatalf("runs = %+v", runs)
+	}
+	detail, detailRows, _, err := fixture.Store.AssessmentRunDetail(ctx, fixture.AssessmentID, trialID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if detail.ID != trialID || detail.IsOfficial || len(detailRows) != 1 {
+		t.Fatalf("trial run = %+v rows=%d", detail, len(detailRows))
 	}
 	context, err := fixture.Store.LoadAssessmentContext(ctx, fixture.AssessmentID)
 	if err != nil {
@@ -243,6 +290,53 @@ func TestSaveAssessmentRunAndLatest(t *testing.T) {
 	}
 	if context.Assessment.Status != "calculated" || context.Assessment.CurrentRunID != runID {
 		t.Fatalf("assessment = %+v", context.Assessment)
+	}
+}
+
+func TestInputSummaryAndChangedItems(t *testing.T) {
+	data := BatchData{
+		Classes:        []Class{{ID: 1, Name: "1班"}},
+		Students:       []Student{{ID: 1, StudentNo: "001", Name: "甲", ClassID: 1, Status: "active"}},
+		StatGroups:     []StatGroup{{ID: 1, Subject: "chinese", Name: "1班", LeadClassID: 1, Target: 10}},
+		GradeBaselines: map[string]float64{"chinese": 90},
+	}
+	data.Students[0].Scores = map[string]float64{"chinese": 100}
+	summary, err := InputSummary(assessment.DefaultConfig(), data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(summary) != 10 {
+		t.Fatalf("summary = %+v", summary)
+	}
+	encoded, err := json.Marshal(summary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	same, err := ChangedInputItems(string(encoded), summary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(same) != 0 {
+		t.Fatalf("unchanged data reports %v", same)
+	}
+	unknown, err := ChangedInputItems("", summary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unknown != nil {
+		t.Fatalf("empty stored summary should report nil, got %v", unknown)
+	}
+	data.Students[0].Scores["chinese"] = 99
+	updated, err := InputSummary(assessment.DefaultConfig(), data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed, err := ChangedInputItems(string(encoded), updated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(changed) != 1 || changed[0] != "scores" {
+		t.Fatalf("changed = %v", changed)
 	}
 }
 

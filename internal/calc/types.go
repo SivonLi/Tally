@@ -60,6 +60,12 @@ type Student struct {
 	TeachingGroups map[string]string
 }
 
+// Participant 是一名参与某统计组某学科计算的学生，随结果保存为快照。
+type Participant struct {
+	StudentNo string
+	Name      string
+}
+
 // ClassTarget 是一个行政班的分档目标人数。
 type ClassTarget struct {
 	ClassID string
@@ -119,6 +125,7 @@ type Row struct {
 	Rank            int
 	TierIndex       int
 	Points          float64
+	Participants    []Participant
 	IndicatorValues map[string]float64
 }
 

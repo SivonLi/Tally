@@ -298,7 +298,7 @@ func TestGaokaoCompletionProgram(t *testing.T) {
 	}
 	row := rowByStatGroup(t, result, "SG1")
 	targetCompletion := float64(5*50+10*8) / float64(10*50+10*8)
-	undergraduate := 10.0 / 10.0
+	undergraduate := float64(5+10) / float64(10+10)
 	want := (targetCompletion*0.6 + undergraduate*0.4) * 20
 	if math.Abs(row.CompletionScore-want) > 1e-9 {
 		t.Fatalf("completion = %v want %v", row.CompletionScore, want)

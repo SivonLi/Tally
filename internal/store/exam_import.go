@@ -67,7 +67,145 @@ func (s *Store) ValidateExamImport(ctx context.Context, req ExamImportRequest) (
 	return preview, nil
 }
 
-// ApplyExamImport 写入考试数据，阻断问题存在时返回 ErrImportBlocked。
+// AddExamRosterStudents 把成绩单里不在报名名单的考生补建为学生并加入本场考试报名名单。
+// 已有阶段归属的学生沿用原有班级与类别；返回新增人数与因缺少班级或姓名跳过的人数。
+func (s *Store) AddExamRosterStudents(ctx context.Context, examCohort ExamCohort, entries []ImportStudent) (int, int, error) {
+	roster, err := s.examRosterUserIndex(ctx, examCohort)
+	if err != nil {
+		return 0, 0, err
+	}
+	classes, err := s.stageClassMap(ctx, examCohort.StageID)
+	if err != nil {
+		return 0, 0, err
+	}
+	now := s.now().Format(time.RFC3339Nano)
+	var statements []sqlite.Statement
+	added := 0
+	skipped := 0
+	createdClass := map[string]bool{}
+	for _, entry := range entries {
+		if entry.StudentNo == "" || entry.Name == "" {
+			skipped++
+			continue
+		}
+		if _, ok := roster.byStudentNo[entry.StudentNo]; ok {
+			continue
+		}
+		className := normalizeClassName(entry.ClassName)
+		if className == "" {
+			skipped++
+			continue
+		}
+		membership, err := s.stageMembershipRow(ctx, examCohort.StageID, entry.StudentNo)
+		if err != nil {
+			return 0, 0, err
+		}
+		if membership != nil {
+			statements = append(statements, s.rosterAddExistingStudentStatements(examCohort, entry, membership)...)
+			added++
+			continue
+		}
+		if id, ok := classes[className]; !ok || id == 0 {
+			if !createdClass[className] {
+				statements = append(statements,
+					sqlite.Statement{
+						SQL: `INSERT INTO classes(cohort_id, name, created_at)
+							VALUES (?, ?, ?)`,
+						Args: []any{examCohort.CohortID, className, now},
+					},
+					sqlite.Statement{
+						SQL: `INSERT INTO class_stage_info(class_id, stage_id, status)
+							SELECT id, ?, 'active' FROM classes WHERE cohort_id = ? AND name = ?`,
+						Args: []any{examCohort.StageID, examCohort.CohortID, className},
+					})
+				createdClass[className] = true
+			}
+		}
+		statements = append(statements, s.rosterAddNewStudentStatements(examCohort, entry, className, now)...)
+		added++
+	}
+	if len(statements) > 0 {
+		if _, err := s.db.Transaction(ctx, statements); err != nil {
+			return 0, 0, err
+		}
+	}
+	return added, skipped, nil
+}
+
+type stageMembershipRow struct {
+	Track    string
+	Elective string
+}
+
+// stageMembershipRow 返回学生在当前阶段的归属，不存在时返回 nil。
+func (s *Store) stageMembershipRow(ctx context.Context, stageID int64, studentNo string) (*stageMembershipRow, error) {
+	rows, err := s.db.Query(ctx, `SELECT m.track, m.elective FROM student_stage_memberships m
+		JOIN students s ON s.id = m.student_id WHERE s.student_no = ? AND m.stage_id = ?`,
+		studentNo, stageID)
+	if err != nil {
+		return nil, err
+	}
+	if len(rows.Values) == 0 {
+		return nil, nil
+	}
+	track, _ := rows.Values[0][0].(string)
+	elective, _ := rows.Values[0][1].(string)
+	return &stageMembershipRow{Track: track, Elective: elective}, nil
+}
+
+// rosterAddExistingStudentStatements 为已有阶段归属的考生生成报名名单语句，沿用原班级与类别。
+func (s *Store) rosterAddExistingStudentStatements(examCohort ExamCohort, entry ImportStudent, membership *stageMembershipRow) []sqlite.Statement {
+	subjects := electiveSubjects(membership.Elective)
+	subjectsJSON, _ := json.Marshal(subjects)
+	return []sqlite.Statement{
+		{
+			SQL: `INSERT INTO exam_rosters(exam_id, cohort_id, student_id, class_id, track, status, subjects_json, source_sheet, source_row)
+				SELECT ?, ?, m.student_id, m.class_id, m.track, 'active', ?, ?, ?
+				FROM student_stage_memberships m JOIN students s ON s.id = m.student_id
+				WHERE s.student_no = ? AND m.stage_id = ?`,
+			Args: []any{examCohort.ExamID, examCohort.CohortID, string(subjectsJSON),
+				entry.SourceSheet, entry.SourceRow, entry.StudentNo, examCohort.StageID},
+		},
+	}
+}
+
+// rosterAddNewStudentStatements 为不在学生名单的考生生成建学生、归属与报名名单的语句。
+func (s *Store) rosterAddNewStudentStatements(examCohort ExamCohort, entry ImportStudent, className, now string) []sqlite.Statement {
+	subjects := electiveSubjects(entry.Elective)
+	subjectsJSON, _ := json.Marshal(subjects)
+	return []sqlite.Statement{
+		{
+			SQL: `INSERT INTO students(student_no, name, created_at, source_sheet, source_row)
+				VALUES (?, ?, ?, ?, ?)
+				ON CONFLICT(student_no) DO UPDATE SET name = excluded.name`,
+			Args: []any{entry.StudentNo, entry.Name, now, entry.SourceSheet, entry.SourceRow},
+		},
+		{
+			SQL: `INSERT INTO student_cohorts(student_id, cohort_id, status)
+				SELECT id, ?, 'active' FROM students WHERE student_no = ?
+				ON CONFLICT(student_id, cohort_id) DO NOTHING`,
+			Args: []any{examCohort.CohortID, entry.StudentNo},
+		},
+		{
+			SQL: `INSERT INTO student_stage_memberships(student_id, stage_id, class_id, status, track, elective)
+				SELECT s.id, ?, c.id, 'active', ?, ? FROM students s, classes c
+				WHERE s.student_no = ? AND c.cohort_id = ? AND c.name = ?
+				ON CONFLICT(student_id, stage_id) DO NOTHING`,
+			Args: []any{examCohort.StageID, entry.Track, entry.Elective,
+				entry.StudentNo, examCohort.CohortID, className},
+		},
+		{
+			SQL: `INSERT INTO exam_rosters(exam_id, cohort_id, student_id, class_id, track, status, subjects_json, source_sheet, source_row)
+				SELECT ?, ?, s.id, c.id, ?, 'active', ?, ?, ? FROM students s, classes c
+				WHERE s.student_no = ? AND c.cohort_id = ? AND c.name = ?`,
+			Args: []any{examCohort.ExamID, examCohort.CohortID, entry.Track,
+				string(subjectsJSON), entry.SourceSheet, entry.SourceRow,
+				entry.StudentNo, examCohort.CohortID, className},
+		},
+	}
+}
+
+// ApplyExamImport 写入考试数据并记录可撤销的变更明细，阻断问题存在时返回 ErrImportBlocked。
 func (s *Store) ApplyExamImport(ctx context.Context, req ExamImportRequest) (ImportSummary, error) {
 	preview, err := s.ValidateExamImport(ctx, req)
 	if err != nil {
@@ -83,36 +221,24 @@ func (s *Store) ApplyExamImport(ctx context.Context, req ExamImportRequest) (Imp
 	if req.Report.FileHash == "" {
 		return ImportSummary{}, fmt.Errorf("导入文件缺少内容哈希")
 	}
-	rows, err := s.db.Query(ctx, `SELECT id FROM import_runs WHERE scope_type = 'exam' AND scope_id = ?
-		AND data_kind = ? AND file_hash = ?`, examCohort.ID, req.Kind, req.Report.FileHash)
+	runID, reused, err := s.beginExamImportRun(ctx, examCohort, req, preview)
 	if err != nil {
 		return ImportSummary{}, err
 	}
-	if len(rows.Values) > 0 {
-		return ImportSummary{}, ErrDuplicateImport
-	}
-	summary, statements, err := s.examImportStatements(ctx, examCohort, req, preview)
+	summary, statements, changes, err := s.examImportStatements(ctx, examCohort, req, preview, runID)
 	if err != nil {
+		if !reused {
+			s.deleteImportRun(ctx, runID)
+		}
 		return ImportSummary{}, err
 	}
-	now := s.now().Format(time.RFC3339Nano)
-	statements = append([]sqlite.Statement{{
-		SQL: `INSERT INTO import_runs(scope_type, scope_id, data_kind, file_hash, stored_path,
-			relative_path, converted_path, mapping_json, status, row_count, error_count, warning_count, created_at)
-			VALUES ('exam', ?, ?, ?, ?, ?, ?, ?, 'imported', ?, ?, ?, ?)`,
-		Args: []any{examCohort.ID, req.Kind, req.Report.FileHash, req.Report.StoredPath,
-			req.Report.Path, req.Report.ConvertedPath, encodeMapping(req.Mapping), req.Report.RowCount,
-			preview.Blocking, preview.Warnings, now},
-	}}, statements...)
 	for _, sheet := range req.Report.Sheets {
 		statements = append(statements, sqlite.Statement{
 			SQL: `INSERT INTO import_sheets(import_run_id, sheet_name, role, header_row, data_range, is_current)
-				SELECT id, ?, ?, ?, ?, 1 FROM import_runs
-				WHERE scope_type = 'exam' AND scope_id = ? AND data_kind = ? AND file_hash = ?
+				VALUES (?, ?, ?, ?, ?, 1)
 				ON CONFLICT(import_run_id, sheet_name) DO UPDATE SET role = excluded.role,
 					header_row = excluded.header_row, data_range = excluded.data_range`,
-			Args: []any{sheet.Name, sheet.Role, sheet.HeaderRow, fmt.Sprintf("%d rows", sheet.Rows),
-				examCohort.ID, req.Kind, req.Report.FileHash},
+			Args: []any{runID, sheet.Name, sheet.Role, sheet.HeaderRow, fmt.Sprintf("%d rows", sheet.Rows)},
 		})
 	}
 	sheetName := ""
@@ -127,23 +253,30 @@ func (s *Store) ApplyExamImport(ctx context.Context, req ExamImportRequest) (Imp
 			SQL: `INSERT INTO import_columns(import_sheet_id, source_column, standard_field, merged_header,
 				is_user_selected)
 				SELECT s.id, ?, ?, '', 1 FROM import_sheets s
-				JOIN import_runs r ON r.id = s.import_run_id
-				WHERE r.scope_type = 'exam' AND r.scope_id = ? AND r.data_kind = ? AND r.file_hash = ?
-				AND s.sheet_name = ?
+				WHERE s.import_run_id = ? AND s.sheet_name = ?
 				ON CONFLICT(import_sheet_id, source_column) DO UPDATE SET standard_field = excluded.standard_field`,
-			Args: []any{column, field, examCohort.ID, req.Kind, req.Report.FileHash, sheetName},
+			Args: []any{column, field, runID, sheetName},
 		})
 	}
 	for _, issue := range preview.Issues {
 		statements = append(statements, sqlite.Statement{
 			SQL: `INSERT INTO import_issues(import_run_id, severity, row_number, column_name, code, message, resolved)
-				SELECT id, ?, ?, ?, ?, ?, 0 FROM import_runs
-				WHERE scope_type = 'exam' AND scope_id = ? AND data_kind = ? AND file_hash = ?`,
-			Args: []any{issue.Severity, issue.Row, issue.Column, issue.Code,
-				encodeIssueArgs(issue.Args), examCohort.ID, req.Kind, req.Report.FileHash},
+				VALUES (?, ?, ?, ?, ?, ?, 0)`,
+			Args: []any{runID, issue.Severity, issue.Row, issue.Column, issue.Code,
+				encodeIssueArgs(issue.Args)},
 		})
 	}
+	statements = append(statements, s.importChangeStatements(runID, changes)...)
+	now := s.now().Format(time.RFC3339Nano)
+	statements = append(statements, sqlite.Statement{
+		SQL: `INSERT INTO audit_log(action, entity, entity_id, detail_json, created_at, operator)
+			VALUES ('import', 'exam', ?, ?, ?, 'local')`,
+		Args: []any{examCohort.ID, fmt.Sprintf(`{"kind":%q,"run":%d}`, req.Kind, runID), now},
+	})
 	if _, err := s.db.Transaction(ctx, statements); err != nil {
+		if !reused {
+			s.deleteImportRun(ctx, runID)
+		}
 		return ImportSummary{}, err
 	}
 	_, err = s.db.Execute(ctx, `UPDATE exams SET status = 'imported' WHERE id = ? AND status = 'draft'`,
@@ -152,6 +285,49 @@ func (s *Store) ApplyExamImport(ctx context.Context, req ExamImportRequest) (Imp
 		return ImportSummary{}, err
 	}
 	return summary, nil
+}
+
+func (s *Store) beginExamImportRun(ctx context.Context, examCohort ExamCohort, req ExamImportRequest, preview ImportPreview) (int64, bool, error) {
+	rows, err := s.db.Query(ctx, `SELECT id, status FROM import_runs
+		WHERE scope_type = 'exam' AND scope_id = ? AND data_kind = ? AND file_hash = ?`,
+		examCohort.ID, req.Kind, req.Report.FileHash)
+	if err != nil {
+		return 0, false, err
+	}
+	now := s.now().Format(time.RFC3339Nano)
+	if len(rows.Values) > 0 {
+		id := intValue(rows.Values[0][0])
+		status := stringValue(rows.Values[0][1])
+		if status == "imported" {
+			return 0, false, ErrDuplicateImport
+		}
+		if _, err := s.db.Transaction(ctx, []sqlite.Statement{
+			{
+				SQL: `UPDATE import_runs SET status = 'imported', stored_path = ?,
+					relative_path = ?, converted_path = ?, mapping_json = ?, row_count = ?,
+					error_count = ?, warning_count = ?, created_at = ? WHERE id = ?`,
+				Args: []any{req.Report.StoredPath, req.Report.Path, req.Report.ConvertedPath,
+					encodeMapping(req.Mapping), req.Report.RowCount, preview.Blocking,
+					preview.Warnings, now, id},
+			},
+			{SQL: `DELETE FROM import_changes WHERE import_run_id = ?`, Args: []any{id}},
+			{SQL: `DELETE FROM import_issues WHERE import_run_id = ?`, Args: []any{id}},
+			{SQL: `DELETE FROM import_sheets WHERE import_run_id = ?`, Args: []any{id}},
+		}); err != nil {
+			return 0, false, err
+		}
+		return id, true, nil
+	}
+	result, err := s.db.Execute(ctx, `INSERT INTO import_runs(scope_type, scope_id, data_kind, file_hash, stored_path,
+		relative_path, converted_path, mapping_json, status, row_count, error_count, warning_count, created_at)
+		VALUES ('exam', ?, ?, ?, ?, ?, ?, ?, 'imported', ?, ?, ?, ?)`,
+		examCohort.ID, req.Kind, req.Report.FileHash, req.Report.StoredPath,
+		req.Report.Path, req.Report.ConvertedPath, encodeMapping(req.Mapping), req.Report.RowCount,
+		preview.Blocking, preview.Warnings, now)
+	if err != nil {
+		return 0, false, err
+	}
+	return result.LastInsertID, false, nil
 }
 
 func (s *Store) validateExamRoster(ctx context.Context, examCohort ExamCohort, req ExamImportRequest, preview *ImportPreview) error {
@@ -679,14 +855,23 @@ func (s *Store) trackKeys(ctx context.Context) (map[string]bool, error) {
 	return result, nil
 }
 
-func (s *Store) examImportStatements(ctx context.Context, examCohort ExamCohort, req ExamImportRequest, preview ImportPreview) (ImportSummary, []sqlite.Statement, error) {
+func (s *Store) examImportStatements(ctx context.Context, examCohort ExamCohort, req ExamImportRequest, preview ImportPreview, runID int64) (ImportSummary, []sqlite.Statement, []importChange, error) {
 	summary := ImportSummary{}
 	var statements []sqlite.Statement
+	var changes []importChange
 	switch req.Kind {
 	case ExamImportRoster:
 		students, err := s.stageStudentIndex(ctx, examCohort.StageID)
 		if err != nil {
-			return summary, nil, err
+			return summary, nil, nil, err
+		}
+		classIDs, err := s.stageClassIDSet(ctx, examCohort.StageID)
+		if err != nil {
+			return summary, nil, nil, err
+		}
+		existingRoster, err := s.existingExamRosterMap(ctx, examCohort.ExamID, examCohort.CohortID)
+		if err != nil {
+			return summary, nil, nil, err
 		}
 		for _, entry := range req.Data.Roster {
 			student, ok := students[entry.StudentNo]
@@ -695,10 +880,6 @@ func (s *Store) examImportStatements(ctx context.Context, examCohort ExamCohort,
 			}
 			classID := student.ClassID
 			if entry.ClassName != "" {
-				classIDs, err := s.stageClassIDSet(ctx, examCohort.StageID)
-				if err != nil {
-					return summary, nil, err
-				}
 				if id, ok := classIDs[normalizeClassName(entry.ClassName)]; ok {
 					classID = id
 				}
@@ -714,13 +895,29 @@ func (s *Store) examImportStatements(ctx context.Context, examCohort ExamCohort,
 			subjects := electiveSubjects(entry.Elective)
 			subjectsJSON, err := json.Marshal(subjects)
 			if err != nil {
-				return summary, nil, err
+				return summary, nil, nil, err
+			}
+			if before, exists := existingRoster[student.ID]; exists {
+				changes = append(changes, importChange{
+					Entity: "exam_roster",
+					Action: "update",
+					Before: before,
+				})
+			} else {
+				changes = append(changes, importChange{
+					Entity: "exam_roster",
+					Action: "insert",
+					Before: map[string]any{
+						"exam_id":    examCohort.ExamID,
+						"cohort_id":  examCohort.CohortID,
+						"student_id": student.ID,
+					},
+				})
 			}
 			statements = append(statements, sqlite.Statement{
 				SQL: `INSERT INTO exam_rosters(exam_id, cohort_id, student_id, class_id, exam_no,
 					candidate_no, track, total_score, status, subjects_json, import_run_id, source_sheet, source_row)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT id FROM import_runs WHERE scope_type = 'exam'
-						AND scope_id = ? AND data_kind = ? AND file_hash = ?), ?, ?)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 					ON CONFLICT(exam_id, cohort_id, student_id) DO UPDATE SET class_id = excluded.class_id,
 						exam_no = excluded.exam_no, candidate_no = excluded.candidate_no, track = excluded.track,
 						total_score = excluded.total_score, status = excluded.status,
@@ -728,8 +925,7 @@ func (s *Store) examImportStatements(ctx context.Context, examCohort ExamCohort,
 						source_sheet = excluded.source_sheet, source_row = excluded.source_row`,
 				Args: []any{examCohort.ExamID, examCohort.CohortID, student.ID, classID, entry.ExamNo,
 					entry.CandidateNo, track, optionalFloat(entry.TotalScore), status, string(subjectsJSON),
-					examCohort.ID, req.Kind, req.Report.FileHash,
-					entry.SourceSheet, entry.SourceRow},
+					runID, entry.SourceSheet, entry.SourceRow},
 			})
 		}
 		summary.Students = preview.New + preview.Update
@@ -738,7 +934,37 @@ func (s *Store) examImportStatements(ctx context.Context, examCohort ExamCohort,
 	case ExamImportScores:
 		roster, err := s.examRosterUserIndex(ctx, examCohort)
 		if err != nil {
-			return summary, nil, err
+			return summary, nil, nil, err
+		}
+		existingScores, err := s.existingExamScoreMap(ctx, examCohort.ExamID, examCohort.CohortID)
+		if err != nil {
+			return summary, nil, nil, err
+		}
+		recorded := map[string]bool{}
+		recordScoreChange := func(studentID int64, subject string) {
+			key := fmt.Sprintf("%d\x00%s", studentID, subject)
+			if recorded[key] {
+				return
+			}
+			recorded[key] = true
+			if before, exists := existingScores[key]; exists {
+				changes = append(changes, importChange{
+					Entity: "exam_score",
+					Action: "update",
+					Before: before,
+				})
+			} else {
+				changes = append(changes, importChange{
+					Entity: "exam_score",
+					Action: "insert",
+					Before: map[string]any{
+						"exam_id":    examCohort.ExamID,
+						"cohort_id":  examCohort.CohortID,
+						"student_id": studentID,
+						"subject":    subject,
+					},
+				})
+			}
 		}
 		for _, student := range req.Data.Students {
 			entry, ok := roster.find(student.StudentNo)
@@ -747,20 +973,55 @@ func (s *Store) examImportStatements(ctx context.Context, examCohort ExamCohort,
 			}
 			for subject, score := range student.Scores {
 				value := score
-				statements = append(statements, examScoreStatement(examCohort, req, entry, student, subject, &value, ""))
+				recordScoreChange(entry.StudentID, subject)
+				statements = append(statements, examScoreStatement(examCohort, runID, entry, student, subject, &value, ""))
 			}
 			for subject, flag := range student.Flags {
 				if flag == "zero" || subject == "total" {
 					continue
 				}
-				statements = append(statements, examScoreStatement(examCohort, req, entry, student, subject, nil, flag))
+				recordScoreChange(entry.StudentID, subject)
+				statements = append(statements, examScoreStatement(examCohort, runID, entry, student, subject, nil, flag))
 			}
 		}
 		summary.Inserted = preview.New
 		summary.Updated = preview.Update
 		summary.Students = preview.New + preview.Update
 	case ExamImportCutoffs:
+		existingSubjects, err := s.existingSubjectCutoffMap(ctx, examCohort.ExamID, examCohort.CohortID)
+		if err != nil {
+			return summary, nil, nil, err
+		}
+		existingTiers, err := s.existingTierCutoffMap(ctx, examCohort.ExamID, examCohort.CohortID)
+		if err != nil {
+			return summary, nil, nil, err
+		}
 		for _, cutoff := range req.Data.SubjectCutoffs {
+			key := cutoff.Subject + "\x00" + cutoff.Track
+			if beforeVal, exists := existingSubjects[key]; exists {
+				changes = append(changes, importChange{
+					Entity: "exam_subject_cutoff",
+					Action: "update",
+					Before: map[string]any{
+						"exam_id":   examCohort.ExamID,
+						"cohort_id": examCohort.CohortID,
+						"subject":   cutoff.Subject,
+						"track":     cutoff.Track,
+						"cutoff":    beforeVal,
+					},
+				})
+			} else {
+				changes = append(changes, importChange{
+					Entity: "exam_subject_cutoff",
+					Action: "insert",
+					Before: map[string]any{
+						"exam_id":   examCohort.ExamID,
+						"cohort_id": examCohort.CohortID,
+						"subject":   cutoff.Subject,
+						"track":     cutoff.Track,
+					},
+				})
+			}
 			statements = append(statements, sqlite.Statement{
 				SQL: `INSERT INTO exam_subject_cutoffs(exam_id, cohort_id, subject, track, cutoff)
 					VALUES (?, ?, ?, ?, ?) ON CONFLICT(exam_id, cohort_id, subject, track)
@@ -769,6 +1030,31 @@ func (s *Store) examImportStatements(ctx context.Context, examCohort ExamCohort,
 			})
 		}
 		for _, cutoff := range req.Data.TierCutoffs {
+			key := cutoff.TierKey + "\x00" + cutoff.Track
+			if beforeVal, exists := existingTiers[key]; exists {
+				changes = append(changes, importChange{
+					Entity: "exam_tier_cutoff",
+					Action: "update",
+					Before: map[string]any{
+						"exam_id":   examCohort.ExamID,
+						"cohort_id": examCohort.CohortID,
+						"tier_key":  cutoff.TierKey,
+						"track":     cutoff.Track,
+						"cutoff":    beforeVal,
+					},
+				})
+			} else {
+				changes = append(changes, importChange{
+					Entity: "exam_tier_cutoff",
+					Action: "insert",
+					Before: map[string]any{
+						"exam_id":   examCohort.ExamID,
+						"cohort_id": examCohort.CohortID,
+						"tier_key":  cutoff.TierKey,
+						"track":     cutoff.Track,
+					},
+				})
+			}
 			statements = append(statements, sqlite.Statement{
 				SQL: `INSERT INTO exam_tier_cutoffs(exam_id, cohort_id, tier_key, track, cutoff)
 					VALUES (?, ?, ?, ?, ?) ON CONFLICT(exam_id, cohort_id, tier_key, track)
@@ -783,11 +1069,15 @@ func (s *Store) examImportStatements(ctx context.Context, examCohort ExamCohort,
 	case ExamImportTargets:
 		classIDs, err := s.stageClassIDSet(ctx, examCohort.StageID)
 		if err != nil {
-			return summary, nil, err
+			return summary, nil, nil, err
 		}
 		assessment, err := s.AssessmentForExamCohort(ctx, examCohort.ID)
 		if err != nil {
-			return summary, nil, err
+			return summary, nil, nil, err
+		}
+		existingTargets, err := s.existingClassTargetMap(ctx, assessment.ID)
+		if err != nil {
+			return summary, nil, nil, err
 		}
 		for _, target := range req.Data.ClassTargets {
 			classID, ok := classIDs[normalizeClassName(target.ClassName)]
@@ -797,6 +1087,29 @@ func (s *Store) examImportStatements(ctx context.Context, examCohort ExamCohort,
 			for tier, count := range target.Counts {
 				if count == nil {
 					continue
+				}
+				key := fmt.Sprintf("%d\x00%s", classID, tier)
+				if beforeVal, exists := existingTargets[key]; exists {
+					changes = append(changes, importChange{
+						Entity: "exam_class_target",
+						Action: "update",
+						Before: map[string]any{
+							"assessment_id": assessment.ID,
+							"class_id":      classID,
+							"tier_key":      tier,
+							"target_count":  beforeVal,
+						},
+					})
+				} else {
+					changes = append(changes, importChange{
+						Entity: "exam_class_target",
+						Action: "insert",
+						Before: map[string]any{
+							"assessment_id": assessment.ID,
+							"class_id":      classID,
+							"tier_key":      tier,
+						},
+					})
 				}
 				statements = append(statements, sqlite.Statement{
 					SQL: `INSERT INTO assessment_class_targets(assessment_id, class_id, tier_key, target_count)
@@ -816,21 +1129,116 @@ func (s *Store) examImportStatements(ctx context.Context, examCohort ExamCohort,
 			DO UPDATE SET revision = revision + 1, updated_at = excluded.updated_at`,
 		Args: []any{examCohort.ExamID, s.now().Format(time.RFC3339Nano)},
 	})
-	return summary, statements, nil
+	return summary, statements, changes, nil
 }
 
-func examScoreStatement(examCohort ExamCohort, req ExamImportRequest, entry ExamRosterEntry,
+func (s *Store) existingExamRosterMap(ctx context.Context, examID, cohortID int64) (map[int64]map[string]any, error) {
+	rows, err := s.db.Query(ctx, `SELECT student_id, class_id, exam_no, candidate_no, track,
+		total_score, status, subjects_json, COALESCE(import_run_id, 0), source_sheet, source_row
+		FROM exam_rosters WHERE exam_id = ? AND cohort_id = ?`, examID, cohortID)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[int64]map[string]any, len(rows.Values))
+	for _, row := range rows.Values {
+		studentID := intValue(row[0])
+		result[studentID] = map[string]any{
+			"exam_id":       examID,
+			"cohort_id":     cohortID,
+			"student_id":    studentID,
+			"class_id":      intValue(row[1]),
+			"exam_no":       stringValue(row[2]),
+			"candidate_no":  stringValue(row[3]),
+			"track":         stringValue(row[4]),
+			"total_score":   row[5],
+			"status":        stringValue(row[6]),
+			"subjects_json": stringValue(row[7]),
+			"import_run_id": intValue(row[8]),
+			"source_sheet":  stringValue(row[9]),
+			"source_row":    intValue(row[10]),
+		}
+	}
+	return result, nil
+}
+
+func (s *Store) existingExamScoreMap(ctx context.Context, examID, cohortID int64) (map[string]map[string]any, error) {
+	rows, err := s.db.Query(ctx, `SELECT student_id, subject, score, flag,
+		COALESCE(import_run_id, 0), source_sheet, source_row
+		FROM exam_scores WHERE exam_id = ? AND cohort_id = ?`, examID, cohortID)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]map[string]any, len(rows.Values))
+	for _, row := range rows.Values {
+		studentID := intValue(row[0])
+		subject := stringValue(row[1])
+		key := fmt.Sprintf("%d\x00%s", studentID, subject)
+		result[key] = map[string]any{
+			"exam_id":       examID,
+			"cohort_id":     cohortID,
+			"student_id":    studentID,
+			"subject":       subject,
+			"score":         row[2],
+			"flag":          stringValue(row[3]),
+			"import_run_id": intValue(row[4]),
+			"source_sheet":  stringValue(row[5]),
+			"source_row":    intValue(row[6]),
+		}
+	}
+	return result, nil
+}
+
+func (s *Store) existingSubjectCutoffMap(ctx context.Context, examID, cohortID int64) (map[string]float64, error) {
+	rows, err := s.db.Query(ctx, `SELECT subject, track, cutoff FROM exam_subject_cutoffs
+		WHERE exam_id = ? AND cohort_id = ?`, examID, cohortID)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]float64, len(rows.Values))
+	for _, row := range rows.Values {
+		result[stringValue(row[0])+"\x00"+stringValue(row[1])] = floatValue(row[2])
+	}
+	return result, nil
+}
+
+func (s *Store) existingTierCutoffMap(ctx context.Context, examID, cohortID int64) (map[string]float64, error) {
+	rows, err := s.db.Query(ctx, `SELECT tier_key, track, cutoff FROM exam_tier_cutoffs
+		WHERE exam_id = ? AND cohort_id = ?`, examID, cohortID)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]float64, len(rows.Values))
+	for _, row := range rows.Values {
+		result[stringValue(row[0])+"\x00"+stringValue(row[1])] = floatValue(row[2])
+	}
+	return result, nil
+}
+
+func (s *Store) existingClassTargetMap(ctx context.Context, assessmentID int64) (map[string]float64, error) {
+	rows, err := s.db.Query(ctx, `SELECT class_id, tier_key, target_count FROM assessment_class_targets
+		WHERE assessment_id = ?`, assessmentID)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]float64, len(rows.Values))
+	for _, row := range rows.Values {
+		key := fmt.Sprintf("%d\x00%s", intValue(row[0]), stringValue(row[1]))
+		result[key] = floatValue(row[2])
+	}
+	return result, nil
+}
+
+func examScoreStatement(examCohort ExamCohort, runID int64, entry ExamRosterEntry,
 	student ImportStudent, subject string, score *float64, flag string) sqlite.Statement {
 	return sqlite.Statement{
 		SQL: `INSERT INTO exam_scores(exam_id, cohort_id, student_id, subject, score, flag,
 			import_run_id, source_sheet, source_row)
-			VALUES (?, ?, ?, ?, ?, ?, (SELECT id FROM import_runs WHERE scope_type = 'exam'
-				AND scope_id = ? AND data_kind = ? AND file_hash = ?), ?, ?)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(exam_id, cohort_id, student_id, subject) DO UPDATE SET score = excluded.score,
 				flag = excluded.flag, import_run_id = excluded.import_run_id,
 				source_sheet = excluded.source_sheet, source_row = excluded.source_row`,
 		Args: []any{examCohort.ExamID, examCohort.CohortID, entry.StudentID, subject, optionalFloat(score), flag,
-			examCohort.ID, req.Kind, req.Report.FileHash, student.SourceSheet, student.SourceRow},
+			runID, student.SourceSheet, student.SourceRow},
 	}
 }
 

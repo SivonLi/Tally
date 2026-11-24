@@ -79,7 +79,7 @@ func InspectWorkbook(path string, options Options) (*Workbook, error) {
 		if dir == "" {
 			return nil, fmt.Errorf("导入旧版文件需要转换目录")
 		}
-		converted, err := (excel.Converter{}).Convert(path, dir)
+		converted, err := (excel.Converter{SofficePath: options.SofficePath}).Convert(path, dir)
 		if err != nil {
 			return nil, err
 		}
@@ -170,11 +170,35 @@ func DetectSheet(kind string, table excel.Table) int {
 		if findHeader(headers, "班级", "行政班") >= 0 && hasBaselineSubject(headers) {
 			score = 20
 		}
+	case KindRoster:
+		if findHeader(headers, "学号", "考号", "考生号", "学籍号") >= 0 && findHeader(headers, "姓名") >= 0 &&
+			findHeader(headers, "班级", "行政班") >= 0 {
+			score = 20
+		}
+	case KindScores:
+		if findHeader(headers, "考号", "学号", "考生号", "学籍号") >= 0 && findHeader(headers, "姓名") >= 0 &&
+			countSubjectHeaders(headers) >= 2 {
+			score = 20
+		}
+	case KindCutoffs:
+		if findHeader(headers, "科目") >= 0 && findHeader(headers, "本科线", "特控线", "分数线", "总分线") >= 0 {
+			score = 20
+		}
+	case KindTargets:
+		if findHeader(headers, "班级", "行政班") >= 0 && findHeader(headers, "档位", "清北", "C9", "985", "211", "特控", "本科") >= 0 {
+			score = 20
+		}
 	}
 	if score == 0 {
 		return 0
 	}
-	score += rowScore(table.Rows)
+	switch kind {
+	case KindScores, KindRoster:
+		// 完整名单行数最多，用实际行数区分按班级拆分的表。
+		score += len(table.Rows)
+	default:
+		score += rowScore(table.Rows)
+	}
 	switch {
 	case kind == KindStudents && (strings.Contains(table.Sheet, "学生") || strings.Contains(table.Sheet, "名单")):
 		score += 20
@@ -186,8 +210,28 @@ func DetectSheet(kind string, table excel.Table) int {
 		score += 20
 	case kind == KindClasses && (strings.Contains(table.Sheet, "班级") || strings.Contains(table.Sheet, "结构")):
 		score += 20
+	case kind == KindRoster && (strings.Contains(table.Sheet, "报名") || strings.Contains(table.Sheet, "名单")):
+		score += 20
+	case kind == KindScores && (table.Sheet == "总" || table.Sheet == "汇总" ||
+		strings.Contains(table.Sheet, "总成绩")):
+		score += 20
+	case kind == KindCutoffs && strings.Contains(table.Sheet, "分数线"):
+		score += 20
+	case kind == KindTargets && strings.Contains(table.Sheet, "目标"):
+		score += 20
 	}
 	return score
+}
+
+// countSubjectHeaders 统计表头里学科列的数量。
+func countSubjectHeaders(headers []string) int {
+	count := 0
+	for _, header := range headers {
+		if _, ok := subjectAliases[strings.TrimSpace(header)]; ok {
+			count++
+		}
+	}
+	return count
 }
 
 // wideAssignmentTable 判断是不是教师一览的宽表：一行一个班，每个学科一列。
@@ -315,6 +359,8 @@ func FieldsFor(kind string, subjects []store.Subject, tiers []string) []Field {
 			{Key: FieldStudentNo, Required: true},
 			{Key: FieldName},
 			{Key: FieldClassName},
+			{Key: FieldTrack},
+			{Key: FieldElective},
 		}
 		for _, subject := range subjects {
 			if !subject.Enabled || subject.Key == "japanese" {
@@ -348,6 +394,9 @@ func FieldsForTable(kind string, table excel.Table, subjects []store.Subject, ti
 		return []Field{{Key: FieldClassName, Required: true}}
 	}
 	if kind == KindTeachers && wideAssignmentTable(table) {
+		return nil
+	}
+	if kind == KindCutoffs && wideCutoffTable(table) {
 		return nil
 	}
 	return FieldsFor(kind, subjects, tiers)
@@ -396,15 +445,22 @@ func matchHeader(key string, headers []string, subjects []store.Subject) string 
 		if strings.HasPrefix(key, "ratio:") {
 			prefix = "ratio"
 		}
+		// 入口成绩存班级均分，先匹配「语均」这类均分列，再回退到学科总名列。
+		if prefix == "" {
+			for _, header := range headers {
+				name := strings.TrimSpace(header)
+				if alias, ok := baselineHeaders[name]; ok && alias == subjectKey {
+					return header
+				}
+				if name == subject.Name+"均" || name == subject.Name+"均分" || name == subject.Name+"平均分" {
+					return header
+				}
+			}
+		}
 		for _, header := range headers {
 			name := strings.TrimSpace(header)
 			if name == subject.Name && prefix == "" {
 				return header
-			}
-			if prefix == "" {
-				if alias, ok := baselineHeaders[name]; ok && alias == subjectKey {
-					return header
-				}
 			}
 			if prefix == "ratio" {
 				alias, hasAlias := baselineRatioHeaders[subjectKey]
@@ -439,7 +495,11 @@ func matchHeader(key string, headers []string, subjects []store.Subject) string 
 		}
 		for _, header := range headers {
 			name := strings.TrimSpace(header)
-			if name == label || strings.HasPrefix(name, label+"目标") {
+			if name == label || strings.HasPrefix(name, label+"目标") ||
+				strings.HasPrefix(name, label+"-") {
+				return header
+			}
+			if alias, ok := tierAliases[name]; ok && alias == tierKey {
 				return header
 			}
 		}
@@ -580,6 +640,9 @@ func ParseSheetForGrade(workbook *Workbook, sheet, kind string, mapping map[stri
 	case KindScores:
 		return parseExamScoreSheet(table, mapping, subjects)
 	case KindCutoffs:
+		if wideCutoffTable(table) {
+			return parseWideCutoffSheet(table, subjects)
+		}
 		return parseExamCutoffSheet(table, mapping, subjects)
 	case KindTargets:
 		return parseExamTargetSheet(table, mapping, tiers)
@@ -627,6 +690,9 @@ func parseClassSheet(table excel.Table, mapping map[string]string) (store.Import
 		if name == "" {
 			continue
 		}
+		if skipSummaryRow(name) {
+			continue
+		}
 		if seen[name] {
 			issues = append(issues, store.ImportIssue{
 				Severity: "warning", Row: row.Number, Column: mapping[FieldClassName],
@@ -668,6 +734,9 @@ func parseRosterSheet(table excel.Table, mapping map[string]string, subjects []s
 		name := strings.TrimSpace(valueAt(row.Values, nameColumn))
 		className := normalizeClassName(valueAt(row.Values, classColumn))
 		if studentNo == "" && name == "" && className == "" {
+			continue
+		}
+		if skipSummaryRow(className) {
 			continue
 		}
 		if studentNo == "" {
@@ -753,10 +822,10 @@ func parseRosterSheet(table excel.Table, mapping map[string]string, subjects []s
 
 func trackFromText(text string) string {
 	text = strings.TrimSpace(text)
-	if strings.Contains(text, "物理") {
+	if strings.Contains(text, "物理") || strings.Contains(text, "物") {
 		return "physics"
 	}
-	if strings.Contains(text, "历史") {
+	if strings.Contains(text, "历史") || strings.Contains(text, "史") || strings.Contains(text, "历") {
 		return "history"
 	}
 	return ""
@@ -787,6 +856,9 @@ func parseTeacherSheet(table excel.Table, mapping map[string]string, subjects []
 			if teacherNo != "" || subjectText != "" {
 				issues = append(issues, missingFieldIssue(row.Number, mapping[FieldTeacherName]))
 			}
+			continue
+		}
+		if skipSummaryRow(name) {
 			continue
 		}
 		subject := ""
@@ -916,6 +988,9 @@ func parseAssignmentSheet(table excel.Table, mapping map[string]string, subjects
 		className := normalizeClassName(valueAt(row.Values, classColumn))
 		subjectText := strings.TrimSpace(valueAt(row.Values, subjectColumn))
 		if teacher == "" && className == "" && subjectText == "" {
+			continue
+		}
+		if skipSummaryRow(className) {
 			continue
 		}
 		if teacher == "" {
@@ -1114,6 +1189,9 @@ func parseBaselineSheet(table excel.Table, mapping map[string]string, subjects [
 		if className == "" {
 			continue
 		}
+		if skipSummaryRow(className) {
+			continue
+		}
 		for _, column := range columns {
 			text := valueAt(row.Values, column.average)
 			if text == "" {
@@ -1180,6 +1258,9 @@ func parseExamRosterSheet(table excel.Table, mapping map[string]string, subjects
 		name := strings.TrimSpace(valueAt(row.Values, nameColumn))
 		className := normalizeClassName(valueAt(row.Values, classColumn))
 		if studentNo == "" && name == "" && className == "" {
+			continue
+		}
+		if skipSummaryRow(className) {
 			continue
 		}
 		if studentNo == "" {
@@ -1253,6 +1334,8 @@ func parseExamScoreSheet(table excel.Table, mapping map[string]string, subjects 
 	}
 	nameColumn := columnIndex(table, mapping, FieldName)
 	classColumn := columnIndex(table, mapping, FieldClassName)
+	trackColumn := columnIndex(table, mapping, FieldTrack)
+	electiveColumn := columnIndex(table, mapping, FieldElective)
 	type subjectColumn struct {
 		subject string
 		index   int
@@ -1277,6 +1360,9 @@ func parseExamScoreSheet(table excel.Table, mapping map[string]string, subjects 
 		if studentNo == "" && name == "" && className == "" {
 			continue
 		}
+		if skipSummaryRow(className) {
+			continue
+		}
 		if studentNo == "" {
 			issues = append(issues, missingFieldIssue(row.Number, mapping[FieldStudentNo]))
 			continue
@@ -1293,6 +1379,15 @@ func parseExamScoreSheet(table excel.Table, mapping map[string]string, subjects 
 			StudentNo: studentNo, Name: name, ClassName: className,
 			Scores: map[string]float64{}, Flags: map[string]string{},
 			SourceSheet: table.Sheet, SourceRow: row.Number,
+		}
+		if electiveColumn >= 0 {
+			student.Elective = valueAt(row.Values, electiveColumn)
+		}
+		if trackColumn >= 0 {
+			student.Track = trackFromText(valueAt(row.Values, trackColumn))
+		}
+		if student.Track == "" {
+			student.Track = trackFromElective(student.Elective)
 		}
 		for _, column := range subjectColumns {
 			text := valueAt(row.Values, column.index)
@@ -1416,6 +1511,194 @@ func parseExamCutoffSheet(table excel.Table, mapping map[string]string, subjects
 	return data, issues, nil
 }
 
+// wideCutoffTable 判断是不是横向排列的分数线表：多个「科目」列，每组后面跟本组各条线。
+func wideCutoffTable(table excel.Table) bool {
+	subjectColumns := 0
+	lineColumns := 0
+	for _, header := range table.Headers {
+		switch strings.TrimSpace(header) {
+		case "科目":
+			subjectColumns++
+		case "本科线", "特控线", "分数线", "总分线", "985线", "211线", "清北线", "C9线":
+			lineColumns++
+		}
+	}
+	return subjectColumns >= 2 && lineColumns >= 1
+}
+
+// tierKeyFromHeaderText 从「特控线」这类列名读出档位。
+func tierKeyFromHeaderText(text string) string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return ""
+	}
+	for _, tier := range assessment.DefaultConfig().Tiers {
+		label := tierLabel(tier.Key)
+		if label == "" {
+			continue
+		}
+		if text == label || strings.HasPrefix(text, label) {
+			return tier.Key
+		}
+	}
+	return ""
+}
+
+// wideCutoffGroupTrack 从分组上方的「总分(物理)」行识别类别，识别不出时按科目推断。
+func wideCutoffGroupTrack(table excel.Table, start, end int) string {
+	for _, row := range table.LeadRows {
+		for column := start; column < end; column++ {
+			text := strings.TrimSpace(valueAt(row.Values, column))
+			if text == "" {
+				continue
+			}
+			if strings.Contains(text, "历史") {
+				return "history"
+			}
+			if strings.Contains(text, "物理") {
+				return "physics"
+			}
+		}
+	}
+	seen := map[string]bool{}
+	for _, row := range table.Rows {
+		seen[strings.TrimSpace(valueAt(row.Values, start))] = true
+	}
+	track := ""
+	for name := range seen {
+		if name == "历史" {
+			track = "history"
+		}
+		if name == "物理" {
+			track = "physics"
+		}
+	}
+	return track
+}
+
+func parseWideCutoffSheet(table excel.Table, subjects []store.Subject) (store.ImportData, []store.ImportIssue, error) {
+	type lineColumn struct {
+		header string
+		column int
+		tier   string
+	}
+	type group struct {
+		subjectColumn int
+		track         string
+		lines         []lineColumn
+	}
+	var groups []group
+	subjectPositions := []int{}
+	for index, header := range table.Headers {
+		if strings.TrimSpace(header) == "科目" {
+			subjectPositions = append(subjectPositions, index)
+		}
+	}
+	for i, start := range subjectPositions {
+		end := len(table.Headers)
+		if i+1 < len(subjectPositions) {
+			end = subjectPositions[i+1]
+		}
+		group := group{subjectColumn: start}
+		for column := start + 1; column < end; column++ {
+			tier := tierKeyFromHeaderText(table.Headers[column])
+			if tier == "" {
+				continue
+			}
+			group.lines = append(group.lines, lineColumn{header: table.Headers[column], column: column, tier: tier})
+		}
+		if len(group.lines) == 0 {
+			continue
+		}
+		group.track = wideCutoffGroupTrack(table, start, end)
+		if group.track == "" {
+			return store.ImportData{}, nil, fmt.Errorf("工作表 %s 的分组没有标注类别，需要「总分(物理)」这样的分组行", table.Sheet)
+		}
+		groups = append(groups, group)
+	}
+	if len(groups) == 0 {
+		return store.ImportData{}, nil, fmt.Errorf("工作表 %s 没有可识别的分数线分组", table.Sheet)
+	}
+	data := store.ImportData{}
+	var issues []store.ImportIssue
+	seenSubject := map[string]bool{}
+	seenTier := map[string]bool{}
+	enabledSubjects := map[string]bool{}
+	for _, subject := range subjects {
+		if subject.Enabled {
+			enabledSubjects[subject.Key] = true
+		}
+	}
+	for _, row := range table.Rows {
+		for _, group := range groups {
+			subjectText := strings.TrimSpace(valueAt(row.Values, group.subjectColumn))
+			if subjectText == "" {
+				continue
+			}
+			for _, line := range group.lines {
+				text := strings.TrimSpace(valueAt(row.Values, line.column))
+				if text == "" {
+					continue
+				}
+				value, status := parseNumber(text)
+				if status != numberOK {
+					issues = append(issues, invalidNumberIssue(row.Number, line.header, text))
+					continue
+				}
+				if value <= 0 {
+					issues = append(issues, store.ImportIssue{
+						Severity: "warning", Row: row.Number, Column: line.header,
+						Code: "cutoff_zero", Args: []string{subjectText, group.track},
+					})
+					continue
+				}
+				if subjectText == "总分" {
+					key := line.tier + "\x00" + group.track
+					if seenTier[key] {
+						issues = append(issues, store.ImportIssue{
+							Severity: "blocking", Row: row.Number, Column: line.header,
+							Code: "duplicate_cutoff", Args: []string{subjectText, group.track},
+						})
+						continue
+					}
+					seenTier[key] = true
+					data.TierCutoffs = append(data.TierCutoffs, store.ImportTierCutoff{
+						TierKey: line.tier, Track: group.track, Value: value,
+					})
+					continue
+				}
+				subject, ok := subjectByName(subjects, subjectText)
+				if !ok || !enabledSubjects[subject] {
+					issues = append(issues, store.ImportIssue{
+						Severity: "warning", Row: row.Number, Column: table.Headers[group.subjectColumn],
+						Code: "cutoff_subject_skipped", Args: []string{subjectText},
+					})
+					continue
+				}
+				key := subject + "\x00" + group.track
+				if seenSubject[key] {
+					issues = append(issues, store.ImportIssue{
+						Severity: "blocking", Row: row.Number, Column: table.Headers[group.subjectColumn],
+						Code: "duplicate_cutoff", Args: []string{subjectText, group.track},
+					})
+					continue
+				}
+				seenSubject[key] = true
+				data.SubjectCutoffs = append(data.SubjectCutoffs, store.ImportSubjectCutoff{
+					Subject: subject, Track: group.track, Value: value,
+				})
+			}
+		}
+	}
+	if len(data.SubjectCutoffs) == 0 && len(data.TierCutoffs) == 0 {
+		issues = append(issues, store.ImportIssue{
+			Severity: "blocking", Row: table.HeaderRow, Column: "科目",
+			Code: "no_rows",
+		})
+	}
+	return data, issues, nil
+}
+
 func parseExamTargetSheet(table excel.Table, mapping map[string]string, tiers []string) (store.ImportData, []store.ImportIssue, error) {
 	classColumn := columnIndex(table, mapping, FieldClassName)
 	if classColumn < 0 {
@@ -1442,6 +1725,9 @@ func parseExamTargetSheet(table excel.Table, mapping map[string]string, tiers []
 		if className == "" {
 			continue
 		}
+		if skipSummaryRow(className) {
+			continue
+		}
 		if seen[className] {
 			issues = append(issues, store.ImportIssue{
 				Severity: "blocking", Row: row.Number, Column: mapping[FieldClassName],
@@ -1452,8 +1738,10 @@ func parseExamTargetSheet(table excel.Table, mapping map[string]string, tiers []
 		seen[className] = true
 		target := store.ImportClassTarget{ClassName: className, Counts: map[string]*float64{}}
 		for _, column := range columns {
-			text := valueAt(row.Values, column.index)
+			text := strings.TrimSpace(valueAt(row.Values, column.index))
 			if text == "" {
+				copied := 0.0
+				target.Counts[column.key] = &copied
 				continue
 			}
 			number, status := parseNumber(text)

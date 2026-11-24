@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/egoist/mygo/plugins/sqlite"
@@ -76,8 +77,9 @@ type ImportTeacher struct {
 
 // ImportClassTarget 是一个行政班的分档目标人数。
 type ImportClassTarget struct {
-	ClassName string
-	Counts    map[string]*float64
+	ClassName    string
+	Counts       map[string]*float64
+	ActualCounts map[string]*float64
 }
 
 // ImportClassBaseline 是一个行政班某个学科的基数均分。
@@ -256,8 +258,9 @@ type Assignment struct {
 
 // ClassTarget 是一个行政班的分档目标人数。
 type ClassTarget struct {
-	ClassID int64
-	Counts  map[string]*float64
+	ClassID      int64
+	Counts       map[string]*float64
+	ActualCounts map[string]*float64
 }
 
 // SubjectCutoff 是一个学科在两类考生中的分数线。
@@ -297,33 +300,43 @@ type ResultRun struct {
 	BatchID       int64
 	PlanVersionID int64
 	InputHash     string
-	IsOfficial    bool
-	CreatedAt     time.Time
+	// InputSummary 是运行时的输入摘要 JSON，数据项标识对应哈希；
+	// 旧版本运行没有摘要，为空。
+	InputSummary string
+	IsOfficial   bool
+	CreatedAt    time.Time
 }
 
 // StoredResultRow 是一条保存下来的核算结果。
 type StoredResultRow struct {
-	StatGroupID      int64
-	StatGroupName    string
-	Subject          string
-	LeadClassID      int64
-	LeadClassName    string
-	TeacherNames     string
-	ClassCount       int
-	ClassAverage     float64
-	GradeAverage     float64
-	BaselineAverage  float64
-	BaselineRatio    float64
-	ImprovementScore float64
-	PassCount        int
-	PassTarget       float64
-	PassScore        float64
-	CompletionScore  float64
-	Total            float64
-	Rank             int
-	TierIndex        int
-	Points           float64
-	IndicatorJSON    string
+	ID                    int64
+	StatGroupID           int64
+	StatGroupName         string
+	Subject               string
+	LeadClassID           int64
+	LeadClassName         string
+	TeacherNames          string
+	ClassCount            int
+	ClassAverage          float64
+	GradeAverage          float64
+	BaselineAverage       float64
+	BaselineRatio         float64
+	ImprovementRaw        float64
+	ImprovementScore      float64
+	PassCount             int
+	PassTarget            float64
+	PassRaw               float64
+	PassScore             float64
+	CompletionActual      float64
+	CompletionBase        float64
+	CompletionRaw         float64
+	CompletionParticipate bool
+	CompletionScore       float64
+	Total                 float64
+	Rank                  int
+	TierIndex             int
+	Points                float64
+	IndicatorJSON         string
 }
 
 // StoredPersonalScore 是一条保存下来的教师个人得分。
@@ -468,6 +481,7 @@ func batchSchema() []sqlite.Statement {
 			class_id INTEGER NOT NULL REFERENCES classes(id),
 			tier_key TEXT NOT NULL,
 			target_count REAL NOT NULL,
+			actual_count REAL,
 			UNIQUE(batch_id, class_id, tier_key)
 		)`},
 		{SQL: `CREATE TABLE IF NOT EXISTS class_baselines (
@@ -818,15 +832,27 @@ func (s *Store) MergeImport(ctx context.Context, batchID int64, data ImportData,
 		}
 	}
 	for _, target := range data.ClassTargets {
-		for tier, count := range target.Counts {
-			if count == nil {
-				continue
+		allTiers := map[string]bool{}
+		for tier := range target.Counts {
+			allTiers[tier] = true
+		}
+		for tier := range target.ActualCounts {
+			allTiers[tier] = true
+		}
+		for tier := range allTiers {
+			var countVal float64
+			if target.Counts != nil && target.Counts[tier] != nil {
+				countVal = *target.Counts[tier]
+			}
+			var actualVal any
+			if target.ActualCounts != nil && target.ActualCounts[tier] != nil {
+				actualVal = *target.ActualCounts[tier]
 			}
 			statements = append(statements, sqlite.Statement{
-				SQL: `INSERT INTO class_targets(batch_id, class_id, tier_key, target_count)
-					SELECT ?, c.id, ?, ? FROM classes c WHERE c.cohort_id = ? AND c.name = ?
-					ON CONFLICT(batch_id, class_id, tier_key) DO UPDATE SET target_count = excluded.target_count`,
-				Args: []any{batchID, tier, *count, stage.CohortID, normalizeClassName(target.ClassName)},
+				SQL: `INSERT INTO class_targets(batch_id, class_id, tier_key, target_count, actual_count)
+					SELECT ?, c.id, ?, ?, ? FROM classes c WHERE c.cohort_id = ? AND c.name = ?
+					ON CONFLICT(batch_id, class_id, tier_key) DO UPDATE SET target_count = excluded.target_count, actual_count = excluded.actual_count`,
+				Args: []any{batchID, tier, countVal, actualVal, stage.CohortID, normalizeClassName(target.ClassName)},
 			})
 		}
 	}
@@ -1014,7 +1040,12 @@ func (s *Store) saveImportSheets(ctx context.Context, runID int64, report Import
 		return nil
 	}
 	statements := []sqlite.Statement{{SQL: `DELETE FROM import_sheets WHERE import_run_id = ?`, Args: []any{runID}}}
+	seen := map[string]bool{}
 	for _, sheet := range report.Sheets {
+		if seen[sheet.Name] {
+			continue
+		}
+		seen[sheet.Name] = true
 		statements = append(statements, sqlite.Statement{
 			SQL: `INSERT INTO import_sheets(import_run_id, sheet_name, role, header_row, data_range, is_current)
 				VALUES (?, ?, ?, ?, ?, 1)`,
@@ -1057,6 +1088,13 @@ func (s *Store) rebuildDefaultStatGroups(ctx context.Context, batchID int64) err
 					AND explicit_group.explicit = 1 AND sgm.teaching_group_id = g.id)
 			ON CONFLICT(batch_id, subject, name) DO NOTHING`,
 			Args: []any{batchID, batchID, batchID, batchID, batchID, stage.CohortID, stage.StageID, batchID, batchID}},
+		{SQL: `UPDATE stat_groups SET target = COALESCE(
+				(SELECT ct.target_count FROM class_targets ct
+					WHERE ct.batch_id = stat_groups.batch_id AND ct.class_id = stat_groups.lead_class_id AND ct.tier_key = 'single_subject'),
+				(SELECT ct.target_count FROM class_targets ct
+					WHERE ct.batch_id = stat_groups.batch_id AND ct.class_id = stat_groups.lead_class_id AND ct.tier_key = 'undergraduate'), target)
+			WHERE batch_id = ? AND explicit = 0 AND (target IS NULL OR target = 0)`,
+			Args: []any{batchID}},
 		{SQL: `INSERT INTO stat_group_members(stat_group_id, teaching_group_id)
 			SELECT sg.id, g.id FROM stat_groups sg, teaching_groups g
 			WHERE sg.batch_id = ? AND sg.explicit = 0 AND g.stage_id = ?
@@ -1308,7 +1346,7 @@ func (s *Store) LoadBatchData(ctx context.Context, batchID int64) (BatchData, er
 		})
 	}
 	targetIndex := map[int64]int{}
-	rows, err = s.db.Query(ctx, `SELECT class_id, tier_key, target_count FROM class_targets WHERE batch_id = ?`, batchID)
+	rows, err = s.db.Query(ctx, `SELECT class_id, tier_key, target_count, actual_count FROM class_targets WHERE batch_id = ?`, batchID)
 	if err != nil {
 		return BatchData{}, err
 	}
@@ -1320,10 +1358,16 @@ func (s *Store) LoadBatchData(ctx context.Context, batchID int64) (BatchData, er
 		if !ok {
 			index = len(data.ClassTargets)
 			targetIndex[classID] = index
-			data.ClassTargets = append(data.ClassTargets, ClassTarget{ClassID: classID, Counts: map[string]*float64{}})
+			data.ClassTargets = append(data.ClassTargets, ClassTarget{ClassID: classID, Counts: map[string]*float64{}, ActualCounts: map[string]*float64{}})
 		}
 		copied := value
 		data.ClassTargets[index].Counts[tier] = &copied
+		if len(row) > 3 && row[3] != nil {
+			if actual, ok := row[3].(float64); ok {
+				copiedActual := actual
+				data.ClassTargets[index].ActualCounts[tier] = &copiedActual
+			}
+		}
 	}
 	rows, err = s.db.Query(ctx, `SELECT class_id, tier_key, new_value FROM target_adjustments
 		WHERE batch_id = ? ORDER BY id`, batchID)
@@ -1342,7 +1386,7 @@ func (s *Store) LoadBatchData(ctx context.Context, batchID int64) (BatchData, er
 		if !ok {
 			index = len(data.ClassTargets)
 			targetIndex[classID] = index
-			data.ClassTargets = append(data.ClassTargets, ClassTarget{ClassID: classID, Counts: map[string]*float64{}})
+			data.ClassTargets = append(data.ClassTargets, ClassTarget{ClassID: classID, Counts: map[string]*float64{}, ActualCounts: map[string]*float64{}})
 		}
 		if hasValue {
 			copied := *value
@@ -1582,6 +1626,159 @@ func InputHash(plan assessment.Config, data BatchData) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
+// 输入摘要里数据项的展示顺序。
+var inputItemOrder = []string{
+	"roster", "scores", "cutoffs", "targets", "groups",
+	"baseline", "assignments", "classes", "exclusions",
+}
+
+// InputSummary 分别计算方案与每个数据项的哈希，保存在核算运行记录里，
+// 之后按项对比找出哪些数据变化过。
+func InputSummary(plan assessment.Config, data BatchData) (map[string]string, error) {
+	summary := map[string]string{}
+	hash := func(key string, value any) error {
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return err
+		}
+		sum := sha256.Sum256(encoded)
+		summary[key] = hex.EncodeToString(sum[:])
+		return nil
+	}
+	if err := hash("plan", plan); err != nil {
+		return nil, err
+	}
+	type rosterEntry struct {
+		ID       int64  `json:"id"`
+		No       string `json:"no"`
+		Name     string `json:"name"`
+		ClassID  int64  `json:"class_id"`
+		Track    string `json:"track"`
+		Elective string `json:"elective"`
+		Japanese bool   `json:"japanese"`
+		Walking  bool   `json:"walking"`
+		Status   string `json:"status"`
+	}
+	type scoreEntry struct {
+		ID      int64    `json:"id"`
+		Subject string   `json:"subject"`
+		Score   *float64 `json:"score"`
+		Flag    string   `json:"flag"`
+		Total   *float64 `json:"total"`
+	}
+	roster := make([]rosterEntry, 0, len(data.Students))
+	scores := []scoreEntry{}
+	for _, student := range data.Students {
+		roster = append(roster, rosterEntry{
+			ID: student.ID, No: student.StudentNo, Name: student.Name, ClassID: student.ClassID,
+			Track: student.Track, Elective: student.Elective, Japanese: student.Japanese,
+			Walking: student.Walking, Status: student.Status,
+		})
+		if student.TotalScore != nil {
+			scores = append(scores, scoreEntry{ID: student.ID, Total: student.TotalScore})
+		}
+		subjects := make([]string, 0, len(student.Scores))
+		for subject := range student.Scores {
+			subjects = append(subjects, subject)
+		}
+		sort.Strings(subjects)
+		for _, subject := range subjects {
+			value := student.Scores[subject]
+			scores = append(scores, scoreEntry{
+				ID: student.ID, Subject: subject, Score: &value, Flag: student.ScoreFlags[subject],
+			})
+		}
+	}
+	type groupTarget struct {
+		ID     int64   `json:"id"`
+		Target float64 `json:"target"`
+	}
+	type groupShape struct {
+		ID      int64   `json:"id"`
+		Subject string  `json:"subject"`
+		Name    string  `json:"name"`
+		Lead    int64   `json:"lead"`
+		Members []int64 `json:"members"`
+	}
+	groupTargets := make([]groupTarget, 0, len(data.StatGroups))
+	groupShapes := make([]groupShape, 0, len(data.StatGroups))
+	for _, group := range data.StatGroups {
+		groupTargets = append(groupTargets, groupTarget{ID: group.ID, Target: group.Target})
+		groupShapes = append(groupShapes, groupShape{
+			ID: group.ID, Subject: group.Subject, Name: group.Name,
+			Lead: group.LeadClassID, Members: group.MemberGroupIDs,
+		})
+	}
+	excluded := make([]string, 0, len(data.ExcludedCompletionClasses))
+	for classID := range data.ExcludedCompletionClasses {
+		excluded = append(excluded, strconv.FormatInt(classID, 10))
+	}
+	sort.Strings(excluded)
+	items := map[string]any{
+		"roster": roster,
+		"scores": scores,
+		"cutoffs": struct {
+			Subject []SubjectCutoff `json:"subject"`
+			Tier    []TierCutoff    `json:"tier"`
+		}{Subject: data.SubjectCutoffs, Tier: data.TierCutoffs},
+		"targets": struct {
+			Class []ClassTarget `json:"class"`
+			Group []groupTarget `json:"group"`
+		}{Class: data.ClassTargets, Group: groupTargets},
+		"groups": groupShapes,
+		"baseline": struct {
+			Class map[string]map[string]float64 `json:"class"`
+			Ratio map[string]map[string]float64 `json:"ratio"`
+			Grade map[string]float64            `json:"grade"`
+		}{Class: data.ClassBaselines, Ratio: data.ClassBaselineRatios, Grade: data.GradeBaselines},
+		"assignments": data.Assignments,
+		"classes":     data.Classes,
+		"exclusions":  excluded,
+	}
+	keys := append([]string(nil), inputItemOrder...)
+	keys = append(keys, "plan")
+	for _, key := range keys {
+		value := any(plan)
+		if key != "plan" {
+			value = items[key]
+		}
+		if err := hash(key, value); err != nil {
+			return nil, err
+		}
+	}
+	return summary, nil
+}
+
+// ChangedInputItems 对比运行时保存的输入摘要与当前摘要，
+// 返回变化的数据项标识，按 inputItemOrder 排序。
+// 保存的摘要为空时返回 nil，调用方回退到整体哈希对比。
+func ChangedInputItems(storedJSON string, current map[string]string) ([]string, error) {
+	stored := map[string]string{}
+	if strings.TrimSpace(storedJSON) != "" {
+		if err := json.Unmarshal([]byte(storedJSON), &stored); err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, nil
+	}
+	changed := map[string]bool{}
+	for key, value := range current {
+		if key == "plan" {
+			continue
+		}
+		if stored[key] != value {
+			changed[key] = true
+		}
+	}
+	result := make([]string, 0, len(changed))
+	for _, key := range inputItemOrder {
+		if changed[key] {
+			result = append(result, key)
+		}
+	}
+	return result, nil
+}
+
 func batchFromRow(row []any) (Batch, error) {
 	id, ok := row[0].(int64)
 	if !ok {
@@ -1653,4 +1850,17 @@ func joinNames(names []string) string {
 		return ""
 	}
 	return string(encoded)
+}
+
+func (s *Store) ensureClassTargetColumns(ctx context.Context) error {
+	exists, err := s.columnExists(ctx, "class_targets", "actual_count")
+	if err != nil {
+		return err
+	}
+	if !exists {
+		if _, err := s.db.Execute(ctx, `ALTER TABLE class_targets ADD COLUMN actual_count REAL`); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -8,8 +8,9 @@
 
 | 任务 | 技能 |
 |---|---|
-| 新增或修改界面、选控件、检查页面是否用了该用的控件 | `mygo-components` |
+| 新增或修改界面、选控件、检查页面是否用了该用的控件 | `mygo-components`、`sunbeam` |
 | 窗口、视图函数、状态与身份、`ui.NewTester` 测试 | `mygo-usage` |
+| 外部自动化测试、驱动运行中的应用、获取控件树与截图 | `mygo-automation` |
 | 对话框、通知、菜单、托盘、剪贴板、全局快捷键、文件监听、电源、网络 | `mygo-desktop` |
 | 过渡、弹簧、关键帧、手势动画以及动画测试 | `mygo-motion` |
 | 自绘、画布、着色器、路径与文字绘制 | `mygo-drawing` |
@@ -111,8 +112,8 @@ MYGO=$(go list -m -f '{{.Dir}}' github.com/egoist/mygo)
 
 ## 分支与提交
 
-- `test`：日常开发分支，也是默认分支。功能分支从 `test` 切出，通过 PR 合回；文档和小修复允许直接推送 `test`，推送后仍会运行质量检查。
-- `main`：正式版本分支。每次从 `test` 向 `main` 开 PR，PR 内更新 `mygo.json` 的版本与 `CHANGELOG.md`，合并后自动发布正式版本。
+- `test`：日常开发分支。功能分支从 `test` 切出，通过 PR 合回；文档和小修复允许直接推送 `test`，推送后仍会运行质量检查。
+- `main`：正式版本分支，也是默认分支。每次从 `test` 向 `main` 开 PR，PR 内更新 `mygo.json` 的版本与 `CHANGELOG.md`，合并后自动发布正式版本。
 - 不直接向 `main` 提交；发布标签由 `release.yml` 在发布时创建，指向 `main` 上的提交。
 - `main` 已从初始提交创建并受分支保护；第一次正式发布时从 `test` 向 `main` 开 PR。
 - `test` 与 `main` 都启用分支保护：禁止强制推送与删除；`test` 合并前必须通过 `gates`，`main` 还必须通过 `windows-build` 与 `macos-build`。
@@ -140,14 +141,13 @@ Go 由 mise 管理，版本写在 `.mise.toml`：
 eval "$(mise activate zsh)"
 ```
 
-## 界面测试
+## 界面与自动化测试
 
-验证 `build/` 里的产物时按 `docs/ui-testing.md` 操作：
+测试流程与规范遵循 `docs/testing.md`：
 
-- 测试前执行 `scripts/ui-test/app.sh snapshot`，测试结束执行 `scripts/ui-test/app.sh restore --start`。
-- 中间文件、导出文件和日志只写 `.scratch/ui-test/`。
-- 用 `scripts/ui-test/ax.js` 读取控件树、点击、输入和选择文件，不记录具体按钮的位置和文字。
-- 视觉检查用 `ax.js visual` 一次完成截图、控件位置快照和对比度检查，再查看 PNG 确认；检查清单见文档，截图只用于发现视觉问题，定位仍用控件树。
+- **无头测试 (ui.NewTester)**：每个 View 页面与 Modal 弹窗都必须编写专属的 `ui.NewTester` 测试。
+- **双态双色快照 (tt.Image)**：每个 View 页面与 Modal 弹窗必须同时覆盖无数据状态（Empty）与有数据状态（Populated），并在虚拟时钟推进稳定后分别生成浅色（`tt.SetDark(false)`）与深色（`tt.SetDark(true)`）两份快照，落盘至 `testdata/snapshots/` 进行视觉比对与防退化断言。
+- **自动化插件 (mygo-automation)**：端到端与黑盒自动化使用 MyGo 官方插件 `plugins/automation`（通过 `//go:build automation` 隔离）。外部操作统一使用 `mygo-automation` 命令行工具通过 Unix Domain Socket 驱动，严禁引入特定平台的脆弱无障碍脚本。
 
 ## 完成前
 

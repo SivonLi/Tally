@@ -9,12 +9,15 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
-	"github.com/lobehub/lobe-mygo/pkg/form"
 
 	"tally/internal/assessment"
 	"tally/internal/calc"
+	"tally/internal/excel"
+	"tally/internal/importer"
+	"tally/internal/pipeline"
 	"tally/internal/school"
 	"tally/internal/store"
+	"tally/internal/sync"
 	"tally/locales"
 )
 
@@ -35,28 +38,85 @@ type app struct {
 	planConfigVersionID int64
 	planConfigBaseline  string
 	planSaveChoice      planSaveChoice
-	planForm            *form.Form[struct{}]
 	planFieldSeq        int
-	dialogFormHost      *form.Form[struct{}]
 
-	published            []publishedVersion
-	assessments          []store.AssessmentOverview
-	selectedAssessmentID int64
-	assessmentContext    store.AssessmentContext
-	assessmentRun        store.ResultRun
-	assessmentRows       []store.StoredResultRow
-	assessmentPersonal   []store.StoredPersonalScore
-	assessmentBusy       bool
-	assessmentMessage    string
-	assessmentError      string
-	batchSidebarWidth    float32
-	resultTable          ui.ListState
-	calculateVersion     string
-	zeroOpen             bool
-	zeroIssues           []calc.ZeroTargetIssue
-	zeroValues           map[string]*float64
-	zeroReason           string
-	zeroError            string
+	published                    []publishedVersion
+	assessments                  []store.AssessmentOverview
+	selectedAssessmentID         int64
+	assessmentContext            store.AssessmentContext
+	assessmentRun                store.ResultRun
+	assessmentRows               []store.StoredResultRow
+	assessmentPersonal           []store.StoredPersonalScore
+	assessmentBusy               bool
+	assessmentMessage            string
+	assessmentError              string
+	batchSidebarWidth            float32
+	assessmentResultTab          int
+	assessmentSubjectFilter      string
+	resultTable                  ui.ListState
+	classResultTable             ui.ListState
+	teacherResultTable           ui.ListState
+	assessmentRuns               []store.AssessmentRunSummary
+	assessmentRunID              int64
+	assessmentRunChosen          bool
+	assessmentOfficialStale      bool
+	assessmentOfficialStaleItems []string
+	resultSelection              ui.Selection[string]
+	classSelection               ui.Selection[string]
+	teacherSelection             ui.Selection[string]
+	resultDetailOpen             bool
+	resultDetail                 resultDetail
+	calculateVersion             string
+	zeroOpen                     bool
+	zeroIssues                   []calc.ZeroTargetIssue
+	zeroValues                   map[string]*float64
+	zeroExcluded                 map[string]bool
+	zeroReason                   string
+	zeroError                    string
+	zeroMode                     string
+	runCompareOpen               bool
+	runCompareBaseID             int64
+	runCompareTargetID           int64
+	runCompareOnlyChanged        bool
+	runCompareTab                int
+	runCompareDiff               *pipeline.RunDiff
+	runCompareError              string
+	qualityFixOpen               bool
+	qualityFixExamID             int64
+	qualityFixCohortID           int64
+	qualityFixExamName           string
+	qualityFixStudentID          int64
+	qualityFixStudentNo          string
+	qualityFixStudentName        string
+	qualityFixIssue              store.ExamQualityIssue
+	qualityFixTrack              string
+	qualityFixSubject            string
+	qualityFixScore              float64
+	qualityFixFlag               string
+	qualityFixError              string
+
+	analysisTabIndex                int
+	analysisTeacherName             string
+	analysisClassID                 int64
+	analysisSubject                 string
+	analysisStudentID               int64
+	analysisSelectedExamIDs         map[int64]bool
+	analysisComparisonAssessmentIDs map[int64]bool
+	analysisTeacherResult           store.TeacherTrendResult
+	analysisClassResult             store.ClassTrendResult
+	analysisSubjectResult           store.SubjectComparisonResult
+	analysisStudentResult           store.StudentTrackResult
+	analysisComparisonResult        store.AssessmentComparisonResult
+	analysisSavedViews              []store.SavedView
+	analysisSelectedViewID          int64
+	analysisSaveViewOpen            bool
+	analysisSaveViewName            string
+	analysisSaveViewError           string
+	analysisDeleteViewOpen          bool
+	analysisDeleteViewID            int64
+	analysisDeleteViewName          string
+	analysisMessage                 string
+	analysisError                   string
 
 	now                  func() time.Time
 	page                 pageID
@@ -90,11 +150,20 @@ type app struct {
 	classes              []store.SchoolClass
 	students             []store.DataStudent
 	studentsTotal        int
+	studentPage          int
+	studentPageSize      int
 	studentTable         ui.ListState
 	classTable           ui.ListState
 	teacherTable         ui.ListState
 	groupTable           ui.ListState
 	baselineTable        ui.ListState
+	examRosterTable      ui.ListState
+	examScoresTable      ui.ListState
+	examTargetsTable     ui.ListState
+	importsListState     ui.ListState
+	qualityListState     ui.ListState
+	examQualityListState ui.ListState
+	wizardIssuesList     ui.ListState
 	selectedStudentID    int64
 	studentDetail        store.DataStudent
 	studentDetailOpen    bool
@@ -110,6 +179,16 @@ type app struct {
 	backups              []store.BackupInfo
 	restoreBackupName    string
 	restoreOpen          bool
+	secrets              secretStore
+	syncSettings         store.SyncSettings
+	syncWebDAVPassword   string
+	syncPackagePassword  string
+	syncLoaded           bool
+	syncBusy             bool
+	syncMessage          string
+	syncError            string
+	syncRemoteStatus     *sync.RemoteStatus
+	syncConflictOpen     bool
 	importWizard         *importWizardState
 	importRunID          int64
 	importDetail         *store.ImportRunDetail
@@ -117,73 +196,118 @@ type app struct {
 	stageReviewOpen      bool
 	stageNoticeDismissed map[int64]bool
 
-	exams               []store.Exam
-	selectedExamID      int64
-	examCohortID        int64
-	exam                store.Exam
-	examCohort          store.ExamCohort
-	examAssessment      store.Assessment
-	examTierKeys        []string
-	examClasses         []store.SchoolClass
-	examTeachingGroups  []store.DataTeachingGroup
-	examTab             int
-	examRoster          []store.ExamRosterEntry
-	examRosterTotal     int
-	examScores          []store.ExamScoreRow
-	examScoresTotal     int
-	examScoreSummaries  []store.ExamScoreSummary
-	examScoreBands      []store.ExamScoreBand
-	examClassAverages   []store.ExamClassAverage
-	examCutoffImpacts   []store.ExamCutoffImpact
-	examSubjectCutoffs  []store.ExamSubjectCutoff
-	examTierCutoffs     []store.ExamTierCutoff
-	examTargets         []store.AssessmentClassTarget
-	examStatGroups      []store.ExamStatGroup
-	examQuality         []store.ExamQualityIssue
-	examPrep            store.ExamPrepStatus
-	examRosterQuery     string
-	examScoreQuery      string
-	examScoreSubject    string
-	examScoreClass      int64
-	examBusy            bool
-	examError           string
-	examMessage         string
-	newExamOpen         bool
-	newExamYear         float64
-	newExamTerm         int
-	newExamType         int
-	newExamName         string
-	newExamDate         time.Time
-	newExamCohorts      map[int64]bool
-	newExamMarks        map[int64]map[string]float64
-	examDefaultTrack    string
-	examTargetDrafts    map[string]*float64
-	examPrepOpen        bool
-	qualityExams        []qualityExamOverview
-	qualityError        string
-	qualitySeverity     int
-	qualityImports      map[int64]string
-	qualityDataItem     string
-	qualityImportRun    int64
-	qualityLoaded       bool
-	lastPage            pageID
-	statGroupOpen       bool
-	statGroupID         int64
-	statGroupSubject    string
-	statGroupName       string
-	statGroupLeadClass  int64
-	statGroupTarget     float64
-	statGroupMembers    map[int64]bool
-	statGroupError      string
-	statGroupDeleteOpen bool
-	statGroupDeleteID   int64
-	statGroupDeleteName string
+	exams                []store.Exam
+	selectedExamID       int64
+	examCohortID         int64
+	exam                 store.Exam
+	examCohort           store.ExamCohort
+	examAssessment       store.Assessment
+	examTierKeys         []string
+	examClasses          []store.SchoolClass
+	examTeachingGroups   []store.DataTeachingGroup
+	examTab              int
+	examRoster           []store.ExamRosterEntry
+	examRosterTotal      int
+	examRosterPage       int
+	examRosterPageSize   int
+	examScores           []store.ExamScoreRow
+	examScoresTotal      int
+	examScorePage        int
+	examScorePageSize    int
+	examScoresStatsOpen  bool
+	examScoreSummaries   []store.ExamScoreSummary
+	examScoreBands       []store.ExamScoreBand
+	examClassAverages    []store.ExamClassAverage
+	examCutoffImpacts    []store.ExamCutoffImpact
+	examSubjectCutoffs   []store.ExamSubjectCutoff
+	examTierCutoffs      []store.ExamTierCutoff
+	examTargets          []store.AssessmentClassTarget
+	examStatGroups       []store.ExamStatGroup
+	examQuality          []store.ExamQualityIssue
+	examPrep             store.ExamPrepStatus
+	examRosterQuery      string
+	examScoreQuery       string
+	examScoreSubject     string
+	examScoreClass       int64
+	examBusy             bool
+	examError            string
+	examMessage          string
+	newExamOpen          bool
+	newExamYear          float64
+	newExamTerm          int
+	newExamType          int
+	newExamName          string
+	newExamDate          time.Time
+	newExamCohorts       map[int64]bool
+	newExamMarks         map[int64]map[string]float64
+	examDefaultTrack     string
+	examTargetDrafts     map[string]*float64
+	examPrepOpen         bool
+	qualityExams         []qualityExamOverview
+	qualityError         string
+	qualitySeverity      int
+	qualityImports       map[int64]string
+	qualityImportOptions map[int64]string
+	qualityDataItem      string
+	qualityImportRun     int64
+	qualityLoaded        bool
+	lastPage             pageID
+	statGroupOpen        bool
+	statGroupID          int64
+	statGroupSubject     string
+	statGroupName        string
+	statGroupLeadClass   int64
+	statGroupTarget      float64
+	statGroupMembers     map[int64]bool
+	statGroupError       string
+	statGroupDeleteOpen  bool
+	statGroupDeleteID    int64
+	statGroupDeleteName  string
 
-	settingsWin    *mygo.Window
-	settingsOpen   bool
-	appearance     string
-	settingsPageID string
-	settingsForm   *form.Form[settingsFormValues]
+	settingsWin            *mygo.Window
+	settingsOpen           bool
+	appearance             string
+	settingsPageID         string
+	mainToast              string
+	settingsToast          string
+	workspaceSummary       store.WorkspaceSummary
+	workspaceSummaryLoaded bool
+	baseDataTab            int
+	importReturn           *importReturnContext
+	importCenterTab        int
+	importCenterScope      int
+	importCenterExamID     int64
+	importCenterWorkbook   *importer.Workbook
+	importCenterFilePath   string
+	importCenterFileName   string
+	importCenterSheets     []importer.SheetClassification
+	importCenterReading    bool
+	importCenterError      string
+	importUndoConfirmOpen  bool
+	unsavedGuardOpen       bool
+	pendingNavAction       func()
+	sofficePath            string
+	sofficeDraft           string
+	sofficeStatus          excel.SofficeStatus
+	sofficeChecked         bool
+}
+
+func (a *app) notifyMain(message string) {
+	if message == "" {
+		return
+	}
+	a.mainToast = message
+	if a.win != nil {
+		a.win.Invalidate()
+	}
+}
+
+func (a *app) notifySettings(message string) {
+	if message == "" {
+		return
+	}
+	a.settingsToast = message
+	a.invalidateSettings()
 }
 
 func (a *app) load() {
@@ -219,12 +343,25 @@ func (a *app) load() {
 	a.reloadExams(ctx)
 	a.reloadAssessments(ctx)
 	a.reloadSchoolSettings(ctx)
+	if syncSet, err := opened.GetSyncSettings(ctx); err == nil {
+		a.syncSettings = syncSet
+	}
+	a.loadSyncSecrets()
+	a.syncLoaded = true
 	appearance, err := opened.Appearance(ctx)
 	if err != nil {
 		a.loadError = err.Error()
 		return
 	}
 	a.appearance = appearance
+	soffice, err := opened.SofficePath(ctx)
+	if err != nil {
+		a.loadError = err.Error()
+		return
+	}
+	a.sofficePath = soffice
+	a.sofficeDraft = a.sofficePath
+	a.refreshSofficeStatus()
 	if a.page == "" {
 		a.page = pageOverview
 	}
@@ -343,13 +480,15 @@ func main() {
 			TitleBarStyle:        mygo.TitleBarHidden,
 			TitleBarHeight:       int(topStripHeight),
 			TrafficLightPosition: &mygo.Point{X: 20, Y: 20},
-			Vibrancy:             mygo.VibrancySidebar,
-			BackgroundColor:      "light-dark(#ffffff, #000000)",
+			BackgroundColor:      "light-dark(#faf8f5, #090706)",
 			Content:              ui.View(a.view),
 		})
 		mygo.App.OnLocaleChanged(func(string) {
 			if a.win != nil {
 				a.win.SetTitle(locales.AppTitle())
+			}
+			if a.settingsWin != nil {
+				a.settingsWin.SetTitle(locales.NavSettings())
 			}
 			a.invalidateSettings()
 		})

@@ -50,20 +50,40 @@ func (s *Store) migrateSchoolData(ctx context.Context) error {
 			return err
 		}
 	}
-	if _, err := s.db.Transaction(ctx, examSchema()); err != nil {
-		return err
+	if version < 6 {
+		if _, err := s.db.Transaction(ctx, examSchema()); err != nil {
+			return err
+		}
+		if err := s.migrateLegacyExams(ctx); err != nil {
+			return err
+		}
+		if err := s.ensureResultAssessmentColumn(ctx); err != nil {
+			return err
+		}
+		if err := s.migrateResultRunsAssessment(ctx); err != nil {
+			return err
+		}
+		if err := s.migrateLegacyResults(ctx); err != nil {
+			return err
+		}
+		if _, err := s.db.Execute(ctx, `INSERT OR IGNORE INTO schema_migrations(version, applied_at)
+			VALUES (6, ?)`, s.now().Format(time.RFC3339Nano)); err != nil {
+			return err
+		}
 	}
-	if err := s.migrateLegacyExams(ctx); err != nil {
-		return err
+	if version < 7 {
+		if err := s.ensureRunDetailColumns(ctx); err != nil {
+			return err
+		}
+		if _, err := s.db.Execute(ctx, `INSERT OR IGNORE INTO schema_migrations(version, applied_at)
+			VALUES (7, ?)`, s.now().Format(time.RFC3339Nano)); err != nil {
+			return err
+		}
 	}
-	if err := s.ensureResultAssessmentColumn(ctx); err != nil {
-		return err
-	}
-	if err := s.migrateResultRunsAssessment(ctx); err != nil {
-		return err
-	}
-	if err := s.migrateLegacyResults(ctx); err != nil {
-		return err
+	if version < 8 {
+		if _, err := s.db.Transaction(ctx, savedViewsSchema()); err != nil {
+			return err
+		}
 	}
 	_, err = s.db.Execute(ctx, `INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)`,
 		SchemaVersion, s.now().Format(time.RFC3339Nano))

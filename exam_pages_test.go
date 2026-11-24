@@ -113,19 +113,26 @@ func (f examPageFixture) open(t *testing.T, page pageID) *ui.Tester {
 func TestExamPagesShowRosterScoresAndStatistics(t *testing.T) {
 	f := newExamPageFixture(t)
 	tt := f.open(t, pageExams)
-	for _, text := range []string{"Midterm · 期中考试", "Roster", "Scores", "001", "002"} {
+	for _, text := range []string{"期中考试", "Midterm", "Roster", "Scores", "001", "002"} {
 		if !tt.HasText(text) {
 			t.Fatalf("missing %q in %q", text, tt.Texts())
 		}
 	}
 	f.App.examTab = 1
 	tt.Frame()
-	for _, text := range []string{"120.0", "90.0", "Absent", "Score distribution · 语文"} {
+	if !tt.HasText("Score distribution and class averages") {
+		t.Fatalf("missing collapsible stats toggle in %q", tt.Texts())
+	}
+	if err := tt.Click("Score distribution and class averages"); err != nil {
+		t.Fatal(err)
+	}
+	settleTester(tt)
+	for _, text := range []string{"120.0", "90.0", "Absent", "Score distribution: 语文"} {
 		if !tt.HasText(text) {
 			t.Fatalf("missing %q in %q", text, tt.Texts())
 		}
 	}
-	if !tt.HasText("1班 · average 105.0 · 2 students") {
+	if !tt.HasText("1班 average 105.0 (2 students)") {
 		t.Fatalf("texts = %q", tt.Texts())
 	}
 }
@@ -150,7 +157,7 @@ func TestExamTargetsSaveAndStatGroupDeleteConfirm(t *testing.T) {
 	tt.Frame()
 	f.App.statGroupName = "语文合并组"
 	tt.Frame()
-	if err := tt.Click("1班 · 1班"); err != nil {
+	if err := tt.Click("1班 (1班)"); err != nil {
 		t.Fatal(err)
 	}
 	if err := tt.Click("Save"); err != nil {
@@ -180,7 +187,7 @@ func TestExamQualityPageGroupsAndNavigates(t *testing.T) {
 	f := newExamPageFixture(t)
 	f.App.page = pageOverview
 	tt := f.open(t, pageQuality)
-	for _, text := range []string{"Data quality", "Warnings", "Scores", "Roster"} {
+	for _, text := range []string{"Data quality", "Warnings", "Cutoffs", "Roster"} {
 		if !tt.HasText(text) {
 			t.Fatalf("missing %q in %q", text, tt.Texts())
 		}
@@ -206,7 +213,7 @@ func TestExamQualityPageGroupsAndNavigates(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if err := tt.Click("003 · 丙 has no scores."); err != nil {
+	if err := tt.Click("丙 (003) has no scores."); err != nil {
 		t.Fatal(err)
 	}
 	if f.App.page != pageExams || f.App.examTab != 1 || f.App.examScoreQuery != "003" {
@@ -267,7 +274,7 @@ func TestNewExamDateInputAndMarks(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	for _, text := range []string{"Create an exam", "Exam date", "2026 cohort · Class of 2029"} {
+	for _, text := range []string{"Create an exam", "Exam date", "2026 cohort (Class of 2029)"} {
 		if !tt.HasText(text) {
 			t.Fatalf("missing %q in %q", text, tt.Texts())
 		}
@@ -337,15 +344,15 @@ func TestExamCohortSwitchAndQualityImportFilter(t *testing.T) {
 	f.App.qualityLoaded = false
 	f.App.qualityImportRun = 0
 	tt.Frame()
-	if len(f.App.qualityImports) == 0 {
-		t.Fatalf("imports = %+v", f.App.qualityImports)
+	if len(f.App.qualityImportOptions) == 0 {
+		t.Fatalf("import options = %+v", f.App.qualityImportOptions)
 	}
 	if err := tt.Click("All import records"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
 	firstLabel := ""
-	for _, label := range f.App.qualityImports {
+	for _, label := range f.App.qualityImportOptions {
 		firstLabel = label
 		break
 	}
@@ -362,6 +369,33 @@ func TestExamCohortSwitchAndQualityImportFilter(t *testing.T) {
 				t.Fatalf("issue from another import: %+v", issue)
 			}
 		}
+	}
+}
+
+// 考试数据没有导入记录引用时，数据质量页不显示导入记录筛选。
+func TestQualityImportFilterHiddenWithoutReferencedRuns(t *testing.T) {
+	a := newTestApp(t)
+	addCohort(t, a, 2026)
+	seedStageData(t, a)
+	ctx := context.Background()
+	cohort := a.selectedCohort()
+	_, err := a.store.CreateExam(ctx, store.CreateExamInput{
+		AcademicYearStart: 2026, Term: store.ExamTermFirst, ExamType: store.ExamMidterm,
+		Name: "期中考试", ExamDate: "2026-11-10", CohortIDs: []int64{cohort.ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.reloadExams(ctx)
+	a.page = pageQuality
+	tt := ui.NewTester(a.view, 1280, 900)
+	tt.SetLocale("en")
+	tt.Frame()
+	if a.qualityImportOptions != nil {
+		t.Fatalf("import options = %+v", a.qualityImportOptions)
+	}
+	if tt.HasText("All import records") {
+		t.Fatalf("import filter shown: %q", tt.Texts())
 	}
 }
 
@@ -388,6 +422,10 @@ func TestExamPagesAtMinimumSizeInChineseAndDarkTheme(t *testing.T) {
 	}
 	f.App.examTab = 1
 	tt.Frame()
+	if err := tt.Click("分数分布与班级均分"); err != nil {
+		t.Fatal(err)
+	}
+	settleTester(tt)
 	if !tt.HasText("成绩分布") {
 		t.Fatalf("texts = %q", tt.Texts())
 	}

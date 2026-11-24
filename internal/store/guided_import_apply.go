@@ -681,7 +681,12 @@ func (s *Store) importIssueStatements(runID int64, issues []ImportIssue) []sqlit
 
 func (s *Store) importSheetStatements(runID int64, report ImportReport) []sqlite.Statement {
 	statements := []sqlite.Statement{{SQL: `DELETE FROM import_sheets WHERE import_run_id = ?`, Args: []any{runID}}}
+	seen := map[string]bool{}
 	for _, sheet := range report.Sheets {
+		if seen[sheet.Name] {
+			continue
+		}
+		seen[sheet.Name] = true
 		statements = append(statements, sqlite.Statement{
 			SQL: `INSERT INTO import_sheets(import_run_id, sheet_name, role, header_row, data_range, is_current)
 				VALUES (?, ?, ?, ?, ?, 1)`,

@@ -158,6 +158,26 @@ func (msgs Messages) Decrement() string {
 	return Catalog.Format(msgs.locale, "decrement", nil)
 }
 
+// ShowPassword says "Show password"
+// in the language the app shows.
+func ShowPassword() string { return In(i18n.Locale()).ShowPassword() }
+
+// ShowPassword says "Show password"
+// in the language of msgs.
+func (msgs Messages) ShowPassword() string {
+	return Catalog.Format(msgs.locale, "showPassword", nil)
+}
+
+// HidePassword says "Hide password"
+// in the language the app shows.
+func HidePassword() string { return In(i18n.Locale()).HidePassword() }
+
+// HidePassword says "Hide password"
+// in the language of msgs.
+func (msgs Messages) HidePassword() string {
+	return Catalog.Format(msgs.locale, "hidePassword", nil)
+}
+
 // PlanLibraryTitle says "Assessment plans"
 // in the language the app shows.
 func PlanLibraryTitle() string { return In(i18n.Locale()).PlanLibraryTitle() }
@@ -1106,26 +1126,6 @@ func PlanBoundaryManual() string { return In(i18n.Locale()).PlanBoundaryManual()
 // in the language of msgs.
 func (msgs Messages) PlanBoundaryManual() string {
 	return Catalog.Format(msgs.locale, "planBoundaryManual", nil)
-}
-
-// PlanBoundaryFirstLabel says "Tier 1 ends at"
-// in the language the app shows.
-func PlanBoundaryFirstLabel() string { return In(i18n.Locale()).PlanBoundaryFirstLabel() }
-
-// PlanBoundaryFirstLabel says "Tier 1 ends at"
-// in the language of msgs.
-func (msgs Messages) PlanBoundaryFirstLabel() string {
-	return Catalog.Format(msgs.locale, "planBoundaryFirstLabel", nil)
-}
-
-// PlanBoundarySecondLabel says "Tier 2 ends at"
-// in the language the app shows.
-func PlanBoundarySecondLabel() string { return In(i18n.Locale()).PlanBoundarySecondLabel() }
-
-// PlanBoundarySecondLabel says "Tier 2 ends at"
-// in the language of msgs.
-func (msgs Messages) PlanBoundarySecondLabel() string {
-	return Catalog.Format(msgs.locale, "planBoundarySecondLabel", nil)
 }
 
 // PlanOverridesLabel says "Subject exceptions"
@@ -3968,6 +3968,548 @@ func (msgs Messages) AnalysisTeacherMeta() string {
 	return Catalog.Format(msgs.locale, "analysisTeacherMeta", nil)
 }
 
+// AnalysisTabTeacherTrend says "Teacher trends"
+// in the language the app shows.
+func AnalysisTabTeacherTrend() string { return In(i18n.Locale()).AnalysisTabTeacherTrend() }
+
+// AnalysisTabTeacherTrend says "Teacher trends"
+// in the language of msgs.
+func (msgs Messages) AnalysisTabTeacherTrend() string {
+	return Catalog.Format(msgs.locale, "analysisTabTeacherTrend", nil)
+}
+
+// AnalysisTabClassTrend says "Class trends"
+// in the language the app shows.
+func AnalysisTabClassTrend() string { return In(i18n.Locale()).AnalysisTabClassTrend() }
+
+// AnalysisTabClassTrend says "Class trends"
+// in the language of msgs.
+func (msgs Messages) AnalysisTabClassTrend() string {
+	return Catalog.Format(msgs.locale, "analysisTabClassTrend", nil)
+}
+
+// AnalysisTabSubjectComparison says "Subject view"
+// in the language the app shows.
+func AnalysisTabSubjectComparison() string { return In(i18n.Locale()).AnalysisTabSubjectComparison() }
+
+// AnalysisTabSubjectComparison says "Subject view"
+// in the language of msgs.
+func (msgs Messages) AnalysisTabSubjectComparison() string {
+	return Catalog.Format(msgs.locale, "analysisTabSubjectComparison", nil)
+}
+
+// AnalysisTabStudentTrack says "Student tracking"
+// in the language the app shows.
+func AnalysisTabStudentTrack() string { return In(i18n.Locale()).AnalysisTabStudentTrack() }
+
+// AnalysisTabStudentTrack says "Student tracking"
+// in the language of msgs.
+func (msgs Messages) AnalysisTabStudentTrack() string {
+	return Catalog.Format(msgs.locale, "analysisTabStudentTrack", nil)
+}
+
+// AnalysisTabAssessmentComparison says "Compare exams"
+// in the language the app shows.
+func AnalysisTabAssessmentComparison() string {
+	return In(i18n.Locale()).AnalysisTabAssessmentComparison()
+}
+
+// AnalysisTabAssessmentComparison says "Compare exams"
+// in the language of msgs.
+func (msgs Messages) AnalysisTabAssessmentComparison() string {
+	return Catalog.Format(msgs.locale, "analysisTabAssessmentComparison", nil)
+}
+
+// AnalysisFilterCohort says "Cohort"
+// in the language the app shows.
+func AnalysisFilterCohort() string { return In(i18n.Locale()).AnalysisFilterCohort() }
+
+// AnalysisFilterCohort says "Cohort"
+// in the language of msgs.
+func (msgs Messages) AnalysisFilterCohort() string {
+	return Catalog.Format(msgs.locale, "analysisFilterCohort", nil)
+}
+
+// AnalysisFilterStage says "Grade stage"
+// in the language the app shows.
+func AnalysisFilterStage() string { return In(i18n.Locale()).AnalysisFilterStage() }
+
+// AnalysisFilterStage says "Grade stage"
+// in the language of msgs.
+func (msgs Messages) AnalysisFilterStage() string {
+	return Catalog.Format(msgs.locale, "analysisFilterStage", nil)
+}
+
+// AnalysisFilterSubject says "Subject"
+// in the language the app shows.
+func AnalysisFilterSubject() string { return In(i18n.Locale()).AnalysisFilterSubject() }
+
+// AnalysisFilterSubject says "Subject"
+// in the language of msgs.
+func (msgs Messages) AnalysisFilterSubject() string {
+	return Catalog.Format(msgs.locale, "analysisFilterSubject", nil)
+}
+
+// AnalysisFilterTeacher says "Teacher"
+// in the language the app shows.
+func AnalysisFilterTeacher() string { return In(i18n.Locale()).AnalysisFilterTeacher() }
+
+// AnalysisFilterTeacher says "Teacher"
+// in the language of msgs.
+func (msgs Messages) AnalysisFilterTeacher() string {
+	return Catalog.Format(msgs.locale, "analysisFilterTeacher", nil)
+}
+
+// AnalysisFilterClass says "Class"
+// in the language the app shows.
+func AnalysisFilterClass() string { return In(i18n.Locale()).AnalysisFilterClass() }
+
+// AnalysisFilterClass says "Class"
+// in the language of msgs.
+func (msgs Messages) AnalysisFilterClass() string {
+	return Catalog.Format(msgs.locale, "analysisFilterClass", nil)
+}
+
+// AnalysisFilterStudent says "Student"
+// in the language the app shows.
+func AnalysisFilterStudent() string { return In(i18n.Locale()).AnalysisFilterStudent() }
+
+// AnalysisFilterStudent says "Student"
+// in the language of msgs.
+func (msgs Messages) AnalysisFilterStudent() string {
+	return Catalog.Format(msgs.locale, "analysisFilterStudent", nil)
+}
+
+// AnalysisFilterExams says "Exams"
+// in the language the app shows.
+func AnalysisFilterExams() string { return In(i18n.Locale()).AnalysisFilterExams() }
+
+// AnalysisFilterExams says "Exams"
+// in the language of msgs.
+func (msgs Messages) AnalysisFilterExams() string {
+	return Catalog.Format(msgs.locale, "analysisFilterExams", nil)
+}
+
+// AnalysisAllSubjects says "All subjects"
+// in the language the app shows.
+func AnalysisAllSubjects() string { return In(i18n.Locale()).AnalysisAllSubjects() }
+
+// AnalysisAllSubjects says "All subjects"
+// in the language of msgs.
+func (msgs Messages) AnalysisAllSubjects() string {
+	return Catalog.Format(msgs.locale, "analysisAllSubjects", nil)
+}
+
+// AnalysisAllTeachers says "Select a teacher"
+// in the language the app shows.
+func AnalysisAllTeachers() string { return In(i18n.Locale()).AnalysisAllTeachers() }
+
+// AnalysisAllTeachers says "Select a teacher"
+// in the language of msgs.
+func (msgs Messages) AnalysisAllTeachers() string {
+	return Catalog.Format(msgs.locale, "analysisAllTeachers", nil)
+}
+
+// AnalysisAllClasses says "Select a class"
+// in the language the app shows.
+func AnalysisAllClasses() string { return In(i18n.Locale()).AnalysisAllClasses() }
+
+// AnalysisAllClasses says "Select a class"
+// in the language of msgs.
+func (msgs Messages) AnalysisAllClasses() string {
+	return Catalog.Format(msgs.locale, "analysisAllClasses", nil)
+}
+
+// AnalysisAllStudents says "Select a student"
+// in the language the app shows.
+func AnalysisAllStudents() string { return In(i18n.Locale()).AnalysisAllStudents() }
+
+// AnalysisAllStudents says "Select a student"
+// in the language of msgs.
+func (msgs Messages) AnalysisAllStudents() string {
+	return Catalog.Format(msgs.locale, "analysisAllStudents", nil)
+}
+
+// AnalysisSelectExamHint says "Select exams to compare"
+// in the language the app shows.
+func AnalysisSelectExamHint() string { return In(i18n.Locale()).AnalysisSelectExamHint() }
+
+// AnalysisSelectExamHint says "Select exams to compare"
+// in the language of msgs.
+func (msgs Messages) AnalysisSelectExamHint() string {
+	return Catalog.Format(msgs.locale, "analysisSelectExamHint", nil)
+}
+
+// AnalysisPlanDifferent says "Assessment plans differ across exams; overall composite scores cannot be compared directly."
+// in the language the app shows.
+func AnalysisPlanDifferent() string { return In(i18n.Locale()).AnalysisPlanDifferent() }
+
+// AnalysisPlanDifferent says "Assessment plans differ across exams; overall composite scores cannot be compared directly."
+// in the language of msgs.
+func (msgs Messages) AnalysisPlanDifferent() string {
+	return Catalog.Format(msgs.locale, "analysisPlanDifferent", nil)
+}
+
+// AnalysisNeedMoreExams says "At least two exams are required to show trend comparisons."
+// in the language the app shows.
+func AnalysisNeedMoreExams() string { return In(i18n.Locale()).AnalysisNeedMoreExams() }
+
+// AnalysisNeedMoreExams says "At least two exams are required to show trend comparisons."
+// in the language of msgs.
+func (msgs Messages) AnalysisNeedMoreExams() string {
+	return Catalog.Format(msgs.locale, "analysisNeedMoreExams", nil)
+}
+
+// AnalysisSelectTargetHint says "Select a target to view detailed trends and history."
+// in the language the app shows.
+func AnalysisSelectTargetHint() string { return In(i18n.Locale()).AnalysisSelectTargetHint() }
+
+// AnalysisSelectTargetHint says "Select a target to view detailed trends and history."
+// in the language of msgs.
+func (msgs Messages) AnalysisSelectTargetHint() string {
+	return Catalog.Format(msgs.locale, "analysisSelectTargetHint", nil)
+}
+
+// AnalysisNoStudentData says "No exam score records found for this student."
+// in the language the app shows.
+func AnalysisNoStudentData() string { return In(i18n.Locale()).AnalysisNoStudentData() }
+
+// AnalysisNoStudentData says "No exam score records found for this student."
+// in the language of msgs.
+func (msgs Messages) AnalysisNoStudentData() string {
+	return Catalog.Format(msgs.locale, "analysisNoStudentData", nil)
+}
+
+// AnalysisNoTrendData says "No assessment history found for the selected filter."
+// in the language the app shows.
+func AnalysisNoTrendData() string { return In(i18n.Locale()).AnalysisNoTrendData() }
+
+// AnalysisNoTrendData says "No assessment history found for the selected filter."
+// in the language of msgs.
+func (msgs Messages) AnalysisNoTrendData() string {
+	return Catalog.Format(msgs.locale, "analysisNoTrendData", nil)
+}
+
+// AnalysisSavedViews says "Saved views"
+// in the language the app shows.
+func AnalysisSavedViews() string { return In(i18n.Locale()).AnalysisSavedViews() }
+
+// AnalysisSavedViews says "Saved views"
+// in the language of msgs.
+func (msgs Messages) AnalysisSavedViews() string {
+	return Catalog.Format(msgs.locale, "analysisSavedViews", nil)
+}
+
+// AnalysisSaveCurrentView says "Save view"
+// in the language the app shows.
+func AnalysisSaveCurrentView() string { return In(i18n.Locale()).AnalysisSaveCurrentView() }
+
+// AnalysisSaveCurrentView says "Save view"
+// in the language of msgs.
+func (msgs Messages) AnalysisSaveCurrentView() string {
+	return Catalog.Format(msgs.locale, "analysisSaveCurrentView", nil)
+}
+
+// AnalysisSaveViewPrompt says "Enter a name for this view"
+// in the language the app shows.
+func AnalysisSaveViewPrompt() string { return In(i18n.Locale()).AnalysisSaveViewPrompt() }
+
+// AnalysisSaveViewPrompt says "Enter a name for this view"
+// in the language of msgs.
+func (msgs Messages) AnalysisSaveViewPrompt() string {
+	return Catalog.Format(msgs.locale, "analysisSaveViewPrompt", nil)
+}
+
+// AnalysisSaveViewBtn says "Save"
+// in the language the app shows.
+func AnalysisSaveViewBtn() string { return In(i18n.Locale()).AnalysisSaveViewBtn() }
+
+// AnalysisSaveViewBtn says "Save"
+// in the language of msgs.
+func (msgs Messages) AnalysisSaveViewBtn() string {
+	return Catalog.Format(msgs.locale, "analysisSaveViewBtn", nil)
+}
+
+// AnalysisCancelBtn says "Cancel"
+// in the language the app shows.
+func AnalysisCancelBtn() string { return In(i18n.Locale()).AnalysisCancelBtn() }
+
+// AnalysisCancelBtn says "Cancel"
+// in the language of msgs.
+func (msgs Messages) AnalysisCancelBtn() string {
+	return Catalog.Format(msgs.locale, "analysisCancelBtn", nil)
+}
+
+// AnalysisViewSaved says "View saved"
+// in the language the app shows.
+func AnalysisViewSaved() string { return In(i18n.Locale()).AnalysisViewSaved() }
+
+// AnalysisViewSaved says "View saved"
+// in the language of msgs.
+func (msgs Messages) AnalysisViewSaved() string {
+	return Catalog.Format(msgs.locale, "analysisViewSaved", nil)
+}
+
+// AnalysisDeleteView says "Delete view"
+// in the language the app shows.
+func AnalysisDeleteView() string { return In(i18n.Locale()).AnalysisDeleteView() }
+
+// AnalysisDeleteView says "Delete view"
+// in the language of msgs.
+func (msgs Messages) AnalysisDeleteView() string {
+	return Catalog.Format(msgs.locale, "analysisDeleteView", nil)
+}
+
+// AnalysisDeleteViewTitle says "Delete “%s”?"
+// in the language the app shows.
+func AnalysisDeleteViewTitle() string { return In(i18n.Locale()).AnalysisDeleteViewTitle() }
+
+// AnalysisDeleteViewTitle says "Delete “%s”?"
+// in the language of msgs.
+func (msgs Messages) AnalysisDeleteViewTitle() string {
+	return Catalog.Format(msgs.locale, "analysisDeleteViewTitle", nil)
+}
+
+// AnalysisDeleteViewConfirm says "Delete “%s”"
+// in the language the app shows.
+func AnalysisDeleteViewConfirm() string { return In(i18n.Locale()).AnalysisDeleteViewConfirm() }
+
+// AnalysisDeleteViewConfirm says "Delete “%s”"
+// in the language of msgs.
+func (msgs Messages) AnalysisDeleteViewConfirm() string {
+	return Catalog.Format(msgs.locale, "analysisDeleteViewConfirm", nil)
+}
+
+// AnalysisDeleteViewBody says "The saved view is removed. The underlying analysis data is not changed."
+// in the language the app shows.
+func AnalysisDeleteViewBody() string { return In(i18n.Locale()).AnalysisDeleteViewBody() }
+
+// AnalysisDeleteViewBody says "The saved view is removed. The underlying analysis data is not changed."
+// in the language of msgs.
+func (msgs Messages) AnalysisDeleteViewBody() string {
+	return Catalog.Format(msgs.locale, "analysisDeleteViewBody", nil)
+}
+
+// AnalysisDefaultView says "Default view"
+// in the language the app shows.
+func AnalysisDefaultView() string { return In(i18n.Locale()).AnalysisDefaultView() }
+
+// AnalysisDefaultView says "Default view"
+// in the language of msgs.
+func (msgs Messages) AnalysisDefaultView() string {
+	return Catalog.Format(msgs.locale, "analysisDefaultView", nil)
+}
+
+// AnalysisExport says "Export analysis"
+// in the language the app shows.
+func AnalysisExport() string { return In(i18n.Locale()).AnalysisExport() }
+
+// AnalysisExport says "Export analysis"
+// in the language of msgs.
+func (msgs Messages) AnalysisExport() string {
+	return Catalog.Format(msgs.locale, "analysisExport", nil)
+}
+
+// AnalysisExportSuccess says "Analysis exported to %s"
+// in the language the app shows.
+func AnalysisExportSuccess() string { return In(i18n.Locale()).AnalysisExportSuccess() }
+
+// AnalysisExportSuccess says "Analysis exported to %s"
+// in the language of msgs.
+func (msgs Messages) AnalysisExportSuccess() string {
+	return Catalog.Format(msgs.locale, "analysisExportSuccess", nil)
+}
+
+// AnalysisRank says "Rank"
+// in the language the app shows.
+func AnalysisRank() string { return In(i18n.Locale()).AnalysisRank() }
+
+// AnalysisRank says "Rank"
+// in the language of msgs.
+func (msgs Messages) AnalysisRank() string {
+	return Catalog.Format(msgs.locale, "analysisRank", nil)
+}
+
+// AnalysisTier says "Tier"
+// in the language the app shows.
+func AnalysisTier() string { return In(i18n.Locale()).AnalysisTier() }
+
+// AnalysisTier says "Tier"
+// in the language of msgs.
+func (msgs Messages) AnalysisTier() string {
+	return Catalog.Format(msgs.locale, "analysisTier", nil)
+}
+
+// AnalysisPoints says "Points"
+// in the language the app shows.
+func AnalysisPoints() string { return In(i18n.Locale()).AnalysisPoints() }
+
+// AnalysisPoints says "Points"
+// in the language of msgs.
+func (msgs Messages) AnalysisPoints() string {
+	return Catalog.Format(msgs.locale, "analysisPoints", nil)
+}
+
+// AnalysisClassAvg says "Class avg"
+// in the language the app shows.
+func AnalysisClassAvg() string { return In(i18n.Locale()).AnalysisClassAvg() }
+
+// AnalysisClassAvg says "Class avg"
+// in the language of msgs.
+func (msgs Messages) AnalysisClassAvg() string {
+	return Catalog.Format(msgs.locale, "analysisClassAvg", nil)
+}
+
+// AnalysisGradeAvg says "Grade avg"
+// in the language the app shows.
+func AnalysisGradeAvg() string { return In(i18n.Locale()).AnalysisGradeAvg() }
+
+// AnalysisGradeAvg says "Grade avg"
+// in the language of msgs.
+func (msgs Messages) AnalysisGradeAvg() string {
+	return Catalog.Format(msgs.locale, "analysisGradeAvg", nil)
+}
+
+// AnalysisBaselineRatio says "Baseline ratio"
+// in the language the app shows.
+func AnalysisBaselineRatio() string { return In(i18n.Locale()).AnalysisBaselineRatio() }
+
+// AnalysisBaselineRatio says "Baseline ratio"
+// in the language of msgs.
+func (msgs Messages) AnalysisBaselineRatio() string {
+	return Catalog.Format(msgs.locale, "analysisBaselineRatio", nil)
+}
+
+// AnalysisImprovementScore says "Improvement score"
+// in the language the app shows.
+func AnalysisImprovementScore() string { return In(i18n.Locale()).AnalysisImprovementScore() }
+
+// AnalysisImprovementScore says "Improvement score"
+// in the language of msgs.
+func (msgs Messages) AnalysisImprovementScore() string {
+	return Catalog.Format(msgs.locale, "analysisImprovementScore", nil)
+}
+
+// AnalysisPassScore says "Pass score"
+// in the language the app shows.
+func AnalysisPassScore() string { return In(i18n.Locale()).AnalysisPassScore() }
+
+// AnalysisPassScore says "Pass score"
+// in the language of msgs.
+func (msgs Messages) AnalysisPassScore() string {
+	return Catalog.Format(msgs.locale, "analysisPassScore", nil)
+}
+
+// AnalysisCompletionScore says "Completion score"
+// in the language the app shows.
+func AnalysisCompletionScore() string { return In(i18n.Locale()).AnalysisCompletionScore() }
+
+// AnalysisCompletionScore says "Completion score"
+// in the language of msgs.
+func (msgs Messages) AnalysisCompletionScore() string {
+	return Catalog.Format(msgs.locale, "analysisCompletionScore", nil)
+}
+
+// AnalysisTotalScore says "Total score"
+// in the language the app shows.
+func AnalysisTotalScore() string { return In(i18n.Locale()).AnalysisTotalScore() }
+
+// AnalysisTotalScore says "Total score"
+// in the language of msgs.
+func (msgs Messages) AnalysisTotalScore() string {
+	return Catalog.Format(msgs.locale, "analysisTotalScore", nil)
+}
+
+// AnalysisStudentScore says "Student score"
+// in the language the app shows.
+func AnalysisStudentScore() string { return In(i18n.Locale()).AnalysisStudentScore() }
+
+// AnalysisStudentScore says "Student score"
+// in the language of msgs.
+func (msgs Messages) AnalysisStudentScore() string {
+	return Catalog.Format(msgs.locale, "analysisStudentScore", nil)
+}
+
+// AnalysisGradeRank says "Grade rank"
+// in the language the app shows.
+func AnalysisGradeRank() string { return In(i18n.Locale()).AnalysisGradeRank() }
+
+// AnalysisGradeRank says "Grade rank"
+// in the language of msgs.
+func (msgs Messages) AnalysisGradeRank() string {
+	return Catalog.Format(msgs.locale, "analysisGradeRank", nil)
+}
+
+// AnalysisTotalStudents says "Total students"
+// in the language the app shows.
+func AnalysisTotalStudents() string { return In(i18n.Locale()).AnalysisTotalStudents() }
+
+// AnalysisTotalStudents says "Total students"
+// in the language of msgs.
+func (msgs Messages) AnalysisTotalStudents() string {
+	return Catalog.Format(msgs.locale, "analysisTotalStudents", nil)
+}
+
+// AnalysisGroupDistribution says "Tier distribution"
+// in the language the app shows.
+func AnalysisGroupDistribution() string { return In(i18n.Locale()).AnalysisGroupDistribution() }
+
+// AnalysisGroupDistribution says "Tier distribution"
+// in the language of msgs.
+func (msgs Messages) AnalysisGroupDistribution() string {
+	return Catalog.Format(msgs.locale, "analysisGroupDistribution", nil)
+}
+
+// AnalysisHistoryDetails says "Exam history"
+// in the language the app shows.
+func AnalysisHistoryDetails() string { return In(i18n.Locale()).AnalysisHistoryDetails() }
+
+// AnalysisHistoryDetails says "Exam history"
+// in the language of msgs.
+func (msgs Messages) AnalysisHistoryDetails() string {
+	return Catalog.Format(msgs.locale, "analysisHistoryDetails", nil)
+}
+
+// AnalysisRankings says "Rankings"
+// in the language the app shows.
+func AnalysisRankings() string { return In(i18n.Locale()).AnalysisRankings() }
+
+// AnalysisRankings says "Rankings"
+// in the language of msgs.
+func (msgs Messages) AnalysisRankings() string {
+	return Catalog.Format(msgs.locale, "analysisRankings", nil)
+}
+
+// AnalysisLatestScore says "Latest score"
+// in the language the app shows.
+func AnalysisLatestScore() string { return In(i18n.Locale()).AnalysisLatestScore() }
+
+// AnalysisLatestScore says "Latest score"
+// in the language of msgs.
+func (msgs Messages) AnalysisLatestScore() string {
+	return Catalog.Format(msgs.locale, "analysisLatestScore", nil)
+}
+
+// AnalysisAvgScore says "Average score"
+// in the language the app shows.
+func AnalysisAvgScore() string { return In(i18n.Locale()).AnalysisAvgScore() }
+
+// AnalysisAvgScore says "Average score"
+// in the language of msgs.
+func (msgs Messages) AnalysisAvgScore() string {
+	return Catalog.Format(msgs.locale, "analysisAvgScore", nil)
+}
+
+// AnalysisExamsCount says "Exams"
+// in the language the app shows.
+func AnalysisExamsCount() string { return In(i18n.Locale()).AnalysisExamsCount() }
+
+// AnalysisExamsCount says "Exams"
+// in the language of msgs.
+func (msgs Messages) AnalysisExamsCount() string {
+	return Catalog.Format(msgs.locale, "analysisExamsCount", nil)
+}
+
 // ResultsSubtitle says "Review the result rows and export the workbook."
 // in the language the app shows.
 func ResultsSubtitle() string { return In(i18n.Locale()).ResultsSubtitle() }
@@ -4878,11 +5420,11 @@ func (msgs Messages) SettingsBackups() string {
 	return Catalog.Format(msgs.locale, "settingsBackups", nil)
 }
 
-// SettingsBackupNow says "Back up now"
+// SettingsBackupNow says "Back up"
 // in the language the app shows.
 func SettingsBackupNow() string { return In(i18n.Locale()).SettingsBackupNow() }
 
-// SettingsBackupNow says "Back up now"
+// SettingsBackupNow says "Back up"
 // in the language of msgs.
 func (msgs Messages) SettingsBackupNow() string {
 	return Catalog.Format(msgs.locale, "settingsBackupNow", nil)
@@ -4978,6 +5520,16 @@ func (msgs Messages) ListSeparator() string {
 	return Catalog.Format(msgs.locale, "listSeparator", nil)
 }
 
+// LabelQualifier says "%s (%s)"
+// in the language the app shows.
+func LabelQualifier() string { return In(i18n.Locale()).LabelQualifier() }
+
+// LabelQualifier says "%s (%s)"
+// in the language of msgs.
+func (msgs Messages) LabelQualifier() string {
+	return Catalog.Format(msgs.locale, "labelQualifier", nil)
+}
+
 // ImportClasses says "Import classes"
 // in the language the app shows.
 func ImportClasses() string { return In(i18n.Locale()).ImportClasses() }
@@ -5016,16 +5568,6 @@ func ImportWizardChooseFile() string { return In(i18n.Locale()).ImportWizardChoo
 // in the language of msgs.
 func (msgs Messages) ImportWizardChooseFile() string {
 	return Catalog.Format(msgs.locale, "importWizardChooseFile", nil)
-}
-
-// ImportWizardStart says "Start"
-// in the language the app shows.
-func ImportWizardStart() string { return In(i18n.Locale()).ImportWizardStart() }
-
-// ImportWizardStart says "Start"
-// in the language of msgs.
-func (msgs Messages) ImportWizardStart() string {
-	return Catalog.Format(msgs.locale, "importWizardStart", nil)
 }
 
 // ImportWizardSelectedFile says "Selected file: %s"
@@ -5088,11 +5630,11 @@ func (msgs Messages) ImportWizardSheetMissing() string {
 	return Catalog.Format(msgs.locale, "importWizardSheetMissing", nil)
 }
 
-// ImportWizardUnmapped says "Not mapped"
+// ImportWizardUnmapped says "Skip"
 // in the language the app shows.
 func ImportWizardUnmapped() string { return In(i18n.Locale()).ImportWizardUnmapped() }
 
-// ImportWizardUnmapped says "Not mapped"
+// ImportWizardUnmapped says "Skip"
 // in the language of msgs.
 func (msgs Messages) ImportWizardUnmapped() string {
 	return Catalog.Format(msgs.locale, "importWizardUnmapped", nil)
@@ -5268,14 +5810,64 @@ func (msgs Messages) ImportWizardConfirmWarnings() string {
 	return Catalog.Format(msgs.locale, "importWizardConfirmWarnings", nil)
 }
 
-// ImportWizardElapsed says "Finished in %s"
+// ImportWizardZeroScores says "%d single-subject zero scores are treated as not taken; the total score is kept."
 // in the language the app shows.
-func ImportWizardElapsed() string { return In(i18n.Locale()).ImportWizardElapsed() }
+func ImportWizardZeroScores() string { return In(i18n.Locale()).ImportWizardZeroScores() }
 
-// ImportWizardElapsed says "Finished in %s"
+// ImportWizardZeroScores says "%d single-subject zero scores are treated as not taken; the total score is kept."
 // in the language of msgs.
-func (msgs Messages) ImportWizardElapsed() string {
-	return Catalog.Format(msgs.locale, "importWizardElapsed", nil)
+func (msgs Messages) ImportWizardZeroScores() string {
+	return Catalog.Format(msgs.locale, "importWizardZeroScores", nil)
+}
+
+// ImportWizardRosterSkipped says "Skipped %d rows for students not in the roster."
+// in the language the app shows.
+func ImportWizardRosterSkipped() string { return In(i18n.Locale()).ImportWizardRosterSkipped() }
+
+// ImportWizardRosterSkipped says "Skipped %d rows for students not in the roster."
+// in the language of msgs.
+func (msgs Messages) ImportWizardRosterSkipped() string {
+	return Catalog.Format(msgs.locale, "importWizardRosterSkipped", nil)
+}
+
+// ImportWizardAddToRoster says "Add %s students to the roster"
+// in the language the app shows.
+func ImportWizardAddToRoster() string { return In(i18n.Locale()).ImportWizardAddToRoster() }
+
+// ImportWizardAddToRoster says "Add %s students to the roster"
+// in the language of msgs.
+func (msgs Messages) ImportWizardAddToRoster() string {
+	return Catalog.Format(msgs.locale, "importWizardAddToRoster", nil)
+}
+
+// ImportWizardSkipRows says "Skip these %s rows"
+// in the language the app shows.
+func ImportWizardSkipRows() string { return In(i18n.Locale()).ImportWizardSkipRows() }
+
+// ImportWizardSkipRows says "Skip these %s rows"
+// in the language of msgs.
+func (msgs Messages) ImportWizardSkipRows() string {
+	return Catalog.Format(msgs.locale, "importWizardSkipRows", nil)
+}
+
+// ImportWizardExportIssues says "Export the issue list"
+// in the language the app shows.
+func ImportWizardExportIssues() string { return In(i18n.Locale()).ImportWizardExportIssues() }
+
+// ImportWizardExportIssues says "Export the issue list"
+// in the language of msgs.
+func (msgs Messages) ImportWizardExportIssues() string {
+	return Catalog.Format(msgs.locale, "importWizardExportIssues", nil)
+}
+
+// ImportWizardAutoColumns says "Columns are matched automatically."
+// in the language the app shows.
+func ImportWizardAutoColumns() string { return In(i18n.Locale()).ImportWizardAutoColumns() }
+
+// ImportWizardAutoColumns says "Columns are matched automatically."
+// in the language of msgs.
+func (msgs Messages) ImportWizardAutoColumns() string {
+	return Catalog.Format(msgs.locale, "importWizardAutoColumns", nil)
 }
 
 // ImportStepItem says "Data item"
@@ -5722,11 +6314,11 @@ func (msgs Messages) ImportIssueUnknownClass() string {
 	return Catalog.Format(msgs.locale, "importIssueUnknownClass", nil)
 }
 
-// ImportIssueScoreOutOfRange says "%s is outside the full mark of %s."
+// ImportIssueScoreOutOfRange says "%s's %s score is above the full mark of %s."
 // in the language the app shows.
 func ImportIssueScoreOutOfRange() string { return In(i18n.Locale()).ImportIssueScoreOutOfRange() }
 
-// ImportIssueScoreOutOfRange says "%s is outside the full mark of %s."
+// ImportIssueScoreOutOfRange says "%s's %s score is above the full mark of %s."
 // in the language of msgs.
 func (msgs Messages) ImportIssueScoreOutOfRange() string {
 	return Catalog.Format(msgs.locale, "importIssueScoreOutOfRange", nil)
@@ -5742,11 +6334,11 @@ func (msgs Messages) ImportIssueRatioNotPositive() string {
 	return Catalog.Format(msgs.locale, "importIssueRatioNotPositive", nil)
 }
 
-// ImportIssueDuplicateBaseline says "%s · %s has more than one entry score."
+// ImportIssueDuplicateBaseline says "%s's %s has more than one entry score."
 // in the language the app shows.
 func ImportIssueDuplicateBaseline() string { return In(i18n.Locale()).ImportIssueDuplicateBaseline() }
 
-// ImportIssueDuplicateBaseline says "%s · %s has more than one entry score."
+// ImportIssueDuplicateBaseline says "%s's %s has more than one entry score."
 // in the language of msgs.
 func (msgs Messages) ImportIssueDuplicateBaseline() string {
 	return Catalog.Format(msgs.locale, "importIssueDuplicateBaseline", nil)
@@ -5900,6 +6492,36 @@ func ImportUndo() string { return In(i18n.Locale()).ImportUndo() }
 // in the language of msgs.
 func (msgs Messages) ImportUndo() string {
 	return Catalog.Format(msgs.locale, "importUndo", nil)
+}
+
+// ImportUndoTitle says "Undo this import?"
+// in the language the app shows.
+func ImportUndoTitle() string { return In(i18n.Locale()).ImportUndoTitle() }
+
+// ImportUndoTitle says "Undo this import?"
+// in the language of msgs.
+func (msgs Messages) ImportUndoTitle() string {
+	return Catalog.Format(msgs.locale, "importUndoTitle", nil)
+}
+
+// ImportUndoBody says "Records added by this import are deleted, and updated records return to their previous values."
+// in the language the app shows.
+func ImportUndoBody() string { return In(i18n.Locale()).ImportUndoBody() }
+
+// ImportUndoBody says "Records added by this import are deleted, and updated records return to their previous values."
+// in the language of msgs.
+func (msgs Messages) ImportUndoBody() string {
+	return Catalog.Format(msgs.locale, "importUndoBody", nil)
+}
+
+// ImportUndoConfirm says "Undo"
+// in the language the app shows.
+func ImportUndoConfirm() string { return In(i18n.Locale()).ImportUndoConfirm() }
+
+// ImportUndoConfirm says "Undo"
+// in the language of msgs.
+func (msgs Messages) ImportUndoConfirm() string {
+	return Catalog.Format(msgs.locale, "importUndoConfirm", nil)
 }
 
 // ImportUndoNotImported says "This import has already been undone."
@@ -6842,11 +7464,11 @@ func (msgs Messages) ExamScoreMeta() string {
 	return Catalog.Format(msgs.locale, "examScoreMeta", nil)
 }
 
-// ExamScoreDistribution says "Score distribution · %s"
+// ExamScoreDistribution says "Score distribution: %s"
 // in the language the app shows.
 func ExamScoreDistribution() string { return In(i18n.Locale()).ExamScoreDistribution() }
 
-// ExamScoreDistribution says "Score distribution · %s"
+// ExamScoreDistribution says "Score distribution: %s"
 // in the language of msgs.
 func (msgs Messages) ExamScoreDistribution() string {
 	return Catalog.Format(msgs.locale, "examScoreDistribution", nil)
@@ -6862,11 +7484,11 @@ func (msgs Messages) ExamClassComparison() string {
 	return Catalog.Format(msgs.locale, "examClassComparison", nil)
 }
 
-// ExamClassAverageLine says "%s · average %s · %s students"
+// ExamClassAverageLine says "%s average %s (%s students)"
 // in the language the app shows.
 func ExamClassAverageLine() string { return In(i18n.Locale()).ExamClassAverageLine() }
 
-// ExamClassAverageLine says "%s · average %s · %s students"
+// ExamClassAverageLine says "%s average %s (%s students)"
 // in the language of msgs.
 func (msgs Messages) ExamClassAverageLine() string {
 	return Catalog.Format(msgs.locale, "examClassAverageLine", nil)
@@ -6982,11 +7604,11 @@ func (msgs Messages) ExamCutoffImpact() string {
 	return Catalog.Format(msgs.locale, "examCutoffImpact", nil)
 }
 
-// ExamCutoffImpactRate says "%s of %s passed · %s"
+// ExamCutoffImpactRate says "%s of %s passed (%s)"
 // in the language the app shows.
 func ExamCutoffImpactRate() string { return In(i18n.Locale()).ExamCutoffImpactRate() }
 
-// ExamCutoffImpactRate says "%s of %s passed · %s"
+// ExamCutoffImpactRate says "%s of %s passed (%s)"
 // in the language of msgs.
 func (msgs Messages) ExamCutoffImpactRate() string {
 	return Catalog.Format(msgs.locale, "examCutoffImpactRate", nil)
@@ -7162,11 +7784,11 @@ func (msgs Messages) ExamStatGroupMembers() string {
 	return Catalog.Format(msgs.locale, "examStatGroupMembers", nil)
 }
 
-// ExamStatGroupMeta says "%s · target %s"
+// ExamStatGroupMeta says "%s (target %s)"
 // in the language the app shows.
 func ExamStatGroupMeta() string { return In(i18n.Locale()).ExamStatGroupMeta() }
 
-// ExamStatGroupMeta says "%s · target %s"
+// ExamStatGroupMeta says "%s (target %s)"
 // in the language of msgs.
 func (msgs Messages) ExamStatGroupMeta() string {
 	return Catalog.Format(msgs.locale, "examStatGroupMeta", nil)
@@ -7372,31 +7994,31 @@ func (msgs Messages) ExamIssueNoRoster() string {
 	return Catalog.Format(msgs.locale, "examIssueNoRoster", nil)
 }
 
-// ExamIssueMissingTrack says "%s · %s has no track."
+// ExamIssueMissingTrack says "%s (%s) has no track."
 // in the language the app shows.
 func ExamIssueMissingTrack() string { return In(i18n.Locale()).ExamIssueMissingTrack() }
 
-// ExamIssueMissingTrack says "%s · %s has no track."
+// ExamIssueMissingTrack says "%s (%s) has no track."
 // in the language of msgs.
 func (msgs Messages) ExamIssueMissingTrack() string {
 	return Catalog.Format(msgs.locale, "examIssueMissingTrack", nil)
 }
 
-// ExamIssueMissingScores says "%s · %s has no scores."
+// ExamIssueMissingScores says "%s (%s) has no scores."
 // in the language the app shows.
 func ExamIssueMissingScores() string { return In(i18n.Locale()).ExamIssueMissingScores() }
 
-// ExamIssueMissingScores says "%s · %s has no scores."
+// ExamIssueMissingScores says "%s (%s) has no scores."
 // in the language of msgs.
 func (msgs Messages) ExamIssueMissingScores() string {
 	return Catalog.Format(msgs.locale, "examIssueMissingScores", nil)
 }
 
-// ExamIssueScoreOutOfRange says "%s · %s %s %s is above the full mark %s."
+// ExamIssueScoreOutOfRange says "%s (%s): %s score %s is above the full mark %s."
 // in the language the app shows.
 func ExamIssueScoreOutOfRange() string { return In(i18n.Locale()).ExamIssueScoreOutOfRange() }
 
-// ExamIssueScoreOutOfRange says "%s · %s %s %s is above the full mark %s."
+// ExamIssueScoreOutOfRange says "%s (%s): %s score %s is above the full mark %s."
 // in the language of msgs.
 func (msgs Messages) ExamIssueScoreOutOfRange() string {
 	return Catalog.Format(msgs.locale, "examIssueScoreOutOfRange", nil)
@@ -7412,11 +8034,11 @@ func (msgs Messages) ExamIssueScoreWithoutRoster() string {
 	return Catalog.Format(msgs.locale, "examIssueScoreWithoutRoster", nil)
 }
 
-// ExamIssueZeroClassTarget says "%s · %s target is zero."
+// ExamIssueZeroClassTarget says "%s's %s target is zero."
 // in the language the app shows.
 func ExamIssueZeroClassTarget() string { return In(i18n.Locale()).ExamIssueZeroClassTarget() }
 
-// ExamIssueZeroClassTarget says "%s · %s target is zero."
+// ExamIssueZeroClassTarget says "%s's %s target is zero."
 // in the language of msgs.
 func (msgs Messages) ExamIssueZeroClassTarget() string {
 	return Catalog.Format(msgs.locale, "examIssueZeroClassTarget", nil)
@@ -7592,24 +8214,46 @@ func (msgs Messages) ImportIssueUnknownTrack() string {
 	return Catalog.Format(msgs.locale, "importIssueUnknownTrack", nil)
 }
 
-// ImportIssueCutoffNotPositive says "%s · %s cutoff must be greater than zero."
+// ImportIssueCutoffNotPositive says "%s (%s) cutoff must be greater than zero."
 // in the language the app shows.
 func ImportIssueCutoffNotPositive() string { return In(i18n.Locale()).ImportIssueCutoffNotPositive() }
 
-// ImportIssueCutoffNotPositive says "%s · %s cutoff must be greater than zero."
+// ImportIssueCutoffNotPositive says "%s (%s) cutoff must be greater than zero."
 // in the language of msgs.
 func (msgs Messages) ImportIssueCutoffNotPositive() string {
 	return Catalog.Format(msgs.locale, "importIssueCutoffNotPositive", nil)
 }
 
-// ImportIssueDuplicateCutoff says "%s · %s appears more than once."
+// ImportIssueDuplicateCutoff says "%s (%s) appears more than once."
 // in the language the app shows.
 func ImportIssueDuplicateCutoff() string { return In(i18n.Locale()).ImportIssueDuplicateCutoff() }
 
-// ImportIssueDuplicateCutoff says "%s · %s appears more than once."
+// ImportIssueDuplicateCutoff says "%s (%s) appears more than once."
 // in the language of msgs.
 func (msgs Messages) ImportIssueDuplicateCutoff() string {
 	return Catalog.Format(msgs.locale, "importIssueDuplicateCutoff", nil)
+}
+
+// ImportIssueCutoffZero says "The %s %s cutoff is zero, so it was not imported."
+// in the language the app shows.
+func ImportIssueCutoffZero() string { return In(i18n.Locale()).ImportIssueCutoffZero() }
+
+// ImportIssueCutoffZero says "The %s %s cutoff is zero, so it was not imported."
+// in the language of msgs.
+func (msgs Messages) ImportIssueCutoffZero() string {
+	return Catalog.Format(msgs.locale, "importIssueCutoffZero", nil)
+}
+
+// ImportIssueCutoffSubjectSkipped says "%s is not in the subject setup, so this line was not imported."
+// in the language the app shows.
+func ImportIssueCutoffSubjectSkipped() string {
+	return In(i18n.Locale()).ImportIssueCutoffSubjectSkipped()
+}
+
+// ImportIssueCutoffSubjectSkipped says "%s is not in the subject setup, so this line was not imported."
+// in the language of msgs.
+func (msgs Messages) ImportIssueCutoffSubjectSkipped() string {
+	return Catalog.Format(msgs.locale, "importIssueCutoffSubjectSkipped", nil)
 }
 
 // ImportIssueUnknownTier says "Tier %s does not exist."
@@ -7622,11 +8266,11 @@ func (msgs Messages) ImportIssueUnknownTier() string {
 	return Catalog.Format(msgs.locale, "importIssueUnknownTier", nil)
 }
 
-// ImportIssueNegativeTarget says "%s · %s target cannot be negative."
+// ImportIssueNegativeTarget says "%s's %s target cannot be negative."
 // in the language the app shows.
 func ImportIssueNegativeTarget() string { return In(i18n.Locale()).ImportIssueNegativeTarget() }
 
-// ImportIssueNegativeTarget says "%s · %s target cannot be negative."
+// ImportIssueNegativeTarget says "%s's %s target cannot be negative."
 // in the language of msgs.
 func (msgs Messages) ImportIssueNegativeTarget() string {
 	return Catalog.Format(msgs.locale, "importIssueNegativeTarget", nil)
@@ -7640,6 +8284,96 @@ func ImportIssueDuplicateTarget() string { return In(i18n.Locale()).ImportIssueD
 // in the language of msgs.
 func (msgs Messages) ImportIssueDuplicateTarget() string {
 	return Catalog.Format(msgs.locale, "importIssueDuplicateTarget", nil)
+}
+
+// ImportIssueColItem says "Data item"
+// in the language the app shows.
+func ImportIssueColItem() string { return In(i18n.Locale()).ImportIssueColItem() }
+
+// ImportIssueColItem says "Data item"
+// in the language of msgs.
+func (msgs Messages) ImportIssueColItem() string {
+	return Catalog.Format(msgs.locale, "importIssueColItem", nil)
+}
+
+// ImportIssueColFile says "File"
+// in the language the app shows.
+func ImportIssueColFile() string { return In(i18n.Locale()).ImportIssueColFile() }
+
+// ImportIssueColFile says "File"
+// in the language of msgs.
+func (msgs Messages) ImportIssueColFile() string {
+	return Catalog.Format(msgs.locale, "importIssueColFile", nil)
+}
+
+// ImportIssueColSheet says "Worksheet"
+// in the language the app shows.
+func ImportIssueColSheet() string { return In(i18n.Locale()).ImportIssueColSheet() }
+
+// ImportIssueColSheet says "Worksheet"
+// in the language of msgs.
+func (msgs Messages) ImportIssueColSheet() string {
+	return Catalog.Format(msgs.locale, "importIssueColSheet", nil)
+}
+
+// ImportIssueColRow says "Row"
+// in the language the app shows.
+func ImportIssueColRow() string { return In(i18n.Locale()).ImportIssueColRow() }
+
+// ImportIssueColRow says "Row"
+// in the language of msgs.
+func (msgs Messages) ImportIssueColRow() string {
+	return Catalog.Format(msgs.locale, "importIssueColRow", nil)
+}
+
+// ImportIssueColColumn says "Column"
+// in the language the app shows.
+func ImportIssueColColumn() string { return In(i18n.Locale()).ImportIssueColColumn() }
+
+// ImportIssueColColumn says "Column"
+// in the language of msgs.
+func (msgs Messages) ImportIssueColColumn() string {
+	return Catalog.Format(msgs.locale, "importIssueColColumn", nil)
+}
+
+// ImportIssueColSeverity says "Severity"
+// in the language the app shows.
+func ImportIssueColSeverity() string { return In(i18n.Locale()).ImportIssueColSeverity() }
+
+// ImportIssueColSeverity says "Severity"
+// in the language of msgs.
+func (msgs Messages) ImportIssueColSeverity() string {
+	return Catalog.Format(msgs.locale, "importIssueColSeverity", nil)
+}
+
+// ImportIssueColIssue says "Issue"
+// in the language the app shows.
+func ImportIssueColIssue() string { return In(i18n.Locale()).ImportIssueColIssue() }
+
+// ImportIssueColIssue says "Issue"
+// in the language of msgs.
+func (msgs Messages) ImportIssueColIssue() string {
+	return Catalog.Format(msgs.locale, "importIssueColIssue", nil)
+}
+
+// SeverityBlocking says "Blocking"
+// in the language the app shows.
+func SeverityBlocking() string { return In(i18n.Locale()).SeverityBlocking() }
+
+// SeverityBlocking says "Blocking"
+// in the language of msgs.
+func (msgs Messages) SeverityBlocking() string {
+	return Catalog.Format(msgs.locale, "severityBlocking", nil)
+}
+
+// SeverityWarning says "Warning"
+// in the language the app shows.
+func SeverityWarning() string { return In(i18n.Locale()).SeverityWarning() }
+
+// SeverityWarning says "Warning"
+// in the language of msgs.
+func (msgs Messages) SeverityWarning() string {
+	return Catalog.Format(msgs.locale, "severityWarning", nil)
 }
 
 // ImportResultRoster says "Imported %s roster rows. This exam now has %s students."
@@ -7720,6 +8454,16 @@ func AssessmentListMeta() string { return In(i18n.Locale()).AssessmentListMeta()
 // in the language of msgs.
 func (msgs Messages) AssessmentListMeta() string {
 	return Catalog.Format(msgs.locale, "assessmentListMeta", nil)
+}
+
+// AssessmentOption says "%s %s"
+// in the language the app shows.
+func AssessmentOption() string { return In(i18n.Locale()).AssessmentOption() }
+
+// AssessmentOption says "%s %s"
+// in the language of msgs.
+func (msgs Messages) AssessmentOption() string {
+	return Catalog.Format(msgs.locale, "assessmentOption", nil)
 }
 
 // AssessmentSelectHint says "Select an exam to see what is ready."
@@ -7882,6 +8626,26 @@ func (msgs Messages) AssessmentPlanVersion() string {
 	return Catalog.Format(msgs.locale, "assessmentPlanVersion", nil)
 }
 
+// AssessmentPrepareRequired says "Before calculation, prepare: %s."
+// in the language the app shows.
+func AssessmentPrepareRequired() string { return In(i18n.Locale()).AssessmentPrepareRequired() }
+
+// AssessmentPrepareRequired says "Before calculation, prepare: %s."
+// in the language of msgs.
+func (msgs Messages) AssessmentPrepareRequired() string {
+	return Catalog.Format(msgs.locale, "assessmentPrepareRequired", nil)
+}
+
+// AssessmentFixExam says "Open %s data"
+// in the language the app shows.
+func AssessmentFixExam() string { return In(i18n.Locale()).AssessmentFixExam() }
+
+// AssessmentFixExam says "Open %s data"
+// in the language of msgs.
+func (msgs Messages) AssessmentFixExam() string {
+	return Catalog.Format(msgs.locale, "assessmentFixExam", nil)
+}
+
 // AssessmentOpenExam says "Open exam data"
 // in the language the app shows.
 func AssessmentOpenExam() string { return In(i18n.Locale()).AssessmentOpenExam() }
@@ -7892,11 +8656,11 @@ func (msgs Messages) AssessmentOpenExam() string {
 	return Catalog.Format(msgs.locale, "assessmentOpenExam", nil)
 }
 
-// AssessmentCalculate says "Calculate"
+// AssessmentCalculate says "Calculate final results"
 // in the language the app shows.
 func AssessmentCalculate() string { return In(i18n.Locale()).AssessmentCalculate() }
 
-// AssessmentCalculate says "Calculate"
+// AssessmentCalculate says "Calculate final results"
 // in the language of msgs.
 func (msgs Messages) AssessmentCalculate() string {
 	return Catalog.Format(msgs.locale, "assessmentCalculate", nil)
@@ -8072,41 +8836,41 @@ func (msgs Messages) AssessmentCountStudents() string {
 	return Catalog.Format(msgs.locale, "assessmentCountStudents", nil)
 }
 
-// AssessmentCountScores says "%s scores"
+// AssessmentCountScores says "%s score rows"
 // in the language the app shows.
 func AssessmentCountScores() string { return In(i18n.Locale()).AssessmentCountScores() }
 
-// AssessmentCountScores says "%s scores"
+// AssessmentCountScores says "%s score rows"
 // in the language of msgs.
 func (msgs Messages) AssessmentCountScores() string {
 	return Catalog.Format(msgs.locale, "assessmentCountScores", nil)
 }
 
-// AssessmentCountCutoffs says "%s cutoffs"
+// AssessmentCountCutoffs says "%s cutoff rows"
 // in the language the app shows.
 func AssessmentCountCutoffs() string { return In(i18n.Locale()).AssessmentCountCutoffs() }
 
-// AssessmentCountCutoffs says "%s cutoffs"
+// AssessmentCountCutoffs says "%s cutoff rows"
 // in the language of msgs.
 func (msgs Messages) AssessmentCountCutoffs() string {
 	return Catalog.Format(msgs.locale, "assessmentCountCutoffs", nil)
 }
 
-// AssessmentCountTargets says "%s targets"
+// AssessmentCountTargets says "%s target rows"
 // in the language the app shows.
 func AssessmentCountTargets() string { return In(i18n.Locale()).AssessmentCountTargets() }
 
-// AssessmentCountTargets says "%s targets"
+// AssessmentCountTargets says "%s target rows"
 // in the language of msgs.
 func (msgs Messages) AssessmentCountTargets() string {
 	return Catalog.Format(msgs.locale, "assessmentCountTargets", nil)
 }
 
-// AssessmentCountGroups says "%s groups"
+// AssessmentCountGroups says "%s merged groups"
 // in the language the app shows.
 func AssessmentCountGroups() string { return In(i18n.Locale()).AssessmentCountGroups() }
 
-// AssessmentCountGroups says "%s groups"
+// AssessmentCountGroups says "%s merged groups"
 // in the language of msgs.
 func (msgs Messages) AssessmentCountGroups() string {
 	return Catalog.Format(msgs.locale, "assessmentCountGroups", nil)
@@ -8120,4 +8884,2900 @@ func AssessmentOpen() string { return In(i18n.Locale()).AssessmentOpen() }
 // in the language of msgs.
 func (msgs Messages) AssessmentOpen() string {
 	return Catalog.Format(msgs.locale, "assessmentOpen", nil)
+}
+
+// AssessmentTrial says "Start a test calculation"
+// in the language the app shows.
+func AssessmentTrial() string { return In(i18n.Locale()).AssessmentTrial() }
+
+// AssessmentTrial says "Start a test calculation"
+// in the language of msgs.
+func (msgs Messages) AssessmentTrial() string {
+	return Catalog.Format(msgs.locale, "assessmentTrial", nil)
+}
+
+// AssessmentTrialCalculated says "Test calculation finished: %d result rows. The official results stay unchanged."
+// in the language the app shows.
+func AssessmentTrialCalculated() string { return In(i18n.Locale()).AssessmentTrialCalculated() }
+
+// AssessmentTrialCalculated says "Test calculation finished: %d result rows. The official results stay unchanged."
+// in the language of msgs.
+func (msgs Messages) AssessmentTrialCalculated() string {
+	return Catalog.Format(msgs.locale, "assessmentTrialCalculated", nil)
+}
+
+// AssessmentStaleNotice says "Data has changed. Recalculate to refresh the official results."
+// in the language the app shows.
+func AssessmentStaleNotice() string { return In(i18n.Locale()).AssessmentStaleNotice() }
+
+// AssessmentStaleNotice says "Data has changed. Recalculate to refresh the official results."
+// in the language of msgs.
+func (msgs Messages) AssessmentStaleNotice() string {
+	return Catalog.Format(msgs.locale, "assessmentStaleNotice", nil)
+}
+
+// AssessmentStaleItems says "Data has changed: %s. Recalculate to refresh the official results."
+// in the language the app shows.
+func AssessmentStaleItems() string { return In(i18n.Locale()).AssessmentStaleItems() }
+
+// AssessmentStaleItems says "Data has changed: %s. Recalculate to refresh the official results."
+// in the language of msgs.
+func (msgs Messages) AssessmentStaleItems() string {
+	return Catalog.Format(msgs.locale, "assessmentStaleItems", nil)
+}
+
+// AssessmentStatusStale says "Needs recalculation"
+// in the language the app shows.
+func AssessmentStatusStale() string { return In(i18n.Locale()).AssessmentStatusStale() }
+
+// AssessmentStatusStale says "Needs recalculation"
+// in the language of msgs.
+func (msgs Messages) AssessmentStatusStale() string {
+	return Catalog.Format(msgs.locale, "assessmentStatusStale", nil)
+}
+
+// AssessmentRunSelect says "Result version"
+// in the language the app shows.
+func AssessmentRunSelect() string { return In(i18n.Locale()).AssessmentRunSelect() }
+
+// AssessmentRunSelect says "Result version"
+// in the language of msgs.
+func (msgs Messages) AssessmentRunSelect() string {
+	return Catalog.Format(msgs.locale, "assessmentRunSelect", nil)
+}
+
+// AssessmentRunOfficial says "Final"
+// in the language the app shows.
+func AssessmentRunOfficial() string { return In(i18n.Locale()).AssessmentRunOfficial() }
+
+// AssessmentRunOfficial says "Final"
+// in the language of msgs.
+func (msgs Messages) AssessmentRunOfficial() string {
+	return Catalog.Format(msgs.locale, "assessmentRunOfficial", nil)
+}
+
+// AssessmentRunTrial says "Test"
+// in the language the app shows.
+func AssessmentRunTrial() string { return In(i18n.Locale()).AssessmentRunTrial() }
+
+// AssessmentRunTrial says "Test"
+// in the language of msgs.
+func (msgs Messages) AssessmentRunTrial() string {
+	return Catalog.Format(msgs.locale, "assessmentRunTrial", nil)
+}
+
+// AssessmentOfficialResults says "Final results"
+// in the language the app shows.
+func AssessmentOfficialResults() string { return In(i18n.Locale()).AssessmentOfficialResults() }
+
+// AssessmentOfficialResults says "Final results"
+// in the language of msgs.
+func (msgs Messages) AssessmentOfficialResults() string {
+	return Catalog.Format(msgs.locale, "assessmentOfficialResults", nil)
+}
+
+// AssessmentTrialResults says "Test results"
+// in the language the app shows.
+func AssessmentTrialResults() string { return In(i18n.Locale()).AssessmentTrialResults() }
+
+// AssessmentTrialResults says "Test results"
+// in the language of msgs.
+func (msgs Messages) AssessmentTrialResults() string {
+	return Catalog.Format(msgs.locale, "assessmentTrialResults", nil)
+}
+
+// AssessmentItemBaseline says "Entry scores"
+// in the language the app shows.
+func AssessmentItemBaseline() string { return In(i18n.Locale()).AssessmentItemBaseline() }
+
+// AssessmentItemBaseline says "Entry scores"
+// in the language of msgs.
+func (msgs Messages) AssessmentItemBaseline() string {
+	return Catalog.Format(msgs.locale, "assessmentItemBaseline", nil)
+}
+
+// AssessmentItemAssignments says "Teaching assignments"
+// in the language the app shows.
+func AssessmentItemAssignments() string { return In(i18n.Locale()).AssessmentItemAssignments() }
+
+// AssessmentItemAssignments says "Teaching assignments"
+// in the language of msgs.
+func (msgs Messages) AssessmentItemAssignments() string {
+	return Catalog.Format(msgs.locale, "assessmentItemAssignments", nil)
+}
+
+// AssessmentItemClasses says "Classes"
+// in the language the app shows.
+func AssessmentItemClasses() string { return In(i18n.Locale()).AssessmentItemClasses() }
+
+// AssessmentItemClasses says "Classes"
+// in the language of msgs.
+func (msgs Messages) AssessmentItemClasses() string {
+	return Catalog.Format(msgs.locale, "assessmentItemClasses", nil)
+}
+
+// AssessmentItemExclusions says "Completion exclusions"
+// in the language the app shows.
+func AssessmentItemExclusions() string { return In(i18n.Locale()).AssessmentItemExclusions() }
+
+// AssessmentItemExclusions says "Completion exclusions"
+// in the language of msgs.
+func (msgs Messages) AssessmentItemExclusions() string {
+	return Catalog.Format(msgs.locale, "assessmentItemExclusions", nil)
+}
+
+// AssessmentDetailTitle says "Result details"
+// in the language the app shows.
+func AssessmentDetailTitle() string { return In(i18n.Locale()).AssessmentDetailTitle() }
+
+// AssessmentDetailTitle says "Result details"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailTitle() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailTitle", nil)
+}
+
+// AssessmentDetailIndicators says "Indicator breakdown"
+// in the language the app shows.
+func AssessmentDetailIndicators() string { return In(i18n.Locale()).AssessmentDetailIndicators() }
+
+// AssessmentDetailIndicators says "Indicator breakdown"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailIndicators() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailIndicators", nil)
+}
+
+// AssessmentDetailUncapped says "Before cap"
+// in the language the app shows.
+func AssessmentDetailUncapped() string { return In(i18n.Locale()).AssessmentDetailUncapped() }
+
+// AssessmentDetailUncapped says "Before cap"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailUncapped() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailUncapped", nil)
+}
+
+// AssessmentDetailScore says "Score"
+// in the language the app shows.
+func AssessmentDetailScore() string { return In(i18n.Locale()).AssessmentDetailScore() }
+
+// AssessmentDetailScore says "Score"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailScore() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailScore", nil)
+}
+
+// AssessmentDetailBasis says "Calculation basis"
+// in the language the app shows.
+func AssessmentDetailBasis() string { return In(i18n.Locale()).AssessmentDetailBasis() }
+
+// AssessmentDetailBasis says "Calculation basis"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailBasis() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailBasis", nil)
+}
+
+// AssessmentDetailGroup says "Merged group"
+// in the language the app shows.
+func AssessmentDetailGroup() string { return In(i18n.Locale()).AssessmentDetailGroup() }
+
+// AssessmentDetailGroup says "Merged group"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailGroup() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailGroup", nil)
+}
+
+// AssessmentDetailLeadClass says "Lead class"
+// in the language the app shows.
+func AssessmentDetailLeadClass() string { return In(i18n.Locale()).AssessmentDetailLeadClass() }
+
+// AssessmentDetailLeadClass says "Lead class"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailLeadClass() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailLeadClass", nil)
+}
+
+// AssessmentDetailTeachers says "Teachers"
+// in the language the app shows.
+func AssessmentDetailTeachers() string { return In(i18n.Locale()).AssessmentDetailTeachers() }
+
+// AssessmentDetailTeachers says "Teachers"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailTeachers() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailTeachers", nil)
+}
+
+// AssessmentDetailClose says "Close details"
+// in the language the app shows.
+func AssessmentDetailClose() string { return In(i18n.Locale()).AssessmentDetailClose() }
+
+// AssessmentDetailClose says "Close details"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailClose() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailClose", nil)
+}
+
+// AssessmentDetailStudents says "Participating students"
+// in the language the app shows.
+func AssessmentDetailStudents() string { return In(i18n.Locale()).AssessmentDetailStudents() }
+
+// AssessmentDetailStudents says "Participating students"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailStudents() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailStudents", nil)
+}
+
+// AssessmentDetailNoCompletion says "Does not participate in completion"
+// in the language the app shows.
+func AssessmentDetailNoCompletion() string { return In(i18n.Locale()).AssessmentDetailNoCompletion() }
+
+// AssessmentDetailNoCompletion says "Does not participate in completion"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailNoCompletion() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailNoCompletion", nil)
+}
+
+// AssessmentDetailClassAverage says "Class average"
+// in the language the app shows.
+func AssessmentDetailClassAverage() string { return In(i18n.Locale()).AssessmentDetailClassAverage() }
+
+// AssessmentDetailClassAverage says "Class average"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailClassAverage() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailClassAverage", nil)
+}
+
+// AssessmentDetailGradeAverage says "Grade average"
+// in the language the app shows.
+func AssessmentDetailGradeAverage() string { return In(i18n.Locale()).AssessmentDetailGradeAverage() }
+
+// AssessmentDetailGradeAverage says "Grade average"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailGradeAverage() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailGradeAverage", nil)
+}
+
+// AssessmentDetailBaselineRatio says "Baseline ratio"
+// in the language the app shows.
+func AssessmentDetailBaselineRatio() string { return In(i18n.Locale()).AssessmentDetailBaselineRatio() }
+
+// AssessmentDetailBaselineRatio says "Baseline ratio"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailBaselineRatio() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailBaselineRatio", nil)
+}
+
+// AssessmentDetailPassCount says "Students at or above the cutoff"
+// in the language the app shows.
+func AssessmentDetailPassCount() string { return In(i18n.Locale()).AssessmentDetailPassCount() }
+
+// AssessmentDetailPassCount says "Students at or above the cutoff"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailPassCount() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailPassCount", nil)
+}
+
+// AssessmentDetailPassTarget says "Target"
+// in the language the app shows.
+func AssessmentDetailPassTarget() string { return In(i18n.Locale()).AssessmentDetailPassTarget() }
+
+// AssessmentDetailPassTarget says "Target"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailPassTarget() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailPassTarget", nil)
+}
+
+// AssessmentDetailCompletionActual says "Weighted actual"
+// in the language the app shows.
+func AssessmentDetailCompletionActual() string {
+	return In(i18n.Locale()).AssessmentDetailCompletionActual()
+}
+
+// AssessmentDetailCompletionActual says "Weighted actual"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailCompletionActual() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailCompletionActual", nil)
+}
+
+// AssessmentDetailCompletionBase says "Weighted base"
+// in the language the app shows.
+func AssessmentDetailCompletionBase() string {
+	return In(i18n.Locale()).AssessmentDetailCompletionBase()
+}
+
+// AssessmentDetailCompletionBase says "Weighted base"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailCompletionBase() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailCompletionBase", nil)
+}
+
+// PlanFormulaCustom says "Custom expression"
+// in the language the app shows.
+func PlanFormulaCustom() string { return In(i18n.Locale()).PlanFormulaCustom() }
+
+// PlanFormulaCustom says "Custom expression"
+// in the language of msgs.
+func (msgs Messages) PlanFormulaCustom() string {
+	return Catalog.Format(msgs.locale, "planFormulaCustom", nil)
+}
+
+// PlanFormulaClassGradeBaseline says "Class average ÷ grade average ÷ baseline ratio"
+// in the language the app shows.
+func PlanFormulaClassGradeBaseline() string { return In(i18n.Locale()).PlanFormulaClassGradeBaseline() }
+
+// PlanFormulaClassGradeBaseline says "Class average ÷ grade average ÷ baseline ratio"
+// in the language of msgs.
+func (msgs Messages) PlanFormulaClassGradeBaseline() string {
+	return Catalog.Format(msgs.locale, "planFormulaClassGradeBaseline", nil)
+}
+
+// PlanFormulaClassGrade says "Class average ÷ grade average"
+// in the language the app shows.
+func PlanFormulaClassGrade() string { return In(i18n.Locale()).PlanFormulaClassGrade() }
+
+// PlanFormulaClassGrade says "Class average ÷ grade average"
+// in the language of msgs.
+func (msgs Messages) PlanFormulaClassGrade() string {
+	return Catalog.Format(msgs.locale, "planFormulaClassGrade", nil)
+}
+
+// PlanFormulaClassBaseline says "Class average ÷ entry score average"
+// in the language the app shows.
+func PlanFormulaClassBaseline() string { return In(i18n.Locale()).PlanFormulaClassBaseline() }
+
+// PlanFormulaClassBaseline says "Class average ÷ entry score average"
+// in the language of msgs.
+func (msgs Messages) PlanFormulaClassBaseline() string {
+	return Catalog.Format(msgs.locale, "planFormulaClassBaseline", nil)
+}
+
+// PlanFormulaPassTarget says "Students at or above the cutoff ÷ target"
+// in the language the app shows.
+func PlanFormulaPassTarget() string { return In(i18n.Locale()).PlanFormulaPassTarget() }
+
+// PlanFormulaPassTarget says "Students at or above the cutoff ÷ target"
+// in the language of msgs.
+func (msgs Messages) PlanFormulaPassTarget() string {
+	return Catalog.Format(msgs.locale, "planFormulaPassTarget", nil)
+}
+
+// PlanFormulaPassMembers says "Students at or above the cutoff ÷ group size"
+// in the language the app shows.
+func PlanFormulaPassMembers() string { return In(i18n.Locale()).PlanFormulaPassMembers() }
+
+// PlanFormulaPassMembers says "Students at or above the cutoff ÷ group size"
+// in the language of msgs.
+func (msgs Messages) PlanFormulaPassMembers() string {
+	return Catalog.Format(msgs.locale, "planFormulaPassMembers", nil)
+}
+
+// PlanFormulaTierWeighted says "Weighted actual ÷ weighted target base"
+// in the language the app shows.
+func PlanFormulaTierWeighted() string { return In(i18n.Locale()).PlanFormulaTierWeighted() }
+
+// PlanFormulaTierWeighted says "Weighted actual ÷ weighted target base"
+// in the language of msgs.
+func (msgs Messages) PlanFormulaTierWeighted() string {
+	return Catalog.Format(msgs.locale, "planFormulaTierWeighted", nil)
+}
+
+// PlanBoundaryPartsLabel says "Equal parts"
+// in the language the app shows.
+func PlanBoundaryPartsLabel() string { return In(i18n.Locale()).PlanBoundaryPartsLabel() }
+
+// PlanBoundaryPartsLabel says "Equal parts"
+// in the language of msgs.
+func (msgs Messages) PlanBoundaryPartsLabel() string {
+	return Catalog.Format(msgs.locale, "planBoundaryPartsLabel", nil)
+}
+
+// PlanBoundaryPartsPreview says "Split the count into %d equal parts: the first boundary is the integer part of count ÷ %d, the second boundary is th…"
+// in the language the app shows.
+func PlanBoundaryPartsPreview() string { return In(i18n.Locale()).PlanBoundaryPartsPreview() }
+
+// PlanBoundaryPartsPreview says "Split the count into %d equal parts: the first boundary is the integer part of count ÷ %d, the second boundary is th…"
+// in the language of msgs.
+func (msgs Messages) PlanBoundaryPartsPreview() string {
+	return Catalog.Format(msgs.locale, "planBoundaryPartsPreview", nil)
+}
+
+// PlanBoundaryCustomEcho says "The boundary expressions are custom. Changing the parts overwrites them."
+// in the language the app shows.
+func PlanBoundaryCustomEcho() string { return In(i18n.Locale()).PlanBoundaryCustomEcho() }
+
+// PlanBoundaryCustomEcho says "The boundary expressions are custom. Changing the parts overwrites them."
+// in the language of msgs.
+func (msgs Messages) PlanBoundaryCustomEcho() string {
+	return Catalog.Format(msgs.locale, "planBoundaryCustomEcho", nil)
+}
+
+// PlanProgramOverrideNone says "No override"
+// in the language the app shows.
+func PlanProgramOverrideNone() string { return In(i18n.Locale()).PlanProgramOverrideNone() }
+
+// PlanProgramOverrideNone says "No override"
+// in the language of msgs.
+func (msgs Messages) PlanProgramOverrideNone() string {
+	return Catalog.Format(msgs.locale, "planProgramOverrideNone", nil)
+}
+
+// PlanCompletionWeightedLabel says "Blend completion and undergraduate pass"
+// in the language the app shows.
+func PlanCompletionWeightedLabel() string { return In(i18n.Locale()).PlanCompletionWeightedLabel() }
+
+// PlanCompletionWeightedLabel says "Blend completion and undergraduate pass"
+// in the language of msgs.
+func (msgs Messages) PlanCompletionWeightedLabel() string {
+	return Catalog.Format(msgs.locale, "planCompletionWeightedLabel", nil)
+}
+
+// PlanCompletionWeightCompletion says "Completion weight"
+// in the language the app shows.
+func PlanCompletionWeightCompletion() string {
+	return In(i18n.Locale()).PlanCompletionWeightCompletion()
+}
+
+// PlanCompletionWeightCompletion says "Completion weight"
+// in the language of msgs.
+func (msgs Messages) PlanCompletionWeightCompletion() string {
+	return Catalog.Format(msgs.locale, "planCompletionWeightCompletion", nil)
+}
+
+// PlanCompletionWeightUndergraduate says "Undergraduate pass weight"
+// in the language the app shows.
+func PlanCompletionWeightUndergraduate() string {
+	return In(i18n.Locale()).PlanCompletionWeightUndergraduate()
+}
+
+// PlanCompletionWeightUndergraduate says "Undergraduate pass weight"
+// in the language of msgs.
+func (msgs Messages) PlanCompletionWeightUndergraduate() string {
+	return Catalog.Format(msgs.locale, "planCompletionWeightUndergraduate", nil)
+}
+
+// PlanCompletionWeightedPreview says "Completion × %s + undergraduate pass × %s"
+// in the language the app shows.
+func PlanCompletionWeightedPreview() string { return In(i18n.Locale()).PlanCompletionWeightedPreview() }
+
+// PlanCompletionWeightedPreview says "Completion × %s + undergraduate pass × %s"
+// in the language of msgs.
+func (msgs Messages) PlanCompletionWeightedPreview() string {
+	return Catalog.Format(msgs.locale, "planCompletionWeightedPreview", nil)
+}
+
+// AssessmentViewBySubject says "Subject Rankings"
+// in the language the app shows.
+func AssessmentViewBySubject() string { return In(i18n.Locale()).AssessmentViewBySubject() }
+
+// AssessmentViewBySubject says "Subject Rankings"
+// in the language of msgs.
+func (msgs Messages) AssessmentViewBySubject() string {
+	return Catalog.Format(msgs.locale, "assessmentViewBySubject", nil)
+}
+
+// AssessmentViewByClass says "Class Summary"
+// in the language the app shows.
+func AssessmentViewByClass() string { return In(i18n.Locale()).AssessmentViewByClass() }
+
+// AssessmentViewByClass says "Class Summary"
+// in the language of msgs.
+func (msgs Messages) AssessmentViewByClass() string {
+	return Catalog.Format(msgs.locale, "assessmentViewByClass", nil)
+}
+
+// AssessmentViewByTeacher says "Teacher Scores"
+// in the language the app shows.
+func AssessmentViewByTeacher() string { return In(i18n.Locale()).AssessmentViewByTeacher() }
+
+// AssessmentViewByTeacher says "Teacher Scores"
+// in the language of msgs.
+func (msgs Messages) AssessmentViewByTeacher() string {
+	return Catalog.Format(msgs.locale, "assessmentViewByTeacher", nil)
+}
+
+// AssessmentViewMode says "View Mode"
+// in the language the app shows.
+func AssessmentViewMode() string { return In(i18n.Locale()).AssessmentViewMode() }
+
+// AssessmentViewMode says "View Mode"
+// in the language of msgs.
+func (msgs Messages) AssessmentViewMode() string {
+	return Catalog.Format(msgs.locale, "assessmentViewMode", nil)
+}
+
+// AssessmentFilterAllSubjects says "All Subjects"
+// in the language the app shows.
+func AssessmentFilterAllSubjects() string { return In(i18n.Locale()).AssessmentFilterAllSubjects() }
+
+// AssessmentFilterAllSubjects says "All Subjects"
+// in the language of msgs.
+func (msgs Messages) AssessmentFilterAllSubjects() string {
+	return Catalog.Format(msgs.locale, "assessmentFilterAllSubjects", nil)
+}
+
+// ColumnPersonalScore says "Personal Score"
+// in the language the app shows.
+func ColumnPersonalScore() string { return In(i18n.Locale()).ColumnPersonalScore() }
+
+// ColumnPersonalScore says "Personal Score"
+// in the language of msgs.
+func (msgs Messages) ColumnPersonalScore() string {
+	return Catalog.Format(msgs.locale, "columnPersonalScore", nil)
+}
+
+// ColumnGroupPoints says "Assigned Groups & Points"
+// in the language the app shows.
+func ColumnGroupPoints() string { return In(i18n.Locale()).ColumnGroupPoints() }
+
+// ColumnGroupPoints says "Assigned Groups & Points"
+// in the language of msgs.
+func (msgs Messages) ColumnGroupPoints() string {
+	return Catalog.Format(msgs.locale, "columnGroupPoints", nil)
+}
+
+// ColumnClassCompletionScore says "Completion Score"
+// in the language the app shows.
+func ColumnClassCompletionScore() string { return In(i18n.Locale()).ColumnClassCompletionScore() }
+
+// ColumnClassCompletionScore says "Completion Score"
+// in the language of msgs.
+func (msgs Messages) ColumnClassCompletionScore() string {
+	return Catalog.Format(msgs.locale, "columnClassCompletionScore", nil)
+}
+
+// ColumnGrade says "Grade"
+// in the language the app shows.
+func ColumnGrade() string { return In(i18n.Locale()).ColumnGrade() }
+
+// ColumnGrade says "Grade"
+// in the language of msgs.
+func (msgs Messages) ColumnGrade() string {
+	return Catalog.Format(msgs.locale, "columnGrade", nil)
+}
+
+// ColumnTeacherName says "Teacher"
+// in the language the app shows.
+func ColumnTeacherName() string { return In(i18n.Locale()).ColumnTeacherName() }
+
+// ColumnTeacherName says "Teacher"
+// in the language of msgs.
+func (msgs Messages) ColumnTeacherName() string {
+	return Catalog.Format(msgs.locale, "columnTeacherName", nil)
+}
+
+// ColumnClassTotal says "Class Total"
+// in the language the app shows.
+func ColumnClassTotal() string { return In(i18n.Locale()).ColumnClassTotal() }
+
+// ColumnClassTotal says "Class Total"
+// in the language of msgs.
+func (msgs Messages) ColumnClassTotal() string {
+	return Catalog.Format(msgs.locale, "columnClassTotal", nil)
+}
+
+// ColumnImprovementScore says "Improvement Score"
+// in the language the app shows.
+func ColumnImprovementScore() string { return In(i18n.Locale()).ColumnImprovementScore() }
+
+// ColumnImprovementScore says "Improvement Score"
+// in the language of msgs.
+func (msgs Messages) ColumnImprovementScore() string {
+	return Catalog.Format(msgs.locale, "columnImprovementScore", nil)
+}
+
+// ColumnPassScore says "Pass Score"
+// in the language the app shows.
+func ColumnPassScore() string { return In(i18n.Locale()).ColumnPassScore() }
+
+// ColumnPassScore says "Pass Score"
+// in the language of msgs.
+func (msgs Messages) ColumnPassScore() string {
+	return Catalog.Format(msgs.locale, "columnPassScore", nil)
+}
+
+// ColumnActualCompletion says "Actual Completion"
+// in the language the app shows.
+func ColumnActualCompletion() string { return In(i18n.Locale()).ColumnActualCompletion() }
+
+// ColumnActualCompletion says "Actual Completion"
+// in the language of msgs.
+func (msgs Messages) ColumnActualCompletion() string {
+	return Catalog.Format(msgs.locale, "columnActualCompletion", nil)
+}
+
+// ColumnBaseCompletion says "Base Completion"
+// in the language the app shows.
+func ColumnBaseCompletion() string { return In(i18n.Locale()).ColumnBaseCompletion() }
+
+// ColumnBaseCompletion says "Base Completion"
+// in the language of msgs.
+func (msgs Messages) ColumnBaseCompletion() string {
+	return Catalog.Format(msgs.locale, "columnBaseCompletion", nil)
+}
+
+// ColumnCompletionUncapped says "Uncapped Completion"
+// in the language the app shows.
+func ColumnCompletionUncapped() string { return In(i18n.Locale()).ColumnCompletionUncapped() }
+
+// ColumnCompletionUncapped says "Uncapped Completion"
+// in the language of msgs.
+func (msgs Messages) ColumnCompletionUncapped() string {
+	return Catalog.Format(msgs.locale, "columnCompletionUncapped", nil)
+}
+
+// ColumnImprovementUncapped says "Uncapped Improvement"
+// in the language the app shows.
+func ColumnImprovementUncapped() string { return In(i18n.Locale()).ColumnImprovementUncapped() }
+
+// ColumnImprovementUncapped says "Uncapped Improvement"
+// in the language of msgs.
+func (msgs Messages) ColumnImprovementUncapped() string {
+	return Catalog.Format(msgs.locale, "columnImprovementUncapped", nil)
+}
+
+// ColumnPassUncapped says "Uncapped Pass"
+// in the language the app shows.
+func ColumnPassUncapped() string { return In(i18n.Locale()).ColumnPassUncapped() }
+
+// ColumnPassUncapped says "Uncapped Pass"
+// in the language of msgs.
+func (msgs Messages) ColumnPassUncapped() string {
+	return Catalog.Format(msgs.locale, "columnPassUncapped", nil)
+}
+
+// SettingsSync says "Cloud Sync"
+// in the language the app shows.
+func SettingsSync() string { return In(i18n.Locale()).SettingsSync() }
+
+// SettingsSync says "Cloud Sync"
+// in the language of msgs.
+func (msgs Messages) SettingsSync() string {
+	return Catalog.Format(msgs.locale, "settingsSync", nil)
+}
+
+// SettingsSyncHint says "Configure WebDAV server to securely sync data between office and home PCs"
+// in the language the app shows.
+func SettingsSyncHint() string { return In(i18n.Locale()).SettingsSyncHint() }
+
+// SettingsSyncHint says "Configure WebDAV server to securely sync data between office and home PCs"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncHint() string {
+	return Catalog.Format(msgs.locale, "settingsSyncHint", nil)
+}
+
+// SettingsWebDAVURL says "WebDAV Server URL"
+// in the language the app shows.
+func SettingsWebDAVURL() string { return In(i18n.Locale()).SettingsWebDAVURL() }
+
+// SettingsWebDAVURL says "WebDAV Server URL"
+// in the language of msgs.
+func (msgs Messages) SettingsWebDAVURL() string {
+	return Catalog.Format(msgs.locale, "settingsWebDAVURL", nil)
+}
+
+// SettingsWebDAVURLHint says "e.g. https://dav.example.com/dav/ (HTTPS or LAN HTTP only)"
+// in the language the app shows.
+func SettingsWebDAVURLHint() string { return In(i18n.Locale()).SettingsWebDAVURLHint() }
+
+// SettingsWebDAVURLHint says "e.g. https://dav.example.com/dav/ (HTTPS or LAN HTTP only)"
+// in the language of msgs.
+func (msgs Messages) SettingsWebDAVURLHint() string {
+	return Catalog.Format(msgs.locale, "settingsWebDAVURLHint", nil)
+}
+
+// SettingsWebDAVUsername says "Username"
+// in the language the app shows.
+func SettingsWebDAVUsername() string { return In(i18n.Locale()).SettingsWebDAVUsername() }
+
+// SettingsWebDAVUsername says "Username"
+// in the language of msgs.
+func (msgs Messages) SettingsWebDAVUsername() string {
+	return Catalog.Format(msgs.locale, "settingsWebDAVUsername", nil)
+}
+
+// SettingsWebDAVPassword says "Password"
+// in the language the app shows.
+func SettingsWebDAVPassword() string { return In(i18n.Locale()).SettingsWebDAVPassword() }
+
+// SettingsWebDAVPassword says "Password"
+// in the language of msgs.
+func (msgs Messages) SettingsWebDAVPassword() string {
+	return Catalog.Format(msgs.locale, "settingsWebDAVPassword", nil)
+}
+
+// SettingsWebDAVPasswordHint says "Saved in system keychain, never stored in plaintext"
+// in the language the app shows.
+func SettingsWebDAVPasswordHint() string { return In(i18n.Locale()).SettingsWebDAVPasswordHint() }
+
+// SettingsWebDAVPasswordHint says "Saved in system keychain, never stored in plaintext"
+// in the language of msgs.
+func (msgs Messages) SettingsWebDAVPasswordHint() string {
+	return Catalog.Format(msgs.locale, "settingsWebDAVPasswordHint", nil)
+}
+
+// SettingsRemoteDir says "Remote Directory"
+// in the language the app shows.
+func SettingsRemoteDir() string { return In(i18n.Locale()).SettingsRemoteDir() }
+
+// SettingsRemoteDir says "Remote Directory"
+// in the language of msgs.
+func (msgs Messages) SettingsRemoteDir() string {
+	return Catalog.Format(msgs.locale, "settingsRemoteDir", nil)
+}
+
+// SettingsRemoteDirHint says "Default Tally; manages packages and files in this folder"
+// in the language the app shows.
+func SettingsRemoteDirHint() string { return In(i18n.Locale()).SettingsRemoteDirHint() }
+
+// SettingsRemoteDirHint says "Default Tally; manages packages and files in this folder"
+// in the language of msgs.
+func (msgs Messages) SettingsRemoteDirHint() string {
+	return Catalog.Format(msgs.locale, "settingsRemoteDirHint", nil)
+}
+
+// SettingsDeviceName says "Device Name"
+// in the language the app shows.
+func SettingsDeviceName() string { return In(i18n.Locale()).SettingsDeviceName() }
+
+// SettingsDeviceName says "Device Name"
+// in the language of msgs.
+func (msgs Messages) SettingsDeviceName() string {
+	return Catalog.Format(msgs.locale, "settingsDeviceName", nil)
+}
+
+// SettingsDeviceNameHint says "Identifies this computer, e.g. Office PC or Home PC"
+// in the language the app shows.
+func SettingsDeviceNameHint() string { return In(i18n.Locale()).SettingsDeviceNameHint() }
+
+// SettingsDeviceNameHint says "Identifies this computer, e.g. Office PC or Home PC"
+// in the language of msgs.
+func (msgs Messages) SettingsDeviceNameHint() string {
+	return Catalog.Format(msgs.locale, "settingsDeviceNameHint", nil)
+}
+
+// SettingsEncryptSync says "Package Encryption"
+// in the language the app shows.
+func SettingsEncryptSync() string { return In(i18n.Locale()).SettingsEncryptSync() }
+
+// SettingsEncryptSync says "Package Encryption"
+// in the language of msgs.
+func (msgs Messages) SettingsEncryptSync() string {
+	return Catalog.Format(msgs.locale, "settingsEncryptSync", nil)
+}
+
+// SettingsEncryptSyncHint says "Uses AES-256-GCM and scrypt key derivation to protect student privacy"
+// in the language the app shows.
+func SettingsEncryptSyncHint() string { return In(i18n.Locale()).SettingsEncryptSyncHint() }
+
+// SettingsEncryptSyncHint says "Uses AES-256-GCM and scrypt key derivation to protect student privacy"
+// in the language of msgs.
+func (msgs Messages) SettingsEncryptSyncHint() string {
+	return Catalog.Format(msgs.locale, "settingsEncryptSyncHint", nil)
+}
+
+// SettingsSyncPassword says "Sync Password"
+// in the language the app shows.
+func SettingsSyncPassword() string { return In(i18n.Locale()).SettingsSyncPassword() }
+
+// SettingsSyncPassword says "Sync Password"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncPassword() string {
+	return Catalog.Format(msgs.locale, "settingsSyncPassword", nil)
+}
+
+// SettingsSyncPasswordHint says "Used to encrypt and decrypt packages; must match across all computers"
+// in the language the app shows.
+func SettingsSyncPasswordHint() string { return In(i18n.Locale()).SettingsSyncPasswordHint() }
+
+// SettingsSyncPasswordHint says "Used to encrypt and decrypt packages; must match across all computers"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncPasswordHint() string {
+	return Catalog.Format(msgs.locale, "settingsSyncPasswordHint", nil)
+}
+
+// SettingsTestConnection says "Test Connection"
+// in the language the app shows.
+func SettingsTestConnection() string { return In(i18n.Locale()).SettingsTestConnection() }
+
+// SettingsTestConnection says "Test Connection"
+// in the language of msgs.
+func (msgs Messages) SettingsTestConnection() string {
+	return Catalog.Format(msgs.locale, "settingsTestConnection", nil)
+}
+
+// SettingsConnectionSuccess says "Connection test succeeded, remote directory ready"
+// in the language the app shows.
+func SettingsConnectionSuccess() string { return In(i18n.Locale()).SettingsConnectionSuccess() }
+
+// SettingsConnectionSuccess says "Connection test succeeded, remote directory ready"
+// in the language of msgs.
+func (msgs Messages) SettingsConnectionSuccess() string {
+	return Catalog.Format(msgs.locale, "settingsConnectionSuccess", nil)
+}
+
+// SettingsSyncNow says "Upload to Cloud"
+// in the language the app shows.
+func SettingsSyncNow() string { return In(i18n.Locale()).SettingsSyncNow() }
+
+// SettingsSyncNow says "Upload to Cloud"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncNow() string {
+	return Catalog.Format(msgs.locale, "settingsSyncNow", nil)
+}
+
+// SettingsPullNow says "Pull from Cloud"
+// in the language the app shows.
+func SettingsPullNow() string { return In(i18n.Locale()).SettingsPullNow() }
+
+// SettingsPullNow says "Pull from Cloud"
+// in the language of msgs.
+func (msgs Messages) SettingsPullNow() string {
+	return Catalog.Format(msgs.locale, "settingsPullNow", nil)
+}
+
+// SettingsSyncStatusTitle says "Sync Status"
+// in the language the app shows.
+func SettingsSyncStatusTitle() string { return In(i18n.Locale()).SettingsSyncStatusTitle() }
+
+// SettingsSyncStatusTitle says "Sync Status"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncStatusTitle() string {
+	return Catalog.Format(msgs.locale, "settingsSyncStatusTitle", nil)
+}
+
+// SettingsLastSyncTime says "Last sync: %s"
+// in the language the app shows.
+func SettingsLastSyncTime() string { return In(i18n.Locale()).SettingsLastSyncTime() }
+
+// SettingsLastSyncTime says "Last sync: %s"
+// in the language of msgs.
+func (msgs Messages) SettingsLastSyncTime() string {
+	return Catalog.Format(msgs.locale, "settingsLastSyncTime", nil)
+}
+
+// SettingsLastSyncDevice says "Last device: %s"
+// in the language the app shows.
+func SettingsLastSyncDevice() string { return In(i18n.Locale()).SettingsLastSyncDevice() }
+
+// SettingsLastSyncDevice says "Last device: %s"
+// in the language of msgs.
+func (msgs Messages) SettingsLastSyncDevice() string {
+	return Catalog.Format(msgs.locale, "settingsLastSyncDevice", nil)
+}
+
+// SettingsSyncStatusUpToDate says "Data is up to date"
+// in the language the app shows.
+func SettingsSyncStatusUpToDate() string { return In(i18n.Locale()).SettingsSyncStatusUpToDate() }
+
+// SettingsSyncStatusUpToDate says "Data is up to date"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncStatusUpToDate() string {
+	return Catalog.Format(msgs.locale, "settingsSyncStatusUpToDate", nil)
+}
+
+// SettingsSyncStatusCanPush says "Local changes ready to upload"
+// in the language the app shows.
+func SettingsSyncStatusCanPush() string { return In(i18n.Locale()).SettingsSyncStatusCanPush() }
+
+// SettingsSyncStatusCanPush says "Local changes ready to upload"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncStatusCanPush() string {
+	return Catalog.Format(msgs.locale, "settingsSyncStatusCanPush", nil)
+}
+
+// SettingsSyncStatusCanPull says "Cloud updates ready to pull"
+// in the language the app shows.
+func SettingsSyncStatusCanPull() string { return In(i18n.Locale()).SettingsSyncStatusCanPull() }
+
+// SettingsSyncStatusCanPull says "Cloud updates ready to pull"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncStatusCanPull() string {
+	return Catalog.Format(msgs.locale, "settingsSyncStatusCanPull", nil)
+}
+
+// SettingsSyncStatusConflict says "Concurrent modifications detected"
+// in the language the app shows.
+func SettingsSyncStatusConflict() string { return In(i18n.Locale()).SettingsSyncStatusConflict() }
+
+// SettingsSyncStatusConflict says "Concurrent modifications detected"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncStatusConflict() string {
+	return Catalog.Format(msgs.locale, "settingsSyncStatusConflict", nil)
+}
+
+// SettingsSyncSuccess says "Successfully synced and uploaded package to cloud"
+// in the language the app shows.
+func SettingsSyncSuccess() string { return In(i18n.Locale()).SettingsSyncSuccess() }
+
+// SettingsSyncSuccess says "Successfully synced and uploaded package to cloud"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncSuccess() string {
+	return Catalog.Format(msgs.locale, "settingsSyncSuccess", nil)
+}
+
+// SettingsPullSuccess says "Successfully pulled and restored package from cloud"
+// in the language the app shows.
+func SettingsPullSuccess() string { return In(i18n.Locale()).SettingsPullSuccess() }
+
+// SettingsPullSuccess says "Successfully pulled and restored package from cloud"
+// in the language of msgs.
+func (msgs Messages) SettingsPullSuccess() string {
+	return Catalog.Format(msgs.locale, "settingsPullSuccess", nil)
+}
+
+// SettingsSyncConflictModalTitle says "Cloud Sync Conflict"
+// in the language the app shows.
+func SettingsSyncConflictModalTitle() string {
+	return In(i18n.Locale()).SettingsSyncConflictModalTitle()
+}
+
+// SettingsSyncConflictModalTitle says "Cloud Sync Conflict"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncConflictModalTitle() string {
+	return Catalog.Format(msgs.locale, "settingsSyncConflictModalTitle", nil)
+}
+
+// SettingsSyncConflictModalBody says "Both local and cloud versions have changes. If you overwrite, a local backup will be created automatically before rep…"
+// in the language the app shows.
+func SettingsSyncConflictModalBody() string { return In(i18n.Locale()).SettingsSyncConflictModalBody() }
+
+// SettingsSyncConflictModalBody says "Both local and cloud versions have changes. If you overwrite, a local backup will be created automatically before rep…"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncConflictModalBody() string {
+	return Catalog.Format(msgs.locale, "settingsSyncConflictModalBody", nil)
+}
+
+// SettingsSyncConflictOverwrite says "Overwrite with Cloud (Auto Backup)"
+// in the language the app shows.
+func SettingsSyncConflictOverwrite() string { return In(i18n.Locale()).SettingsSyncConflictOverwrite() }
+
+// SettingsSyncConflictOverwrite says "Overwrite with Cloud (Auto Backup)"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncConflictOverwrite() string {
+	return Catalog.Format(msgs.locale, "settingsSyncConflictOverwrite", nil)
+}
+
+// SettingsSyncConflictCancel says "Cancel and Keep Local"
+// in the language the app shows.
+func SettingsSyncConflictCancel() string { return In(i18n.Locale()).SettingsSyncConflictCancel() }
+
+// SettingsSyncConflictCancel says "Cancel and Keep Local"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncConflictCancel() string {
+	return Catalog.Format(msgs.locale, "settingsSyncConflictCancel", nil)
+}
+
+// SettingsSaveSync says "Save Sync Settings"
+// in the language the app shows.
+func SettingsSaveSync() string { return In(i18n.Locale()).SettingsSaveSync() }
+
+// SettingsSaveSync says "Save Sync Settings"
+// in the language of msgs.
+func (msgs Messages) SettingsSaveSync() string {
+	return Catalog.Format(msgs.locale, "settingsSaveSync", nil)
+}
+
+// SettingsSyncSaved says "Sync settings saved"
+// in the language the app shows.
+func SettingsSyncSaved() string { return In(i18n.Locale()).SettingsSyncSaved() }
+
+// SettingsSyncSaved says "Sync settings saved"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncSaved() string {
+	return Catalog.Format(msgs.locale, "settingsSyncSaved", nil)
+}
+
+// SettingsInsecureHTTPWarning says "Warning: HTTP connection is unencrypted; data could be intercepted. HTTPS is recommended."
+// in the language the app shows.
+func SettingsInsecureHTTPWarning() string { return In(i18n.Locale()).SettingsInsecureHTTPWarning() }
+
+// SettingsInsecureHTTPWarning says "Warning: HTTP connection is unencrypted; data could be intercepted. HTTPS is recommended."
+// in the language of msgs.
+func (msgs Messages) SettingsInsecureHTTPWarning() string {
+	return Catalog.Format(msgs.locale, "settingsInsecureHTTPWarning", nil)
+}
+
+// SettingsSyncWebDAVURLRequired says "WebDAV server URL is required"
+// in the language the app shows.
+func SettingsSyncWebDAVURLRequired() string { return In(i18n.Locale()).SettingsSyncWebDAVURLRequired() }
+
+// SettingsSyncWebDAVURLRequired says "WebDAV server URL is required"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncWebDAVURLRequired() string {
+	return Catalog.Format(msgs.locale, "settingsSyncWebDAVURLRequired", nil)
+}
+
+// SettingsSyncCreateSnapshotFailed says "Failed to create upload snapshot: %v"
+// in the language the app shows.
+func SettingsSyncCreateSnapshotFailed() string {
+	return In(i18n.Locale()).SettingsSyncCreateSnapshotFailed()
+}
+
+// SettingsSyncCreateSnapshotFailed says "Failed to create upload snapshot: %v"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncCreateSnapshotFailed() string {
+	return Catalog.Format(msgs.locale, "settingsSyncCreateSnapshotFailed", nil)
+}
+
+// SettingsSyncReadSnapshotFailed says "Failed to read snapshot data: %v"
+// in the language the app shows.
+func SettingsSyncReadSnapshotFailed() string {
+	return In(i18n.Locale()).SettingsSyncReadSnapshotFailed()
+}
+
+// SettingsSyncReadSnapshotFailed says "Failed to read snapshot data: %v"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncReadSnapshotFailed() string {
+	return Catalog.Format(msgs.locale, "settingsSyncReadSnapshotFailed", nil)
+}
+
+// SettingsSyncOpenTempDBFailed says "Failed to open temporary database for verification: %v"
+// in the language the app shows.
+func SettingsSyncOpenTempDBFailed() string { return In(i18n.Locale()).SettingsSyncOpenTempDBFailed() }
+
+// SettingsSyncOpenTempDBFailed says "Failed to open temporary database for verification: %v"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncOpenTempDBFailed() string {
+	return Catalog.Format(msgs.locale, "settingsSyncOpenTempDBFailed", nil)
+}
+
+// SettingsSyncIntegrityCheckFailed says "Downloaded data failed SQLite integrity check, replacement aborted"
+// in the language the app shows.
+func SettingsSyncIntegrityCheckFailed() string {
+	return In(i18n.Locale()).SettingsSyncIntegrityCheckFailed()
+}
+
+// SettingsSyncIntegrityCheckFailed says "Downloaded data failed SQLite integrity check, replacement aborted"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncIntegrityCheckFailed() string {
+	return Catalog.Format(msgs.locale, "settingsSyncIntegrityCheckFailed", nil)
+}
+
+// SettingsSyncBackupFailed says "Failed to backup current database: %v"
+// in the language the app shows.
+func SettingsSyncBackupFailed() string { return In(i18n.Locale()).SettingsSyncBackupFailed() }
+
+// SettingsSyncBackupFailed says "Failed to backup current database: %v"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncBackupFailed() string {
+	return Catalog.Format(msgs.locale, "settingsSyncBackupFailed", nil)
+}
+
+// SettingsSyncCheckRemote says "Check Remote"
+// in the language the app shows.
+func SettingsSyncCheckRemote() string { return In(i18n.Locale()).SettingsSyncCheckRemote() }
+
+// SettingsSyncCheckRemote says "Check Remote"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncCheckRemote() string {
+	return Catalog.Format(msgs.locale, "settingsSyncCheckRemote", nil)
+}
+
+// AnalysisScorePoints says "%s pts"
+// in the language the app shows.
+func AnalysisScorePoints() string { return In(i18n.Locale()).AnalysisScorePoints() }
+
+// AnalysisScorePoints says "%s pts"
+// in the language of msgs.
+func (msgs Messages) AnalysisScorePoints() string {
+	return Catalog.Format(msgs.locale, "analysisScorePoints", nil)
+}
+
+// AnalysisReportDefaultFileName says "Analysis-Report.xlsx"
+// in the language the app shows.
+func AnalysisReportDefaultFileName() string { return In(i18n.Locale()).AnalysisReportDefaultFileName() }
+
+// AnalysisReportDefaultFileName says "Analysis-Report.xlsx"
+// in the language of msgs.
+func (msgs Messages) AnalysisReportDefaultFileName() string {
+	return Catalog.Format(msgs.locale, "analysisReportDefaultFileName", nil)
+}
+
+// AnalysisExportTeacherTrend says "%s%s-Teacher-Trend.xlsx"
+// in the language the app shows.
+func AnalysisExportTeacherTrend() string { return In(i18n.Locale()).AnalysisExportTeacherTrend() }
+
+// AnalysisExportTeacherTrend says "%s%s-Teacher-Trend.xlsx"
+// in the language of msgs.
+func (msgs Messages) AnalysisExportTeacherTrend() string {
+	return Catalog.Format(msgs.locale, "analysisExportTeacherTrend", nil)
+}
+
+// AnalysisExportClassTrend says "%s%s-Trend.xlsx"
+// in the language the app shows.
+func AnalysisExportClassTrend() string { return In(i18n.Locale()).AnalysisExportClassTrend() }
+
+// AnalysisExportClassTrend says "%s%s-Trend.xlsx"
+// in the language of msgs.
+func (msgs Messages) AnalysisExportClassTrend() string {
+	return Catalog.Format(msgs.locale, "analysisExportClassTrend", nil)
+}
+
+// AnalysisExportSubjectComparison says "%s%s-Comparison.xlsx"
+// in the language the app shows.
+func AnalysisExportSubjectComparison() string {
+	return In(i18n.Locale()).AnalysisExportSubjectComparison()
+}
+
+// AnalysisExportSubjectComparison says "%s%s-Comparison.xlsx"
+// in the language of msgs.
+func (msgs Messages) AnalysisExportSubjectComparison() string {
+	return Catalog.Format(msgs.locale, "analysisExportSubjectComparison", nil)
+}
+
+// AnalysisExportStudentTracking says "%s%s-Tracking.xlsx"
+// in the language the app shows.
+func AnalysisExportStudentTracking() string { return In(i18n.Locale()).AnalysisExportStudentTracking() }
+
+// AnalysisExportStudentTracking says "%s%s-Tracking.xlsx"
+// in the language of msgs.
+func (msgs Messages) AnalysisExportStudentTracking() string {
+	return Catalog.Format(msgs.locale, "analysisExportStudentTracking", nil)
+}
+
+// AnalysisExportAssessmentComparison says "%s-Assessment-Comparison.xlsx"
+// in the language the app shows.
+func AnalysisExportAssessmentComparison() string {
+	return In(i18n.Locale()).AnalysisExportAssessmentComparison()
+}
+
+// AnalysisExportAssessmentComparison says "%s-Assessment-Comparison.xlsx"
+// in the language of msgs.
+func (msgs Messages) AnalysisExportAssessmentComparison() string {
+	return Catalog.Format(msgs.locale, "analysisExportAssessmentComparison", nil)
+}
+
+// PaginationSummary says "Showing %s–%s of %s"
+// in the language the app shows.
+func PaginationSummary() string { return In(i18n.Locale()).PaginationSummary() }
+
+// PaginationSummary says "Showing %s–%s of %s"
+// in the language of msgs.
+func (msgs Messages) PaginationSummary() string {
+	return Catalog.Format(msgs.locale, "paginationSummary", nil)
+}
+
+// PaginationPrev says "Previous"
+// in the language the app shows.
+func PaginationPrev() string { return In(i18n.Locale()).PaginationPrev() }
+
+// PaginationPrev says "Previous"
+// in the language of msgs.
+func (msgs Messages) PaginationPrev() string {
+	return Catalog.Format(msgs.locale, "paginationPrev", nil)
+}
+
+// PaginationNext says "Next"
+// in the language the app shows.
+func PaginationNext() string { return In(i18n.Locale()).PaginationNext() }
+
+// PaginationNext says "Next"
+// in the language of msgs.
+func (msgs Messages) PaginationNext() string {
+	return Catalog.Format(msgs.locale, "paginationNext", nil)
+}
+
+// PaginationPageSize says "Per page"
+// in the language the app shows.
+func PaginationPageSize() string { return In(i18n.Locale()).PaginationPageSize() }
+
+// PaginationPageSize says "Per page"
+// in the language of msgs.
+func (msgs Messages) PaginationPageSize() string {
+	return Catalog.Format(msgs.locale, "paginationPageSize", nil)
+}
+
+// PaginationPerPageOption says "%s / page"
+// in the language the app shows.
+func PaginationPerPageOption() string { return In(i18n.Locale()).PaginationPerPageOption() }
+
+// PaginationPerPageOption says "%s / page"
+// in the language of msgs.
+func (msgs Messages) PaginationPerPageOption() string {
+	return Catalog.Format(msgs.locale, "paginationPerPageOption", nil)
+}
+
+// RetryLoad says "Retry"
+// in the language the app shows.
+func RetryLoad() string { return In(i18n.Locale()).RetryLoad() }
+
+// RetryLoad says "Retry"
+// in the language of msgs.
+func (msgs Messages) RetryLoad() string {
+	return Catalog.Format(msgs.locale, "retryLoad", nil)
+}
+
+// OpenSettings says "Open settings"
+// in the language the app shows.
+func OpenSettings() string { return In(i18n.Locale()).OpenSettings() }
+
+// OpenSettings says "Open settings"
+// in the language of msgs.
+func (msgs Messages) OpenSettings() string {
+	return Catalog.Format(msgs.locale, "openSettings", nil)
+}
+
+// StoreUnavailable says "Local database is not available."
+// in the language the app shows.
+func StoreUnavailable() string { return In(i18n.Locale()).StoreUnavailable() }
+
+// StoreUnavailable says "Local database is not available."
+// in the language of msgs.
+func (msgs Messages) StoreUnavailable() string {
+	return Catalog.Format(msgs.locale, "storeUnavailable", nil)
+}
+
+// StoreUnavailableHint says "Retry loading or open Settings to check the data folder and backups."
+// in the language the app shows.
+func StoreUnavailableHint() string { return In(i18n.Locale()).StoreUnavailableHint() }
+
+// StoreUnavailableHint says "Retry loading or open Settings to check the data folder and backups."
+// in the language of msgs.
+func (msgs Messages) StoreUnavailableHint() string {
+	return Catalog.Format(msgs.locale, "storeUnavailableHint", nil)
+}
+
+// FilterEmptyTitle says "No matching records"
+// in the language the app shows.
+func FilterEmptyTitle() string { return In(i18n.Locale()).FilterEmptyTitle() }
+
+// FilterEmptyTitle says "No matching records"
+// in the language of msgs.
+func (msgs Messages) FilterEmptyTitle() string {
+	return Catalog.Format(msgs.locale, "filterEmptyTitle", nil)
+}
+
+// FilterEmptyHint says "Try adjusting or clearing the current search and filters."
+// in the language the app shows.
+func FilterEmptyHint() string { return In(i18n.Locale()).FilterEmptyHint() }
+
+// FilterEmptyHint says "Try adjusting or clearing the current search and filters."
+// in the language of msgs.
+func (msgs Messages) FilterEmptyHint() string {
+	return Catalog.Format(msgs.locale, "filterEmptyHint", nil)
+}
+
+// ClearFilters says "Clear filters"
+// in the language the app shows.
+func ClearFilters() string { return In(i18n.Locale()).ClearFilters() }
+
+// ClearFilters says "Clear filters"
+// in the language of msgs.
+func (msgs Messages) ClearFilters() string {
+	return Catalog.Format(msgs.locale, "clearFilters", nil)
+}
+
+// ExamScoreStatsToggle says "Score distribution and class averages"
+// in the language the app shows.
+func ExamScoreStatsToggle() string { return In(i18n.Locale()).ExamScoreStatsToggle() }
+
+// ExamScoreStatsToggle says "Score distribution and class averages"
+// in the language of msgs.
+func (msgs Messages) ExamScoreStatsToggle() string {
+	return Catalog.Format(msgs.locale, "examScoreStatsToggle", nil)
+}
+
+// AssessmentFixExamShort says "Edit exam data"
+// in the language the app shows.
+func AssessmentFixExamShort() string { return In(i18n.Locale()).AssessmentFixExamShort() }
+
+// AssessmentFixExamShort says "Edit exam data"
+// in the language of msgs.
+func (msgs Messages) AssessmentFixExamShort() string {
+	return Catalog.Format(msgs.locale, "assessmentFixExamShort", nil)
+}
+
+// SettingsSyncBusy says "Syncing…"
+// in the language the app shows.
+func SettingsSyncBusy() string { return In(i18n.Locale()).SettingsSyncBusy() }
+
+// SettingsSyncBusy says "Syncing…"
+// in the language of msgs.
+func (msgs Messages) SettingsSyncBusy() string {
+	return Catalog.Format(msgs.locale, "settingsSyncBusy", nil)
+}
+
+// ValidationNameTooLong says "%s cannot exceed %d characters."
+// in the language the app shows.
+func ValidationNameTooLong() string { return In(i18n.Locale()).ValidationNameTooLong() }
+
+// ValidationNameTooLong says "%s cannot exceed %d characters."
+// in the language of msgs.
+func (msgs Messages) ValidationNameTooLong() string {
+	return Catalog.Format(msgs.locale, "validationNameTooLong", nil)
+}
+
+// ValidationTextTooLong says "%s cannot exceed %d characters."
+// in the language the app shows.
+func ValidationTextTooLong() string { return In(i18n.Locale()).ValidationTextTooLong() }
+
+// ValidationTextTooLong says "%s cannot exceed %d characters."
+// in the language of msgs.
+func (msgs Messages) ValidationTextTooLong() string {
+	return Catalog.Format(msgs.locale, "validationTextTooLong", nil)
+}
+
+// DataStudentCountOne says "%s student"
+// in the language the app shows.
+func DataStudentCountOne() string { return In(i18n.Locale()).DataStudentCountOne() }
+
+// DataStudentCountOne says "%s student"
+// in the language of msgs.
+func (msgs Messages) DataStudentCountOne() string {
+	return Catalog.Format(msgs.locale, "dataStudentCountOne", nil)
+}
+
+// DataRecordCountOne says "%s record"
+// in the language the app shows.
+func DataRecordCountOne() string { return In(i18n.Locale()).DataRecordCountOne() }
+
+// DataRecordCountOne says "%s record"
+// in the language of msgs.
+func (msgs Messages) DataRecordCountOne() string {
+	return Catalog.Format(msgs.locale, "dataRecordCountOne", nil)
+}
+
+// GroupsCountOne says "%s teaching group"
+// in the language the app shows.
+func GroupsCountOne() string { return In(i18n.Locale()).GroupsCountOne() }
+
+// GroupsCountOne says "%s teaching group"
+// in the language of msgs.
+func (msgs Messages) GroupsCountOne() string {
+	return Catalog.Format(msgs.locale, "groupsCountOne", nil)
+}
+
+// ExamCohortCountOne says "%s cohort"
+// in the language the app shows.
+func ExamCohortCountOne() string { return In(i18n.Locale()).ExamCohortCountOne() }
+
+// ExamCohortCountOne says "%s cohort"
+// in the language of msgs.
+func (msgs Messages) ExamCohortCountOne() string {
+	return Catalog.Format(msgs.locale, "examCohortCountOne", nil)
+}
+
+// ImportWarningCountOne says "%s warning"
+// in the language the app shows.
+func ImportWarningCountOne() string { return In(i18n.Locale()).ImportWarningCountOne() }
+
+// ImportWarningCountOne says "%s warning"
+// in the language of msgs.
+func (msgs Messages) ImportWarningCountOne() string {
+	return Catalog.Format(msgs.locale, "importWarningCountOne", nil)
+}
+
+// AnalysisGroupCountValueOne says "%s group"
+// in the language the app shows.
+func AnalysisGroupCountValueOne() string { return In(i18n.Locale()).AnalysisGroupCountValueOne() }
+
+// AnalysisGroupCountValueOne says "%s group"
+// in the language of msgs.
+func (msgs Messages) AnalysisGroupCountValueOne() string {
+	return Catalog.Format(msgs.locale, "analysisGroupCountValueOne", nil)
+}
+
+// AnalysisTeacherMetaOne says "%d subject"
+// in the language the app shows.
+func AnalysisTeacherMetaOne() string { return In(i18n.Locale()).AnalysisTeacherMetaOne() }
+
+// AnalysisTeacherMetaOne says "%d subject"
+// in the language of msgs.
+func (msgs Messages) AnalysisTeacherMetaOne() string {
+	return Catalog.Format(msgs.locale, "analysisTeacherMetaOne", nil)
+}
+
+// AnalysisViewNameRequired says "Enter a view name."
+// in the language the app shows.
+func AnalysisViewNameRequired() string { return In(i18n.Locale()).AnalysisViewNameRequired() }
+
+// AnalysisViewNameRequired says "Enter a view name."
+// in the language of msgs.
+func (msgs Messages) AnalysisViewNameRequired() string {
+	return Catalog.Format(msgs.locale, "analysisViewNameRequired", nil)
+}
+
+// SelectNoOptions says "No options available"
+// in the language the app shows.
+func SelectNoOptions() string { return In(i18n.Locale()).SelectNoOptions() }
+
+// SelectNoOptions says "No options available"
+// in the language of msgs.
+func (msgs Messages) SelectNoOptions() string {
+	return Catalog.Format(msgs.locale, "selectNoOptions", nil)
+}
+
+// OverviewNoCohortHint says "Create a cohort to manage classes, students, exams and assessments."
+// in the language the app shows.
+func OverviewNoCohortHint() string { return In(i18n.Locale()).OverviewNoCohortHint() }
+
+// OverviewNoCohortHint says "Create a cohort to manage classes, students, exams and assessments."
+// in the language of msgs.
+func (msgs Messages) OverviewNoCohortHint() string {
+	return Catalog.Format(msgs.locale, "overviewNoCohortHint", nil)
+}
+
+// SettingsSchoolSaved says "School settings saved."
+// in the language the app shows.
+func SettingsSchoolSaved() string { return In(i18n.Locale()).SettingsSchoolSaved() }
+
+// SettingsSchoolSaved says "School settings saved."
+// in the language of msgs.
+func (msgs Messages) SettingsSchoolSaved() string {
+	return Catalog.Format(msgs.locale, "settingsSchoolSaved", nil)
+}
+
+// SettingsAcademicYearSaved says "Academic year updated."
+// in the language the app shows.
+func SettingsAcademicYearSaved() string { return In(i18n.Locale()).SettingsAcademicYearSaved() }
+
+// SettingsAcademicYearSaved says "Academic year updated."
+// in the language of msgs.
+func (msgs Messages) SettingsAcademicYearSaved() string {
+	return Catalog.Format(msgs.locale, "settingsAcademicYearSaved", nil)
+}
+
+// SettingsBackupCreated says "Backup created."
+// in the language the app shows.
+func SettingsBackupCreated() string { return In(i18n.Locale()).SettingsBackupCreated() }
+
+// SettingsBackupCreated says "Backup created."
+// in the language of msgs.
+func (msgs Messages) SettingsBackupCreated() string {
+	return Catalog.Format(msgs.locale, "settingsBackupCreated", nil)
+}
+
+// SettingsBackupRestored says "Backup restored."
+// in the language the app shows.
+func SettingsBackupRestored() string { return In(i18n.Locale()).SettingsBackupRestored() }
+
+// SettingsBackupRestored says "Backup restored."
+// in the language of msgs.
+func (msgs Messages) SettingsBackupRestored() string {
+	return Catalog.Format(msgs.locale, "settingsBackupRestored", nil)
+}
+
+// CohortCreatedToast says "Created %s."
+// in the language the app shows.
+func CohortCreatedToast() string { return In(i18n.Locale()).CohortCreatedToast() }
+
+// CohortCreatedToast says "Created %s."
+// in the language of msgs.
+func (msgs Messages) CohortCreatedToast() string {
+	return Catalog.Format(msgs.locale, "cohortCreatedToast", nil)
+}
+
+// StageReviewConfirmedToast says "Stage review confirmed."
+// in the language the app shows.
+func StageReviewConfirmedToast() string { return In(i18n.Locale()).StageReviewConfirmedToast() }
+
+// StageReviewConfirmedToast says "Stage review confirmed."
+// in the language of msgs.
+func (msgs Messages) StageReviewConfirmedToast() string {
+	return Catalog.Format(msgs.locale, "stageReviewConfirmedToast", nil)
+}
+
+// AnalysisViewDeleted says "Saved view deleted."
+// in the language the app shows.
+func AnalysisViewDeleted() string { return In(i18n.Locale()).AnalysisViewDeleted() }
+
+// AnalysisViewDeleted says "Saved view deleted."
+// in the language of msgs.
+func (msgs Messages) AnalysisViewDeleted() string {
+	return Catalog.Format(msgs.locale, "analysisViewDeleted", nil)
+}
+
+// ImportWizardTemplateSaved says "Template saved to %s."
+// in the language the app shows.
+func ImportWizardTemplateSaved() string { return In(i18n.Locale()).ImportWizardTemplateSaved() }
+
+// ImportWizardTemplateSaved says "Template saved to %s."
+// in the language of msgs.
+func (msgs Messages) ImportWizardTemplateSaved() string {
+	return Catalog.Format(msgs.locale, "importWizardTemplateSaved", nil)
+}
+
+// ImportWizardIssuesExported says "Issue list exported to %s."
+// in the language the app shows.
+func ImportWizardIssuesExported() string { return In(i18n.Locale()).ImportWizardIssuesExported() }
+
+// ImportWizardIssuesExported says "Issue list exported to %s."
+// in the language of msgs.
+func (msgs Messages) ImportWizardIssuesExported() string {
+	return Catalog.Format(msgs.locale, "importWizardIssuesExported", nil)
+}
+
+// QualityRevalidatedToast says "Data quality check finished."
+// in the language the app shows.
+func QualityRevalidatedToast() string { return In(i18n.Locale()).QualityRevalidatedToast() }
+
+// QualityRevalidatedToast says "Data quality check finished."
+// in the language of msgs.
+func (msgs Messages) QualityRevalidatedToast() string {
+	return Catalog.Format(msgs.locale, "qualityRevalidatedToast", nil)
+}
+
+// ImportWizardReadingFile says "Reading workbook…"
+// in the language the app shows.
+func ImportWizardReadingFile() string { return In(i18n.Locale()).ImportWizardReadingFile() }
+
+// ImportWizardReadingFile says "Reading workbook…"
+// in the language of msgs.
+func (msgs Messages) ImportWizardReadingFile() string {
+	return Catalog.Format(msgs.locale, "importWizardReadingFile", nil)
+}
+
+// WorkspaceLabel says "Workspace"
+// in the language the app shows.
+func WorkspaceLabel() string { return In(i18n.Locale()).WorkspaceLabel() }
+
+// WorkspaceLabel says "Workspace"
+// in the language of msgs.
+func (msgs Messages) WorkspaceLabel() string {
+	return Catalog.Format(msgs.locale, "workspaceLabel", nil)
+}
+
+// WorkspaceCreate says "New workspace"
+// in the language the app shows.
+func WorkspaceCreate() string { return In(i18n.Locale()).WorkspaceCreate() }
+
+// WorkspaceCreate says "New workspace"
+// in the language of msgs.
+func (msgs Messages) WorkspaceCreate() string {
+	return Catalog.Format(msgs.locale, "workspaceCreate", nil)
+}
+
+// WorkspaceEmpty says "No workspace yet"
+// in the language the app shows.
+func WorkspaceEmpty() string { return In(i18n.Locale()).WorkspaceEmpty() }
+
+// WorkspaceEmpty says "No workspace yet"
+// in the language of msgs.
+func (msgs Messages) WorkspaceEmpty() string {
+	return Catalog.Format(msgs.locale, "workspaceEmpty", nil)
+}
+
+// WorkspaceEmptyHint says "Create a grade workspace to organize students, teachers, exams and assessments."
+// in the language the app shows.
+func WorkspaceEmptyHint() string { return In(i18n.Locale()).WorkspaceEmptyHint() }
+
+// WorkspaceEmptyHint says "Create a grade workspace to organize students, teachers, exams and assessments."
+// in the language of msgs.
+func (msgs Messages) WorkspaceEmptyHint() string {
+	return Catalog.Format(msgs.locale, "workspaceEmptyHint", nil)
+}
+
+// WorkspaceSwitchLabel says "Switch workspace"
+// in the language the app shows.
+func WorkspaceSwitchLabel() string { return In(i18n.Locale()).WorkspaceSwitchLabel() }
+
+// WorkspaceSwitchLabel says "Switch workspace"
+// in the language of msgs.
+func (msgs Messages) WorkspaceSwitchLabel() string {
+	return Catalog.Format(msgs.locale, "workspaceSwitchLabel", nil)
+}
+
+// WorkspaceManageStages says "Manage stages…"
+// in the language the app shows.
+func WorkspaceManageStages() string { return In(i18n.Locale()).WorkspaceManageStages() }
+
+// WorkspaceManageStages says "Manage stages…"
+// in the language of msgs.
+func (msgs Messages) WorkspaceManageStages() string {
+	return Catalog.Format(msgs.locale, "workspaceManageStages", nil)
+}
+
+// WorkspaceCurrentTag says "Current"
+// in the language the app shows.
+func WorkspaceCurrentTag() string { return In(i18n.Locale()).WorkspaceCurrentTag() }
+
+// WorkspaceCurrentTag says "Current"
+// in the language of msgs.
+func (msgs Messages) WorkspaceCurrentTag() string {
+	return Catalog.Format(msgs.locale, "workspaceCurrentTag", nil)
+}
+
+// WorkspaceStageFormat says "%s · %s (%s)"
+// in the language the app shows.
+func WorkspaceStageFormat() string { return In(i18n.Locale()).WorkspaceStageFormat() }
+
+// WorkspaceStageFormat says "%s · %s (%s)"
+// in the language of msgs.
+func (msgs Messages) WorkspaceStageFormat() string {
+	return Catalog.Format(msgs.locale, "workspaceStageFormat", nil)
+}
+
+// WorkspaceSwitchedToast says "Switched to %s."
+// in the language the app shows.
+func WorkspaceSwitchedToast() string { return In(i18n.Locale()).WorkspaceSwitchedToast() }
+
+// WorkspaceSwitchedToast says "Switched to %s."
+// in the language of msgs.
+func (msgs Messages) WorkspaceSwitchedToast() string {
+	return Catalog.Format(msgs.locale, "workspaceSwitchedToast", nil)
+}
+
+// NavDataImport says "Data import"
+// in the language the app shows.
+func NavDataImport() string { return In(i18n.Locale()).NavDataImport() }
+
+// NavDataImport says "Data import"
+// in the language of msgs.
+func (msgs Messages) NavDataImport() string {
+	return Catalog.Format(msgs.locale, "navDataImport", nil)
+}
+
+// NavBaseData says "Base data"
+// in the language the app shows.
+func NavBaseData() string { return In(i18n.Locale()).NavBaseData() }
+
+// NavBaseData says "Base data"
+// in the language of msgs.
+func (msgs Messages) NavBaseData() string {
+	return Catalog.Format(msgs.locale, "navBaseData", nil)
+}
+
+// NavExamHub says "Exams & assessments"
+// in the language the app shows.
+func NavExamHub() string { return In(i18n.Locale()).NavExamHub() }
+
+// NavExamHub says "Exams & assessments"
+// in the language of msgs.
+func (msgs Messages) NavExamHub() string {
+	return Catalog.Format(msgs.locale, "navExamHub", nil)
+}
+
+// NavGroupWorkspace says "Workspace"
+// in the language the app shows.
+func NavGroupWorkspace() string { return In(i18n.Locale()).NavGroupWorkspace() }
+
+// NavGroupWorkspace says "Workspace"
+// in the language of msgs.
+func (msgs Messages) NavGroupWorkspace() string {
+	return Catalog.Format(msgs.locale, "navGroupWorkspace", nil)
+}
+
+// NavGroupTools says "Tools & plans"
+// in the language the app shows.
+func NavGroupTools() string { return In(i18n.Locale()).NavGroupTools() }
+
+// NavGroupTools says "Tools & plans"
+// in the language of msgs.
+func (msgs Messages) NavGroupTools() string {
+	return Catalog.Format(msgs.locale, "navGroupTools", nil)
+}
+
+// OverviewLedgerSubtitle says "Live data ledger, latest assessment and pending checks for %s."
+// in the language the app shows.
+func OverviewLedgerSubtitle() string { return In(i18n.Locale()).OverviewLedgerSubtitle() }
+
+// OverviewLedgerSubtitle says "Live data ledger, latest assessment and pending checks for %s."
+// in the language of msgs.
+func (msgs Messages) OverviewLedgerSubtitle() string {
+	return Catalog.Format(msgs.locale, "overviewLedgerSubtitle", nil)
+}
+
+// OverviewMetricClasses says "Classes"
+// in the language the app shows.
+func OverviewMetricClasses() string { return In(i18n.Locale()).OverviewMetricClasses() }
+
+// OverviewMetricClasses says "Classes"
+// in the language of msgs.
+func (msgs Messages) OverviewMetricClasses() string {
+	return Catalog.Format(msgs.locale, "overviewMetricClasses", nil)
+}
+
+// OverviewMetricStudents says "Students"
+// in the language the app shows.
+func OverviewMetricStudents() string { return In(i18n.Locale()).OverviewMetricStudents() }
+
+// OverviewMetricStudents says "Students"
+// in the language of msgs.
+func (msgs Messages) OverviewMetricStudents() string {
+	return Catalog.Format(msgs.locale, "overviewMetricStudents", nil)
+}
+
+// OverviewMetricStudentsSub says "%s active · %s physics · %s history"
+// in the language the app shows.
+func OverviewMetricStudentsSub() string { return In(i18n.Locale()).OverviewMetricStudentsSub() }
+
+// OverviewMetricStudentsSub says "%s active · %s physics · %s history"
+// in the language of msgs.
+func (msgs Messages) OverviewMetricStudentsSub() string {
+	return Catalog.Format(msgs.locale, "overviewMetricStudentsSub", nil)
+}
+
+// OverviewMetricStudentsInactive says "%s inactive"
+// in the language the app shows.
+func OverviewMetricStudentsInactive() string {
+	return In(i18n.Locale()).OverviewMetricStudentsInactive()
+}
+
+// OverviewMetricStudentsInactive says "%s inactive"
+// in the language of msgs.
+func (msgs Messages) OverviewMetricStudentsInactive() string {
+	return Catalog.Format(msgs.locale, "overviewMetricStudentsInactive", nil)
+}
+
+// OverviewMetricTeachers says "Teachers & assignments"
+// in the language the app shows.
+func OverviewMetricTeachers() string { return In(i18n.Locale()).OverviewMetricTeachers() }
+
+// OverviewMetricTeachers says "Teachers & assignments"
+// in the language of msgs.
+func (msgs Messages) OverviewMetricTeachers() string {
+	return Catalog.Format(msgs.locale, "overviewMetricTeachers", nil)
+}
+
+// OverviewMetricTeachersSub says "%s assignments · %s groups"
+// in the language the app shows.
+func OverviewMetricTeachersSub() string { return In(i18n.Locale()).OverviewMetricTeachersSub() }
+
+// OverviewMetricTeachersSub says "%s assignments · %s groups"
+// in the language of msgs.
+func (msgs Messages) OverviewMetricTeachersSub() string {
+	return Catalog.Format(msgs.locale, "overviewMetricTeachersSub", nil)
+}
+
+// OverviewMetricBaselines says "Baseline coverage"
+// in the language the app shows.
+func OverviewMetricBaselines() string { return In(i18n.Locale()).OverviewMetricBaselines() }
+
+// OverviewMetricBaselines says "Baseline coverage"
+// in the language of msgs.
+func (msgs Messages) OverviewMetricBaselines() string {
+	return Catalog.Format(msgs.locale, "overviewMetricBaselines", nil)
+}
+
+// OverviewMetricBaselinesSub says "%s/%s classes · %s subjects"
+// in the language the app shows.
+func OverviewMetricBaselinesSub() string { return In(i18n.Locale()).OverviewMetricBaselinesSub() }
+
+// OverviewMetricBaselinesSub says "%s/%s classes · %s subjects"
+// in the language of msgs.
+func (msgs Messages) OverviewMetricBaselinesSub() string {
+	return Catalog.Format(msgs.locale, "overviewMetricBaselinesSub", nil)
+}
+
+// OverviewMetricBaselinesAvg says "Avg entry %s"
+// in the language the app shows.
+func OverviewMetricBaselinesAvg() string { return In(i18n.Locale()).OverviewMetricBaselinesAvg() }
+
+// OverviewMetricBaselinesAvg says "Avg entry %s"
+// in the language of msgs.
+func (msgs Messages) OverviewMetricBaselinesAvg() string {
+	return Catalog.Format(msgs.locale, "overviewMetricBaselinesAvg", nil)
+}
+
+// OverviewLatestAssessment says "Latest assessment"
+// in the language the app shows.
+func OverviewLatestAssessment() string { return In(i18n.Locale()).OverviewLatestAssessment() }
+
+// OverviewLatestAssessment says "Latest assessment"
+// in the language of msgs.
+func (msgs Messages) OverviewLatestAssessment() string {
+	return Catalog.Format(msgs.locale, "overviewLatestAssessment", nil)
+}
+
+// OverviewLatestOfficial says "Official published"
+// in the language the app shows.
+func OverviewLatestOfficial() string { return In(i18n.Locale()).OverviewLatestOfficial() }
+
+// OverviewLatestOfficial says "Official published"
+// in the language of msgs.
+func (msgs Messages) OverviewLatestOfficial() string {
+	return Catalog.Format(msgs.locale, "overviewLatestOfficial", nil)
+}
+
+// OverviewLatestPending says "Not calculated yet"
+// in the language the app shows.
+func OverviewLatestPending() string { return In(i18n.Locale()).OverviewLatestPending() }
+
+// OverviewLatestPending says "Not calculated yet"
+// in the language of msgs.
+func (msgs Messages) OverviewLatestPending() string {
+	return Catalog.Format(msgs.locale, "overviewLatestPending", nil)
+}
+
+// OverviewLatestStale says "Source data changed; recalculate recommended"
+// in the language the app shows.
+func OverviewLatestStale() string { return In(i18n.Locale()).OverviewLatestStale() }
+
+// OverviewLatestStale says "Source data changed; recalculate recommended"
+// in the language of msgs.
+func (msgs Messages) OverviewLatestStale() string {
+	return Catalog.Format(msgs.locale, "overviewLatestStale", nil)
+}
+
+// OverviewLatestMetrics says "%s rows · %s teachers · Avg %s"
+// in the language the app shows.
+func OverviewLatestMetrics() string { return In(i18n.Locale()).OverviewLatestMetrics() }
+
+// OverviewLatestMetrics says "%s rows · %s teachers · Avg %s"
+// in the language of msgs.
+func (msgs Messages) OverviewLatestMetrics() string {
+	return Catalog.Format(msgs.locale, "overviewLatestMetrics", nil)
+}
+
+// OverviewOpenWorkbench says "Open workbench"
+// in the language the app shows.
+func OverviewOpenWorkbench() string { return In(i18n.Locale()).OverviewOpenWorkbench() }
+
+// OverviewOpenWorkbench says "Open workbench"
+// in the language of msgs.
+func (msgs Messages) OverviewOpenWorkbench() string {
+	return Catalog.Format(msgs.locale, "overviewOpenWorkbench", nil)
+}
+
+// OverviewViewResults says "View results"
+// in the language the app shows.
+func OverviewViewResults() string { return In(i18n.Locale()).OverviewViewResults() }
+
+// OverviewViewResults says "View results"
+// in the language of msgs.
+func (msgs Messages) OverviewViewResults() string {
+	return Catalog.Format(msgs.locale, "overviewViewResults", nil)
+}
+
+// OverviewExportLatest says "Export report"
+// in the language the app shows.
+func OverviewExportLatest() string { return In(i18n.Locale()).OverviewExportLatest() }
+
+// OverviewExportLatest says "Export report"
+// in the language of msgs.
+func (msgs Messages) OverviewExportLatest() string {
+	return Catalog.Format(msgs.locale, "overviewExportLatest", nil)
+}
+
+// OverviewAlertsTitle says "Needs attention"
+// in the language the app shows.
+func OverviewAlertsTitle() string { return In(i18n.Locale()).OverviewAlertsTitle() }
+
+// OverviewAlertsTitle says "Needs attention"
+// in the language of msgs.
+func (msgs Messages) OverviewAlertsTitle() string {
+	return Catalog.Format(msgs.locale, "overviewAlertsTitle", nil)
+}
+
+// OverviewAlertsClear says "All checks passed for this workspace."
+// in the language the app shows.
+func OverviewAlertsClear() string { return In(i18n.Locale()).OverviewAlertsClear() }
+
+// OverviewAlertsClear says "All checks passed for this workspace."
+// in the language of msgs.
+func (msgs Messages) OverviewAlertsClear() string {
+	return Catalog.Format(msgs.locale, "overviewAlertsClear", nil)
+}
+
+// OverviewAlertBlocking says "%s blocking issues need fixing before official calculation."
+// in the language the app shows.
+func OverviewAlertBlocking() string { return In(i18n.Locale()).OverviewAlertBlocking() }
+
+// OverviewAlertBlocking says "%s blocking issues need fixing before official calculation."
+// in the language of msgs.
+func (msgs Messages) OverviewAlertBlocking() string {
+	return Catalog.Format(msgs.locale, "overviewAlertBlocking", nil)
+}
+
+// OverviewAlertWarning says "%s warnings to review in Data Quality."
+// in the language the app shows.
+func OverviewAlertWarning() string { return In(i18n.Locale()).OverviewAlertWarning() }
+
+// OverviewAlertWarning says "%s warnings to review in Data Quality."
+// in the language of msgs.
+func (msgs Messages) OverviewAlertWarning() string {
+	return Catalog.Format(msgs.locale, "overviewAlertWarning", nil)
+}
+
+// OverviewAlertNoRoster says "No student roster imported yet."
+// in the language the app shows.
+func OverviewAlertNoRoster() string { return In(i18n.Locale()).OverviewAlertNoRoster() }
+
+// OverviewAlertNoRoster says "No student roster imported yet."
+// in the language of msgs.
+func (msgs Messages) OverviewAlertNoRoster() string {
+	return Catalog.Format(msgs.locale, "overviewAlertNoRoster", nil)
+}
+
+// OverviewAlertNoAssignments says "No teacher assignments imported yet."
+// in the language the app shows.
+func OverviewAlertNoAssignments() string { return In(i18n.Locale()).OverviewAlertNoAssignments() }
+
+// OverviewAlertNoAssignments says "No teacher assignments imported yet."
+// in the language of msgs.
+func (msgs Messages) OverviewAlertNoAssignments() string {
+	return Catalog.Format(msgs.locale, "overviewAlertNoAssignments", nil)
+}
+
+// OverviewAlertNoBaselines says "No entry baselines imported yet."
+// in the language the app shows.
+func OverviewAlertNoBaselines() string { return In(i18n.Locale()).OverviewAlertNoBaselines() }
+
+// OverviewAlertNoBaselines says "No entry baselines imported yet."
+// in the language of msgs.
+func (msgs Messages) OverviewAlertNoBaselines() string {
+	return Catalog.Format(msgs.locale, "overviewAlertNoBaselines", nil)
+}
+
+// OverviewExamTimeline says "Exam timeline & trend"
+// in the language the app shows.
+func OverviewExamTimeline() string { return In(i18n.Locale()).OverviewExamTimeline() }
+
+// OverviewExamTimeline says "Exam timeline & trend"
+// in the language of msgs.
+func (msgs Messages) OverviewExamTimeline() string {
+	return Catalog.Format(msgs.locale, "overviewExamTimeline", nil)
+}
+
+// OverviewExamCountSub says "%s calculated / %s exams"
+// in the language the app shows.
+func OverviewExamCountSub() string { return In(i18n.Locale()).OverviewExamCountSub() }
+
+// OverviewExamCountSub says "%s calculated / %s exams"
+// in the language of msgs.
+func (msgs Messages) OverviewExamCountSub() string {
+	return Catalog.Format(msgs.locale, "overviewExamCountSub", nil)
+}
+
+// OverviewQuickImport says "Import data"
+// in the language the app shows.
+func OverviewQuickImport() string { return In(i18n.Locale()).OverviewQuickImport() }
+
+// OverviewQuickImport says "Import data"
+// in the language of msgs.
+func (msgs Messages) OverviewQuickImport() string {
+	return Catalog.Format(msgs.locale, "overviewQuickImport", nil)
+}
+
+// OverviewQuickNewExam says "New exam"
+// in the language the app shows.
+func OverviewQuickNewExam() string { return In(i18n.Locale()).OverviewQuickNewExam() }
+
+// OverviewQuickNewExam says "New exam"
+// in the language of msgs.
+func (msgs Messages) OverviewQuickNewExam() string {
+	return Catalog.Format(msgs.locale, "overviewQuickNewExam", nil)
+}
+
+// ImportCenterTitle says "Data import"
+// in the language the app shows.
+func ImportCenterTitle() string { return In(i18n.Locale()).ImportCenterTitle() }
+
+// ImportCenterTitle says "Data import"
+// in the language of msgs.
+func (msgs Messages) ImportCenterTitle() string {
+	return Catalog.Format(msgs.locale, "importCenterTitle", nil)
+}
+
+// ImportCenterSubtitle says "Import Excel or CSV files, review multi-sheet previews, and manage import history."
+// in the language the app shows.
+func ImportCenterSubtitle() string { return In(i18n.Locale()).ImportCenterSubtitle() }
+
+// ImportCenterSubtitle says "Import Excel or CSV files, review multi-sheet previews, and manage import history."
+// in the language of msgs.
+func (msgs Messages) ImportCenterSubtitle() string {
+	return Catalog.Format(msgs.locale, "importCenterSubtitle", nil)
+}
+
+// ImportCenterTabNew says "New import"
+// in the language the app shows.
+func ImportCenterTabNew() string { return In(i18n.Locale()).ImportCenterTabNew() }
+
+// ImportCenterTabNew says "New import"
+// in the language of msgs.
+func (msgs Messages) ImportCenterTabNew() string {
+	return Catalog.Format(msgs.locale, "importCenterTabNew", nil)
+}
+
+// ImportCenterTabGuide says "Data checklist"
+// in the language the app shows.
+func ImportCenterTabGuide() string { return In(i18n.Locale()).ImportCenterTabGuide() }
+
+// ImportCenterTabGuide says "Data checklist"
+// in the language of msgs.
+func (msgs Messages) ImportCenterTabGuide() string {
+	return Catalog.Format(msgs.locale, "importCenterTabGuide", nil)
+}
+
+// ImportCenterTabHistory says "Import history"
+// in the language the app shows.
+func ImportCenterTabHistory() string { return In(i18n.Locale()).ImportCenterTabHistory() }
+
+// ImportCenterTabHistory says "Import history"
+// in the language of msgs.
+func (msgs Messages) ImportCenterTabHistory() string {
+	return Catalog.Format(msgs.locale, "importCenterTabHistory", nil)
+}
+
+// ImportCenterReturnContext says "Target: %s"
+// in the language the app shows.
+func ImportCenterReturnContext() string { return In(i18n.Locale()).ImportCenterReturnContext() }
+
+// ImportCenterReturnContext says "Target: %s"
+// in the language of msgs.
+func (msgs Messages) ImportCenterReturnContext() string {
+	return Catalog.Format(msgs.locale, "importCenterReturnContext", nil)
+}
+
+// ImportCenterReturnButton says "Back to %s"
+// in the language the app shows.
+func ImportCenterReturnButton() string { return In(i18n.Locale()).ImportCenterReturnButton() }
+
+// ImportCenterReturnButton says "Back to %s"
+// in the language of msgs.
+func (msgs Messages) ImportCenterReturnButton() string {
+	return Catalog.Format(msgs.locale, "importCenterReturnButton", nil)
+}
+
+// ImportCenterDoneReturn says "Done, return to %s"
+// in the language the app shows.
+func ImportCenterDoneReturn() string { return In(i18n.Locale()).ImportCenterDoneReturn() }
+
+// ImportCenterDoneReturn says "Done, return to %s"
+// in the language of msgs.
+func (msgs Messages) ImportCenterDoneReturn() string {
+	return Catalog.Format(msgs.locale, "importCenterDoneReturn", nil)
+}
+
+// ImportCenterDropTitle says "Drop an Excel (.xlsx / .xls) or CSV file here"
+// in the language the app shows.
+func ImportCenterDropTitle() string { return In(i18n.Locale()).ImportCenterDropTitle() }
+
+// ImportCenterDropTitle says "Drop an Excel (.xlsx / .xls) or CSV file here"
+// in the language of msgs.
+func (msgs Messages) ImportCenterDropTitle() string {
+	return Catalog.Format(msgs.locale, "importCenterDropTitle", nil)
+}
+
+// ImportCenterDropActive says "Release to inspect workbook"
+// in the language the app shows.
+func ImportCenterDropActive() string { return In(i18n.Locale()).ImportCenterDropActive() }
+
+// ImportCenterDropActive says "Release to inspect workbook"
+// in the language of msgs.
+func (msgs Messages) ImportCenterDropActive() string {
+	return Catalog.Format(msgs.locale, "importCenterDropActive", nil)
+}
+
+// ImportCenterDropHint says "Or click to browse local files. Multiple sheets in one workbook are detected automatically."
+// in the language the app shows.
+func ImportCenterDropHint() string { return In(i18n.Locale()).ImportCenterDropHint() }
+
+// ImportCenterDropHint says "Or click to browse local files. Multiple sheets in one workbook are detected automatically."
+// in the language of msgs.
+func (msgs Messages) ImportCenterDropHint() string {
+	return Catalog.Format(msgs.locale, "importCenterDropHint", nil)
+}
+
+// ImportCenterBrowseFile says "Choose file"
+// in the language the app shows.
+func ImportCenterBrowseFile() string { return In(i18n.Locale()).ImportCenterBrowseFile() }
+
+// ImportCenterBrowseFile says "Choose file"
+// in the language of msgs.
+func (msgs Messages) ImportCenterBrowseFile() string {
+	return Catalog.Format(msgs.locale, "importCenterBrowseFile", nil)
+}
+
+// ImportCenterScopeStage says "Base data (current workspace)"
+// in the language the app shows.
+func ImportCenterScopeStage() string { return In(i18n.Locale()).ImportCenterScopeStage() }
+
+// ImportCenterScopeStage says "Base data (current workspace)"
+// in the language of msgs.
+func (msgs Messages) ImportCenterScopeStage() string {
+	return Catalog.Format(msgs.locale, "importCenterScopeStage", nil)
+}
+
+// ImportCenterScopeExam says "Exam data"
+// in the language the app shows.
+func ImportCenterScopeExam() string { return In(i18n.Locale()).ImportCenterScopeExam() }
+
+// ImportCenterScopeExam says "Exam data"
+// in the language of msgs.
+func (msgs Messages) ImportCenterScopeExam() string {
+	return Catalog.Format(msgs.locale, "importCenterScopeExam", nil)
+}
+
+// ImportCenterSheetsDetected says "Detected sheets (%s)"
+// in the language the app shows.
+func ImportCenterSheetsDetected() string { return In(i18n.Locale()).ImportCenterSheetsDetected() }
+
+// ImportCenterSheetsDetected says "Detected sheets (%s)"
+// in the language of msgs.
+func (msgs Messages) ImportCenterSheetsDetected() string {
+	return Catalog.Format(msgs.locale, "importCenterSheetsDetected", nil)
+}
+
+// ImportCenterSheetRecommended says "Recommended"
+// in the language the app shows.
+func ImportCenterSheetRecommended() string { return In(i18n.Locale()).ImportCenterSheetRecommended() }
+
+// ImportCenterSheetRecommended says "Recommended"
+// in the language of msgs.
+func (msgs Messages) ImportCenterSheetRecommended() string {
+	return Catalog.Format(msgs.locale, "importCenterSheetRecommended", nil)
+}
+
+// ImportCenterSheetUnrecognized says "Unrecognized"
+// in the language the app shows.
+func ImportCenterSheetUnrecognized() string { return In(i18n.Locale()).ImportCenterSheetUnrecognized() }
+
+// ImportCenterSheetUnrecognized says "Unrecognized"
+// in the language of msgs.
+func (msgs Messages) ImportCenterSheetUnrecognized() string {
+	return Catalog.Format(msgs.locale, "importCenterSheetUnrecognized", nil)
+}
+
+// ImportCenterSheetRows says "%s rows"
+// in the language the app shows.
+func ImportCenterSheetRows() string { return In(i18n.Locale()).ImportCenterSheetRows() }
+
+// ImportCenterSheetRows says "%s rows"
+// in the language of msgs.
+func (msgs Messages) ImportCenterSheetRows() string {
+	return Catalog.Format(msgs.locale, "importCenterSheetRows", nil)
+}
+
+// ImportCenterSheetMissingCols says "Missing columns: %s"
+// in the language the app shows.
+func ImportCenterSheetMissingCols() string { return In(i18n.Locale()).ImportCenterSheetMissingCols() }
+
+// ImportCenterSheetMissingCols says "Missing columns: %s"
+// in the language of msgs.
+func (msgs Messages) ImportCenterSheetMissingCols() string {
+	return Catalog.Format(msgs.locale, "importCenterSheetMissingCols", nil)
+}
+
+// ImportCenterSheetReady says "All required columns matched"
+// in the language the app shows.
+func ImportCenterSheetReady() string { return In(i18n.Locale()).ImportCenterSheetReady() }
+
+// ImportCenterSheetReady says "All required columns matched"
+// in the language of msgs.
+func (msgs Messages) ImportCenterSheetReady() string {
+	return Catalog.Format(msgs.locale, "importCenterSheetReady", nil)
+}
+
+// ImportCenterHistoryEmpty says "No import records for this workspace yet."
+// in the language the app shows.
+func ImportCenterHistoryEmpty() string { return In(i18n.Locale()).ImportCenterHistoryEmpty() }
+
+// ImportCenterHistoryEmpty says "No import records for this workspace yet."
+// in the language of msgs.
+func (msgs Messages) ImportCenterHistoryEmpty() string {
+	return Catalog.Format(msgs.locale, "importCenterHistoryEmpty", nil)
+}
+
+// ImportCenterUndoConfirmTitle says "Undo this import?"
+// in the language the app shows.
+func ImportCenterUndoConfirmTitle() string { return In(i18n.Locale()).ImportCenterUndoConfirmTitle() }
+
+// ImportCenterUndoConfirmTitle says "Undo this import?"
+// in the language of msgs.
+func (msgs Messages) ImportCenterUndoConfirmTitle() string {
+	return Catalog.Format(msgs.locale, "importCenterUndoConfirmTitle", nil)
+}
+
+// ImportCenterUndoConfirmBody says "This will roll back all records inserted or updated by %s."
+// in the language the app shows.
+func ImportCenterUndoConfirmBody() string { return In(i18n.Locale()).ImportCenterUndoConfirmBody() }
+
+// ImportCenterUndoConfirmBody says "This will roll back all records inserted or updated by %s."
+// in the language of msgs.
+func (msgs Messages) ImportCenterUndoConfirmBody() string {
+	return Catalog.Format(msgs.locale, "importCenterUndoConfirmBody", nil)
+}
+
+// ImportCenterUndoConfirmAction says "Undo import"
+// in the language the app shows.
+func ImportCenterUndoConfirmAction() string { return In(i18n.Locale()).ImportCenterUndoConfirmAction() }
+
+// ImportCenterUndoConfirmAction says "Undo import"
+// in the language of msgs.
+func (msgs Messages) ImportCenterUndoConfirmAction() string {
+	return Catalog.Format(msgs.locale, "importCenterUndoConfirmAction", nil)
+}
+
+// ImportCenterUndoSuccess says "Import rolled back."
+// in the language the app shows.
+func ImportCenterUndoSuccess() string { return In(i18n.Locale()).ImportCenterUndoSuccess() }
+
+// ImportCenterUndoSuccess says "Import rolled back."
+// in the language of msgs.
+func (msgs Messages) ImportCenterUndoSuccess() string {
+	return Catalog.Format(msgs.locale, "importCenterUndoSuccess", nil)
+}
+
+// ImportCenterChecklistTitle says "Workspace preparation checklist"
+// in the language the app shows.
+func ImportCenterChecklistTitle() string { return In(i18n.Locale()).ImportCenterChecklistTitle() }
+
+// ImportCenterChecklistTitle says "Workspace preparation checklist"
+// in the language of msgs.
+func (msgs Messages) ImportCenterChecklistTitle() string {
+	return Catalog.Format(msgs.locale, "importCenterChecklistTitle", nil)
+}
+
+// ImportCenterChecklistHint says "Track which base datasets are ready for %s and jump directly to import missing ones."
+// in the language the app shows.
+func ImportCenterChecklistHint() string { return In(i18n.Locale()).ImportCenterChecklistHint() }
+
+// ImportCenterChecklistHint says "Track which base datasets are ready for %s and jump directly to import missing ones."
+// in the language of msgs.
+func (msgs Messages) ImportCenterChecklistHint() string {
+	return Catalog.Format(msgs.locale, "importCenterChecklistHint", nil)
+}
+
+// ImportCenterChecklistReady says "Ready"
+// in the language the app shows.
+func ImportCenterChecklistReady() string { return In(i18n.Locale()).ImportCenterChecklistReady() }
+
+// ImportCenterChecklistReady says "Ready"
+// in the language of msgs.
+func (msgs Messages) ImportCenterChecklistReady() string {
+	return Catalog.Format(msgs.locale, "importCenterChecklistReady", nil)
+}
+
+// ImportCenterChecklistMissing says "Missing"
+// in the language the app shows.
+func ImportCenterChecklistMissing() string { return In(i18n.Locale()).ImportCenterChecklistMissing() }
+
+// ImportCenterChecklistMissing says "Missing"
+// in the language of msgs.
+func (msgs Messages) ImportCenterChecklistMissing() string {
+	return Catalog.Format(msgs.locale, "importCenterChecklistMissing", nil)
+}
+
+// ImportCenterGoImport says "Import now"
+// in the language the app shows.
+func ImportCenterGoImport() string { return In(i18n.Locale()).ImportCenterGoImport() }
+
+// ImportCenterGoImport says "Import now"
+// in the language of msgs.
+func (msgs Messages) ImportCenterGoImport() string {
+	return Catalog.Format(msgs.locale, "importCenterGoImport", nil)
+}
+
+// ImportCenterStepSelect says "Choose file & target"
+// in the language the app shows.
+func ImportCenterStepSelect() string { return In(i18n.Locale()).ImportCenterStepSelect() }
+
+// ImportCenterStepSelect says "Choose file & target"
+// in the language of msgs.
+func (msgs Messages) ImportCenterStepSelect() string {
+	return Catalog.Format(msgs.locale, "importCenterStepSelect", nil)
+}
+
+// ImportCenterStepMap says "Verify sheets & columns"
+// in the language the app shows.
+func ImportCenterStepMap() string { return In(i18n.Locale()).ImportCenterStepMap() }
+
+// ImportCenterStepMap says "Verify sheets & columns"
+// in the language of msgs.
+func (msgs Messages) ImportCenterStepMap() string {
+	return Catalog.Format(msgs.locale, "importCenterStepMap", nil)
+}
+
+// ImportCenterStepPreview says "Validate & commit"
+// in the language the app shows.
+func ImportCenterStepPreview() string { return In(i18n.Locale()).ImportCenterStepPreview() }
+
+// ImportCenterStepPreview says "Validate & commit"
+// in the language of msgs.
+func (msgs Messages) ImportCenterStepPreview() string {
+	return Catalog.Format(msgs.locale, "importCenterStepPreview", nil)
+}
+
+// ImportCenterStepDone says "Completed"
+// in the language the app shows.
+func ImportCenterStepDone() string { return In(i18n.Locale()).ImportCenterStepDone() }
+
+// ImportCenterStepDone says "Completed"
+// in the language of msgs.
+func (msgs Messages) ImportCenterStepDone() string {
+	return Catalog.Format(msgs.locale, "importCenterStepDone", nil)
+}
+
+// WorkbenchCopyPrevTargets says "Copy previous exam targets"
+// in the language the app shows.
+func WorkbenchCopyPrevTargets() string { return In(i18n.Locale()).WorkbenchCopyPrevTargets() }
+
+// WorkbenchCopyPrevTargets says "Copy previous exam targets"
+// in the language of msgs.
+func (msgs Messages) WorkbenchCopyPrevTargets() string {
+	return Catalog.Format(msgs.locale, "workbenchCopyPrevTargets", nil)
+}
+
+// WorkbenchCopyPrevTargetsDone says "Copied %s class targets from the previous exam."
+// in the language the app shows.
+func WorkbenchCopyPrevTargetsDone() string { return In(i18n.Locale()).WorkbenchCopyPrevTargetsDone() }
+
+// WorkbenchCopyPrevTargetsDone says "Copied %s class targets from the previous exam."
+// in the language of msgs.
+func (msgs Messages) WorkbenchCopyPrevTargetsDone() string {
+	return Catalog.Format(msgs.locale, "workbenchCopyPrevTargetsDone", nil)
+}
+
+// WorkbenchCopyPrevTargetsEmpty says "No previous exam with targets found for this cohort."
+// in the language the app shows.
+func WorkbenchCopyPrevTargetsEmpty() string { return In(i18n.Locale()).WorkbenchCopyPrevTargetsEmpty() }
+
+// WorkbenchCopyPrevTargetsEmpty says "No previous exam with targets found for this cohort."
+// in the language of msgs.
+func (msgs Messages) WorkbenchCopyPrevTargetsEmpty() string {
+	return Catalog.Format(msgs.locale, "workbenchCopyPrevTargetsEmpty", nil)
+}
+
+// WorkbenchCompareRuns says "Compare runs"
+// in the language the app shows.
+func WorkbenchCompareRuns() string { return In(i18n.Locale()).WorkbenchCompareRuns() }
+
+// WorkbenchCompareRuns says "Compare runs"
+// in the language of msgs.
+func (msgs Messages) WorkbenchCompareRuns() string {
+	return Catalog.Format(msgs.locale, "workbenchCompareRuns", nil)
+}
+
+// WorkbenchCompareTitle says "Run comparison"
+// in the language the app shows.
+func WorkbenchCompareTitle() string { return In(i18n.Locale()).WorkbenchCompareTitle() }
+
+// WorkbenchCompareTitle says "Run comparison"
+// in the language of msgs.
+func (msgs Messages) WorkbenchCompareTitle() string {
+	return Catalog.Format(msgs.locale, "workbenchCompareTitle", nil)
+}
+
+// WorkbenchCompareBase says "Base run"
+// in the language the app shows.
+func WorkbenchCompareBase() string { return In(i18n.Locale()).WorkbenchCompareBase() }
+
+// WorkbenchCompareBase says "Base run"
+// in the language of msgs.
+func (msgs Messages) WorkbenchCompareBase() string {
+	return Catalog.Format(msgs.locale, "workbenchCompareBase", nil)
+}
+
+// WorkbenchCompareTarget says "Compare run"
+// in the language the app shows.
+func WorkbenchCompareTarget() string { return In(i18n.Locale()).WorkbenchCompareTarget() }
+
+// WorkbenchCompareTarget says "Compare run"
+// in the language of msgs.
+func (msgs Messages) WorkbenchCompareTarget() string {
+	return Catalog.Format(msgs.locale, "workbenchCompareTarget", nil)
+}
+
+// WorkbenchCompareSummary says "%s changed rows · %s tier shifts · %s teachers changed"
+// in the language the app shows.
+func WorkbenchCompareSummary() string { return In(i18n.Locale()).WorkbenchCompareSummary() }
+
+// WorkbenchCompareSummary says "%s changed rows · %s tier shifts · %s teachers changed"
+// in the language of msgs.
+func (msgs Messages) WorkbenchCompareSummary() string {
+	return Catalog.Format(msgs.locale, "workbenchCompareSummary", nil)
+}
+
+// WorkbenchCompareNoDiff says "No differences between these two runs."
+// in the language the app shows.
+func WorkbenchCompareNoDiff() string { return In(i18n.Locale()).WorkbenchCompareNoDiff() }
+
+// WorkbenchCompareNoDiff says "No differences between these two runs."
+// in the language of msgs.
+func (msgs Messages) WorkbenchCompareNoDiff() string {
+	return Catalog.Format(msgs.locale, "workbenchCompareNoDiff", nil)
+}
+
+// WorkbenchCompareOnlyChanged says "Show changed only"
+// in the language the app shows.
+func WorkbenchCompareOnlyChanged() string { return In(i18n.Locale()).WorkbenchCompareOnlyChanged() }
+
+// WorkbenchCompareOnlyChanged says "Show changed only"
+// in the language of msgs.
+func (msgs Messages) WorkbenchCompareOnlyChanged() string {
+	return Catalog.Format(msgs.locale, "workbenchCompareOnlyChanged", nil)
+}
+
+// WorkbenchColumnRankDelta says "Rank Δ"
+// in the language the app shows.
+func WorkbenchColumnRankDelta() string { return In(i18n.Locale()).WorkbenchColumnRankDelta() }
+
+// WorkbenchColumnRankDelta says "Rank Δ"
+// in the language of msgs.
+func (msgs Messages) WorkbenchColumnRankDelta() string {
+	return Catalog.Format(msgs.locale, "workbenchColumnRankDelta", nil)
+}
+
+// WorkbenchColumnTotalDelta says "Total Δ"
+// in the language the app shows.
+func WorkbenchColumnTotalDelta() string { return In(i18n.Locale()).WorkbenchColumnTotalDelta() }
+
+// WorkbenchColumnTotalDelta says "Total Δ"
+// in the language of msgs.
+func (msgs Messages) WorkbenchColumnTotalDelta() string {
+	return Catalog.Format(msgs.locale, "workbenchColumnTotalDelta", nil)
+}
+
+// WorkbenchColumnTierChange says "Tier"
+// in the language the app shows.
+func WorkbenchColumnTierChange() string { return In(i18n.Locale()).WorkbenchColumnTierChange() }
+
+// WorkbenchColumnTierChange says "Tier"
+// in the language of msgs.
+func (msgs Messages) WorkbenchColumnTierChange() string {
+	return Catalog.Format(msgs.locale, "workbenchColumnTierChange", nil)
+}
+
+// WorkbenchColumnPointsDelta says "Points Δ"
+// in the language the app shows.
+func WorkbenchColumnPointsDelta() string { return In(i18n.Locale()).WorkbenchColumnPointsDelta() }
+
+// WorkbenchColumnPointsDelta says "Points Δ"
+// in the language of msgs.
+func (msgs Messages) WorkbenchColumnPointsDelta() string {
+	return Catalog.Format(msgs.locale, "workbenchColumnPointsDelta", nil)
+}
+
+// ZeroTargetBatchTitle says "Resolve zero-target classes"
+// in the language the app shows.
+func ZeroTargetBatchTitle() string { return In(i18n.Locale()).ZeroTargetBatchTitle() }
+
+// ZeroTargetBatchTitle says "Resolve zero-target classes"
+// in the language of msgs.
+func (msgs Messages) ZeroTargetBatchTitle() string {
+	return Catalog.Format(msgs.locale, "zeroTargetBatchTitle", nil)
+}
+
+// ZeroTargetBatchSubtitle says "Fill missing targets or mark classes excluded from completion in one step."
+// in the language the app shows.
+func ZeroTargetBatchSubtitle() string { return In(i18n.Locale()).ZeroTargetBatchSubtitle() }
+
+// ZeroTargetBatchSubtitle says "Fill missing targets or mark classes excluded from completion in one step."
+// in the language of msgs.
+func (msgs Messages) ZeroTargetBatchSubtitle() string {
+	return Catalog.Format(msgs.locale, "zeroTargetBatchSubtitle", nil)
+}
+
+// ZeroTargetBatchReason says "Adjustment reason"
+// in the language the app shows.
+func ZeroTargetBatchReason() string { return In(i18n.Locale()).ZeroTargetBatchReason() }
+
+// ZeroTargetBatchReason says "Adjustment reason"
+// in the language of msgs.
+func (msgs Messages) ZeroTargetBatchReason() string {
+	return Catalog.Format(msgs.locale, "zeroTargetBatchReason", nil)
+}
+
+// ZeroTargetBatchReasonPlaceholder says "e.g. Verified with grade office"
+// in the language the app shows.
+func ZeroTargetBatchReasonPlaceholder() string {
+	return In(i18n.Locale()).ZeroTargetBatchReasonPlaceholder()
+}
+
+// ZeroTargetBatchReasonPlaceholder says "e.g. Verified with grade office"
+// in the language of msgs.
+func (msgs Messages) ZeroTargetBatchReasonPlaceholder() string {
+	return Catalog.Format(msgs.locale, "zeroTargetBatchReasonPlaceholder", nil)
+}
+
+// ZeroTargetBatchExclude says "Exclude"
+// in the language the app shows.
+func ZeroTargetBatchExclude() string { return In(i18n.Locale()).ZeroTargetBatchExclude() }
+
+// ZeroTargetBatchExclude says "Exclude"
+// in the language of msgs.
+func (msgs Messages) ZeroTargetBatchExclude() string {
+	return Catalog.Format(msgs.locale, "zeroTargetBatchExclude", nil)
+}
+
+// ZeroTargetBatchApply says "Apply & recalculate"
+// in the language the app shows.
+func ZeroTargetBatchApply() string { return In(i18n.Locale()).ZeroTargetBatchApply() }
+
+// ZeroTargetBatchApply says "Apply & recalculate"
+// in the language of msgs.
+func (msgs Messages) ZeroTargetBatchApply() string {
+	return Catalog.Format(msgs.locale, "zeroTargetBatchApply", nil)
+}
+
+// ZeroTargetBatchApplied says "Zero-target adjustments saved."
+// in the language the app shows.
+func ZeroTargetBatchApplied() string { return In(i18n.Locale()).ZeroTargetBatchApplied() }
+
+// ZeroTargetBatchApplied says "Zero-target adjustments saved."
+// in the language of msgs.
+func (msgs Messages) ZeroTargetBatchApplied() string {
+	return Catalog.Format(msgs.locale, "zeroTargetBatchApplied", nil)
+}
+
+// DrilldownTitle says "Participant score breakdown"
+// in the language the app shows.
+func DrilldownTitle() string { return In(i18n.Locale()).DrilldownTitle() }
+
+// DrilldownTitle says "Participant score breakdown"
+// in the language of msgs.
+func (msgs Messages) DrilldownTitle() string {
+	return Catalog.Format(msgs.locale, "drilldownTitle", nil)
+}
+
+// DrilldownSubtitle says "%s · %s · Cutoff %s"
+// in the language the app shows.
+func DrilldownSubtitle() string { return In(i18n.Locale()).DrilldownSubtitle() }
+
+// DrilldownSubtitle says "%s · %s · Cutoff %s"
+// in the language of msgs.
+func (msgs Messages) DrilldownSubtitle() string {
+	return Catalog.Format(msgs.locale, "drilldownSubtitle", nil)
+}
+
+// DrilldownPassed says "Passed"
+// in the language the app shows.
+func DrilldownPassed() string { return In(i18n.Locale()).DrilldownPassed() }
+
+// DrilldownPassed says "Passed"
+// in the language of msgs.
+func (msgs Messages) DrilldownPassed() string {
+	return Catalog.Format(msgs.locale, "drilldownPassed", nil)
+}
+
+// DrilldownNotPassed says "Below"
+// in the language the app shows.
+func DrilldownNotPassed() string { return In(i18n.Locale()).DrilldownNotPassed() }
+
+// DrilldownNotPassed says "Below"
+// in the language of msgs.
+func (msgs Messages) DrilldownNotPassed() string {
+	return Catalog.Format(msgs.locale, "drilldownNotPassed", nil)
+}
+
+// DrilldownMissingScore says "No score"
+// in the language the app shows.
+func DrilldownMissingScore() string { return In(i18n.Locale()).DrilldownMissingScore() }
+
+// DrilldownMissingScore says "No score"
+// in the language of msgs.
+func (msgs Messages) DrilldownMissingScore() string {
+	return Catalog.Format(msgs.locale, "drilldownMissingScore", nil)
+}
+
+// QualityFixInline says "Fix inline"
+// in the language the app shows.
+func QualityFixInline() string { return In(i18n.Locale()).QualityFixInline() }
+
+// QualityFixInline says "Fix inline"
+// in the language of msgs.
+func (msgs Messages) QualityFixInline() string {
+	return Catalog.Format(msgs.locale, "qualityFixInline", nil)
+}
+
+// QualityFixTrackLabel says "Track"
+// in the language the app shows.
+func QualityFixTrackLabel() string { return In(i18n.Locale()).QualityFixTrackLabel() }
+
+// QualityFixTrackLabel says "Track"
+// in the language of msgs.
+func (msgs Messages) QualityFixTrackLabel() string {
+	return Catalog.Format(msgs.locale, "qualityFixTrackLabel", nil)
+}
+
+// QualityFixScoreLabel says "Score"
+// in the language the app shows.
+func QualityFixScoreLabel() string { return In(i18n.Locale()).QualityFixScoreLabel() }
+
+// QualityFixScoreLabel says "Score"
+// in the language of msgs.
+func (msgs Messages) QualityFixScoreLabel() string {
+	return Catalog.Format(msgs.locale, "qualityFixScoreLabel", nil)
+}
+
+// QualityFixFlagLabel says "Flag"
+// in the language the app shows.
+func QualityFixFlagLabel() string { return In(i18n.Locale()).QualityFixFlagLabel() }
+
+// QualityFixFlagLabel says "Flag"
+// in the language of msgs.
+func (msgs Messages) QualityFixFlagLabel() string {
+	return Catalog.Format(msgs.locale, "qualityFixFlagLabel", nil)
+}
+
+// QualityFixSaved says "Issue updated. Revalidating…"
+// in the language the app shows.
+func QualityFixSaved() string { return In(i18n.Locale()).QualityFixSaved() }
+
+// QualityFixSaved says "Issue updated. Revalidating…"
+// in the language of msgs.
+func (msgs Messages) QualityFixSaved() string {
+	return Catalog.Format(msgs.locale, "qualityFixSaved", nil)
+}
+
+// QualityFilterAll says "All"
+// in the language the app shows.
+func QualityFilterAll() string { return In(i18n.Locale()).QualityFilterAll() }
+
+// QualityFilterAll says "All"
+// in the language of msgs.
+func (msgs Messages) QualityFilterAll() string {
+	return Catalog.Format(msgs.locale, "qualityFilterAll", nil)
+}
+
+// QualityFilterBlocking says "Blocking"
+// in the language the app shows.
+func QualityFilterBlocking() string { return In(i18n.Locale()).QualityFilterBlocking() }
+
+// QualityFilterBlocking says "Blocking"
+// in the language of msgs.
+func (msgs Messages) QualityFilterBlocking() string {
+	return Catalog.Format(msgs.locale, "qualityFilterBlocking", nil)
+}
+
+// QualityFilterWarning says "Warnings"
+// in the language the app shows.
+func QualityFilterWarning() string { return In(i18n.Locale()).QualityFilterWarning() }
+
+// QualityFilterWarning says "Warnings"
+// in the language of msgs.
+func (msgs Messages) QualityFilterWarning() string {
+	return Catalog.Format(msgs.locale, "qualityFilterWarning", nil)
+}
+
+// SettingsSofficeTitle says "Legacy .xls conversion (LibreOffice)"
+// in the language the app shows.
+func SettingsSofficeTitle() string { return In(i18n.Locale()).SettingsSofficeTitle() }
+
+// SettingsSofficeTitle says "Legacy .xls conversion (LibreOffice)"
+// in the language of msgs.
+func (msgs Messages) SettingsSofficeTitle() string {
+	return Catalog.Format(msgs.locale, "settingsSofficeTitle", nil)
+}
+
+// SettingsSofficeDesc says "Required only when importing legacy .xls files. Modern .xlsx and .csv files work without it."
+// in the language the app shows.
+func SettingsSofficeDesc() string { return In(i18n.Locale()).SettingsSofficeDesc() }
+
+// SettingsSofficeDesc says "Required only when importing legacy .xls files. Modern .xlsx and .csv files work without it."
+// in the language of msgs.
+func (msgs Messages) SettingsSofficeDesc() string {
+	return Catalog.Format(msgs.locale, "settingsSofficeDesc", nil)
+}
+
+// SettingsSofficePathLabel says "soffice executable path"
+// in the language the app shows.
+func SettingsSofficePathLabel() string { return In(i18n.Locale()).SettingsSofficePathLabel() }
+
+// SettingsSofficePathLabel says "soffice executable path"
+// in the language of msgs.
+func (msgs Messages) SettingsSofficePathLabel() string {
+	return Catalog.Format(msgs.locale, "settingsSofficePathLabel", nil)
+}
+
+// SettingsSofficePathPlaceholder says "Leave empty for automatic detection"
+// in the language the app shows.
+func SettingsSofficePathPlaceholder() string {
+	return In(i18n.Locale()).SettingsSofficePathPlaceholder()
+}
+
+// SettingsSofficePathPlaceholder says "Leave empty for automatic detection"
+// in the language of msgs.
+func (msgs Messages) SettingsSofficePathPlaceholder() string {
+	return Catalog.Format(msgs.locale, "settingsSofficePathPlaceholder", nil)
+}
+
+// SettingsSofficeStatusReady says "Available (%s): %s"
+// in the language the app shows.
+func SettingsSofficeStatusReady() string { return In(i18n.Locale()).SettingsSofficeStatusReady() }
+
+// SettingsSofficeStatusReady says "Available (%s): %s"
+// in the language of msgs.
+func (msgs Messages) SettingsSofficeStatusReady() string {
+	return Catalog.Format(msgs.locale, "settingsSofficeStatusReady", nil)
+}
+
+// SettingsSofficeStatusMissing says "Not found. Install LibreOffice or pick the soffice executable."
+// in the language the app shows.
+func SettingsSofficeStatusMissing() string { return In(i18n.Locale()).SettingsSofficeStatusMissing() }
+
+// SettingsSofficeStatusMissing says "Not found. Install LibreOffice or pick the soffice executable."
+// in the language of msgs.
+func (msgs Messages) SettingsSofficeStatusMissing() string {
+	return Catalog.Format(msgs.locale, "settingsSofficeStatusMissing", nil)
+}
+
+// SettingsSofficeSourceCustom says "custom"
+// in the language the app shows.
+func SettingsSofficeSourceCustom() string { return In(i18n.Locale()).SettingsSofficeSourceCustom() }
+
+// SettingsSofficeSourceCustom says "custom"
+// in the language of msgs.
+func (msgs Messages) SettingsSofficeSourceCustom() string {
+	return Catalog.Format(msgs.locale, "settingsSofficeSourceCustom", nil)
+}
+
+// SettingsSofficeSourceEnv says "environment"
+// in the language the app shows.
+func SettingsSofficeSourceEnv() string { return In(i18n.Locale()).SettingsSofficeSourceEnv() }
+
+// SettingsSofficeSourceEnv says "environment"
+// in the language of msgs.
+func (msgs Messages) SettingsSofficeSourceEnv() string {
+	return Catalog.Format(msgs.locale, "settingsSofficeSourceEnv", nil)
+}
+
+// SettingsSofficeSourceAuto says "auto-detected"
+// in the language the app shows.
+func SettingsSofficeSourceAuto() string { return In(i18n.Locale()).SettingsSofficeSourceAuto() }
+
+// SettingsSofficeSourceAuto says "auto-detected"
+// in the language of msgs.
+func (msgs Messages) SettingsSofficeSourceAuto() string {
+	return Catalog.Format(msgs.locale, "settingsSofficeSourceAuto", nil)
+}
+
+// SettingsSofficePick says "Browse…"
+// in the language the app shows.
+func SettingsSofficePick() string { return In(i18n.Locale()).SettingsSofficePick() }
+
+// SettingsSofficePick says "Browse…"
+// in the language of msgs.
+func (msgs Messages) SettingsSofficePick() string {
+	return Catalog.Format(msgs.locale, "settingsSofficePick", nil)
+}
+
+// SettingsSofficeTest says "Check"
+// in the language the app shows.
+func SettingsSofficeTest() string { return In(i18n.Locale()).SettingsSofficeTest() }
+
+// SettingsSofficeTest says "Check"
+// in the language of msgs.
+func (msgs Messages) SettingsSofficeTest() string {
+	return Catalog.Format(msgs.locale, "settingsSofficeTest", nil)
+}
+
+// SettingsSofficeSaved says "LibreOffice path updated."
+// in the language the app shows.
+func SettingsSofficeSaved() string { return In(i18n.Locale()).SettingsSofficeSaved() }
+
+// SettingsSofficeSaved says "LibreOffice path updated."
+// in the language of msgs.
+func (msgs Messages) SettingsSofficeSaved() string {
+	return Catalog.Format(msgs.locale, "settingsSofficeSaved", nil)
+}
+
+// UnsavedGuardTitle says "Unsaved changes"
+// in the language the app shows.
+func UnsavedGuardTitle() string { return In(i18n.Locale()).UnsavedGuardTitle() }
+
+// UnsavedGuardTitle says "Unsaved changes"
+// in the language of msgs.
+func (msgs Messages) UnsavedGuardTitle() string {
+	return Catalog.Format(msgs.locale, "unsavedGuardTitle", nil)
+}
+
+// UnsavedGuardBody says "You have unsaved edits on this page. Save before leaving or discard them?"
+// in the language the app shows.
+func UnsavedGuardBody() string { return In(i18n.Locale()).UnsavedGuardBody() }
+
+// UnsavedGuardBody says "You have unsaved edits on this page. Save before leaving or discard them?"
+// in the language of msgs.
+func (msgs Messages) UnsavedGuardBody() string {
+	return Catalog.Format(msgs.locale, "unsavedGuardBody", nil)
+}
+
+// UnsavedGuardSave says "Save & continue"
+// in the language the app shows.
+func UnsavedGuardSave() string { return In(i18n.Locale()).UnsavedGuardSave() }
+
+// UnsavedGuardSave says "Save & continue"
+// in the language of msgs.
+func (msgs Messages) UnsavedGuardSave() string {
+	return Catalog.Format(msgs.locale, "unsavedGuardSave", nil)
+}
+
+// UnsavedGuardDiscard says "Discard changes"
+// in the language the app shows.
+func UnsavedGuardDiscard() string { return In(i18n.Locale()).UnsavedGuardDiscard() }
+
+// UnsavedGuardDiscard says "Discard changes"
+// in the language of msgs.
+func (msgs Messages) UnsavedGuardDiscard() string {
+	return Catalog.Format(msgs.locale, "unsavedGuardDiscard", nil)
+}
+
+// UnsavedGuardStay says "Stay here"
+// in the language the app shows.
+func UnsavedGuardStay() string { return In(i18n.Locale()).UnsavedGuardStay() }
+
+// UnsavedGuardStay says "Stay here"
+// in the language of msgs.
+func (msgs Messages) UnsavedGuardStay() string {
+	return Catalog.Format(msgs.locale, "unsavedGuardStay", nil)
+}
+
+// BaseDataTitle says "Base data"
+// in the language the app shows.
+func BaseDataTitle() string { return In(i18n.Locale()).BaseDataTitle() }
+
+// BaseDataTitle says "Base data"
+// in the language of msgs.
+func (msgs Messages) BaseDataTitle() string {
+	return Catalog.Format(msgs.locale, "baseDataTitle", nil)
+}
+
+// BaseDataSubtitle says "Manage classes, students, teachers, teaching groups and entry baselines for %s."
+// in the language the app shows.
+func BaseDataSubtitle() string { return In(i18n.Locale()).BaseDataSubtitle() }
+
+// BaseDataSubtitle says "Manage classes, students, teachers, teaching groups and entry baselines for %s."
+// in the language of msgs.
+func (msgs Messages) BaseDataSubtitle() string {
+	return Catalog.Format(msgs.locale, "baseDataSubtitle", nil)
+}
+
+// BaseDataTabClasses says "Classes & stages"
+// in the language the app shows.
+func BaseDataTabClasses() string { return In(i18n.Locale()).BaseDataTabClasses() }
+
+// BaseDataTabClasses says "Classes & stages"
+// in the language of msgs.
+func (msgs Messages) BaseDataTabClasses() string {
+	return Catalog.Format(msgs.locale, "baseDataTabClasses", nil)
+}
+
+// BaseDataTabStudents says "Students"
+// in the language the app shows.
+func BaseDataTabStudents() string { return In(i18n.Locale()).BaseDataTabStudents() }
+
+// BaseDataTabStudents says "Students"
+// in the language of msgs.
+func (msgs Messages) BaseDataTabStudents() string {
+	return Catalog.Format(msgs.locale, "baseDataTabStudents", nil)
+}
+
+// BaseDataTabFaculty says "Teachers & assignments"
+// in the language the app shows.
+func BaseDataTabFaculty() string { return In(i18n.Locale()).BaseDataTabFaculty() }
+
+// BaseDataTabFaculty says "Teachers & assignments"
+// in the language of msgs.
+func (msgs Messages) BaseDataTabFaculty() string {
+	return Catalog.Format(msgs.locale, "baseDataTabFaculty", nil)
+}
+
+// BaseDataTabGroups says "Teaching groups"
+// in the language the app shows.
+func BaseDataTabGroups() string { return In(i18n.Locale()).BaseDataTabGroups() }
+
+// BaseDataTabGroups says "Teaching groups"
+// in the language of msgs.
+func (msgs Messages) BaseDataTabGroups() string {
+	return Catalog.Format(msgs.locale, "baseDataTabGroups", nil)
+}
+
+// BaseDataTabBaselines says "Entry baselines"
+// in the language the app shows.
+func BaseDataTabBaselines() string { return In(i18n.Locale()).BaseDataTabBaselines() }
+
+// BaseDataTabBaselines says "Entry baselines"
+// in the language of msgs.
+func (msgs Messages) BaseDataTabBaselines() string {
+	return Catalog.Format(msgs.locale, "baseDataTabBaselines", nil)
 }

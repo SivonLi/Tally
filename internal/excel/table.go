@@ -19,6 +19,7 @@ type Table struct {
 	HeaderRow int
 	Headers   []string
 	Rows      []TableRow
+	LeadRows  []TableRow
 }
 
 // ReadTable 读取工作表，展开合并单元格，在前十五行内寻找表头。
@@ -60,6 +61,13 @@ func ReadTableFromWorkbook(workbook *excelize.File, sheet string) (Table, error)
 		headers[i] = value
 	}
 	table := Table{Sheet: sheet, HeaderRow: headerIndex + 1, Headers: headers}
+	for i := 0; i < headerIndex; i++ {
+		values := make([]string, width)
+		for column := 0; column < width; column++ {
+			values[column] = cellValue(rows, i, column)
+		}
+		table.LeadRows = append(table.LeadRows, TableRow{Number: i + 1, Values: values})
+	}
 	for i := headerIndex + 1; i < len(rows); i++ {
 		values := make([]string, width)
 		for column := 0; column < width; column++ {

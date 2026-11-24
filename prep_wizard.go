@@ -2,8 +2,6 @@ package main
 
 import (
 	"github.com/egoist/mygo/ui"
-	"github.com/lobehub/lobe-mygo/pkg/feedback"
-	"github.com/lobehub/lobe-mygo/pkg/theme"
 
 	"tally/internal/importer"
 	"tally/locales"
@@ -23,8 +21,6 @@ func (a *app) prepSteps() []prepStep {
 			Count: a.stageCounts.Classes, Page: pageCohorts},
 		{Kind: importer.KindStudents, Title: locales.PrepStudents(), Body: locales.PrepStudentsBody(),
 			Count: a.stageCounts.Students, Page: pageStudents},
-		{Kind: importer.KindTeachers, Title: locales.PrepTeachers(), Body: locales.PrepTeachersBody(),
-			Count: a.stageCounts.Teachers, Page: pageFaculty},
 		{Kind: importer.KindAssignments, Title: locales.PrepAssignments(), Body: locales.PrepAssignmentsBody(),
 			Count: a.stageCounts.Assignments, Page: pageFaculty},
 		{Kind: importer.KindBaselines, Title: locales.PrepBaselines(), Body: locales.PrepBaselinesBody(),
@@ -47,28 +43,22 @@ func (a *app) prepPage(c *ui.Context, p uiPalette) {
 	editable := a.stageEditable()
 	ui.Column(c).Fill().Gap(t.Space(5)).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
-			back := textButton(c, locales.Back()).Padding(t.Space(1.5)).
-				Radius(t.Space(1.5)).Background(ui.Transparent)
-			back.Children(func() {
-				ui.Icon(c, iconArrowLeft).FontSize(t.Space(4)).TextColor(p.ink)
-				ui.Text(c, locales.Back()).FontSize(bodySize(t))
-			})
-			if back.Clicked() {
+			if backButton(c, p).Clicked() {
 				a.prepOpen = false
 			}
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
-				ui.Text(c, locales.PrepTitle()).FontSize(titleSize(t)).FontWeight(700).
-					LetterSpacing(-0.4).
+				ui.Text(c, locales.PrepTitle()).FontSize(titleSize(t)).FontWeight(600).
 					Role(ui.RoleHeading).Level(1)
 				ui.Text(c, locales.PrepSubtitle()).FontSize(bodySize(t)).TextColor(p.muted)
 			})
 			ui.Textf(c, locales.ReadinessProgress(), formatInt(done), formatInt(len(steps))).FontSize(bodySize(t)).
 				TextColor(p.inkSecondary).FontFeatures("tnum")
 		})
-		feedback.Progress(c, float32(done)/float32(len(steps))*100, feedback.ProgressProps{
-			Label: locales.ReadinessTitle(),
-			Size:  theme.Middle,
-		}).FillWidth()
+		percent := float32(0)
+		if len(steps) > 0 {
+			percent = float32(done) / float32(len(steps)) * 100
+		}
+		progressBar(c, p, percent, locales.ReadinessTitle()).FillWidth()
 		if !editable {
 			notice(c, p, noticeInfo, locales.StageReadOnly())
 		}
@@ -88,7 +78,7 @@ func (a *app) prepRow(c *ui.Context, p uiPalette, step prepStep, index, next int
 	t := p.theme
 	rule(c)
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).
-		Padding(t.Space(3.5), 0).Children(func() {
+		Padding(t.Space(3), 0).Children(func() {
 		ui.Textf(c, "%d", index+1).FontSize(captionSize(t)).
 			TextColor(p.muted).FontFeatures("tnum").Width(t.Space(4))
 		ui.Column(c).Grow(1).MinWidth(0).Gap(t.Space(0.5)).Children(func() {
@@ -112,7 +102,7 @@ func (a *app) prepRow(c *ui.Context, p uiPalette, step prepStep, index, next int
 			button := labelledButton(c, locales.PrepImport(), iconImports, primary)
 			button.Label(locales.PrepImport() + " " + step.Title)
 			if button.Clicked() {
-				a.openImportWizard(step.Kind)
+				a.openDataImport(step.Kind, 0, 0)
 			}
 		}
 	})

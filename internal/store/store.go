@@ -25,7 +25,7 @@ var ErrNotFound = errors.New("记录不存在")
 var ErrSystemPlanRetire = errors.New("system plan cannot be retired")
 
 // SchemaVersion 是当前应用写入的数据库版本。
-const SchemaVersion = 6
+const SchemaVersion = 8
 
 // Store 是一个打开的本地数据库。
 type Store struct {
@@ -201,13 +201,18 @@ func (s *Store) migrate(ctx context.Context) error {
 	}
 	statements = append(statements, batchSchema()...)
 	statements = append(statements, cohortSchema()...)
+	statements = append(statements, savedViewsSchema()...)
+	statements = append(statements, syncSchema()...)
 	if _, err := s.db.Transaction(ctx, statements); err != nil {
 		return err
 	}
 	if err := s.deriveLegacyCohorts(ctx); err != nil {
 		return err
 	}
-	return s.migrateSchoolData(ctx)
+	if err := s.migrateSchoolData(ctx); err != nil {
+		return err
+	}
+	return s.ensureClassTargetColumns(ctx)
 }
 
 // EnsureDefaultPlan 在首次启动时写入内置默认方案，返回最新的已发布版本。

@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"tally/internal/store"
+	"tally/locales"
 )
 
 func seedStageData(t *testing.T, a *app) {
@@ -173,6 +174,7 @@ func TestStageDataPagesShowSources(t *testing.T) {
 		}
 	}
 	a.page = pageImports
+	a.importCenterTab = 2
 	tt.Frame()
 	for _, text := range []string{"roster.xlsx", "assignments.xlsx", "baseline.xlsx"} {
 		if !tt.HasText(text) {
@@ -253,5 +255,35 @@ func TestRestoreBackupUsesAlertDialog(t *testing.T) {
 	tt.Frame()
 	if a.restoreOpen {
 		t.Fatal("restore confirmation stayed open")
+	}
+}
+
+func TestStudentFilterSelectHasAccessibleLabel(t *testing.T) {
+	a := newTestApp(t)
+	addCohort(t, a, 2026)
+	seedStageData(t, a)
+	a.page = pageStudents
+	locale := "en"
+	i18n.SetLocaleFunc(func() string { return locale })
+	t.Cleanup(func() { i18n.SetLocaleFunc(nil) })
+	tt := ui.NewTester(a.view, 1280, 800)
+	tt.SetLocale("en")
+	tt.Frame()
+	info, ok := tt.AccessByRole(ui.RolePopUpButton, locales.In("en").DataFilterClass())
+	if !ok {
+		t.Fatal("class filter select has no accessible label")
+	}
+	if info.Value != locales.In("en").DataAllClasses() {
+		t.Fatalf("select value = %q", info.Value)
+	}
+	locale = "zh-Hans"
+	tt.SetLocale("zh-Hans")
+	tt.Frame()
+	info, ok = tt.AccessByRole(ui.RolePopUpButton, locales.In("zh-Hans").DataFilterClass())
+	if !ok {
+		t.Fatal("class filter select has no accessible label in zh-Hans")
+	}
+	if info.Value != locales.In("zh-Hans").DataAllClasses() {
+		t.Fatalf("select value = %q", info.Value)
 	}
 }

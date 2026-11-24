@@ -56,33 +56,47 @@ func BuildInput(ctx context.Context, storage *store.Store, batchID int64, plan a
 	return input, data, hash, nil
 }
 
-// BuildAssessmentInput 读取本次考核的数据并生成计算引擎输入。
-func BuildAssessmentInput(ctx context.Context, storage *store.Store, assessmentID int64, plan assessment.Config) (calc.Input, store.BatchData, string, error) {
+// BuildAssessmentInput 读取本次考核的数据并生成计算引擎输入与输入摘要。
+func BuildAssessmentInput(ctx context.Context, storage *store.Store, assessmentID int64, plan assessment.Config) (calc.Input, store.BatchData, string, map[string]string, error) {
 	data, err := storage.LoadAssessmentData(ctx, assessmentID)
 	if err != nil {
-		return calc.Input{}, store.BatchData{}, "", err
+		return calc.Input{}, store.BatchData{}, "", nil, err
 	}
 	input, issues := build(data, plan)
 	if len(issues) > 0 {
-		return calc.Input{}, data, "", &ValidationError{Issues: issues}
+		return calc.Input{}, data, "", nil, &ValidationError{Issues: issues}
 	}
 	hash, err := store.InputHash(plan, data)
 	if err != nil {
-		return calc.Input{}, data, "", err
+		return calc.Input{}, data, "", nil, err
 	}
-	return input, data, hash, nil
+	summary, err := store.InputSummary(plan, data)
+	if err != nil {
+		return calc.Input{}, data, "", nil, err
+	}
+	return input, data, hash, summary, nil
 }
 
-// CalculateAssessment 按选定的方案版本核算本次考核并保存结果。
+// CalculateAssessment 按选定的方案版本正式核算本次考核并保存结果。
 func CalculateAssessment(ctx context.Context, storage *store.Store, assessmentID, versionID int64) (calc.Result, error) {
+	return calculateAssessment(ctx, storage, assessmentID, versionID, true)
+}
+
+// TrialAssessment 按选定的方案版本试算本次考核：结果按非正式保存，
+// 不改变考核状态和当前正式结果。
+func TrialAssessment(ctx context.Context, storage *store.Store, assessmentID, versionID int64) (calc.Result, error) {
+	return calculateAssessment(ctx, storage, assessmentID, versionID, false)
+}
+
+func calculateAssessment(ctx context.Context, storage *store.Store, assessmentID, versionID int64, official bool) (calc.Result, error) {
 	version, err := storage.GetVersion(ctx, versionID)
 	if err != nil {
 		return calc.Result{}, err
 	}
 	if version.Status != "published" {
-		return calc.Result{}, fmt.Errorf("正式核算只能选择已发布的方案版本")
+		return calc.Result{}, fmt.Errorf("核算只能选择已发布的方案版本")
 	}
-	input, data, hash, err := BuildAssessmentInput(ctx, storage, assessmentID, version.Config)
+	input, data, hash, summary, err := BuildAssessmentInput(ctx, storage, assessmentID, version.Config)
 	if err != nil {
 		return calc.Result{}, err
 	}
@@ -94,15 +108,15 @@ func CalculateAssessment(ctx context.Context, storage *store.Store, assessmentID
 	if err != nil {
 		return calc.Result{}, err
 	}
-	if _, err := storage.SaveAssessmentRun(ctx, assessmentID, versionID, hash, result); err != nil {
+	if _, err := storage.SaveAssessmentRun(ctx, assessmentID, versionID, hash, summary, result, official); err != nil {
 		return calc.Result{}, err
 	}
 	return result, nil
 }
 
-// ExportAssessment 把本次考核最新的核算结果写成工作簿，并记录导出文件。
+// ExportAssessment 把本次考核最新的正式核算结果写成工作簿，并记录导出文件。
 func ExportAssessment(ctx context.Context, storage *store.Store, assessmentID int64, path string) error {
-	run, rows, personal, err := storage.LatestAssessmentRun(ctx, assessmentID)
+	run, rows, personal, err := storage.LatestOfficialAssessmentRun(ctx, assessmentID)
 	if err != nil {
 		return err
 	}
@@ -114,13 +128,14 @@ func ExportAssessment(ctx context.Context, storage *store.Store, assessmentID in
 	if err != nil {
 		return err
 	}
-	_, _, currentHash, err := BuildAssessmentInput(ctx, storage, assessmentID, version.Config)
+	_, _, currentHash, _, err := BuildAssessmentInput(ctx, storage, assessmentID, version.Config)
 	if err != nil {
 		return err
 	}
 	if currentHash != run.InputHash {
 		return fmt.Errorf("本次考核的数据或者方案已经变化，需要重新核算后才能导出")
 	}
+	data, _ := storage.LoadAssessmentData(ctx, assessmentID)
 	batch := store.Batch{
 		AcademicYear: context.AcademicYear,
 		Semester:     context.Exam.Term,
@@ -136,6 +151,8 @@ func ExportAssessment(ctx context.Context, storage *store.Store, assessmentID in
 		Run:         run,
 		Rows:        rows,
 		Personal:    personal,
+		Students:    data.Students,
+		Classes:     data.Classes,
 		GeneratedAt: time.Now(),
 	}); err != nil {
 		return err
@@ -195,6 +212,10 @@ func ExportLatest(ctx context.Context, storage *store.Store, batchID int64, path
 	if currentHash != run.InputHash {
 		return fmt.Errorf("批次数据或者方案已经变化，需要重新核算后才能导出")
 	}
+	data, err := storage.LoadBatchData(ctx, batchID)
+	if err != nil {
+		return err
+	}
 	if err := exporter.Write(exporter.Input{
 		Path:        path,
 		Batch:       batch,
@@ -202,6 +223,8 @@ func ExportLatest(ctx context.Context, storage *store.Store, batchID int64, path
 		Run:         run,
 		Rows:        rows,
 		Personal:    personal,
+		Students:    data.Students,
+		Classes:     data.Classes,
 		GeneratedAt: time.Now(),
 	}); err != nil {
 		return err
@@ -300,8 +323,19 @@ func build(data store.BatchData, plan assessment.Config) (calc.Input, []Issue) {
 		}
 		tierCutoffs[item.TierKey][item.Track] = item.Value
 	}
+	hasActualCounts := func(tierKey string) bool {
+		for _, target := range data.ClassTargets {
+			if target.ActualCounts != nil && target.ActualCounts[tierKey] != nil {
+				return true
+			}
+		}
+		return false
+	}
 	for _, tier := range plan.Tiers {
 		if len(tierCutoffs[tier.Key]) == 0 {
+			if data.Batch.ExamType == "gaokao" && hasActualCounts(tier.Key) {
+				continue
+			}
 			add("missing_tier_cutoff", fmt.Sprintf("档位 %s 缺少总分分数线", tier.Label))
 		}
 	}
@@ -312,6 +346,9 @@ func build(data store.BatchData, plan assessment.Config) (calc.Input, []Issue) {
 	for _, tier := range plan.Tiers {
 		for track := range studentTracks {
 			if tierCutoffs[tier.Key][track] <= 0 {
+				if data.Batch.ExamType == "gaokao" && hasActualCounts(tier.Key) {
+					continue
+				}
 				add("missing_tier_cutoff", fmt.Sprintf("档位 %s 缺少 %s 类总分分数线", tier.Label, track))
 			}
 		}
@@ -358,10 +395,24 @@ func build(data store.BatchData, plan assessment.Config) (calc.Input, []Issue) {
 		for _, id := range group.MemberGroupIDs {
 			members = append(members, strconv.FormatInt(id, 10))
 		}
+		if len(members) == 0 {
+			add("missing_stat_member", fmt.Sprintf("统计组 %s %s 没有成员教学班", group.Subject, group.Name))
+			continue
+		}
+		if !statGroupHasStudents(data, group, plan.Data) {
+			continue
+		}
 		baseline := group.BaselineAverage
 		ratio := group.BaselineRatio
 		if baseline <= 0 && ratio <= 0 {
-			baseline = statGroupBaseline(data, group)
+			leadKey := strconv.FormatInt(group.LeadClassID, 10)
+			if r, ok := data.ClassBaselineRatios[group.Subject][leadKey]; ok && r > 0 {
+				ratio = r
+			} else if b, ok := data.ClassBaselines[group.Subject][leadKey]; ok && b > 0 {
+				baseline = b
+			} else {
+				baseline = statGroupBaseline(data, group)
+			}
 		}
 		if baseline <= 0 && ratio <= 0 {
 			add("missing_stat_baseline", fmt.Sprintf("统计组 %s %s 缺少基数均分", group.Subject, group.Name))
@@ -369,13 +420,6 @@ func build(data store.BatchData, plan assessment.Config) (calc.Input, []Issue) {
 		}
 		if group.Target <= 0 {
 			add("missing_stat_target", fmt.Sprintf("统计组 %s %s 缺少单科目标", group.Subject, group.Name))
-			continue
-		}
-		if len(members) == 0 {
-			add("missing_stat_member", fmt.Sprintf("统计组 %s %s 没有成员教学班", group.Subject, group.Name))
-			continue
-		}
-		if !statGroupHasStudents(data, group, plan.Data) {
 			continue
 		}
 		statGroups = append(statGroups, calc.StatGroup{
@@ -567,6 +611,28 @@ func subjectTracks(data store.BatchData) map[string][]string {
 }
 
 func actualTierCounts(data store.BatchData, plan assessment.Config, cutoffs map[string]map[string]float64, issues *[]Issue) map[string]map[string]float64 {
+	hasExplicitActuals := false
+	for _, target := range data.ClassTargets {
+		if len(target.ActualCounts) > 0 {
+			hasExplicitActuals = true
+			break
+		}
+	}
+	if hasExplicitActuals {
+		result := map[string]map[string]float64{}
+		for _, target := range data.ClassTargets {
+			classID := strconv.FormatInt(target.ClassID, 10)
+			if result[classID] == nil {
+				result[classID] = map[string]float64{}
+			}
+			for tierKey, actual := range target.ActualCounts {
+				if actual != nil {
+					result[classID][tierKey] = *actual
+				}
+			}
+		}
+		return result
+	}
 	valid := map[int64]bool{}
 	for _, student := range data.Students {
 		if calc.IsValidStudent(toCalcStudent(student), plan.Data) {
@@ -601,10 +667,10 @@ func normalizeTrack(student store.Student) string {
 	if student.Track == "physics" || student.Track == "history" {
 		return student.Track
 	}
-	if strings.Contains(student.Elective, "历史") {
+	if strings.Contains(student.Elective, "历史") || strings.Contains(student.Elective, "史") || strings.Contains(student.Elective, "历") {
 		return "history"
 	}
-	if strings.Contains(student.Elective, "物理") {
+	if strings.Contains(student.Elective, "物理") || strings.Contains(student.Elective, "物") {
 		return "physics"
 	}
 	if student.Track != "" {

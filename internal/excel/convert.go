@@ -15,6 +15,64 @@ import (
 // ErrSofficeNotFound 表示没有找到 LibreOffice 的 soffice 可执行文件。
 var ErrSofficeNotFound = errors.New("没有找到 LibreOffice 的 soffice")
 
+// SofficeStatus 描述本机 LibreOffice 可执行文件的解析状态，供设置页与导入前检测展示。
+type SofficeStatus struct {
+	Path   string
+	Source string
+	Found  bool
+	Error  string
+}
+
+// ResolveSoffice 按「用户设置路径 -> TALLY_SOFFICE 环境变量 -> 系统自动检测」顺序解析 soffice 状态。
+func ResolveSoffice(configured string) SofficeStatus {
+	cleaned := strings.TrimSpace(configured)
+	if cleaned != "" {
+		info, err := os.Stat(cleaned)
+		if err != nil || info.IsDir() {
+			return SofficeStatus{
+				Path:   cleaned,
+				Source: "configured",
+				Found:  false,
+				Error:  fmt.Sprintf("%v: %s", ErrSofficeNotFound, cleaned),
+			}
+		}
+		return SofficeStatus{
+			Path:   cleaned,
+			Source: "configured",
+			Found:  true,
+		}
+	}
+	if explicit := strings.TrimSpace(os.Getenv("TALLY_SOFFICE")); explicit != "" {
+		info, err := os.Stat(explicit)
+		if err != nil || info.IsDir() {
+			return SofficeStatus{
+				Path:   explicit,
+				Source: "env",
+				Found:  false,
+				Error:  fmt.Sprintf("%v: %s", ErrSofficeNotFound, explicit),
+			}
+		}
+		return SofficeStatus{
+			Path:   explicit,
+			Source: "env",
+			Found:  true,
+		}
+	}
+	path, err := FindSoffice()
+	if err != nil {
+		return SofficeStatus{
+			Source: "auto",
+			Found:  false,
+			Error:  err.Error(),
+		}
+	}
+	return SofficeStatus{
+		Path:   path,
+		Source: "auto",
+		Found:  true,
+	}
+}
+
 // FindSoffice 查找本机的 LibreOffice soffice 可执行文件。
 func FindSoffice() (string, error) {
 	if explicit := os.Getenv("TALLY_SOFFICE"); explicit != "" {

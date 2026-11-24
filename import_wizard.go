@@ -7,11 +7,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
-	"github.com/lobehub/lobe-mygo/pkg/nav"
 
 	"tally/internal/excel"
 	"tally/internal/importer"
@@ -45,9 +43,9 @@ type importWizardState struct {
 	ConfirmedWarnings bool
 	Error             string
 	Busy              bool
+	Reading           bool
 	Summary           *store.ImportSummary
-	Started           time.Time
-	Duration          time.Duration
+	RosterSkipped     int
 }
 
 func (a *app) importWizardActive() bool {
@@ -149,6 +147,9 @@ func (a *app) wizardContinueKind(kind string) {
 
 func (a *app) wizardChooseFile() {
 	wizard := a.importWizard
+	if wizard == nil || wizard.Reading {
+		return
+	}
 	go func() {
 		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
 			Title:   locales.ImportWizardChooseFile(),
@@ -157,8 +158,26 @@ func (a *app) wizardChooseFile() {
 		if err != nil || len(paths) == 0 || a.win == nil {
 			return
 		}
+		path := paths[0]
 		a.win.Update(func() {
-			a.loadWizardFile(wizard, paths[0])
+			if a.importWizard != wizard {
+				return
+			}
+			wizard.Reading = true
+			wizard.Error = ""
+			wizard.FilePath = path
+			wizard.FileName = filepath.Base(path)
+		})
+		workbook, inspectErr := importer.InspectWorkbook(path, importer.Options{
+			ConversionDir: filepath.Join(a.dataDir, "converted"),
+			SofficePath:   a.sofficePath,
+		})
+		a.win.Update(func() {
+			if a.importWizard != wizard {
+				return
+			}
+			wizard.Reading = false
+			a.applyWizardWorkbook(wizard, path, workbook, inspectErr)
 		})
 	}()
 }
@@ -170,7 +189,15 @@ func (a *app) loadWizardFile(wizard *importWizardState, path string) {
 	wizard.Error = ""
 	workbook, err := importer.InspectWorkbook(path, importer.Options{
 		ConversionDir: filepath.Join(a.dataDir, "converted"),
+		SofficePath:   a.sofficePath,
 	})
+	a.applyWizardWorkbook(wizard, path, workbook, err)
+}
+
+func (a *app) applyWizardWorkbook(wizard *importWizardState, path string, workbook *importer.Workbook, err error) {
+	if wizard == nil {
+		return
+	}
 	if err != nil {
 		wizard.Error = err.Error()
 		return
@@ -180,6 +207,11 @@ func (a *app) loadWizardFile(wizard *importWizardState, path string) {
 	wizard.FileName = filepath.Base(path)
 	wizard.Sheet = importer.BestSheet(wizard.Kind, workbook)
 	wizard.Mapping = nil
+	wizard.Data = store.ImportData{}
+	wizard.Preview = store.ImportPreview{}
+	wizard.Issues = nil
+	wizard.Summary = nil
+	wizard.ConfirmedWarnings = false
 	if wizard.Sheet != "" {
 		if table, ok := workbook.Sheet(wizard.Sheet); ok {
 			wizard.Mapping = importer.AutoMappingFor(wizard.Kind, table, a.subjects, a.wizardTierKeys())
@@ -275,6 +307,141 @@ func (a *app) wizardValidate() {
 	wizard.Step = wizardStepValidate
 }
 
+// wizardZeroScoreCount 统计成绩数据里按未参加处理的单科 0 分数。
+func wizardZeroScoreCount(wizard *importWizardState) int {
+	count := 0
+	for _, student := range wizard.Data.Students {
+		for _, flag := range student.Flags {
+			if flag == "zero" {
+				count++
+			}
+		}
+	}
+	return count
+}
+
+// wizardUnknownRosterCount 统计报名名单之外的成绩行数。
+func (a *app) wizardUnknownRosterCount(wizard *importWizardState) int {
+	count := 0
+	for _, issue := range wizard.Issues {
+		if issue.Code == "unknown_roster" {
+			count++
+		}
+	}
+	return count
+}
+
+// wizardUnknownRosterEntries 从成绩数据里取出报名名单之外的考生。
+func (a *app) wizardUnknownRosterEntries(wizard *importWizardState) []store.ImportStudent {
+	unknown := map[string]bool{}
+	for _, issue := range wizard.Issues {
+		if issue.Code == "unknown_roster" && len(issue.Args) > 0 {
+			unknown[issue.Args[0]] = true
+		}
+	}
+	if len(unknown) == 0 {
+		return nil
+	}
+	entries := []store.ImportStudent{}
+	for _, student := range wizard.Data.Students {
+		if unknown[student.StudentNo] {
+			entries = append(entries, student)
+		}
+	}
+	return entries
+}
+
+// wizardSkipUnknownRoster 把报名名单之外的行从本次导入中移除并重新校验。
+func (a *app) wizardSkipUnknownRoster(wizard *importWizardState) {
+	entries := a.wizardUnknownRosterEntries(wizard)
+	if len(entries) == 0 {
+		return
+	}
+	unknown := map[string]bool{}
+	for _, entry := range entries {
+		unknown[entry.StudentNo] = true
+	}
+	kept := wizard.Data.Students[:0]
+	for _, student := range wizard.Data.Students {
+		if !unknown[student.StudentNo] {
+			kept = append(kept, student)
+		}
+	}
+	wizard.Data.Students = kept
+	wizard.RosterSkipped = len(entries)
+	a.wizardValidate()
+}
+
+// wizardAddUnknownRoster 把报名名单之外的考生补建并加入本场考试报名名单，然后重新校验。
+func (a *app) wizardAddUnknownRoster(wizard *importWizardState) {
+	entries := a.wizardUnknownRosterEntries(wizard)
+	if len(entries) == 0 {
+		return
+	}
+	exam, err := a.store.GetExamCohort(context.Background(), wizard.ExamID, wizard.ExamCohortID)
+	if err != nil {
+		wizard.Error = err.Error()
+		return
+	}
+	if _, _, err := a.store.AddExamRosterStudents(context.Background(), exam, entries); err != nil {
+		wizard.Error = err.Error()
+		return
+	}
+	a.reloadExamData(context.Background())
+	a.wizardValidate()
+}
+
+// wizardExportIssues 把当前问题清单保存为 Excel。
+func (a *app) wizardExportIssues(wizard *importWizardState) {
+	if len(wizard.Issues) == 0 {
+		return
+	}
+	go func() {
+		path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{
+			Title:       locales.ImportWizardExportIssues(),
+			DefaultPath: "tally-import-issues.xlsx",
+			Filters:     []mygo.FileFilter{{Name: "Excel", Extensions: []string{"xlsx"}}},
+		})
+		if err != nil || path == "" {
+			return
+		}
+		if a.win == nil {
+			a.writeWizardIssues(wizard, path)
+			return
+		}
+		a.win.Update(func() {
+			a.writeWizardIssues(wizard, path)
+		})
+	}()
+}
+
+func (a *app) writeWizardIssues(wizard *importWizardState, path string) {
+	header := []string{
+		locales.ImportIssueColItem(), locales.ImportIssueColFile(), locales.ImportIssueColSheet(),
+		locales.ImportIssueColRow(), locales.ImportIssueColColumn(), locales.ImportIssueColSeverity(),
+		locales.ImportIssueColIssue(),
+	}
+	rows := make([][]string, 0, len(wizard.Issues))
+	for _, issue := range wizard.Issues {
+		severity := locales.SeverityWarning()
+		if issue.Severity == "blocking" {
+			severity = locales.SeverityBlocking()
+		}
+		row := ""
+		if issue.Row > 0 {
+			row = strconv.Itoa(issue.Row)
+		}
+		rows = append(rows, []string{
+			importKindName(wizard.Kind), wizard.FileName, wizard.Sheet, row,
+			a.importColumnName(issue.Column), severity, a.importIssueText(issue),
+		})
+	}
+	if err := importer.WriteIssueList(path, header, rows); err != nil {
+		wizard.Error = err.Error()
+		return
+	}
+	a.notifyMain(fmt.Sprintf(locales.ImportWizardIssuesExported(), filepath.Base(path)))
+}
 func (a *app) wizardApply() {
 	wizard := a.importWizard
 	if wizard == nil || wizard.Preview.Blocking > 0 ||
@@ -282,7 +449,6 @@ func (a *app) wizardApply() {
 		return
 	}
 	wizard.Busy = true
-	wizard.Started = time.Now()
 	work := func() (store.ImportSummary, error) {
 		stored, err := a.store.StoreImportFile(wizard.FilePath, wizard.Report.FileHash)
 		if err != nil {
@@ -317,7 +483,6 @@ func (a *app) wizardApply() {
 			return
 		}
 		wizard.Summary = &summary
-		wizard.Duration = time.Since(wizard.Started).Round(time.Millisecond)
 		wizard.Error = ""
 		wizard.Step = wizardStepResult
 		ctx := context.Background()
@@ -327,6 +492,9 @@ func (a *app) wizardApply() {
 		} else {
 			a.reloadDataPages(ctx)
 		}
+		a.reloadExams(ctx)
+		a.reloadAssessments(ctx)
+		a.reloadWorkspaceSummary(ctx)
 	}
 	if a.win == nil {
 		summary, err := work()
@@ -374,6 +542,7 @@ func (a *app) writeWizardTemplate(wizard *importWizardState, path string) {
 		return
 	}
 	wizard.Error = ""
+	a.notifyMain(fmt.Sprintf(locales.ImportWizardTemplateSaved(), filepath.Base(path)))
 }
 
 func (a *app) importWizardPage(c *ui.Context, p uiPalette) {
@@ -384,54 +553,60 @@ func (a *app) importWizardPage(c *ui.Context, p uiPalette) {
 	t := p.theme
 	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
-			if textButton(c, locales.Back()).Children(func() {
-				ui.Icon(c, iconArrowLeft).FontSize(t.Space(4))
-				ui.Text(c, locales.Back()).FontSize(bodySize(t))
-			}).Clicked() {
+			if backButton(c, p).Clicked() {
+				if a.importReturn != nil {
+					a.returnFromImport()
+					return
+				}
 				a.closeImportWizard()
 			}
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
-				ui.Text(c, locales.ImportWizardTitle()).FontSize(titleSize(t)).Bold().
+				ui.Text(c, locales.ImportWizardTitle()).FontSize(titleSize(t)).FontWeight(600).
 					Level(1).Role(ui.RoleHeading)
 				if wizard.Kind != "" {
 					ui.Text(c, importKindName(wizard.Kind)).FontSize(bodySize(t)).TextColor(p.muted)
 				}
 			})
 		})
-		a.wizardSteps(c, p)
+		a.wizardSteps(c, p, wizard.Step)
 		if wizard.Error != "" {
 			notice(c, p, noticeDanger, wizard.Error)
 		}
-		if wizard.Busy {
-			notice(c, p, noticeInfo, locales.ImportBusy())
+		if showDelayedBusy(c, "wizard-reading", wizard.Reading) {
+			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+				ui.Spinner(c).Label(locales.ImportWizardReadingFile())
+				ui.Text(c, locales.ImportWizardReadingFile()).FontSize(bodySize(t)).TextColor(p.muted)
+			})
+		}
+		if showDelayedBusy(c, "wizard-busy", wizard.Busy) {
+			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+				ui.Spinner(c).Label(locales.ImportBusy())
+				ui.Text(c, locales.ImportBusy()).FontSize(bodySize(t)).TextColor(p.muted)
+			})
 		}
 		switch wizard.Step {
 		case wizardStepItem:
 			a.wizardItemStep(c, p)
 		case wizardStepFile:
-			a.wizardFileStep(c, p)
+			a.wizardFileStep(c, p, wizard)
 		case wizardStepSheet:
-			a.wizardSheetStep(c, p)
+			a.wizardSheetStep(c, p, wizard)
 		case wizardStepMapping:
-			a.wizardMappingStep(c, p)
+			a.wizardMappingStep(c, p, wizard)
 		case wizardStepValidate:
-			a.wizardValidateStep(c, p)
+			a.wizardValidateStep(c, p, wizard)
 		default:
-			a.wizardResultStep(c, p)
+			a.wizardResultStep(c, p, wizard)
 		}
 	})
 }
 
-func (a *app) wizardSteps(c *ui.Context, p uiPalette) {
+func (a *app) wizardSteps(c *ui.Context, p uiPalette, step int) {
 	labels := []string{
 		locales.ImportStepItem(), locales.ImportStepFile(), locales.ImportStepSheet(),
 		locales.ImportStepMapping(), locales.ImportStepValidate(), locales.ImportStepResult(),
 	}
-	items := make([]nav.StepItem, 0, len(labels))
-	for _, label := range labels {
-		items = append(items, nav.StepItem{Title: label})
-	}
-	nav.Steps(c, nav.StepsProps{Items: items, Current: a.importWizard.Step})
+	stepsBar(c, p, labels, step)
 }
 
 func (a *app) wizardItemStep(c *ui.Context, p uiPalette) {
@@ -452,9 +627,8 @@ func (a *app) wizardItemStep(c *ui.Context, p uiPalette) {
 				}
 			} else if cohort := a.selectedCohort(); cohort != nil {
 				stage := a.displayStage()
-				ui.Text(c, a.cohortName(cohort.EnrollmentYear)+" · "+
-					a.stageName(stage.GradeLevel)+" · "+
-					a.classOfName(cohort.GraduationYear)).
+				ui.Textf(c, locales.CohortContext(), a.cohortName(cohort.EnrollmentYear),
+					a.stageName(stage.GradeLevel), a.classOfName(cohort.GraduationYear)).
 					FontSize(captionSize(t)).TextColor(p.muted)
 			}
 			for _, kind := range kinds {
@@ -464,7 +638,7 @@ func (a *app) wizardItemStep(c *ui.Context, p uiPalette) {
 					ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
 						ui.Column(c).Grow(1).Gap(0).Children(func() {
 							ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-								ui.Text(c, importKindName(kind)).FontSize(bodySize(t)).Bold()
+								ui.Text(c, importKindName(kind)).FontSize(bodySize(t)).FontWeight(600)
 								if a.importKindCount(kind) > 0 {
 									badge(c, p, locales.ReadinessReady(), toneNeutral)
 								} else {
@@ -474,9 +648,7 @@ func (a *app) wizardItemStep(c *ui.Context, p uiPalette) {
 							ui.Text(c, importKindPurpose(kind)).FontSize(captionSize(t)).
 								TextColor(p.muted).Pretty()
 						})
-						button := labelledButton(c, locales.ImportWizardStart(), iconArrowRight, false)
-						button.Label(locales.ImportWizardStart() + " " + importKindName(kind))
-						if button.Clicked() {
+						if labelledButton(c, locales.PrepImport(), iconArrowRight, false).Clicked() {
 							a.wizardSelectKind(kind)
 						}
 					})
@@ -486,33 +658,47 @@ func (a *app) wizardItemStep(c *ui.Context, p uiPalette) {
 	})
 }
 
-func (a *app) wizardFileStep(c *ui.Context, p uiPalette) {
+func (a *app) wizardFileStep(c *ui.Context, p uiPalette, wizard *importWizardState) {
 	t := p.theme
 	panel(c, p).FillWidth().Padding(t.Space(4)).Gap(t.Space(3)).Children(func() {
-		ui.Text(c, importKindPurpose(a.importWizard.Kind)).FontSize(bodySize(t)).
+		ui.Text(c, importKindPurpose(wizard.Kind)).FontSize(bodySize(t)).
 			TextColor(p.inkSecondary).Pretty()
-		ui.Text(c, a.importKindColumns(a.importWizard.Kind)).FontSize(captionSize(t)).
+		ui.Text(c, a.importKindColumns(wizard.Kind)).FontSize(captionSize(t)).
 			TextColor(p.muted).Pretty()
+		clicked, dropped := fileDropZone(c, p, fileDropZoneProps{
+			Key:         "wizard-file-drop",
+			Title:       locales.ImportCenterDropTitle(),
+			ActiveTitle: locales.ImportCenterDropActive(),
+			Hint:        locales.ImportCenterDropHint(),
+			ButtonLabel: locales.ImportCenterBrowseFile(),
+		})
+		if len(dropped) > 0 && !wizard.Reading {
+			a.loadWizardFile(wizard, dropped[0])
+		} else if clicked && !wizard.Reading {
+			a.wizardChooseFile()
+		}
 		ui.Row(c).Gap(t.Space(2)).Children(func() {
-			if labelledButton(c, locales.ImportWizardChooseFile(), iconImports, true).Clicked() {
+			choose := labelledButton(c, locales.ImportWizardChooseFile(), iconImports, true)
+			choose.Disabled(wizard.Reading)
+			if choose.Clicked() {
 				a.wizardChooseFile()
 			}
 			if plainButton(c, locales.ImportWizardDownloadTemplate()).Clicked() {
 				a.wizardDownloadTemplate()
 			}
 		})
-		if a.importWizard.FileName != "" {
-			ui.Textf(c, locales.ImportWizardSelectedFile(), a.importWizard.FileName).
-				FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
+		if wizard.FileName != "" {
+			shown := fmt.Sprintf(locales.ImportWizardSelectedFile(), wizard.FileName)
+			ui.Text(c, shown).FontSize(captionSize(t)).TextColor(p.muted).
+				SingleLine().TruncateMiddle().MinWidth(0).Tooltip(wizard.FilePath)
 		}
 	})
 }
 
-func (a *app) wizardSheetStep(c *ui.Context, p uiPalette) {
-	wizard := a.importWizard
+func (a *app) wizardSheetStep(c *ui.Context, p uiPalette, wizard *importWizardState) {
 	t := p.theme
 	if wizard.Workbook == nil {
-		a.wizardFileStep(c, p)
+		a.wizardFileStep(c, p, wizard)
 		return
 	}
 	names := wizard.Workbook.SheetNames()
@@ -520,7 +706,7 @@ func (a *app) wizardSheetStep(c *ui.Context, p uiPalette) {
 	panel(c, p).FillWidth().Padding(t.Space(4)).Gap(t.Space(3)).Children(func() {
 		ui.Text(c, locales.ImportWizardSheetHint()).FontSize(bodySize(t)).TextColor(p.muted).Pretty()
 		next := chosen
-		selectField(c, &next, names, locales.ImportWizardSheetLabel()).Width(t.Space(70))
+		selectField(c, "wizard-sheet", &next, names, locales.ImportWizardSheetLabel()).Width(t.Space(72))
 		if next != chosen {
 			a.wizardChooseSheet(next)
 		}
@@ -531,7 +717,7 @@ func (a *app) wizardSheetStep(c *ui.Context, p uiPalette) {
 			if len(headers) > 12 {
 				headers = headers[:12]
 			}
-			ui.Text(c, strings.Join(headers, " · ")).FontSize(captionSize(t)).
+			ui.Text(c, strings.Join(headers, locales.ListSeparator())).FontSize(captionSize(t)).
 				TextColor(p.inkSecondary)
 		}
 		ui.Row(c).Gap(t.Space(2)).Children(func() {
@@ -544,8 +730,7 @@ func (a *app) wizardSheetStep(c *ui.Context, p uiPalette) {
 	})
 }
 
-func (a *app) wizardMappingStep(c *ui.Context, p uiPalette) {
-	wizard := a.importWizard
+func (a *app) wizardMappingStep(c *ui.Context, p uiPalette, wizard *importWizardState) {
 	if wizard.Workbook == nil {
 		wizard.Step = wizardStepFile
 		return
@@ -568,6 +753,10 @@ func (a *app) wizardMappingStep(c *ui.Context, p uiPalette) {
 	}
 	ui.Scroll(c).Fill().Children(func() {
 		ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
+			if len(fields) == 0 {
+				ui.Text(c, locales.ImportWizardAutoColumns()).FontSize(bodySize(t)).
+					TextColor(p.muted).Pretty()
+			}
 			for _, field := range fields {
 				field := field
 				ui.Row(c).FillWidth().AlignItems(ui.End).Gap(t.Space(2)).Children(func() {
@@ -586,7 +775,7 @@ func (a *app) wizardMappingStep(c *ui.Context, p uiPalette) {
 						chosen = labels[0]
 					}
 					next := chosen
-					selectField(c, &next, labels, label).Grow(1)
+					selectField(c, "wizard-map-"+field.Key, &next, labels, label).Grow(1)
 					if next != chosen {
 						if next == labels[0] {
 							delete(wizard.Mapping, field.Key)
@@ -610,8 +799,7 @@ func (a *app) wizardMappingStep(c *ui.Context, p uiPalette) {
 	})
 }
 
-func (a *app) wizardValidateStep(c *ui.Context, p uiPalette) {
-	wizard := a.importWizard
+func (a *app) wizardValidateStep(c *ui.Context, p uiPalette, wizard *importWizardState) {
 	t := p.theme
 	panel(c, p).FillWidth().Grow(1).Shrink(1).MinHeight(0).Padding(t.Space(4)).Gap(t.Space(3)).Children(func() {
 		ui.Row(c).Gap(t.Space(2)).Wrap().Children(func() {
@@ -621,36 +809,63 @@ func (a *app) wizardValidateStep(c *ui.Context, p uiPalette) {
 			badge(c, p, fmt.Sprintf(locales.ImportWizardBlocking(), formatInt(wizard.Preview.Blocking)), toneDanger)
 			badge(c, p, fmt.Sprintf(locales.ImportWizardWarnings(), formatInt(wizard.Preview.Warnings)), toneWarning)
 		})
-		if len(wizard.Issues) == 0 {
-			ui.Text(c, locales.ImportWizardNoIssues()).FontSize(bodySize(t)).TextColor(p.muted)
-		} else {
-			ui.Scroll(c).Grow(1).Shrink(1).MinHeight(0).Children(func() {
-				ui.Column(c).FillWidth().Gap(t.Space(1)).Children(func() {
-					for _, issue := range wizard.Issues {
-						issue := issue
-						tone := p.warning
-						if issue.Severity == "blocking" {
-							tone = p.danger
-						}
-						ui.Row(c).FillWidth().AlignItems(ui.Start).Gap(t.Space(2)).Children(func() {
-							ui.Box(c).Width(t.Space(1)).Height(t.Space(4)).Radius(t.Space(0.5)).
-								Background(tone)
-							ui.Column(c).Grow(1).Gap(0).Children(func() {
-								ui.Text(c, a.importIssueText(issue)).FontSize(bodySize(t)).Pretty()
-								if issue.Row > 0 {
-									ui.Textf(c, locales.ImportIssueLocation(), issue.Row,
-										a.importColumnName(issue.Column)).FontSize(captionSize(t)).
-										TextColor(p.muted).FontFeatures("tnum")
-								}
-							})
-						})
-					}
-				})
-			})
+		if zero := wizardZeroScoreCount(wizard); zero > 0 {
+			ui.Textf(c, locales.ImportWizardZeroScores(), zero).FontSize(captionSize(t)).
+				TextColor(p.muted).Pretty()
 		}
-		ui.Row(c).Gap(t.Space(2)).Children(func() {
+		if wizard.RosterSkipped > 0 {
+			ui.Textf(c, locales.ImportWizardRosterSkipped(), wizard.RosterSkipped).FontSize(captionSize(t)).
+				TextColor(p.muted).Pretty()
+		}
+		if len(wizard.Issues) == 0 {
+			smallEmptyState(c, p, locales.ImportWizardNoIssues())
+		} else {
+			a.wizardIssuesList.Key = func(row int) any {
+				issue := wizard.Issues[row]
+				return fmt.Sprintf("%d:%s:%d:%s", row, issue.Code, issue.Row, issue.Column)
+			}
+			ui.List(c, &a.wizardIssuesList, len(wizard.Issues), func(row int) {
+				issue := wizard.Issues[row]
+				tone := p.warning
+				if issue.Severity == "blocking" {
+					tone = p.danger
+				}
+				ui.Row(c).FillWidth().AlignItems(ui.Start).Gap(t.Space(2)).Padding(t.Space(1), 0).Children(func() {
+					ui.Box(c).Width(t.Space(1)).Height(t.Space(4)).Radius(t.Space(1)).
+						Shrink(0).Background(tone)
+					ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(0).Children(func() {
+						ui.Text(c, a.importIssueText(issue)).FontSize(bodySize(t)).Pretty()
+						if issue.Row > 0 {
+							ui.Textf(c, locales.ImportIssueLocation(), issue.Row,
+								a.importColumnName(issue.Column)).FontSize(captionSize(t)).
+								TextColor(p.muted).FontFeatures("tnum")
+						}
+					})
+				})
+			}).Label(locales.ImportStepValidate()).Grow(1).Shrink(1).MinHeight(0).Fill()
+			if wizard.Kind == importer.KindScores && a.wizardUnknownRosterCount(wizard) > 0 {
+				ui.Column(c).FillWidth().Gap(t.Space(1)).Children(func() {
+					ui.Row(c).Gap(t.Space(2)).Wrap().Children(func() {
+						if plainButton(c, fmt.Sprintf(locales.ImportWizardAddToRoster(),
+							formatInt(a.wizardUnknownRosterCount(wizard)))).Clicked() {
+							a.wizardAddUnknownRoster(wizard)
+						}
+						if plainButton(c, fmt.Sprintf(locales.ImportWizardSkipRows(),
+							formatInt(a.wizardUnknownRosterCount(wizard)))).Clicked() {
+							a.wizardSkipUnknownRoster(wizard)
+						}
+					})
+				})
+			}
+		}
+		ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
 			if plainButton(c, locales.ImportWizardBackToMapping()).Clicked() {
 				wizard.Step = wizardStepMapping
+			}
+			if len(wizard.Issues) > 0 {
+				if plainButton(c, locales.ImportWizardExportIssues()).Clicked() {
+					a.wizardExportIssues(wizard)
+				}
 			}
 			if wizard.Preview.Warnings > 0 {
 				checkboxField(c, &wizard.ConfirmedWarnings,
@@ -668,34 +883,43 @@ func (a *app) wizardValidateStep(c *ui.Context, p uiPalette) {
 	})
 }
 
-func (a *app) wizardResultStep(c *ui.Context, p uiPalette) {
-	wizard := a.importWizard
+func (a *app) wizardResultStep(c *ui.Context, p uiPalette, wizard *importWizardState) {
 	t := p.theme
 	summary := wizard.Summary
 	panel(c, p).FillWidth().Padding(t.Space(5)).Gap(t.Space(3)).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-			ui.Icon(c, iconCheck).FontSize(t.Space(5)).TextColor(p.success)
-			ui.Text(c, locales.ImportWizardFinished()).FontSize(sectionSize(t)).Bold()
+			ui.Box(c.Key("wizard-result-icon")).Transition(wizardDoneEnter).Children(func() {
+				ui.Icon(c, iconCheck).FontSize(t.Space(5)).TextColor(p.success)
+			})
+			ui.Text(c, locales.ImportWizardFinished()).FontSize(sectionSize(t)).FontWeight(600)
 		})
 		if summary != nil {
 			ui.Text(c, importResultText(wizard.Kind, summary)).FontSize(bodySize(t)).Pretty()
-			if wizard.Duration > 0 {
-				ui.Textf(c, locales.ImportWizardElapsed(), wizard.Duration).
-					FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum")
-			}
 		}
 		ui.Row(c).Wrap().Gap(t.Space(2)).Children(func() {
+			if a.importReturn != nil {
+				retText := fmt.Sprintf(locales.ImportCenterDoneReturn(), a.importReturn.Label)
+				if labelledButton(c, retText, iconArrowLeft, true).Clicked() {
+					a.returnFromImport()
+					return
+				}
+			}
 			if plainButton(c, locales.ImportWizardViewData()).Clicked() {
+				a.importReturn = nil
 				a.page = importKindPage(wizard.Kind)
 				a.closeImportWizard()
 			}
 			if next := nextImportKind(wizard.Kind); next != "" {
 				if labelledButton(c, fmt.Sprintf(locales.ImportWizardNextKind(), importKindName(next)),
-					iconArrowRight, true).Clicked() {
+					iconArrowRight, a.importReturn == nil).Clicked() {
 					a.wizardContinueKind(next)
 				}
 			}
 			if plainButton(c, locales.ImportWizardDone()).Clicked() {
+				if a.importReturn != nil {
+					a.returnFromImport()
+					return
+				}
 				a.closeImportWizard()
 			}
 		})
@@ -947,6 +1171,12 @@ func (a *app) importIssueText(issue store.ImportIssue) string {
 		}
 		return value
 	}
+	subjectOrTier := func(text string) string {
+		if label := a.tierLabel(text); label != text {
+			return label
+		}
+		return a.subjectName(text, text)
+	}
 	switch issue.Code {
 	case "missing_field":
 		return fmt.Sprintf(locales.ImportIssueMissingField(), a.importFieldLabel(issue.Column))
@@ -977,11 +1207,13 @@ func (a *app) importIssueText(issue store.ImportIssue) string {
 	case "unknown_class":
 		return fmt.Sprintf(locales.ImportIssueUnknownClass(), arg(0))
 	case "score_out_of_range":
-		return fmt.Sprintf(locales.ImportIssueScoreOutOfRange(), arg(0), arg(1))
+		return fmt.Sprintf(locales.ImportIssueScoreOutOfRange(), arg(0),
+			a.subjectName(arg(1), arg(1)), arg(2))
 	case "ratio_not_positive":
 		return locales.ImportIssueRatioNotPositive()
 	case "duplicate_baseline":
-		return fmt.Sprintf(locales.ImportIssueDuplicateBaseline(), arg(0), arg(1))
+		return fmt.Sprintf(locales.ImportIssueDuplicateBaseline(), arg(0),
+			a.subjectName(arg(1), arg(1)))
 	case "unknown_student":
 		return fmt.Sprintf(locales.ImportIssueUnknownStudent(), arg(0))
 	case "duplicate_exam_no":
@@ -993,17 +1225,23 @@ func (a *app) importIssueText(issue store.ImportIssue) string {
 	case "no_scores":
 		return fmt.Sprintf(locales.ImportIssueNoScores(), arg(0))
 	case "unknown_exam_subject":
-		return fmt.Sprintf(locales.ImportIssueUnknownExamSubject(), arg(0))
+		return fmt.Sprintf(locales.ImportIssueUnknownExamSubject(), a.subjectName(arg(0), arg(0)))
 	case "unknown_track":
-		return fmt.Sprintf(locales.ImportIssueUnknownTrack(), arg(0))
+		return fmt.Sprintf(locales.ImportIssueUnknownTrack(), a.trackName(arg(0), arg(0)))
 	case "cutoff_not_positive":
-		return fmt.Sprintf(locales.ImportIssueCutoffNotPositive(), arg(0), arg(1))
+		return fmt.Sprintf(locales.ImportIssueCutoffNotPositive(), subjectOrTier(arg(0)),
+			a.trackName(arg(1), arg(1)))
 	case "duplicate_cutoff":
-		return fmt.Sprintf(locales.ImportIssueDuplicateCutoff(), arg(0), arg(1))
+		return fmt.Sprintf(locales.ImportIssueDuplicateCutoff(),
+			subjectOrTier(arg(0)), a.trackName(arg(1), arg(1)))
+	case "cutoff_zero":
+		return fmt.Sprintf(locales.ImportIssueCutoffZero(), arg(0), a.trackName(arg(1), arg(1)))
+	case "cutoff_subject_skipped":
+		return fmt.Sprintf(locales.ImportIssueCutoffSubjectSkipped(), arg(0))
 	case "unknown_tier":
-		return fmt.Sprintf(locales.ImportIssueUnknownTier(), arg(0))
+		return fmt.Sprintf(locales.ImportIssueUnknownTier(), a.tierLabel(arg(0)))
 	case "negative_target":
-		return fmt.Sprintf(locales.ImportIssueNegativeTarget(), arg(0), arg(1))
+		return fmt.Sprintf(locales.ImportIssueNegativeTarget(), arg(0), a.tierLabel(arg(1)))
 	case "duplicate_target":
 		return fmt.Sprintf(locales.ImportIssueDuplicateTarget(), arg(0))
 	default:

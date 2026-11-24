@@ -14,13 +14,34 @@ func (a *app) reloadExams(ctx context.Context) {
 	if a.store == nil {
 		return
 	}
-	exams, err := a.store.ListExams(ctx)
+	var (
+		exams []store.Exam
+		err   error
+	)
+	if cohort := a.selectedCohort(); cohort != nil {
+		exams, err = a.store.ListExamsByCohort(ctx, cohort.ID)
+	} else {
+		exams = nil
+	}
 	if err != nil {
 		a.examError = err.Error()
 		return
 	}
 	a.exams = exams
 	if a.selectedExamID != 0 {
+		found := false
+		for _, exam := range exams {
+			if exam.ID == a.selectedExamID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			a.selectedExamID = 0
+			a.examCohortID = 0
+			a.clearExamLoadedData()
+			return
+		}
 		a.reloadExamData(ctx)
 	}
 }
@@ -37,10 +58,29 @@ func (a *app) selectExam(id int64) {
 	a.examCohortID = 0
 	a.examTab = 0
 	a.examRosterQuery = ""
+	a.examRosterPage = 0
 	a.examScoreQuery = ""
 	a.examScoreSubject = ""
 	a.examScoreClass = 0
+	a.examScorePage = 0
 	a.reloadExamData(context.Background())
+}
+
+func (a *app) clearExamLoadedData() {
+	a.examRoster = nil
+	a.examRosterTotal = 0
+	a.examScores = nil
+	a.examScoresTotal = 0
+	a.examScoreSummaries = nil
+	a.examScoreBands = nil
+	a.examClassAverages = nil
+	a.examCutoffImpacts = nil
+	a.examSubjectCutoffs = nil
+	a.examTierCutoffs = nil
+	a.examTargets = nil
+	a.examStatGroups = nil
+	a.examQuality = nil
+	a.examPrep = store.ExamPrepStatus{}
 }
 
 func (a *app) reloadExamData(ctx context.Context) {
@@ -50,12 +90,14 @@ func (a *app) reloadExamData(ctx context.Context) {
 	a.qualityLoaded = false
 	exam, err := a.store.GetExam(ctx, a.selectedExamID)
 	if err != nil {
+		a.clearExamLoadedData()
 		a.examError = err.Error()
 		return
 	}
 	a.exam = exam
 	if len(exam.Cohorts) == 0 {
 		a.examCohort = store.ExamCohort{}
+		a.clearExamLoadedData()
 		return
 	}
 	found := false
@@ -76,41 +118,84 @@ func (a *app) reloadExamData(ctx context.Context) {
 	}
 	assessment, err := a.store.AssessmentForExamCohort(ctx, a.examCohort.ID)
 	if err != nil {
+		a.clearExamLoadedData()
 		a.examError = err.Error()
 		return
 	}
 	a.examAssessment = assessment
 	tiers, err := a.store.AssessmentTierKeys(ctx, assessment.ID)
 	if err != nil {
+		a.clearExamLoadedData()
 		a.examError = err.Error()
 		return
 	}
 	a.examTierKeys = tiers
 	a.examClasses, err = a.store.ListClasses(ctx, a.examCohort.CohortID, a.examCohort.StageID)
 	if err != nil {
+		a.clearExamLoadedData()
 		a.examError = err.Error()
 		return
 	}
 	groups, err := a.store.ListTeachingGroups(ctx, a.examCohort.StageID, "")
 	if err != nil {
+		a.clearExamLoadedData()
 		a.examError = err.Error()
 		return
 	}
 	a.examTeachingGroups = groups
+	rosterPageSize := normalizePageSize(a.examRosterPageSize)
+	a.examRosterPageSize = rosterPageSize
+	if a.examRosterPage < 0 {
+		a.examRosterPage = 0
+	}
 	a.examRoster, a.examRosterTotal, err = a.store.ListExamRoster(ctx, store.ExamRosterFilter{
 		ExamID: a.exam.ID, CohortID: a.examCohort.CohortID, Query: a.examRosterQuery,
+		Page: a.examRosterPage, PageSize: rosterPageSize,
 	})
 	if err != nil {
+		a.clearExamLoadedData()
 		a.examError = err.Error()
 		return
+	}
+	if a.examRosterTotal > 0 && len(a.examRoster) == 0 && a.examRosterPage > 0 {
+		a.examRosterPage = (a.examRosterTotal - 1) / rosterPageSize
+		a.examRoster, a.examRosterTotal, err = a.store.ListExamRoster(ctx, store.ExamRosterFilter{
+			ExamID: a.exam.ID, CohortID: a.examCohort.CohortID, Query: a.examRosterQuery,
+			Page: a.examRosterPage, PageSize: rosterPageSize,
+		})
+		if err != nil {
+			a.clearExamLoadedData()
+			a.examError = err.Error()
+			return
+		}
+	}
+	scorePageSize := normalizePageSize(a.examScorePageSize)
+	a.examScorePageSize = scorePageSize
+	if a.examScorePage < 0 {
+		a.examScorePage = 0
 	}
 	a.examScores, a.examScoresTotal, err = a.store.ListExamScores(ctx, store.ExamScoreFilter{
 		ExamID: a.exam.ID, CohortID: a.examCohort.CohortID, Query: a.examScoreQuery,
 		Subject: a.examScoreSubject, ClassID: a.examScoreClass,
+		Page: a.examScorePage, PageSize: scorePageSize,
 	})
 	if err != nil {
+		a.clearExamLoadedData()
 		a.examError = err.Error()
 		return
+	}
+	if a.examScoresTotal > 0 && len(a.examScores) == 0 && a.examScorePage > 0 {
+		a.examScorePage = (a.examScoresTotal - 1) / scorePageSize
+		a.examScores, a.examScoresTotal, err = a.store.ListExamScores(ctx, store.ExamScoreFilter{
+			ExamID: a.exam.ID, CohortID: a.examCohort.CohortID, Query: a.examScoreQuery,
+			Subject: a.examScoreSubject, ClassID: a.examScoreClass,
+			Page: a.examScorePage, PageSize: scorePageSize,
+		})
+		if err != nil {
+			a.clearExamLoadedData()
+			a.examError = err.Error()
+			return
+		}
 	}
 	a.examScoreSummaries, err = a.store.ExamScoreSummaries(ctx, a.exam.ID, a.examCohort.CohortID)
 	if err != nil {
@@ -222,6 +307,10 @@ func (a *app) createExam() {
 		a.examError = locales.ExamNameRequired()
 		return
 	}
+	if msg := validateRuneLength(name, locales.ExamName(), maxNameRunes); msg != "" {
+		a.examError = msg
+		return
+	}
 	if a.newExamDate.IsZero() {
 		a.examError = locales.ExamDateRequired()
 		return
@@ -252,6 +341,7 @@ func (a *app) createExam() {
 	a.newExamOpen = false
 	a.examError = ""
 	a.examMessage = locales.ExamCreated()
+	a.notifyMain(a.examMessage)
 	a.reloadExams(context.Background())
 	a.selectExam(exam.ID)
 }
@@ -323,7 +413,7 @@ func (a *app) tierName(key string) string {
 }
 
 func (a *app) examCohortLabel(cohort store.ExamCohort) string {
-	return fmt.Sprintf("%s · %s · %s", cohort.CohortName,
+	return fmt.Sprintf(locales.CohortContext(), cohort.CohortName,
 		a.stageName(cohort.GradeLevelAtExam), a.classOfName(cohort.GraduationYear))
 }
 
@@ -341,6 +431,7 @@ func (a *app) generateExamRoster() {
 	}
 	a.examError = ""
 	a.examMessage = fmt.Sprintf(locales.ExamRosterGenerated(), summary.Inserted)
+	a.notifyMain(a.examMessage)
 	a.reloadExamData(context.Background())
 }
 
@@ -363,7 +454,38 @@ func (a *app) saveExamTargets() {
 	}
 	a.examError = ""
 	a.examMessage = locales.ExamTargetsSaved()
+	a.notifyMain(a.examMessage)
 	a.reloadExamData(context.Background())
+}
+
+// copyPreviousExamTargets 从同年级最近一次含目标数据的考试复制班级分档目标。
+func (a *app) copyPreviousExamTargets() {
+	if a.store == nil || a.examAssessment.ID == 0 {
+		return
+	}
+	ctx := context.Background()
+	prevID, err := a.store.FindPreviousAssessmentWithTargets(ctx, a.examAssessment.ID)
+	if err != nil {
+		a.examError = err.Error()
+		return
+	}
+	if prevID == 0 {
+		a.examError = ""
+		a.examMessage = locales.WorkbenchCopyPrevTargetsEmpty()
+		a.notifyMain(a.examMessage)
+		return
+	}
+	copied, err := a.store.CopyAssessmentTargets(ctx, prevID, a.examAssessment.ID)
+	if err != nil {
+		a.examError = err.Error()
+		return
+	}
+	a.examError = ""
+	a.examMessage = fmt.Sprintf(locales.WorkbenchCopyPrevTargetsDone(), formatInt(copied))
+	a.notifyMain(a.examMessage)
+	a.reloadExamData(ctx)
+	a.reloadAssessments(ctx)
+	a.reloadWorkspaceSummary(ctx)
 }
 
 func (a *app) openStatGroupEditor(group *store.ExamStatGroup) {
@@ -403,6 +525,10 @@ func (a *app) saveStatGroup() {
 	if a.store == nil {
 		return
 	}
+	if msg := validateRuneLength(a.statGroupName, locales.ExamStatGroupName(), maxNameRunes); msg != "" {
+		a.statGroupError = msg
+		return
+	}
 	var members []int64
 	for id, selected := range a.statGroupMembers {
 		if selected {
@@ -422,6 +548,7 @@ func (a *app) saveStatGroup() {
 	a.statGroupOpen = false
 	a.statGroupError = ""
 	a.examMessage = locales.ExamStatGroupSaved()
+	a.notifyMain(a.examMessage)
 	a.reloadExamData(context.Background())
 }
 
@@ -434,6 +561,7 @@ func (a *app) deleteStatGroup(id int64) {
 		return
 	}
 	a.examMessage = locales.ExamStatGroupDeleted()
+	a.notifyMain(a.examMessage)
 	a.reloadExamData(context.Background())
 }
 
@@ -469,5 +597,5 @@ func (a *app) examCohortStageName() string {
 }
 
 func (a *app) examBatchLabel(exam store.Exam) string {
-	return fmt.Sprintf("%s · %s", a.examTypeName(exam.ExamType), exam.Name)
+	return fmt.Sprintf(locales.LabelQualifier(), exam.Name, a.examTypeName(exam.ExamType))
 }

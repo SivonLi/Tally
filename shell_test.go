@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"image/color"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -31,10 +32,10 @@ func TestOverviewEmptyStateAndCohortCreation(t *testing.T) {
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
-	if !tt.HasText("No cohorts yet. Create a cohort to get started.") {
+	if !tt.HasText(locales.WorkspaceEmpty()) {
 		t.Fatalf("texts = %q", tt.Texts())
 	}
-	if err := tt.Click("New cohort"); err != nil {
+	if err := tt.Click(locales.WorkspaceCreate()); err != nil {
 		t.Fatal(err)
 	}
 	if !a.newCohortOpen {
@@ -57,7 +58,7 @@ func TestOverviewEmptyStateAndCohortCreation(t *testing.T) {
 	for _, text := range []string{
 		"2026 cohort · Grade 10 · Class of 2029",
 		"2026-2027 academic year",
-		"0 of 5 data items ready",
+		locales.OverviewAlertNoRoster(),
 	} {
 		if !tt.HasText(text) {
 			t.Errorf("missing %q in %q", text, tt.Texts())
@@ -110,7 +111,7 @@ func TestCohortSwitcher(t *testing.T) {
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
-	if err := tt.Click("Current cohort"); err != nil {
+	if err := tt.Click(locales.WorkspaceSwitchLabel()); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
@@ -136,7 +137,7 @@ func TestCohortSwitcherHiddenWithoutCohorts(t *testing.T) {
 	if _, ok := tt.Find("Current cohort"); ok {
 		t.Error("the cohort switcher shows without a cohort")
 	}
-	if !tt.HasText("No cohorts yet. Create a cohort to get started.") {
+	if !tt.HasText(locales.WorkspaceEmpty()) {
 		t.Errorf("texts = %q", tt.Texts())
 	}
 }
@@ -149,7 +150,7 @@ func TestStageHistorySwitching(t *testing.T) {
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
-	if err := tt.Click("Current cohort"); err != nil {
+	if err := tt.Click(locales.WorkspaceSwitchLabel()); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
@@ -193,19 +194,21 @@ func TestSettingsWindowCategories(t *testing.T) {
 	}
 }
 
-// 设置窗口与主窗口一致：内容区纯黑，左侧分类使用系统材质。
+// 设置窗口与主窗口一致：采用 Sunbeam 深色暖墨画布与 Flat 暖灰侧栏（无毛玻璃）。
 func TestSettingsWindowUsesBlackAndMaterial(t *testing.T) {
 	a := newTestApp(t)
 	tt := ui.NewTester(a.settingsView, 760, 620)
 	tt.SetLocale("en")
 	tt.SetDark(true)
-	tt.SetVibrancy(true)
 	tt.Frame()
 	tt.Advance(2 * time.Second)
 	tt.Frame()
 	img := tt.Image()
-	if got := img.RGBAAt(600, 400); got.R != 0 || got.G != 0 || got.B != 0 {
-		t.Fatalf("content background = %v, want black", got)
+	if got := img.RGBAAt(600, 400); got != (color.RGBA{R: 0x09, G: 0x07, B: 0x06, A: 0xff}) {
+		t.Fatalf("content background = %v, want Sunbeam dark background #090706", got)
+	}
+	if got := img.RGBAAt(40, 400); got != (color.RGBA{R: 0x11, G: 0x0f, B: 0x0d, A: 0xff}) {
+		t.Fatalf("sidebar background = %v, want Sunbeam dark canvas #110f0d", got)
 	}
 	if _, ok := tt.Find("Subjects"); !ok {
 		t.Errorf("texts = %q", tt.Texts())
@@ -247,13 +250,21 @@ func TestSidebarNavigationToDataPages(t *testing.T) {
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
-	if err := tt.Click("Students"); err != nil {
+	if err := tt.Click(locales.NavBaseData()); err != nil {
 		t.Fatal(err)
 	}
-	if a.page != pageStudents {
+	if a.page != pageBaseData {
 		t.Fatalf("page = %q", a.page)
 	}
-	if !tt.HasText("Create a cohort first") {
+	tt.Frame()
+	if err := tt.Click(locales.BaseDataTabStudents()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.baseDataTab != 1 {
+		t.Fatalf("baseDataTab = %d", a.baseDataTab)
+	}
+	if !tt.HasText(locales.WorkspaceEmpty()) {
 		t.Errorf("texts = %q", tt.Texts())
 	}
 	if err := tt.Click("Settings"); err != nil {
@@ -314,8 +325,8 @@ func TestShellAtMinimumSize(t *testing.T) {
 	for _, text := range []string{
 		"Overview",
 		"2026 cohort · Grade 10 · Class of 2029",
-		"Continue setup",
-		"Readiness",
+		locales.OverviewQuickImport(),
+		locales.OverviewMetricStudents(),
 	} {
 		box, ok := tt.Find(text)
 		if !ok {
@@ -341,7 +352,7 @@ func TestDarkThemeShell(t *testing.T) {
 	for _, text := range []string{
 		"Overview",
 		"2026 cohort · Grade 10 · Class of 2029",
-		"Readiness",
+		locales.OverviewLatestAssessment(),
 	} {
 		if !tt.HasText(text) {
 			t.Errorf("missing %q in %q", text, tt.Texts())

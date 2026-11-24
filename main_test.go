@@ -56,6 +56,14 @@ func newTestApp(t *testing.T) *app {
 		page:               pagePlans,
 		systemAcademicYear: 2026,
 		academicYearStart:  2026,
+		secrets:            newMemorySecrets(),
+		syncLoaded:         true,
+		syncSettings: store.SyncSettings{
+			RemoteDir:      "Tally",
+			DeviceID:       "test-dev",
+			DeviceName:     "Test PC",
+			EncryptEnabled: true,
+		},
 	}
 	t.Cleanup(func() {
 		if a.store == nil {
@@ -248,7 +256,7 @@ func TestNavigationSwitchesPages(t *testing.T) {
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
-	if err := tt.Click("Assessments"); err != nil {
+	if err := tt.Click(locales.NavExamHub()); err != nil {
 		t.Fatal(err)
 	}
 	if a.page != pageAssessments {
@@ -257,7 +265,7 @@ func TestNavigationSwitchesPages(t *testing.T) {
 	if !tt.HasText("No exams yet") {
 		t.Errorf("texts = %q", tt.Texts())
 	}
-	if err := tt.Click("Assessment plans"); err != nil {
+	if err := tt.Click(locales.NavPlans()); err != nil {
 		t.Fatal(err)
 	}
 	if a.page != pagePlans {

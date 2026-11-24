@@ -73,8 +73,20 @@ func (a *app) reloadSelectedCohort(ctx context.Context) {
 	a.cohortStages = nil
 	a.stageCounts = store.StageCounts{}
 	a.stageClasses = nil
+	a.workspaceSummary = store.WorkspaceSummary{}
+	a.workspaceSummaryLoaded = false
 	cohort := a.selectedCohort()
 	if cohort == nil || a.store == nil {
+		a.exams = nil
+		a.selectedExamID = 0
+		a.clearExamLoadedData()
+		a.assessments = nil
+		a.selectedAssessmentID = 0
+		a.assessmentRows = nil
+		a.assessmentPersonal = nil
+		a.qualityExams = nil
+		a.qualityLoaded = false
+		a.reloadDataPages(ctx)
 		return
 	}
 	stages, err := a.store.ListCohortStages(ctx, cohort.ID)
@@ -91,8 +103,14 @@ func (a *app) reloadSelectedCohort(ctx context.Context) {
 			}
 		}
 	}
+	if a.selectedStage() == nil && len(stages) > 0 {
+		a.selectedStageID = stages[len(stages)-1].ID
+	}
 	stage := a.selectedStage()
 	if stage == nil {
+		a.reloadExams(ctx)
+		a.reloadAssessments(ctx)
+		a.qualityLoaded = false
 		return
 	}
 	counts, err := a.store.StageCounts(ctx, cohort.ID, stage.AcademicYearStart, stage.GradeLevel)
@@ -108,6 +126,30 @@ func (a *app) reloadSelectedCohort(ctx context.Context) {
 	}
 	a.stageClasses = classes
 	a.reloadDataPages(ctx)
+	a.reloadExams(ctx)
+	a.reloadAssessments(ctx)
+	a.qualityLoaded = false
+	if a.normalizedPage() == pageQuality {
+		a.reloadQuality(ctx)
+	}
+	a.reloadWorkspaceSummary(ctx)
+}
+
+// reloadWorkspaceSummary 刷新当前工作区的实时总览台账摘要（供总览页与侧栏异常角标复用）。
+func (a *app) reloadWorkspaceSummary(ctx context.Context) {
+	cohort := a.selectedCohort()
+	stage := a.selectedStage()
+	if a.store == nil || cohort == nil || stage == nil {
+		a.workspaceSummary = store.WorkspaceSummary{}
+		a.workspaceSummaryLoaded = false
+		return
+	}
+	summary, err := a.store.WorkspaceSummary(ctx, cohort.ID, stage.ID)
+	if err != nil {
+		return
+	}
+	a.workspaceSummary = summary
+	a.workspaceSummaryLoaded = true
 }
 
 func (a *app) selectedCohort() *store.Cohort {
@@ -174,10 +216,40 @@ func (a *app) selectCohort(label string) {
 		if a.cohortName(cohort.EnrollmentYear) != label {
 			continue
 		}
-		a.selectedCohortID = strconv.FormatInt(cohort.ID, 10)
-		a.selectedStageID = 0
-		a.reloadSelectedCohort(context.Background())
+		a.switchWorkspaceCohort(cohort.ID)
 		return
+	}
+}
+
+// switchWorkspaceCohort 切换全局当前工作区（级），重置跨级筛选与选中状态，并刷新全部关联模块。
+func (a *app) switchWorkspaceCohort(cohortID int64) {
+	idStr := strconv.FormatInt(cohortID, 10)
+	if a.selectedCohortID == idStr && a.selectedStageID != 0 {
+		return
+	}
+	a.selectedCohortID = idStr
+	a.selectedStageID = 0
+	a.dataClassFilter = 0
+	a.baselineClassFilter = 0
+	a.selectedStudentID = 0
+	a.studentDetailOpen = false
+	a.studentPage = 0
+	a.selectedExamID = 0
+	a.examCohortID = 0
+	a.clearExamLoadedData()
+	a.selectedAssessmentID = 0
+	a.assessmentRunChosen = false
+	a.assessmentRunID = 0
+	a.resultDetailOpen = false
+	a.analysisTeacherName = ""
+	a.analysisClassID = 0
+	a.analysisStudentID = 0
+	a.importRunID = 0
+	a.importDetail = nil
+	ctx := context.Background()
+	a.reloadSelectedCohort(ctx)
+	if a.normalizedPage() == pageAnalysis {
+		a.reloadAnalysis(ctx)
 	}
 }
 
@@ -205,6 +277,7 @@ func (a *app) setAcademicYear(start int) {
 	a.academicYearStart = start
 	a.selectedStageID = 0
 	a.reloadCohorts(context.Background())
+	a.notifySettings(locales.SettingsAcademicYearSaved())
 }
 
 func (a *app) openNewCohort() {
@@ -233,6 +306,7 @@ func (a *app) createCohort() {
 	a.selectedStageID = 0
 	a.reloadCohorts(context.Background())
 	a.page = pageOverview
+	a.notifyMain(fmt.Sprintf(locales.CohortCreatedToast(), a.cohortName(cohort.EnrollmentYear)))
 }
 
 func (a *app) cohortName(enrollmentYear int) string {
@@ -274,7 +348,6 @@ func (a *app) readiness() (ready, total int) {
 	items := []bool{
 		a.stageCounts.Classes > 0,
 		a.stageCounts.Students > 0,
-		a.stageCounts.Teachers > 0,
 		a.stageCounts.Assignments > 0,
 		a.stageCounts.Baselines > 0,
 	}
@@ -292,7 +365,7 @@ func (a *app) nextSetupPage() pageID {
 		return pageCohorts
 	case a.stageCounts.Students == 0:
 		return pageStudents
-	case a.stageCounts.Teachers == 0 || a.stageCounts.Assignments == 0:
+	case a.stageCounts.Assignments == 0:
 		return pageFaculty
 	case a.stageCounts.Baselines == 0:
 		return pageBaseline

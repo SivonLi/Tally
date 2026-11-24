@@ -359,36 +359,60 @@ func (s *Store) LoadAssessmentData(ctx context.Context, assessmentID int64) (Bat
 	return data, nil
 }
 
-// SaveAssessmentRun 保存一次核算结果，并更新本次考核的当前结果。
-func (s *Store) SaveAssessmentRun(ctx context.Context, assessmentID, versionID int64, inputHash string, result calc.Result) (int64, error) {
-	now := s.now().Format(time.RFC3339Nano)
-	statements := []sqlite.Statement{
-		{SQL: `UPDATE result_runs SET is_official = 0 WHERE assessment_id = ?`, Args: []any{assessmentID}},
-		{SQL: `INSERT INTO result_runs(batch_id, assessment_id, plan_version_id, input_hash, is_official, created_at)
-			VALUES (NULL, ?, ?, ?, 1, ?)`, Args: []any{assessmentID, versionID, inputHash, now}},
+// SaveAssessmentRun 保存一次核算结果。official 为 true 时是正式结果：
+// 旧的正式运行清零，本次考核状态改为已核算；为 false 时是试算结果，
+// 不影响本次考核的状态和当前正式结果。
+func (s *Store) SaveAssessmentRun(ctx context.Context, assessmentID, versionID int64, inputHash string, inputSummary map[string]string, result calc.Result, official bool) (int64, error) {
+	summaryJSON, err := json.Marshal(inputSummary)
+	if err != nil {
+		return 0, err
 	}
+	now := s.now().Format(time.RFC3339Nano)
+	officialFlag := 0
+	if official {
+		officialFlag = 1
+	}
+	statements := []sqlite.Statement{}
+	if official {
+		statements = append(statements, sqlite.Statement{
+			SQL:  `UPDATE result_runs SET is_official = 0 WHERE assessment_id = ?`,
+			Args: []any{assessmentID},
+		})
+	}
+	statements = append(statements, sqlite.Statement{
+		SQL: `INSERT INTO result_runs(batch_id, assessment_id, plan_version_id, input_hash,
+			input_summary_json, is_official, created_at)
+			VALUES (NULL, ?, ?, ?, ?, ?, ?)`,
+		Args: []any{assessmentID, versionID, inputHash, string(summaryJSON), officialFlag, now},
+	})
 	transaction, err := s.db.Transaction(ctx, statements)
 	if err != nil {
 		return 0, err
 	}
-	runID := transaction[1].LastInsertID
+	runID := transaction[len(transaction)-1].LastInsertID
 	rowStatements := make([]sqlite.Statement, 0, len(result.Rows)+len(result.Personal)+1)
 	for _, row := range result.Rows {
 		indicatorJSON, err := json.Marshal(row.IndicatorValues)
 		if err != nil {
 			return 0, err
 		}
+		participating := 0
+		if row.CompletionParticipating {
+			participating = 1
+		}
 		rowStatements = append(rowStatements, sqlite.Statement{
 			SQL: `INSERT INTO result_rows(run_id, stat_group_id, stat_group_name, subject, lead_class_id,
 				lead_class_name, teacher_names, class_count, class_average, grade_average, baseline_average,
-				baseline_ratio, improvement_score, pass_count, pass_target, pass_score, completion_score, total, rank, tier_index, points,
-				indicator_values_json)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				baseline_ratio, improvement_raw, improvement_score, pass_count, pass_target, pass_raw,
+				pass_score, completion_actual, completion_base, completion_raw, completion_participate,
+				completion_score, total, rank, tier_index, points, indicator_values_json)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			Args: []any{runID, row.StatGroupID, row.StatGroupName, row.Subject, row.LeadClassID,
 				row.LeadClassName, joinNames(row.TeacherNames), row.ClassCount, row.ClassAverage,
-				row.GradeAverage, row.BaselineAverage, row.BaselineRatio, row.ImprovementScore,
-				row.PassCount, row.PassTarget, row.PassScore, row.CompletionScore, row.Total, row.Rank,
-				row.TierIndex, row.Points, string(indicatorJSON)},
+				row.GradeAverage, row.BaselineAverage, row.BaselineRatio, row.ImprovementRaw,
+				row.ImprovementScore, row.PassCount, row.PassTarget, row.PassRaw, row.PassScore,
+				row.CompletionActual, row.CompletionBase, row.CompletionRaw, participating,
+				row.CompletionScore, row.Total, row.Rank, row.TierIndex, row.Points, string(indicatorJSON)},
 		})
 	}
 	for _, score := range result.Personal {
@@ -406,21 +430,120 @@ func (s *Store) SaveAssessmentRun(ctx context.Context, assessmentID, versionID i
 			Args: []any{runID, teacherID, score.TeacherName, score.Grade, score.Subject, string(pointsJSON), score.Score},
 		})
 	}
-	rowStatements = append(rowStatements, sqlite.Statement{
-		SQL: `UPDATE assessments SET status = 'calculated', plan_version_id = ?, current_run_id = ?,
-			revision = revision + 1 WHERE id = ?`,
-		Args: []any{versionID, runID, assessmentID},
-	})
+	for _, row := range result.Rows {
+		for position, participant := range row.Participants {
+			rowStatements = append(rowStatements, sqlite.Statement{
+				SQL: `INSERT INTO result_row_students(run_id, stat_group_id, subject, position,
+					student_no, name) VALUES (?, ?, ?, ?, ?, ?)`,
+				Args: []any{runID, row.StatGroupID, row.Subject, position,
+					participant.StudentNo, participant.Name},
+			})
+		}
+	}
+	if official {
+		rowStatements = append(rowStatements, sqlite.Statement{
+			SQL: `UPDATE assessments SET status = 'calculated', plan_version_id = ?, current_run_id = ?,
+				revision = revision + 1 WHERE id = ?`,
+			Args: []any{versionID, runID, assessmentID},
+		})
+	}
 	if _, err := s.db.Transaction(ctx, rowStatements); err != nil {
 		return 0, err
 	}
 	return runID, nil
 }
 
-// LatestAssessmentRun 返回本次考核最新的一次核算与结果行。
-func (s *Store) LatestAssessmentRun(ctx context.Context, assessmentID int64) (ResultRun, []StoredResultRow, []StoredPersonalScore, error) {
+// AssessmentRunSummary 是一次核算的概要，供本次考核详情选择查看哪一份结果。
+type AssessmentRunSummary struct {
+	ID            int64
+	PlanVersionID int64
+	IsOfficial    bool
+	CreatedAt     time.Time
+	RowCount      int
+}
+
+// ListAssessmentRuns 返回本次考核的全部核算，最近的在前。
+func (s *Store) ListAssessmentRuns(ctx context.Context, assessmentID int64) ([]AssessmentRunSummary, error) {
+	rows, err := s.db.Query(ctx, `SELECT r.id, r.plan_version_id, r.is_official, r.created_at,
+		(SELECT COUNT(*) FROM result_rows rr WHERE rr.run_id = r.id)
+		FROM result_runs r WHERE r.assessment_id = ? ORDER BY r.id DESC`, assessmentID)
+	if err != nil {
+		return nil, err
+	}
+	runs := make([]AssessmentRunSummary, 0, len(rows.Values))
+	for _, row := range rows.Values {
+		createdAt, err := parseTime(row[3])
+		if err != nil {
+			return nil, err
+		}
+		runs = append(runs, AssessmentRunSummary{
+			ID:            intValue(row[0]),
+			PlanVersionID: intValue(row[1]),
+			IsOfficial:    intValue(row[2]) != 0,
+			CreatedAt:     createdAt,
+			RowCount:      int(intValue(row[4])),
+		})
+	}
+	return runs, nil
+}
+
+// ensureRunDetailColumns 为核算运行与结果行补上输入摘要、未封顶数值
+// 和参与学生名单的列与表。
+func (s *Store) ensureRunDetailColumns(ctx context.Context) error {
+	exists, err := s.columnExists(ctx, "result_runs", "input_summary_json")
+	if err != nil {
+		return err
+	}
+	if !exists {
+		if _, err := s.db.Execute(ctx, `ALTER TABLE result_runs
+			ADD COLUMN input_summary_json TEXT NOT NULL DEFAULT ''`); err != nil {
+			return fmt.Errorf("增加结果运行的输入摘要: %w", err)
+		}
+	}
+	columns := []struct {
+		name string
+		sql  string
+	}{
+		{"improvement_raw", `ALTER TABLE result_rows ADD COLUMN improvement_raw REAL NOT NULL DEFAULT 0`},
+		{"pass_raw", `ALTER TABLE result_rows ADD COLUMN pass_raw REAL NOT NULL DEFAULT 0`},
+		{"completion_actual", `ALTER TABLE result_rows ADD COLUMN completion_actual REAL NOT NULL DEFAULT 0`},
+		{"completion_base", `ALTER TABLE result_rows ADD COLUMN completion_base REAL NOT NULL DEFAULT 0`},
+		{"completion_raw", `ALTER TABLE result_rows ADD COLUMN completion_raw REAL NOT NULL DEFAULT 0`},
+		{"completion_participate", `ALTER TABLE result_rows ADD COLUMN completion_participate INTEGER NOT NULL DEFAULT 0`},
+	}
+	for _, column := range columns {
+		exists, err := s.columnExists(ctx, "result_rows", column.name)
+		if err != nil {
+			return err
+		}
+		if exists {
+			continue
+		}
+		if _, err := s.db.Execute(ctx, column.sql); err != nil {
+			return fmt.Errorf("增加结果行的 %s 列: %w", column.name, err)
+		}
+	}
+	if _, err := s.db.Execute(ctx, `CREATE TABLE IF NOT EXISTS result_row_students (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		run_id INTEGER NOT NULL,
+		stat_group_id INTEGER NOT NULL,
+		subject TEXT NOT NULL,
+		position INTEGER NOT NULL,
+		student_no TEXT NOT NULL,
+		name TEXT NOT NULL
+	)`); err != nil {
+		return err
+	}
+	_, err = s.db.Execute(ctx, `CREATE INDEX IF NOT EXISTS result_row_students_row
+		ON result_row_students(run_id, stat_group_id, subject)`)
+	return err
+}
+
+// LatestOfficialAssessmentRun 返回本次考核最新的正式核算与结果行。
+func (s *Store) LatestOfficialAssessmentRun(ctx context.Context, assessmentID int64) (ResultRun, []StoredResultRow, []StoredPersonalScore, error) {
 	rows, err := s.db.Query(ctx, `SELECT id, COALESCE(batch_id, 0), plan_version_id, input_hash,
-		is_official, created_at FROM result_runs WHERE assessment_id = ?
+		COALESCE(input_summary_json, ''), is_official, created_at
+		FROM result_runs WHERE assessment_id = ? AND is_official = 1
 		ORDER BY id DESC LIMIT 1`, assessmentID)
 	if err != nil {
 		return ResultRun{}, nil, nil, err
@@ -428,58 +551,97 @@ func (s *Store) LatestAssessmentRun(ctx context.Context, assessmentID int64) (Re
 	if len(rows.Values) == 0 {
 		return ResultRun{}, nil, nil, ErrNotFound
 	}
-	row := rows.Values[0]
-	createdAt, err := parseTime(row[5])
+	run, err := assessmentRunFromRow(rows.Values[0])
 	if err != nil {
 		return ResultRun{}, nil, nil, err
 	}
-	run := ResultRun{
+	result, personal, err := s.assessmentRunRows(ctx, run.ID)
+	return run, result, personal, err
+}
+
+func assessmentRunFromRow(row []any) (ResultRun, error) {
+	createdAt, err := parseTime(row[6])
+	if err != nil {
+		return ResultRun{}, err
+	}
+	return ResultRun{
 		ID:            intValue(row[0]),
 		BatchID:       intValue(row[1]),
 		PlanVersionID: intValue(row[2]),
 		InputHash:     stringValue(row[3]),
-		IsOfficial:    intValue(row[4]) != 0,
+		InputSummary:  stringValue(row[4]),
+		IsOfficial:    intValue(row[5]) != 0,
 		CreatedAt:     createdAt,
-	}
-	resultRows, err := s.db.Query(ctx, `SELECT stat_group_id, stat_group_name, subject, lead_class_id,
-		lead_class_name, teacher_names, class_count, class_average, grade_average, baseline_average,
-		baseline_ratio, improvement_score, pass_count, pass_target, pass_score, completion_score,
-		total, rank, tier_index, points, indicator_values_json
-		FROM result_rows WHERE run_id = ? ORDER BY subject, rank, stat_group_name`, run.ID)
+	}, nil
+}
+
+// AssessmentRunDetail 返回指定核算的记录、结果行与个人得分。
+func (s *Store) AssessmentRunDetail(ctx context.Context, assessmentID, runID int64) (ResultRun, []StoredResultRow, []StoredPersonalScore, error) {
+	rows, err := s.db.Query(ctx, `SELECT id, COALESCE(batch_id, 0), plan_version_id, input_hash,
+		COALESCE(input_summary_json, ''), is_official, created_at
+		FROM result_runs WHERE assessment_id = ? AND id = ?`, assessmentID, runID)
 	if err != nil {
 		return ResultRun{}, nil, nil, err
+	}
+	if len(rows.Values) == 0 {
+		return ResultRun{}, nil, nil, ErrNotFound
+	}
+	run, err := assessmentRunFromRow(rows.Values[0])
+	if err != nil {
+		return ResultRun{}, nil, nil, err
+	}
+	result, personal, err := s.assessmentRunRows(ctx, run.ID)
+	return run, result, personal, err
+}
+
+func (s *Store) assessmentRunRows(ctx context.Context, runID int64) ([]StoredResultRow, []StoredPersonalScore, error) {
+	resultRows, err := s.db.Query(ctx, `SELECT id, stat_group_id, stat_group_name, subject, lead_class_id,
+		lead_class_name, teacher_names, class_count, class_average, grade_average, baseline_average,
+		baseline_ratio, improvement_raw, improvement_score, pass_count, pass_target, pass_raw,
+		pass_score, completion_actual, completion_base, completion_raw, completion_participate,
+		completion_score, total, rank, tier_index, points, indicator_values_json
+		FROM result_rows WHERE run_id = ? ORDER BY subject, rank, stat_group_name`, runID)
+	if err != nil {
+		return nil, nil, err
 	}
 	result := make([]StoredResultRow, 0, len(resultRows.Values))
 	for _, row := range resultRows.Values {
-		item := StoredResultRow{}
-		item.StatGroupID = intValue(row[0])
-		item.StatGroupName = stringValue(row[1])
-		item.Subject = stringValue(row[2])
-		item.LeadClassID = intValue(row[3])
-		item.LeadClassName = stringValue(row[4])
-		item.TeacherNames = stringValue(row[5])
-		item.ClassCount = int(intValue(row[6]))
-		item.ClassAverage = floatValue(row[7])
-		item.GradeAverage = floatValue(row[8])
-		item.BaselineAverage = floatValue(row[9])
-		item.BaselineRatio = floatValue(row[10])
-		item.ImprovementScore = floatValue(row[11])
-		item.PassCount = int(intValue(row[12]))
-		item.PassTarget = floatValue(row[13])
-		item.PassScore = floatValue(row[14])
-		item.CompletionScore = floatValue(row[15])
-		item.Total = floatValue(row[16])
-		item.Rank = int(intValue(row[17]))
-		item.TierIndex = int(intValue(row[18]))
-		item.Points = floatValue(row[19])
-		item.IndicatorJSON = stringValue(row[20])
-		result = append(result, item)
+		result = append(result, StoredResultRow{
+			ID:                    intValue(row[0]),
+			StatGroupID:           intValue(row[1]),
+			StatGroupName:         stringValue(row[2]),
+			Subject:               stringValue(row[3]),
+			LeadClassID:           intValue(row[4]),
+			LeadClassName:         stringValue(row[5]),
+			TeacherNames:          stringValue(row[6]),
+			ClassCount:            int(intValue(row[7])),
+			ClassAverage:          floatValue(row[8]),
+			GradeAverage:          floatValue(row[9]),
+			BaselineAverage:       floatValue(row[10]),
+			BaselineRatio:         floatValue(row[11]),
+			ImprovementRaw:        floatValue(row[12]),
+			ImprovementScore:      floatValue(row[13]),
+			PassCount:             int(intValue(row[14])),
+			PassTarget:            floatValue(row[15]),
+			PassRaw:               floatValue(row[16]),
+			PassScore:             floatValue(row[17]),
+			CompletionActual:      floatValue(row[18]),
+			CompletionBase:        floatValue(row[19]),
+			CompletionRaw:         floatValue(row[20]),
+			CompletionParticipate: intValue(row[21]) != 0,
+			CompletionScore:       floatValue(row[22]),
+			Total:                 floatValue(row[23]),
+			Rank:                  int(intValue(row[24])),
+			TierIndex:             int(intValue(row[25])),
+			Points:                floatValue(row[26]),
+			IndicatorJSON:         stringValue(row[27]),
+		})
 	}
 	personalRows, err := s.db.Query(ctx, `SELECT teacher_id, teacher_name, grade, subject,
 		group_points_json, score FROM personal_scores WHERE run_id = ?
-		ORDER BY subject, teacher_name`, run.ID)
+		ORDER BY subject, teacher_name`, runID)
 	if err != nil {
-		return ResultRun{}, nil, nil, err
+		return nil, nil, err
 	}
 	personal := make([]StoredPersonalScore, 0, len(personalRows.Values))
 	for _, row := range personalRows.Values {
@@ -492,7 +654,60 @@ func (s *Store) LatestAssessmentRun(ctx context.Context, assessmentID int64) (Re
 			Score:       floatValue(row[5]),
 		})
 	}
-	return run, result, personal, nil
+	return result, personal, nil
+}
+
+// ResultRowStudent 是参与一条结果行计算的学生快照，包含该科实考得分、标记与达线判定。
+type ResultRowStudent struct {
+	Position  int
+	StudentNo string
+	Name      string
+	Track     string
+	Score     *float64
+	Flag      string
+	Cutoff    float64
+	Passed    bool
+}
+
+// AssessmentRowStudents 返回一条结果行参与计算的学生名单及其该科得分与达线状态。
+func (s *Store) AssessmentRowStudents(ctx context.Context, runID, statGroupID int64, subject string) ([]ResultRowStudent, error) {
+	rows, err := s.db.Query(ctx, `SELECT rrs.position, rrs.student_no, rrs.name,
+		COALESCE(NULLIF(er.track, ''), m.track, ''),
+		es.score, COALESCE(es.flag, ''),
+		COALESCE(sc.cutoff, 0)
+		FROM result_row_students rrs
+		LEFT JOIN result_runs rr ON rr.id = rrs.run_id
+		LEFT JOIN assessments a ON a.id = rr.assessment_id
+		LEFT JOIN exam_cohorts ec ON ec.id = a.exam_cohort_id
+		LEFT JOIN students st ON st.student_no = rrs.student_no
+		LEFT JOIN exam_rosters er ON er.exam_id = ec.exam_id AND er.cohort_id = ec.cohort_id AND er.student_id = st.id
+		LEFT JOIN student_stage_memberships m ON m.stage_id = ec.stage_id AND m.student_id = st.id
+		LEFT JOIN exam_scores es ON es.exam_id = ec.exam_id AND es.cohort_id = ec.cohort_id
+			AND es.student_id = st.id AND es.subject = rrs.subject
+		LEFT JOIN exam_subject_cutoffs sc ON sc.exam_id = ec.exam_id AND sc.cohort_id = ec.cohort_id
+			AND sc.subject = rrs.subject AND sc.track = COALESCE(NULLIF(er.track, ''), m.track, '')
+		WHERE rrs.run_id = ? AND rrs.stat_group_id = ? AND rrs.subject = ?
+		ORDER BY rrs.position`, runID, statGroupID, subject)
+	if err != nil {
+		return nil, err
+	}
+	students := make([]ResultRowStudent, 0, len(rows.Values))
+	for _, row := range rows.Values {
+		score, hasScore := nullableFloat(row[4])
+		cutoff := floatValue(row[6])
+		passed := hasScore && score != nil && cutoff > 0 && *score >= cutoff
+		students = append(students, ResultRowStudent{
+			Position:  int(intValue(row[0])),
+			StudentNo: stringValue(row[1]),
+			Name:      stringValue(row[2]),
+			Track:     stringValue(row[3]),
+			Score:     score,
+			Flag:      stringValue(row[5]),
+			Cutoff:    cutoff,
+			Passed:    passed,
+		})
+	}
+	return students, nil
 }
 
 // AdjustAssessmentTarget 记录一次目标补录，后续核算按补录值计算。
