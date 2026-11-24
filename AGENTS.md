@@ -112,8 +112,8 @@ MYGO=$(go list -m -f '{{.Dir}}' github.com/egoist/mygo)
 
 ## 分支与提交
 
-- `test`：日常开发分支，也是默认分支。功能分支从 `test` 切出，通过 PR 合回；文档和小修复允许直接推送 `test`，推送后仍会运行质量检查。
-- `main`：正式版本分支。每次从 `test` 向 `main` 开 PR，PR 内更新 `mygo.json` 的版本与 `CHANGELOG.md`，合并后自动发布正式版本。
+- `test`：日常开发分支。功能分支从 `test` 切出，通过 PR 合回；文档和小修复允许直接推送 `test`，推送后仍会运行质量检查。
+- `main`：正式版本分支，也是默认分支。每次从 `test` 向 `main` 开 PR，PR 内更新 `mygo.json` 的版本与 `CHANGELOG.md`，合并后自动发布正式版本。
 - 不直接向 `main` 提交；发布标签由 `release.yml` 在发布时创建，指向 `main` 上的提交。
 - `main` 已从初始提交创建并受分支保护；第一次正式发布时从 `test` 向 `main` 开 PR。
 - `test` 与 `main` 都启用分支保护：禁止强制推送与删除；`test` 合并前必须通过 `gates`，`main` 还必须通过 `windows-build` 与 `macos-build`。
