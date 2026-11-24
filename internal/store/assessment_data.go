@@ -657,27 +657,54 @@ func (s *Store) assessmentRunRows(ctx context.Context, runID int64) ([]StoredRes
 	return result, personal, nil
 }
 
-// ResultRowStudent 是参与一条结果行计算的学生快照。
+// ResultRowStudent 是参与一条结果行计算的学生快照，包含该科实考得分、标记与达线判定。
 type ResultRowStudent struct {
 	Position  int
 	StudentNo string
 	Name      string
+	Track     string
+	Score     *float64
+	Flag      string
+	Cutoff    float64
+	Passed    bool
 }
 
-// AssessmentRowStudents 返回一条结果行参与计算的学生名单。
+// AssessmentRowStudents 返回一条结果行参与计算的学生名单及其该科得分与达线状态。
 func (s *Store) AssessmentRowStudents(ctx context.Context, runID, statGroupID int64, subject string) ([]ResultRowStudent, error) {
-	rows, err := s.db.Query(ctx, `SELECT position, student_no, name FROM result_row_students
-		WHERE run_id = ? AND stat_group_id = ? AND subject = ?
-		ORDER BY position`, runID, statGroupID, subject)
+	rows, err := s.db.Query(ctx, `SELECT rrs.position, rrs.student_no, rrs.name,
+		COALESCE(NULLIF(er.track, ''), m.track, ''),
+		es.score, COALESCE(es.flag, ''),
+		COALESCE(sc.cutoff, 0)
+		FROM result_row_students rrs
+		LEFT JOIN result_runs rr ON rr.id = rrs.run_id
+		LEFT JOIN assessments a ON a.id = rr.assessment_id
+		LEFT JOIN exam_cohorts ec ON ec.id = a.exam_cohort_id
+		LEFT JOIN students st ON st.student_no = rrs.student_no
+		LEFT JOIN exam_rosters er ON er.exam_id = ec.exam_id AND er.cohort_id = ec.cohort_id AND er.student_id = st.id
+		LEFT JOIN student_stage_memberships m ON m.stage_id = ec.stage_id AND m.student_id = st.id
+		LEFT JOIN exam_scores es ON es.exam_id = ec.exam_id AND es.cohort_id = ec.cohort_id
+			AND es.student_id = st.id AND es.subject = rrs.subject
+		LEFT JOIN exam_subject_cutoffs sc ON sc.exam_id = ec.exam_id AND sc.cohort_id = ec.cohort_id
+			AND sc.subject = rrs.subject AND sc.track = COALESCE(NULLIF(er.track, ''), m.track, '')
+		WHERE rrs.run_id = ? AND rrs.stat_group_id = ? AND rrs.subject = ?
+		ORDER BY rrs.position`, runID, statGroupID, subject)
 	if err != nil {
 		return nil, err
 	}
 	students := make([]ResultRowStudent, 0, len(rows.Values))
 	for _, row := range rows.Values {
+		score, hasScore := nullableFloat(row[4])
+		cutoff := floatValue(row[6])
+		passed := hasScore && score != nil && cutoff > 0 && *score >= cutoff
 		students = append(students, ResultRowStudent{
 			Position:  int(intValue(row[0])),
 			StudentNo: stringValue(row[1]),
 			Name:      stringValue(row[2]),
+			Track:     stringValue(row[3]),
+			Score:     score,
+			Flag:      stringValue(row[5]),
+			Cutoff:    cutoff,
+			Passed:    passed,
 		})
 	}
 	return students, nil

@@ -29,8 +29,8 @@ func (s *Store) CanUndoImport(ctx context.Context, runID int64) (bool, string, e
 	if len(changes.Values) == 0 {
 		return false, "no_changes", nil
 	}
-	if detail.Run.ScopeType != "stage" {
-		return false, "not_stage", nil
+	if detail.Run.ScopeType != "stage" && detail.Run.ScopeType != "exam" {
+		return false, "unsupported_scope", nil
 	}
 	rows, err := s.db.Query(ctx, `SELECT 1 FROM import_runs
 		WHERE scope_type = ? AND scope_id = ? AND id > ? AND status = 'imported' LIMIT 1`,
@@ -106,15 +106,15 @@ func (s *Store) ListImportIssues(ctx context.Context, runID int64) ([]ImportIssu
 	return issues, nil
 }
 
-// UndoImportRun 反向应用一条导入记录的变更。
+// UndoImportRun 反向应用一条导入记录的变更（支持基础数据与考试数据导入）。
 func (s *Store) UndoImportRun(ctx context.Context, runID int64) error {
 	detail, err := s.GetImportRun(ctx, runID)
 	if err != nil {
 		return err
 	}
 	run := detail.Run
-	if run.ScopeType != "stage" {
-		return fmt.Errorf("只有基础数据导入可以撤销")
+	if run.ScopeType != "stage" && run.ScopeType != "exam" {
+		return fmt.Errorf("不支持撤销作用域 %q 的导入", run.ScopeType)
 	}
 	if run.Status != "imported" {
 		return fmt.Errorf("%w: 导入状态为 %s", ErrImportUndoBlocked, run.Status)
@@ -139,6 +139,16 @@ func (s *Store) UndoImportRun(ctx context.Context, runID int64) error {
 	if err != nil {
 		return err
 	}
+	revScopeID := run.ScopeID
+	if run.ScopeType == "exam" {
+		examRows, err := s.db.Query(ctx, `SELECT exam_id FROM exam_cohorts WHERE id = ?`, run.ScopeID)
+		if err != nil {
+			return err
+		}
+		if len(examRows.Values) > 0 {
+			revScopeID = intValue(examRows.Values[0][0])
+		}
+	}
 	statements := make([]sqlite.Statement, 0, len(changes)+3)
 	for index := len(changes) - 1; index >= 0; index-- {
 		statement, err := importUndoStatement(changes[index])
@@ -152,15 +162,15 @@ func (s *Store) UndoImportRun(ctx context.Context, runID int64) error {
 		sqlite.Statement{SQL: `UPDATE import_runs SET status = 'undone' WHERE id = ?`, Args: []any{runID}},
 		sqlite.Statement{
 			SQL: `INSERT INTO data_revisions(scope_type, scope_id, revision, updated_at)
-				VALUES ('stage', ?, 1, ?)
+				VALUES (?, ?, 1, ?)
 				ON CONFLICT(scope_type, scope_id) DO UPDATE SET revision = revision + 1,
 					updated_at = excluded.updated_at`,
-			Args: []any{run.ScopeID, now},
+			Args: []any{run.ScopeType, revScopeID, now},
 		},
 		sqlite.Statement{
 			SQL: `INSERT INTO audit_log(action, entity, entity_id, detail_json, created_at, operator)
-				VALUES ('undo_import', 'stage', ?, ?, ?, 'local')`,
-			Args: []any{run.ScopeID, fmt.Sprintf(`{"run":%d}`, runID), now},
+				VALUES ('undo_import', ?, ?, ?, ?, 'local')`,
+			Args: []any{run.ScopeType, run.ScopeID, fmt.Sprintf(`{"run":%d}`, runID), now},
 		},
 	)
 	_, err = s.db.Transaction(ctx, statements)
@@ -288,6 +298,36 @@ func importDeleteStatement(change importChangeRecord) (sqlite.Statement, error) 
 				AND subject = ?`,
 			Args: []any{intValue(before["stage_id"]), stringValue(before["subject"])},
 		}, nil
+	case "exam_roster":
+		return sqlite.Statement{
+			SQL: `DELETE FROM exam_rosters WHERE exam_id = ? AND cohort_id = ? AND student_id = ?`,
+			Args: []any{intValue(before["exam_id"]), intValue(before["cohort_id"]),
+				intValue(before["student_id"])},
+		}, nil
+	case "exam_score":
+		return sqlite.Statement{
+			SQL: `DELETE FROM exam_scores WHERE exam_id = ? AND cohort_id = ? AND student_id = ? AND subject = ?`,
+			Args: []any{intValue(before["exam_id"]), intValue(before["cohort_id"]),
+				intValue(before["student_id"]), stringValue(before["subject"])},
+		}, nil
+	case "exam_subject_cutoff":
+		return sqlite.Statement{
+			SQL: `DELETE FROM exam_subject_cutoffs WHERE exam_id = ? AND cohort_id = ? AND subject = ? AND track = ?`,
+			Args: []any{intValue(before["exam_id"]), intValue(before["cohort_id"]),
+				stringValue(before["subject"]), stringValue(before["track"])},
+		}, nil
+	case "exam_tier_cutoff":
+		return sqlite.Statement{
+			SQL: `DELETE FROM exam_tier_cutoffs WHERE exam_id = ? AND cohort_id = ? AND tier_key = ? AND track = ?`,
+			Args: []any{intValue(before["exam_id"]), intValue(before["cohort_id"]),
+				stringValue(before["tier_key"]), stringValue(before["track"])},
+		}, nil
+	case "exam_class_target":
+		return sqlite.Statement{
+			SQL: `DELETE FROM assessment_class_targets WHERE assessment_id = ? AND class_id = ? AND tier_key = ?`,
+			Args: []any{intValue(before["assessment_id"]), intValue(before["class_id"]),
+				stringValue(before["tier_key"])},
+		}, nil
 	default:
 		return sqlite.Statement{}, fmt.Errorf("未知的导入变更实体 %q", change.Entity)
 	}
@@ -347,6 +387,54 @@ func importRestoreStatement(change importChangeRecord) (sqlite.Statement, error)
 				intValue(before["import_run_id"]), stringValue(before["source_sheet"]),
 				intValue(before["source_row"]), intValue(before["stage_id"]),
 				stringValue(before["subject"])},
+		}, nil
+	case "exam_roster":
+		return sqlite.Statement{
+			SQL: `UPDATE exam_rosters SET class_id = ?, exam_no = ?, candidate_no = ?, track = ?,
+				total_score = ?, status = ?, subjects_json = ?, import_run_id = ?,
+				source_sheet = ?, source_row = ?
+				WHERE exam_id = ? AND cohort_id = ? AND student_id = ?`,
+			Args: []any{intValue(before["class_id"]), stringValue(before["exam_no"]),
+				stringValue(before["candidate_no"]), stringValue(before["track"]),
+				before["total_score"], stringValue(before["status"]),
+				stringValue(before["subjects_json"]), intValue(before["import_run_id"]),
+				stringValue(before["source_sheet"]), intValue(before["source_row"]),
+				intValue(before["exam_id"]), intValue(before["cohort_id"]),
+				intValue(before["student_id"])},
+		}, nil
+	case "exam_score":
+		return sqlite.Statement{
+			SQL: `UPDATE exam_scores SET score = ?, flag = ?, import_run_id = ?,
+				source_sheet = ?, source_row = ?
+				WHERE exam_id = ? AND cohort_id = ? AND student_id = ? AND subject = ?`,
+			Args: []any{before["score"], stringValue(before["flag"]),
+				intValue(before["import_run_id"]), stringValue(before["source_sheet"]),
+				intValue(before["source_row"]), intValue(before["exam_id"]),
+				intValue(before["cohort_id"]), intValue(before["student_id"]),
+				stringValue(before["subject"])},
+		}, nil
+	case "exam_subject_cutoff":
+		return sqlite.Statement{
+			SQL: `UPDATE exam_subject_cutoffs SET cutoff = ?
+				WHERE exam_id = ? AND cohort_id = ? AND subject = ? AND track = ?`,
+			Args: []any{floatValue(before["cutoff"]), intValue(before["exam_id"]),
+				intValue(before["cohort_id"]), stringValue(before["subject"]),
+				stringValue(before["track"])},
+		}, nil
+	case "exam_tier_cutoff":
+		return sqlite.Statement{
+			SQL: `UPDATE exam_tier_cutoffs SET cutoff = ?
+				WHERE exam_id = ? AND cohort_id = ? AND tier_key = ? AND track = ?`,
+			Args: []any{floatValue(before["cutoff"]), intValue(before["exam_id"]),
+				intValue(before["cohort_id"]), stringValue(before["tier_key"]),
+				stringValue(before["track"])},
+		}, nil
+	case "exam_class_target":
+		return sqlite.Statement{
+			SQL: `UPDATE assessment_class_targets SET target_count = ?
+				WHERE assessment_id = ? AND class_id = ? AND tier_key = ?`,
+			Args: []any{floatValue(before["target_count"]), intValue(before["assessment_id"]),
+				intValue(before["class_id"]), stringValue(before["tier_key"])},
 		}, nil
 	default:
 		return sqlite.Statement{}, fmt.Errorf("未知的导入变更实体 %q", change.Entity)

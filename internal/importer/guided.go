@@ -79,7 +79,7 @@ func InspectWorkbook(path string, options Options) (*Workbook, error) {
 		if dir == "" {
 			return nil, fmt.Errorf("导入旧版文件需要转换目录")
 		}
-		converted, err := (excel.Converter{}).Convert(path, dir)
+		converted, err := (excel.Converter{SofficePath: options.SofficePath}).Convert(path, dir)
 		if err != nil {
 			return nil, err
 		}

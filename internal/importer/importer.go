@@ -23,6 +23,7 @@ import (
 // Options 控制导入时的转换与临时文件位置。
 type Options struct {
 	ConversionDir string
+	SofficePath   string
 	CreatedBy     string
 }
 
@@ -111,7 +112,7 @@ func ImportWorkspace(path string, options Options) (store.ImportData, store.Impo
 		if dir == "" {
 			return store.ImportData{}, report, fmt.Errorf("导入旧版文件需要转换目录")
 		}
-		converted, err := (excel.Converter{}).Convert(path, dir)
+		converted, err := (excel.Converter{SofficePath: options.SofficePath}).Convert(path, dir)
 		if err != nil {
 			return store.ImportData{}, report, err
 		}
