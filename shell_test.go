@@ -111,7 +111,7 @@ func TestCohortSwitcher(t *testing.T) {
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
-	if err := tt.Click("Current cohort"); err != nil {
+	if err := tt.Click(locales.WorkspaceSwitchLabel()); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
@@ -150,7 +150,7 @@ func TestStageHistorySwitching(t *testing.T) {
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
-	if err := tt.Click("Current cohort"); err != nil {
+	if err := tt.Click(locales.WorkspaceSwitchLabel()); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
@@ -250,11 +250,19 @@ func TestSidebarNavigationToDataPages(t *testing.T) {
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
-	if err := tt.Click("Students"); err != nil {
+	if err := tt.Click(locales.NavBaseData()); err != nil {
 		t.Fatal(err)
 	}
-	if a.page != pageStudents {
+	if a.page != pageBaseData {
 		t.Fatalf("page = %q", a.page)
+	}
+	tt.Frame()
+	if err := tt.Click(locales.BaseDataTabStudents()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.baseDataTab != 1 {
+		t.Fatalf("baseDataTab = %d", a.baseDataTab)
 	}
 	if !tt.HasText("Create a cohort first") {
 		t.Errorf("texts = %q", tt.Texts())

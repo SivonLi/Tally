@@ -118,7 +118,15 @@ func (a *app) reloadAssessments(ctx context.Context) {
 	if a.store == nil {
 		return
 	}
-	items, err := a.store.ListAssessmentOverview(ctx)
+	var (
+		items []store.AssessmentOverview
+		err   error
+	)
+	if cohort := a.selectedCohort(); cohort != nil {
+		items, err = a.store.ListAssessmentOverviewByCohort(ctx, cohort.ID)
+	} else {
+		items = nil
+	}
 	if err != nil {
 		a.assessmentError = err.Error()
 		return

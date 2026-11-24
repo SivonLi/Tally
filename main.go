@@ -240,12 +240,19 @@ type app struct {
 	statGroupDeleteID    int64
 	statGroupDeleteName  string
 
-	settingsWin    *mygo.Window
-	settingsOpen   bool
-	appearance     string
-	settingsPageID string
-	mainToast      string
-	settingsToast  string
+	settingsWin            *mygo.Window
+	settingsOpen           bool
+	appearance             string
+	settingsPageID         string
+	mainToast              string
+	settingsToast          string
+	workspaceSummary       store.WorkspaceSummary
+	workspaceSummaryLoaded bool
+	baseDataTab            int
+	importReturn           *importReturnContext
+	unsavedGuardOpen       bool
+	pendingNavAction       func()
+	sofficePath            string
 }
 
 func (a *app) notifyMain(message string) {
@@ -310,6 +317,9 @@ func (a *app) load() {
 		return
 	}
 	a.appearance = appearance
+	if soffice, err := opened.SofficePath(ctx); err == nil {
+		a.sofficePath = soffice
+	}
 	if a.page == "" {
 		a.page = pageOverview
 	}

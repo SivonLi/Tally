@@ -723,10 +723,8 @@ func TestRuntimeSearchAndSelectWidthsAndSidebar(t *testing.T) {
 			locales.NavSettings(): true,
 		}
 		for _, label := range []string{
-			locales.NavOverview(), locales.NavCohorts(), locales.NavStudents(),
-			locales.NavFaculty(), locales.NavGroups(), locales.NavBaseline(),
-			locales.NavExams(), locales.NavQuality(), locales.NavImports(),
-			locales.NavAssessments(), locales.NavResults(), locales.NavAnalysis(),
+			locales.NavOverview(), locales.NavDataImport(), locales.NavBaseData(),
+			locales.NavExamHub(), locales.NavQuality(), locales.NavAnalysis(),
 			locales.NavPlans(), locales.NavHelp(), locales.NavSettings(),
 		} {
 			item, ok := findNode(tt, ui.RoleButton, label)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"strconv"
@@ -177,6 +178,23 @@ func (a *app) loadPlanConfig() {
 	a.planConfig = version.Config
 	a.planConfigVersionID = version.ID
 	a.planConfigBaseline = a.selectedPlanID
+}
+
+// planConfigDirty 判断当前考核方案编辑区是否存在未保存的改动。
+func (a *app) planConfigDirty() bool {
+	if a.normalizedPage() != pagePlans || a.planConfigVersionID == 0 {
+		return false
+	}
+	version := a.selectedVersion()
+	if version == nil || version.ID != a.planConfigVersionID {
+		return false
+	}
+	saved, err1 := json.Marshal(version.Config)
+	current, err2 := json.Marshal(a.planConfig)
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	return string(saved) != string(current)
 }
 
 // switchPlan 切换当前编辑的方案，并读出它最新的版本。

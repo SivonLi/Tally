@@ -187,7 +187,7 @@ func TestExamQualityPageGroupsAndNavigates(t *testing.T) {
 	f := newExamPageFixture(t)
 	f.App.page = pageOverview
 	tt := f.open(t, pageQuality)
-	for _, text := range []string{"Data quality", "Warnings", "Scores", "Roster"} {
+	for _, text := range []string{"Data quality", "Warnings", "Cutoffs", "Roster"} {
 		if !tt.HasText(text) {
 			t.Fatalf("missing %q in %q", text, tt.Texts())
 		}

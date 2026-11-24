@@ -27,13 +27,17 @@ func (a *app) reloadDataPages(ctx context.Context) {
 		return
 	}
 	var err error
-	a.importRuns, err = a.store.ListAllImportRuns(ctx)
+	cohort := a.selectedCohort()
+	stage := a.selectedStage()
+	if cohort != nil && stage != nil {
+		a.importRuns, err = a.store.ListWorkspaceImportRuns(ctx, cohort.ID, stage.ID)
+	} else {
+		a.importRuns, err = a.store.ListAllImportRuns(ctx)
+	}
 	if err != nil {
 		a.dataError = err.Error()
 		return
 	}
-	cohort := a.selectedCohort()
-	stage := a.selectedStage()
 	if cohort == nil || stage == nil {
 		return
 	}
@@ -195,6 +199,7 @@ func (a *app) importStudentFile(path string) {
 		ctx := context.Background()
 		data, report, err := importer.ImportWorkspace(path, importer.Options{
 			ConversionDir: filepath.Join(a.dataDir, "converted"),
+			SofficePath:   a.sofficePath,
 		})
 		if err != nil {
 			return store.ImportSummary{}, err
@@ -246,6 +251,7 @@ func (a *app) importAssignmentFile(path string) {
 		ctx := context.Background()
 		data, report, err := importer.ImportWorkspace(path, importer.Options{
 			ConversionDir: filepath.Join(a.dataDir, "converted"),
+			SofficePath:   a.sofficePath,
 		})
 		if err != nil {
 			return store.ImportSummary{}, err
@@ -298,6 +304,7 @@ func (a *app) importBaselineFile(path string) {
 		ctx := context.Background()
 		data, report, err := importer.ImportWorkspace(path, importer.Options{
 			ConversionDir: filepath.Join(a.dataDir, "converted"),
+			SofficePath:   a.sofficePath,
 		})
 		if err != nil {
 			return store.ImportSummary{}, err

@@ -137,7 +137,7 @@ func TestGuidedImportWizardRunsFromFileToResult(t *testing.T) {
 		a.importWizard.Sheet != "任课关系" || a.importWizard.Step != wizardStepSheet {
 		t.Fatalf("wizard after continue = %+v", a.importWizard)
 	}
-	if !tt.HasText("任课关系") || !tt.HasText("Teacher") {
+	if !tt.HasText("任课关系") || !tt.HasText("Teaching assignments") {
 		t.Fatalf("continued wizard texts = %q", tt.Texts())
 	}
 }

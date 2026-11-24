@@ -170,6 +170,7 @@ func (a *app) wizardChooseFile() {
 		})
 		workbook, inspectErr := importer.InspectWorkbook(path, importer.Options{
 			ConversionDir: filepath.Join(a.dataDir, "converted"),
+			SofficePath:   a.sofficePath,
 		})
 		a.win.Update(func() {
 			if a.importWizard != wizard {
@@ -188,6 +189,7 @@ func (a *app) loadWizardFile(wizard *importWizardState, path string) {
 	wizard.Error = ""
 	workbook, err := importer.InspectWorkbook(path, importer.Options{
 		ConversionDir: filepath.Join(a.dataDir, "converted"),
+		SofficePath:   a.sofficePath,
 	})
 	a.applyWizardWorkbook(wizard, path, workbook, err)
 }

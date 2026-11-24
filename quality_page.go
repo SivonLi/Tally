@@ -29,7 +29,18 @@ func (a *app) reloadQuality(ctx context.Context) {
 	if a.store == nil {
 		return
 	}
-	summaries, err := a.store.ListExamQualitySummaries(ctx)
+	var (
+		summaries []store.ExamQualitySummary
+		runs      []store.ImportRun
+		err       error
+	)
+	cohort := a.selectedCohort()
+	stage := a.selectedStage()
+	if cohort != nil {
+		summaries, err = a.store.ListExamQualitySummariesByCohort(ctx, cohort.ID)
+	} else {
+		summaries = nil
+	}
 	if err != nil {
 		a.qualityError = err.Error()
 		return
@@ -41,7 +52,11 @@ func (a *app) reloadQuality(ctx context.Context) {
 			CohortName: summary.CohortName, GradeLevel: summary.GradeLevel, Issues: summary.Issues,
 		})
 	}
-	runs, err := a.store.ListAllImportRuns(ctx)
+	if cohort != nil && stage != nil {
+		runs, err = a.store.ListWorkspaceImportRuns(ctx, cohort.ID, stage.ID)
+	} else {
+		runs, err = a.store.ListAllImportRuns(ctx)
+	}
 	if err != nil {
 		a.qualityError = err.Error()
 		return

@@ -14,13 +14,34 @@ func (a *app) reloadExams(ctx context.Context) {
 	if a.store == nil {
 		return
 	}
-	exams, err := a.store.ListExams(ctx)
+	var (
+		exams []store.Exam
+		err   error
+	)
+	if cohort := a.selectedCohort(); cohort != nil {
+		exams, err = a.store.ListExamsByCohort(ctx, cohort.ID)
+	} else {
+		exams = nil
+	}
 	if err != nil {
 		a.examError = err.Error()
 		return
 	}
 	a.exams = exams
 	if a.selectedExamID != 0 {
+		found := false
+		for _, exam := range exams {
+			if exam.ID == a.selectedExamID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			a.selectedExamID = 0
+			a.examCohortID = 0
+			a.clearExamLoadedData()
+			return
+		}
 		a.reloadExamData(ctx)
 	}
 }
