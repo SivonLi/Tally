@@ -32,10 +32,10 @@ func TestOverviewEmptyStateAndCohortCreation(t *testing.T) {
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
-	if !tt.HasText("No cohorts yet. Create a cohort to get started.") {
+	if !tt.HasText(locales.WorkspaceEmpty()) {
 		t.Fatalf("texts = %q", tt.Texts())
 	}
-	if err := tt.Click("New cohort"); err != nil {
+	if err := tt.Click(locales.WorkspaceCreate()); err != nil {
 		t.Fatal(err)
 	}
 	if !a.newCohortOpen {
@@ -58,7 +58,7 @@ func TestOverviewEmptyStateAndCohortCreation(t *testing.T) {
 	for _, text := range []string{
 		"2026 cohort · Grade 10 · Class of 2029",
 		"2026-2027 academic year",
-		"0 of 4 data items ready",
+		locales.OverviewAlertNoRoster(),
 	} {
 		if !tt.HasText(text) {
 			t.Errorf("missing %q in %q", text, tt.Texts())
@@ -137,7 +137,7 @@ func TestCohortSwitcherHiddenWithoutCohorts(t *testing.T) {
 	if _, ok := tt.Find("Current cohort"); ok {
 		t.Error("the cohort switcher shows without a cohort")
 	}
-	if !tt.HasText("No cohorts yet. Create a cohort to get started.") {
+	if !tt.HasText(locales.WorkspaceEmpty()) {
 		t.Errorf("texts = %q", tt.Texts())
 	}
 }
@@ -325,8 +325,8 @@ func TestShellAtMinimumSize(t *testing.T) {
 	for _, text := range []string{
 		"Overview",
 		"2026 cohort · Grade 10 · Class of 2029",
-		"Continue setup",
-		"Readiness",
+		locales.OverviewQuickImport(),
+		locales.OverviewMetricStudents(),
 	} {
 		box, ok := tt.Find(text)
 		if !ok {
@@ -352,7 +352,7 @@ func TestDarkThemeShell(t *testing.T) {
 	for _, text := range []string{
 		"Overview",
 		"2026 cohort · Grade 10 · Class of 2029",
-		"Readiness",
+		locales.OverviewLatestAssessment(),
 	} {
 		if !tt.HasText(text) {
 			t.Errorf("missing %q in %q", text, tt.Texts())

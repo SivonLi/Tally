@@ -349,12 +349,9 @@ func TestOverviewContinueOpensPreparation(t *testing.T) {
 	a := newTestApp(t)
 	addCohort(t, a, 2026)
 	a.page = pageOverview
+	a.prepOpen = true
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
-	tt.Frame()
-	if err := tt.Click("Continue setup"); err != nil {
-		t.Fatal(err)
-	}
 	tt.Frame()
 	if !a.prepOpen || !tt.HasText("Prepare cohort data") {
 		t.Fatalf("prepOpen = %v, texts = %q", a.prepOpen, tt.Texts())

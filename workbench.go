@@ -1198,7 +1198,9 @@ func (a *app) finishAssessmentCalculate(result calc.Result, err error, trial boo
 	}
 	a.notifyMain(a.assessmentMessage)
 	a.assessmentRunChosen = false
-	a.reloadAssessments(context.Background())
+	ctx := context.Background()
+	a.reloadAssessments(ctx)
+	a.reloadWorkspaceSummary(ctx)
 }
 
 func (a *app) chooseAssessmentExport() {
@@ -1602,7 +1604,9 @@ func (a *app) finishZeroWork(result calc.Result, err error) {
 	}
 	a.notifyMain(a.assessmentMessage)
 	a.assessmentRunChosen = false
-	a.reloadAssessments(context.Background())
+	ctx := context.Background()
+	a.reloadAssessments(ctx)
+	a.reloadWorkspaceSummary(ctx)
 }
 
 func (a *app) resultsPage(c *ui.Context, p uiPalette) {

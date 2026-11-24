@@ -1424,15 +1424,16 @@ type kpiCardProps struct {
 func kpiCard(c *ui.Context, p uiPalette, props kpiCardProps) bool {
 	t := p.theme
 	renderBody := func() {
+		ui.Text(c, props.Title).FontSize(captionSize(t)).FontWeight(500).
+			TextColor(p.muted).FillWidth().SingleLine().Tooltip(props.Title)
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-			ui.Text(c, props.Title).FontSize(captionSize(t)).FontWeight(500).
-				TextColor(p.muted).Grow(1).Shrink(1).MinWidth(0).SingleLine().Tooltip(props.Title)
+			ui.Text(c, props.Value).FontSize(titleSize(t)).FontWeight(600).
+				TextColor(p.ink).FontFeatures("tnum").SingleLine().Tooltip(props.Value).
+				Grow(1).Shrink(1).MinWidth(0)
 			if props.BadgeText != "" {
 				badge(c, p, props.BadgeText, props.BadgeTone)
 			}
 		})
-		ui.Text(c, props.Value).FontSize(titleSize(t)).FontWeight(600).
-			TextColor(p.ink).FontFeatures("tnum").SingleLine().Tooltip(props.Value)
 		if props.Subtitle != "" {
 			ui.Text(c, props.Subtitle).FontSize(captionSize(t)).TextColor(p.muted).
 				SingleLine().MinWidth(0).Tooltip(props.Subtitle)
