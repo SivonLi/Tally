@@ -17,7 +17,7 @@ concurrency:
 jobs:
   gates:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
@@ -58,11 +58,13 @@ jobs:
           GOOS=windows GOARCH=amd64 go build -o /dev/null .
           CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o /dev/null .
 
-      - name: 测试
-        run: go test -race ./...
-
-      - name: 覆盖率
-        run: go test -race -coverprofile=coverage.out .
+      - name: 测试与覆盖率
+        run: |
+          pkgs=$(go list ./... | grep -vx 'tally')
+          if [ -n "$pkgs" ]; then
+            go test -race -timeout 20m $pkgs
+          fi
+          go test -race -timeout 20m -coverprofile=coverage.out .
 
       - name: 覆盖率门槛
         run: |

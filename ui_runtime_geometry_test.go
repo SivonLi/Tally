@@ -85,8 +85,9 @@ func measureTextWidth(t *testing.T, text string, size float32) float32 {
 	t.Helper()
 	width := float32(-1)
 	view := func(c *ui.Context) {
+		applySunbeamTheme(c)
 		if width < 0 {
-			width, _ = c.MeasureText(0, ui.Span{Text: text, Size: size})
+			width, _ = c.MeasureText(0, ui.Span{Text: text, Font: c.Theme().Font, Size: size})
 		}
 		ui.Text(c, "measure")
 	}
