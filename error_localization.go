@@ -49,7 +49,9 @@ var internalErrorMap = map[string]string{
 	"无效的加密盐值":                       "Invalid encryption salt",
 	"system plan cannot be retired": "System plan cannot be retired",
 	"缺少必须的列":                        "Missing required columns",
-	"该考核以结果归档方式导入，只读保存，不能试算或重新计算": "This assessment was imported as archived results (read-only) and cannot be trial-run or recalculated",
+	"该考核以结果归档方式导入，只读保存，不能试算或重新计算":     "This assessment was imported as archived results (read-only) and cannot be trial-run or recalculated",
+	"部分学科的参评统计组数已发生变化，已微调的分档边界需要复核确认": "Participating group counts changed for some subjects; adjusted boundaries require review",
+	"分档边界微调的学科不能为空":                   "Subject for boundary override cannot be empty",
 }
 
 var internalErrorPrefixMap = []struct {

@@ -14811,3 +14811,309 @@ func ImportIssueArchivePersonalDup() string { return In(i18n.Locale()).ImportIss
 func (msgs Messages) ImportIssueArchivePersonalDup() string {
 	return Catalog.Format(msgs.locale, "importIssueArchivePersonalDup", nil)
 }
+
+// AssessmentItemBoundaries says "Boundary overrides"
+// in the language the app shows.
+func AssessmentItemBoundaries() string { return In(i18n.Locale()).AssessmentItemBoundaries() }
+
+// AssessmentItemBoundaries says "Boundary overrides"
+// in the language of msgs.
+func (msgs Messages) AssessmentItemBoundaries() string {
+	return Catalog.Format(msgs.locale, "assessmentItemBoundaries", nil)
+}
+
+// BoundaryAdjustButton says "Adjust boundaries"
+// in the language the app shows.
+func BoundaryAdjustButton() string { return In(i18n.Locale()).BoundaryAdjustButton() }
+
+// BoundaryAdjustButton says "Adjust boundaries"
+// in the language of msgs.
+func (msgs Messages) BoundaryAdjustButton() string {
+	return Catalog.Format(msgs.locale, "boundaryAdjustButton", nil)
+}
+
+// BoundaryOverrideCountBadge says "%d adjusted"
+// in the language the app shows.
+func BoundaryOverrideCountBadge() string { return In(i18n.Locale()).BoundaryOverrideCountBadge() }
+
+// BoundaryOverrideCountBadge says "%d adjusted"
+// in the language of msgs.
+func (msgs Messages) BoundaryOverrideCountBadge() string {
+	return Catalog.Format(msgs.locale, "boundaryOverrideCountBadge", nil)
+}
+
+// BoundaryModalTitle says "Adjust ranking tier boundaries"
+// in the language the app shows.
+func BoundaryModalTitle() string { return In(i18n.Locale()).BoundaryModalTitle() }
+
+// BoundaryModalTitle says "Adjust ranking tier boundaries"
+// in the language of msgs.
+func (msgs Messages) BoundaryModalTitle() string {
+	return Catalog.Format(msgs.locale, "boundaryModalTitle", nil)
+}
+
+// BoundaryModalIntro says "Fine-tune the rank cutoffs for tier 1 and tier 2 by subject. Leave unchanged to follow the plan default."
+// in the language the app shows.
+func BoundaryModalIntro() string { return In(i18n.Locale()).BoundaryModalIntro() }
+
+// BoundaryModalIntro says "Fine-tune the rank cutoffs for tier 1 and tier 2 by subject. Leave unchanged to follow the plan default."
+// in the language of msgs.
+func (msgs Messages) BoundaryModalIntro() string {
+	return Catalog.Format(msgs.locale, "boundaryModalIntro", nil)
+}
+
+// BoundaryModalEmpty says "No participating stat groups found for this assessment."
+// in the language the app shows.
+func BoundaryModalEmpty() string { return In(i18n.Locale()).BoundaryModalEmpty() }
+
+// BoundaryModalEmpty says "No participating stat groups found for this assessment."
+// in the language of msgs.
+func (msgs Messages) BoundaryModalEmpty() string {
+	return Catalog.Format(msgs.locale, "boundaryModalEmpty", nil)
+}
+
+// BoundarySave says "Save boundaries"
+// in the language the app shows.
+func BoundarySave() string { return In(i18n.Locale()).BoundarySave() }
+
+// BoundarySave says "Save boundaries"
+// in the language of msgs.
+func (msgs Messages) BoundarySave() string {
+	return Catalog.Format(msgs.locale, "boundarySave", nil)
+}
+
+// BoundaryCancel says "Cancel"
+// in the language the app shows.
+func BoundaryCancel() string { return In(i18n.Locale()).BoundaryCancel() }
+
+// BoundaryCancel says "Cancel"
+// in the language of msgs.
+func (msgs Messages) BoundaryCancel() string {
+	return Catalog.Format(msgs.locale, "boundaryCancel", nil)
+}
+
+// BoundaryResetSubject says "Reset"
+// in the language the app shows.
+func BoundaryResetSubject() string { return In(i18n.Locale()).BoundaryResetSubject() }
+
+// BoundaryResetSubject says "Reset"
+// in the language of msgs.
+func (msgs Messages) BoundaryResetSubject() string {
+	return Catalog.Format(msgs.locale, "boundaryResetSubject", nil)
+}
+
+// BoundaryResetAll says "Reset all to default"
+// in the language the app shows.
+func BoundaryResetAll() string { return In(i18n.Locale()).BoundaryResetAll() }
+
+// BoundaryResetAll says "Reset all to default"
+// in the language of msgs.
+func (msgs Messages) BoundaryResetAll() string {
+	return Catalog.Format(msgs.locale, "boundaryResetAll", nil)
+}
+
+// BoundaryGroupCount says "%d groups"
+// in the language the app shows.
+func BoundaryGroupCount() string { return In(i18n.Locale()).BoundaryGroupCount() }
+
+// BoundaryGroupCount says "%d groups"
+// in the language of msgs.
+func (msgs Messages) BoundaryGroupCount() string {
+	return Catalog.Format(msgs.locale, "boundaryGroupCount", nil)
+}
+
+// BoundaryStatusDefault says "Default"
+// in the language the app shows.
+func BoundaryStatusDefault() string { return In(i18n.Locale()).BoundaryStatusDefault() }
+
+// BoundaryStatusDefault says "Default"
+// in the language of msgs.
+func (msgs Messages) BoundaryStatusDefault() string {
+	return Catalog.Format(msgs.locale, "boundaryStatusDefault", nil)
+}
+
+// BoundaryStatusOverride says "Adjusted"
+// in the language the app shows.
+func BoundaryStatusOverride() string { return In(i18n.Locale()).BoundaryStatusOverride() }
+
+// BoundaryStatusOverride says "Adjusted"
+// in the language of msgs.
+func (msgs Messages) BoundaryStatusOverride() string {
+	return Catalog.Format(msgs.locale, "boundaryStatusOverride", nil)
+}
+
+// BoundaryStatusStale says "Group count changed"
+// in the language the app shows.
+func BoundaryStatusStale() string { return In(i18n.Locale()).BoundaryStatusStale() }
+
+// BoundaryStatusStale says "Group count changed"
+// in the language of msgs.
+func (msgs Messages) BoundaryStatusStale() string {
+	return Catalog.Format(msgs.locale, "boundaryStatusStale", nil)
+}
+
+// BoundaryStaleDetail says "Saved for %d groups, now %d"
+// in the language the app shows.
+func BoundaryStaleDetail() string { return In(i18n.Locale()).BoundaryStaleDetail() }
+
+// BoundaryStaleDetail says "Saved for %d groups, now %d"
+// in the language of msgs.
+func (msgs Messages) BoundaryStaleDetail() string {
+	return Catalog.Format(msgs.locale, "boundaryStaleDetail", nil)
+}
+
+// BoundaryKeepCurrentCount says "Use current count"
+// in the language the app shows.
+func BoundaryKeepCurrentCount() string { return In(i18n.Locale()).BoundaryKeepCurrentCount() }
+
+// BoundaryKeepCurrentCount says "Use current count"
+// in the language of msgs.
+func (msgs Messages) BoundaryKeepCurrentCount() string {
+	return Catalog.Format(msgs.locale, "boundaryKeepCurrentCount", nil)
+}
+
+// BoundaryFirstRank says "Tier 1 ends at"
+// in the language the app shows.
+func BoundaryFirstRank() string { return In(i18n.Locale()).BoundaryFirstRank() }
+
+// BoundaryFirstRank says "Tier 1 ends at"
+// in the language of msgs.
+func (msgs Messages) BoundaryFirstRank() string {
+	return Catalog.Format(msgs.locale, "boundaryFirstRank", nil)
+}
+
+// BoundarySecondRank says "Tier 2 ends at"
+// in the language the app shows.
+func BoundarySecondRank() string { return In(i18n.Locale()).BoundarySecondRank() }
+
+// BoundarySecondRank says "Tier 2 ends at"
+// in the language of msgs.
+func (msgs Messages) BoundarySecondRank() string {
+	return Catalog.Format(msgs.locale, "boundarySecondRank", nil)
+}
+
+// BoundaryThirdTierRange says "Tier 3: ranks %d–%d"
+// in the language the app shows.
+func BoundaryThirdTierRange() string { return In(i18n.Locale()).BoundaryThirdTierRange() }
+
+// BoundaryThirdTierRange says "Tier 3: ranks %d–%d"
+// in the language of msgs.
+func (msgs Messages) BoundaryThirdTierRange() string {
+	return Catalog.Format(msgs.locale, "boundaryThirdTierRange", nil)
+}
+
+// BoundaryThirdTierNone says "Tier 3: none"
+// in the language the app shows.
+func BoundaryThirdTierNone() string { return In(i18n.Locale()).BoundaryThirdTierNone() }
+
+// BoundaryThirdTierNone says "Tier 3: none"
+// in the language of msgs.
+func (msgs Messages) BoundaryThirdTierNone() string {
+	return Catalog.Format(msgs.locale, "boundaryThirdTierNone", nil)
+}
+
+// BoundaryReason says "Reason (optional)"
+// in the language the app shows.
+func BoundaryReason() string { return In(i18n.Locale()).BoundaryReason() }
+
+// BoundaryReason says "Reason (optional)"
+// in the language of msgs.
+func (msgs Messages) BoundaryReason() string {
+	return Catalog.Format(msgs.locale, "boundaryReason", nil)
+}
+
+// BoundaryReasonPlaceholder says "e.g. tied scores near cutoff"
+// in the language the app shows.
+func BoundaryReasonPlaceholder() string { return In(i18n.Locale()).BoundaryReasonPlaceholder() }
+
+// BoundaryReasonPlaceholder says "e.g. tied scores near cutoff"
+// in the language of msgs.
+func (msgs Messages) BoundaryReasonPlaceholder() string {
+	return Catalog.Format(msgs.locale, "boundaryReasonPlaceholder", nil)
+}
+
+// BoundaryInvalidRange says "%s: boundaries must satisfy 1 <= Tier 1 <= Tier 2 <= %d"
+// in the language the app shows.
+func BoundaryInvalidRange() string { return In(i18n.Locale()).BoundaryInvalidRange() }
+
+// BoundaryInvalidRange says "%s: boundaries must satisfy 1 <= Tier 1 <= Tier 2 <= %d"
+// in the language of msgs.
+func (msgs Messages) BoundaryInvalidRange() string {
+	return Catalog.Format(msgs.locale, "boundaryInvalidRange", nil)
+}
+
+// BoundarySavedNotice says "Boundary overrides saved. Recalculate to update results."
+// in the language the app shows.
+func BoundarySavedNotice() string { return In(i18n.Locale()).BoundarySavedNotice() }
+
+// BoundarySavedNotice says "Boundary overrides saved. Recalculate to update results."
+// in the language of msgs.
+func (msgs Messages) BoundarySavedNotice() string {
+	return Catalog.Format(msgs.locale, "boundarySavedNotice", nil)
+}
+
+// BoundaryResetAllNotice says "All boundary overrides reset to plan default."
+// in the language the app shows.
+func BoundaryResetAllNotice() string { return In(i18n.Locale()).BoundaryResetAllNotice() }
+
+// BoundaryResetAllNotice says "All boundary overrides reset to plan default."
+// in the language of msgs.
+func (msgs Messages) BoundaryResetAllNotice() string {
+	return Catalog.Format(msgs.locale, "boundaryResetAllNotice", nil)
+}
+
+// BoundaryReviewButton says "Review boundaries"
+// in the language the app shows.
+func BoundaryReviewButton() string { return In(i18n.Locale()).BoundaryReviewButton() }
+
+// BoundaryReviewButton says "Review boundaries"
+// in the language of msgs.
+func (msgs Messages) BoundaryReviewButton() string {
+	return Catalog.Format(msgs.locale, "boundaryReviewButton", nil)
+}
+
+// AssessmentDetailBoundary says "Tier boundary"
+// in the language the app shows.
+func AssessmentDetailBoundary() string { return In(i18n.Locale()).AssessmentDetailBoundary() }
+
+// AssessmentDetailBoundary says "Tier boundary"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailBoundary() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailBoundary", nil)
+}
+
+// AssessmentDetailBoundaryFormat says "T1 ≤ %d · T2 ≤ %d · T3 > %d (%d groups)"
+// in the language the app shows.
+func AssessmentDetailBoundaryFormat() string {
+	return In(i18n.Locale()).AssessmentDetailBoundaryFormat()
+}
+
+// AssessmentDetailBoundaryFormat says "T1 ≤ %d · T2 ≤ %d · T3 > %d (%d groups)"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailBoundaryFormat() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailBoundaryFormat", nil)
+}
+
+// AssessmentDetailBoundarySourceDefault says "Plan default"
+// in the language the app shows.
+func AssessmentDetailBoundarySourceDefault() string {
+	return In(i18n.Locale()).AssessmentDetailBoundarySourceDefault()
+}
+
+// AssessmentDetailBoundarySourceDefault says "Plan default"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailBoundarySourceDefault() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailBoundarySourceDefault", nil)
+}
+
+// AssessmentDetailBoundarySourceOverride says "Adjusted"
+// in the language the app shows.
+func AssessmentDetailBoundarySourceOverride() string {
+	return In(i18n.Locale()).AssessmentDetailBoundarySourceOverride()
+}
+
+// AssessmentDetailBoundarySourceOverride says "Adjusted"
+// in the language of msgs.
+func (msgs Messages) AssessmentDetailBoundarySourceOverride() string {
+	return Catalog.Format(msgs.locale, "assessmentDetailBoundarySourceOverride", nil)
+}

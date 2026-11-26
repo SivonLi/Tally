@@ -77,7 +77,8 @@ func Calculate(input Input, options Options) (Result, error) {
 		}
 		rows = append(rows, row)
 	}
-	if err := applyRanking(rows, input.Plan.Ranking); err != nil {
+	boundaries, err := applyRanking(rows, input.Plan.Ranking, options.BoundaryOverrides)
+	if err != nil {
 		return Result{}, err
 	}
 	personal, err := calculatePersonal(input, teachingGroups, rows)
@@ -89,7 +90,7 @@ func Calculate(input Input, options Options) (Result, error) {
 		excludedIDs = append(excludedIDs, classID)
 	}
 	sort.Strings(excludedIDs)
-	return Result{Rows: rows, Personal: personal, ExcludedCompletionClasses: excludedIDs}, nil
+	return Result{Rows: rows, Personal: personal, ExcludedCompletionClasses: excludedIDs, Boundaries: boundaries}, nil
 }
 
 func indexClasses(classes []AdminClass) (map[string]AdminClass, error) {

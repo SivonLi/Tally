@@ -245,3 +245,74 @@ func TestWriteAllStandardSheets(t *testing.T) {
 		t.Errorf("unexpected student row: %v", rosterRows[1])
 	}
 }
+
+func TestWriteBoundaryOverridesInBasisSheet(t *testing.T) {
+	tempDir := t.TempDir()
+	baseInput := exporter.Input{
+		Batch: store.Batch{AcademicYear: "2024-2025", Semester: "autumn", ExamType: "midterm", Grade: "g2"},
+		Plan:  store.PlanVersion{ID: 1, Version: 1, Config: assessment.Config{Name: "测试方案"}},
+		Run: store.ResultRun{
+			ID:        1,
+			InputHash: "hash",
+			CreatedAt: time.Now(),
+			Boundaries: []store.ResultRunBoundary{
+				{Subject: "chinese", GroupCount: 6, FirstRank: 3, SecondRank: 5, Source: "override", Reason: "前3名同分接近"},
+				{Subject: "math", GroupCount: 6, FirstRank: 2, SecondRank: 4, Source: "default"},
+			},
+		},
+		GeneratedAt: time.Now(),
+	}
+
+	// 有微调时应输出微调清单表
+	withOverridePath := filepath.Join(tempDir, "with_override.xlsx")
+	baseInput.Path = withOverridePath
+	if err := exporter.Write(baseInput); err != nil {
+		t.Fatalf("Write with override: %v", err)
+	}
+	wb1, err := excelize.OpenFile(withOverridePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer wb1.Close()
+	rows1, err := wb1.GetRows("计算依据")
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundOverride := false
+	for _, r := range rows1 {
+		if len(r) >= 5 && r[0] == "语文" && r[1] == "6" && r[2] == "3" && r[3] == "5" && r[4] == "前3名同分接近" {
+			foundOverride = true
+		}
+	}
+	if !foundOverride {
+		t.Fatalf("expected chinese override row in 计算依据 sheet, got %+v", rows1)
+	}
+
+	// 无微调时应写明按方案默认边界
+	defaultPath := filepath.Join(tempDir, "default_only.xlsx")
+	baseInput.Path = defaultPath
+	baseInput.Run.Boundaries = []store.ResultRunBoundary{
+		{Subject: "math", GroupCount: 6, FirstRank: 2, SecondRank: 4, Source: "default"},
+	}
+	if err := exporter.Write(baseInput); err != nil {
+		t.Fatalf("Write default only: %v", err)
+	}
+	wb2, err := excelize.OpenFile(defaultPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer wb2.Close()
+	rows2, err := wb2.GetRows("计算依据")
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundDefault := false
+	for _, r := range rows2 {
+		if len(r) >= 2 && r[0] == "分档边界" && r[1] == "按方案默认边界" {
+			foundDefault = true
+		}
+	}
+	if !foundDefault {
+		t.Fatalf("expected default boundary notice in 计算依据 sheet, got %+v", rows2)
+	}
+}

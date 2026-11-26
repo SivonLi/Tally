@@ -751,6 +751,28 @@ type AssessmentClassTarget struct {
 // ExamClassTargetRow 兼容别名。
 type ExamClassTargetRow = AssessmentClassTarget
 
+// AssessmentBoundaryOverride 表示单次考核按学科微调的分档边界。
+type AssessmentBoundaryOverride struct {
+	ID           int64
+	AssessmentID int64
+	Subject      string
+	GroupCount   int
+	FirstRank    int
+	SecondRank   int
+	Reason       string
+	UpdatedAt    time.Time
+}
+
+// ResultRunBoundary 保存一次核算运行时各学科实际生效的分档边界快照。
+type ResultRunBoundary struct {
+	Subject    string
+	GroupCount int
+	FirstRank  int
+	SecondRank int
+	Source     string
+	Reason     string
+}
+
 // AssessmentData 是一次考核读取后可以直接用于核算的数据。
 type AssessmentData struct {
 	Batch                     Batch
@@ -766,6 +788,7 @@ type AssessmentData struct {
 	SubjectCutoffs            []SubjectCutoff
 	TierCutoffs               []TierCutoff
 	ExcludedCompletionClasses map[int64]bool
+	BoundaryOverrides         []AssessmentBoundaryOverride
 }
 
 // BatchData 兼容导出与管线调用方使用的 AssessmentData 别名。
@@ -780,6 +803,7 @@ type ResultRun struct {
 	InputSummary  string
 	IsOfficial    bool
 	CreatedAt     time.Time
+	Boundaries    []ResultRunBoundary
 }
 
 // StoredResultRow 是一条保存下来的核算结果。

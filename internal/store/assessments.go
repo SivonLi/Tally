@@ -21,7 +21,7 @@ import (
 
 var inputItemOrder = []string{
 	"roster", "scores", "cutoffs", "targets",
-	"groups", "baseline", "assignments", "classes", "exclusions",
+	"groups", "baseline", "assignments", "classes", "exclusions", "boundaries",
 }
 
 // FindAssessmentForExamCohort 只读查询一场考试中某个级的考核记录，不存在时返回 false 而不自动建档。
@@ -488,6 +488,13 @@ func (s *Store) LoadAssessmentData(ctx context.Context, assessmentID int64) (Bat
 			data.TierCutoffs = append(data.TierCutoffs, TierCutoff{TierKey: key, Track: track, Value: val})
 		}
 	}
+
+	// 9. 本次考核按科微调的分档边界。
+	overrides, err := s.ListAssessmentBoundaryOverrides(ctx, assessmentID)
+	if err != nil {
+		return BatchData{}, err
+	}
+	data.BoundaryOverrides = overrides
 	return data, nil
 }
 
@@ -761,6 +768,17 @@ func (s *Store) SaveAssessmentRun(ctx context.Context, assessmentID, versionID i
 			Args: []any{assessmentID, tid, ps.TeacherName, ac.Cohort.ID, ac.Grade, ps.Subject, string(gpJSON), ps.Score},
 		})
 	}
+	for _, b := range result.Boundaries {
+		source := b.Source
+		if source != "override" {
+			source = "default"
+		}
+		statements = append(statements, sqlite.Statement{
+			SQL: `INSERT INTO result_run_boundaries(run_id, subject, group_count, first_rank, second_rank, source, reason)
+				VALUES ((SELECT MAX(id) FROM result_runs WHERE assessment_id = ?), ?, ?, ?, ?, ?, ?)`,
+			Args: []any{assessmentID, b.Subject, b.GroupCount, b.First, b.Second, source, b.Reason},
+		})
+	}
 	if official {
 		statements = append(statements,
 			sqlite.Statement{
@@ -825,6 +843,11 @@ func (s *Store) LatestOfficialAssessmentRun(ctx context.Context, assessmentID in
 	if err != nil {
 		return ResultRun{}, nil, nil, err
 	}
+	boundaries, err := s.assessmentRunBoundaries(ctx, run.ID)
+	if err != nil {
+		return ResultRun{}, nil, nil, err
+	}
+	run.Boundaries = boundaries
 	resRows, personal, err := s.assessmentRunRows(ctx, run.ID)
 	if err != nil {
 		return ResultRun{}, nil, nil, err
@@ -846,11 +869,36 @@ func (s *Store) AssessmentRunDetail(ctx context.Context, assessmentID, runID int
 	if err != nil {
 		return ResultRun{}, nil, nil, err
 	}
+	boundaries, err := s.assessmentRunBoundaries(ctx, run.ID)
+	if err != nil {
+		return ResultRun{}, nil, nil, err
+	}
+	run.Boundaries = boundaries
 	resRows, personal, err := s.assessmentRunRows(ctx, run.ID)
 	if err != nil {
 		return ResultRun{}, nil, nil, err
 	}
 	return run, resRows, personal, nil
+}
+
+func (s *Store) assessmentRunBoundaries(ctx context.Context, runID int64) ([]ResultRunBoundary, error) {
+	rows, err := s.db.Query(ctx, `SELECT subject, group_count, first_rank, second_rank, source, reason
+		FROM result_run_boundaries WHERE run_id = ? ORDER BY subject`, runID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ResultRunBoundary, 0, len(rows.Values))
+	for _, r := range rows.Values {
+		out = append(out, ResultRunBoundary{
+			Subject:    stringValue(r[0]),
+			GroupCount: int(intValue(r[1])),
+			FirstRank:  int(intValue(r[2])),
+			SecondRank: int(intValue(r[3])),
+			Source:     stringValue(r[4]),
+			Reason:     stringValue(r[5]),
+		})
+	}
+	return out, nil
 }
 
 func assessmentRunFromRow(row []any) (ResultRun, error) {
@@ -1459,6 +1507,161 @@ func (s *Store) ApplyZeroTargetBatch(ctx context.Context, assessmentID int64, it
 	return s.markAssessmentStale(ctx, 0, assessmentID)
 }
 
+// ListAssessmentBoundaryOverrides 返回本次考核已保存的按科分档边界微调列表，按学科排序。
+func (s *Store) ListAssessmentBoundaryOverrides(ctx context.Context, assessmentID int64) ([]AssessmentBoundaryOverride, error) {
+	rows, err := s.db.Query(ctx, `SELECT id, assessment_id, subject, group_count, first_rank, second_rank, reason, updated_at
+		FROM assessment_boundary_overrides WHERE assessment_id = ? ORDER BY subject`, assessmentID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]AssessmentBoundaryOverride, 0, len(rows.Values))
+	for _, r := range rows.Values {
+		updatedAt, err := parseTime(r[7])
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, AssessmentBoundaryOverride{
+			ID:           intValue(r[0]),
+			AssessmentID: intValue(r[1]),
+			Subject:      stringValue(r[2]),
+			GroupCount:   int(intValue(r[3])),
+			FirstRank:    int(intValue(r[4])),
+			SecondRank:   int(intValue(r[5])),
+			Reason:       stringValue(r[6]),
+			UpdatedAt:    updatedAt,
+		})
+	}
+	return out, nil
+}
+
+// SaveAssessmentBoundaryOverrides 在事务内批量保存本次考核的按科分档边界微调，并记录审计日志与数据修订号。
+func (s *Store) SaveAssessmentBoundaryOverrides(ctx context.Context, assessmentID int64, items []AssessmentBoundaryOverride) error {
+	if err := s.AssertAssessmentCalculable(ctx, assessmentID); err != nil {
+		return err
+	}
+	if len(items) == 0 {
+		return nil
+	}
+	now := s.now().Format(time.RFC3339Nano)
+	statements := make([]sqlite.Statement, 0, len(items)+3)
+	subjects := make([]string, 0, len(items))
+	for _, item := range items {
+		subj := strings.TrimSpace(item.Subject)
+		if subj == "" {
+			return fmt.Errorf("分档边界微调的学科不能为空")
+		}
+		if item.GroupCount <= 0 {
+			return fmt.Errorf("学科 %s 的参评统计组数必须大于零", subj)
+		}
+		if item.FirstRank < 1 || item.SecondRank < item.FirstRank || item.SecondRank > item.GroupCount {
+			return fmt.Errorf("学科 %s 的分档边界须满足 1 <= 一档止于 <= 二档止于 <= %d", subj, item.GroupCount)
+		}
+		subjects = append(subjects, subj)
+		statements = append(statements, sqlite.Statement{
+			SQL: `INSERT INTO assessment_boundary_overrides(
+				assessment_id, subject, group_count, first_rank, second_rank, reason, updated_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?)
+				ON CONFLICT(assessment_id, subject) DO UPDATE SET
+					group_count = excluded.group_count,
+					first_rank = excluded.first_rank,
+					second_rank = excluded.second_rank,
+					reason = excluded.reason,
+					updated_at = excluded.updated_at`,
+			Args: []any{assessmentID, subj, item.GroupCount, item.FirstRank, item.SecondRank, strings.TrimSpace(item.Reason), now},
+		})
+	}
+	payload, err := json.Marshal(map[string]any{"subjects": subjects})
+	if err != nil {
+		return err
+	}
+	statements = append(statements,
+		bumpRevisionStatement(fmt.Sprintf("assessment:%d", assessmentID), now),
+		sqlite.Statement{
+			SQL: `INSERT INTO audit_logs(action, target_type, target_id, payload_json, created_at)
+				VALUES ('save_boundary_overrides', 'assessment', ?, ?, ?)`,
+			Args: []any{assessmentID, string(payload), now},
+		},
+		sqlite.Statement{
+			SQL: `UPDATE assessments SET status = 'stale'
+				WHERE id = ? AND status = 'calculated'
+				AND NOT EXISTS (SELECT 1 FROM archived_assessments WHERE assessment_id = assessments.id)`,
+			Args: []any{assessmentID},
+		},
+	)
+	if _, err := s.db.Transaction(ctx, statements); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ResetAssessmentBoundaryOverride 在事务内删除指定学科的分档边界微调（恢复方案默认），并记录审计日志与数据修订号。
+func (s *Store) ResetAssessmentBoundaryOverride(ctx context.Context, assessmentID int64, subject string) error {
+	if err := s.AssertAssessmentCalculable(ctx, assessmentID); err != nil {
+		return err
+	}
+	subj := strings.TrimSpace(subject)
+	if subj == "" {
+		return fmt.Errorf("学科不能为空")
+	}
+	now := s.now().Format(time.RFC3339Nano)
+	payload, err := json.Marshal(map[string]any{"subject": subj})
+	if err != nil {
+		return err
+	}
+	statements := []sqlite.Statement{
+		{
+			SQL:  `DELETE FROM assessment_boundary_overrides WHERE assessment_id = ? AND subject = ?`,
+			Args: []any{assessmentID, subj},
+		},
+		bumpRevisionStatement(fmt.Sprintf("assessment:%d", assessmentID), now),
+		{
+			SQL: `INSERT INTO audit_logs(action, target_type, target_id, payload_json, created_at)
+				VALUES ('reset_boundary_override', 'assessment', ?, ?, ?)`,
+			Args: []any{assessmentID, string(payload), now},
+		},
+		{
+			SQL: `UPDATE assessments SET status = 'stale'
+				WHERE id = ? AND status = 'calculated'
+				AND NOT EXISTS (SELECT 1 FROM archived_assessments WHERE assessment_id = assessments.id)`,
+			Args: []any{assessmentID},
+		},
+	}
+	if _, err := s.db.Transaction(ctx, statements); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ResetAllAssessmentBoundaryOverrides 在事务内清空本次考核的全部按科分档边界微调，并记录审计日志与数据修订号。
+func (s *Store) ResetAllAssessmentBoundaryOverrides(ctx context.Context, assessmentID int64) error {
+	if err := s.AssertAssessmentCalculable(ctx, assessmentID); err != nil {
+		return err
+	}
+	now := s.now().Format(time.RFC3339Nano)
+	statements := []sqlite.Statement{
+		{
+			SQL:  `DELETE FROM assessment_boundary_overrides WHERE assessment_id = ?`,
+			Args: []any{assessmentID},
+		},
+		bumpRevisionStatement(fmt.Sprintf("assessment:%d", assessmentID), now),
+		{
+			SQL: `INSERT INTO audit_logs(action, target_type, target_id, payload_json, created_at)
+				VALUES ('reset_all_boundary_overrides', 'assessment', ?, '{}', ?)`,
+			Args: []any{assessmentID, now},
+		},
+		{
+			SQL: `UPDATE assessments SET status = 'stale'
+				WHERE id = ? AND status = 'calculated'
+				AND NOT EXISTS (SELECT 1 FROM archived_assessments WHERE assessment_id = assessments.id)`,
+			Args: []any{assessmentID},
+		},
+	}
+	if _, err := s.db.Transaction(ctx, statements); err != nil {
+		return err
+	}
+	return nil
+}
+
 // FindPreviousAssessmentWithTargets 查找同级上一次已经配置过班级分档目标的考核。
 func (s *Store) FindPreviousAssessmentWithTargets(ctx context.Context, assessmentID int64) (int64, error) {
 	ac, err := s.LoadAssessmentContext(ctx, assessmentID)
@@ -1612,6 +1815,20 @@ func InputHash(plan assessment.Config, data BatchData) (string, error) {
 	normalized.Batch.Status = ""
 	normalized.Batch.Revision = 0
 	normalized.Batch.CurrentPlanVersionID = 0
+	if len(normalized.BoundaryOverrides) > 0 {
+		clean := make([]AssessmentBoundaryOverride, len(normalized.BoundaryOverrides))
+		for i, o := range normalized.BoundaryOverrides {
+			clean[i] = AssessmentBoundaryOverride{
+				Subject:    o.Subject,
+				GroupCount: o.GroupCount,
+				FirstRank:  o.FirstRank,
+				SecondRank: o.SecondRank,
+				Reason:     o.Reason,
+			}
+		}
+		sort.Slice(clean, func(i, j int) bool { return clean[i].Subject < clean[j].Subject })
+		normalized.BoundaryOverrides = clean
+	}
 	type hashPayload struct {
 		Plan assessment.Config
 		Data BatchData
@@ -1690,6 +1907,25 @@ func InputSummary(plan assessment.Config, data BatchData) (map[string]string, er
 	}
 	sort.Strings(excluded)
 
+	type boundaryEntry struct {
+		Subject    string `json:"subject"`
+		GroupCount int    `json:"group_count"`
+		FirstRank  int    `json:"first_rank"`
+		SecondRank int    `json:"second_rank"`
+		Reason     string `json:"reason"`
+	}
+	boundaries := make([]boundaryEntry, 0, len(data.BoundaryOverrides))
+	for _, o := range data.BoundaryOverrides {
+		boundaries = append(boundaries, boundaryEntry{
+			Subject:    o.Subject,
+			GroupCount: o.GroupCount,
+			FirstRank:  o.FirstRank,
+			SecondRank: o.SecondRank,
+			Reason:     o.Reason,
+		})
+	}
+	sort.Slice(boundaries, func(i, j int) bool { return boundaries[i].Subject < boundaries[j].Subject })
+
 	items := map[string]any{
 		"roster": roster,
 		"scores": scores,
@@ -1710,6 +1946,7 @@ func InputSummary(plan assessment.Config, data BatchData) (map[string]string, er
 		"assignments": data.Assignments,
 		"classes":     data.Classes,
 		"exclusions":  excluded,
+		"boundaries":  boundaries,
 	}
 	keys := append([]string(nil), inputItemOrder...)
 	keys = append(keys, "plan")

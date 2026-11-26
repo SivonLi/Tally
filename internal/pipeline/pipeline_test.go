@@ -236,3 +236,67 @@ func TestCalculateAssessmentWithExcludedAndZeroUndergraduateClasses(t *testing.T
 		t.Fatalf("expected 1班 normal scores, got %+v", byClass["1班"])
 	}
 }
+
+func TestBoundaryOverridesPipelineAndExportGuard(t *testing.T) {
+	ctx := context.Background()
+	normalCounts := map[string]*float64{
+		"qingbei": fp(0), "c9": fp(0), "project985": fp(0),
+		"project211": fp(1), "special_control": fp(1), "undergraduate": fp(1),
+	}
+	s, assessID, verID, _ := setupPipelineTestAssessment(t, normalCounts, normalCounts)
+
+	// 1. 保存分档边界微调并正式核算
+	if err := s.SaveAssessmentBoundaryOverrides(ctx, assessID, []store.AssessmentBoundaryOverride{
+		{Subject: "chinese", GroupCount: 3, FirstRank: 2, SecondRank: 3, Reason: "名次接近双一档"},
+	}); err != nil {
+		t.Fatalf("SaveAssessmentBoundaryOverrides: %v", err)
+	}
+	result, err := pipeline.CalculateAssessment(ctx, s, assessID, verID)
+	if err != nil {
+		t.Fatalf("CalculateAssessment: %v", err)
+	}
+	if len(result.Boundaries) != 1 || result.Boundaries[0].Source != "override" || result.Boundaries[0].First != 2 {
+		t.Fatalf("unexpected result boundaries: %+v", result.Boundaries)
+	}
+
+	// 2. 验证结果快照中保存了边界信息
+	run, _, _, err := s.LatestOfficialAssessmentRun(ctx, assessID)
+	if err != nil {
+		t.Fatalf("LatestOfficialAssessmentRun: %v", err)
+	}
+	if len(run.Boundaries) != 1 || run.Boundaries[0].Source != "override" || run.Boundaries[0].Reason != "名次接近双一档" {
+		t.Fatalf("unexpected stored run boundaries: %+v", run.Boundaries)
+	}
+
+	// 3. 正常导出成功
+	outPath := filepath.Join(t.TempDir(), "ok.xlsx")
+	if err := pipeline.ExportAssessment(ctx, s, assessID, outPath); err != nil {
+		t.Fatalf("ExportAssessment: %v", err)
+	}
+
+	// 4. 恢复默认后考核变为 stale，阻断未重算导出
+	if err := s.ResetAssessmentBoundaryOverride(ctx, assessID, "chinese"); err != nil {
+		t.Fatalf("ResetAssessmentBoundaryOverride: %v", err)
+	}
+	ac, err := s.LoadAssessmentContext(ctx, assessID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ac.Assessment.Status != "stale" {
+		t.Fatalf("expected status stale after boundary reset, got %s", ac.Assessment.Status)
+	}
+	if err := pipeline.ExportAssessment(ctx, s, assessID, filepath.Join(t.TempDir(), "blocked.xlsx")); err == nil {
+		t.Fatal("expected ExportAssessment to be blocked when boundary changed without recalculation")
+	}
+
+	// 5. 组数不匹配的微调阻断核算并返回 BoundaryStaleError
+	if err := s.SaveAssessmentBoundaryOverrides(ctx, assessID, []store.AssessmentBoundaryOverride{
+		{Subject: "chinese", GroupCount: 5, FirstRank: 2, SecondRank: 4, Reason: "旧组数"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	_, err = pipeline.CalculateAssessment(ctx, s, assessID, verID)
+	if _, ok := err.(*calc.BoundaryStaleError); !ok {
+		t.Fatalf("expected *calc.BoundaryStaleError, got %T: %v", err, err)
+	}
+}

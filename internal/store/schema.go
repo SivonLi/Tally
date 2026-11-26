@@ -364,6 +364,17 @@ func schemaV1Statements() []sqlite.Statement {
 			updated_at TEXT NOT NULL,
 			UNIQUE(assessment_id, class_id, tier_key)
 		)`},
+		{SQL: `CREATE TABLE IF NOT EXISTS assessment_boundary_overrides(
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			assessment_id INTEGER NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
+			subject TEXT NOT NULL,
+			group_count INTEGER NOT NULL,
+			first_rank INTEGER NOT NULL,
+			second_rank INTEGER NOT NULL,
+			reason TEXT NOT NULL DEFAULT '',
+			updated_at TEXT NOT NULL,
+			UNIQUE(assessment_id, subject)
+		)`},
 		{SQL: `CREATE TABLE IF NOT EXISTS result_runs (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			assessment_id INTEGER NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
@@ -403,6 +414,17 @@ func schemaV1Statements() []sqlite.Statement {
 			points REAL NOT NULL,
 			participants_json TEXT NOT NULL DEFAULT '[]',
 			indicator_values_json TEXT NOT NULL DEFAULT '{}'
+		)`},
+		{SQL: `CREATE TABLE IF NOT EXISTS result_run_boundaries(
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			run_id INTEGER NOT NULL REFERENCES result_runs(id) ON DELETE CASCADE,
+			subject TEXT NOT NULL,
+			group_count INTEGER NOT NULL,
+			first_rank INTEGER NOT NULL,
+			second_rank INTEGER NOT NULL,
+			source TEXT NOT NULL CHECK(source IN ('default','override')),
+			reason TEXT NOT NULL DEFAULT '',
+			UNIQUE(run_id, subject)
 		)`},
 		{SQL: `CREATE TABLE IF NOT EXISTS result_row_teachers (
 			result_row_id INTEGER NOT NULL REFERENCES result_rows(id) ON DELETE CASCADE,

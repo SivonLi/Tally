@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -195,6 +196,7 @@ func (a *app) loadAssessmentDetail(ctx context.Context) {
 		a.assessmentPersonal = nil
 		a.assessmentOfficialStale = false
 		a.assessmentOfficialStaleItems = nil
+		a.refreshBoundaryOverrideCount(ctx)
 		return
 	}
 	run, rows, personal, err := a.store.AssessmentRunDetail(ctx, a.selectedAssessmentID, a.assessmentRunID)
@@ -217,6 +219,7 @@ func (a *app) loadAssessmentDetail(ctx context.Context) {
 	a.assessmentRows = rows
 	a.assessmentPersonal = personal
 	a.loadAssessmentStaleness(ctx)
+	a.refreshBoundaryOverrideCount(ctx)
 }
 
 // defaultRunID 默认显示的核算：最近一次正式核算，没有正式核算时取最近一次试算。
@@ -325,6 +328,15 @@ func (a *app) assessmentPage(c *ui.Context, p uiPalette) {
 		})
 		if a.assessmentError != "" {
 			notice(c, p, noticeDanger, a.assessmentError)
+			if st := a.boundaryState(); len(st.staleIssues) > 0 {
+				if overview := a.selectedAssessmentOverview(); overview != nil && !overview.Archived {
+					ui.Row(c).FillWidth().AlignItems(ui.Center).Children(func() {
+						if labelledButton(c, locales.BoundaryReviewButton(), iconSliders, false).Clicked() {
+							a.openBoundaryModal()
+						}
+					})
+				}
+			}
 		}
 		if len(a.assessments) == 0 {
 			emptyState(c, p, iconEmptyBatch, locales.AssessmentEmpty(), locales.AssessmentEmptyHint(), func() {
@@ -345,6 +357,7 @@ func (a *app) assessmentPage(c *ui.Context, p uiPalette) {
 			})
 		}).Grow(1).MinHeight(0)
 	})
+	a.boundaryModal(c, p)
 }
 
 func (a *app) assessmentList(c *ui.Context, p uiPalette) {
@@ -514,6 +527,8 @@ func (a *app) staleItemLabel(key string) string {
 		return locales.AssessmentItemClasses()
 	case "exclusions":
 		return locales.AssessmentItemExclusions()
+	case "boundaries":
+		return locales.AssessmentItemBoundaries()
 	default:
 		return key
 	}
@@ -624,10 +639,19 @@ func (a *app) assessmentActions(c *ui.Context, p uiPalette, overview store.Asses
 					Width(t.Space(56)).Label(locales.AssessmentPlanVersion())
 			})
 			ui.Spacer(c)
-			ui.Row(c).Wrap().Gap(t.Space(2)).Children(func() {
+			ui.Row(c).Wrap().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
 				if labelledButton(c, locales.AssessmentFixExamShort(), iconExams, false).
 					Tooltip(fmt.Sprintf(locales.AssessmentFixExam(), overview.ExamName)).Clicked() {
 					a.openExamTab(overview, 0)
+				}
+				if !overview.Archived {
+					if labelledButton(c, locales.BoundaryAdjustButton(), iconSliders, false).
+						Disabled(a.assessmentBusy).Clicked() {
+						a.openBoundaryModal()
+					}
+					if count := a.boundaryState().overrideCount; count > 0 {
+						badge(c, p, fmt.Sprintf(locales.BoundaryOverrideCountBadge(), count), toneAccent)
+					}
 				}
 				trial := labelledButton(c, locales.AssessmentTrial(), iconCalculate, false)
 				trial.Disabled(a.assessmentBusy || (!overview.Archived && (len(a.published) == 0 || !a.assessmentReady(overview))))
@@ -1105,6 +1129,7 @@ type resultDetail struct {
 	Formulas  map[string]string
 	Group     store.ExamStatGroup
 	Students  []store.ResultRowStudent
+	Boundary  *store.ResultRunBoundary
 }
 
 func (a *app) closeResultDetail() {
@@ -1145,12 +1170,21 @@ func (a *app) openResultDetail(row store.StoredResultRow) {
 		a.assessmentError = localizeErrorMessage(err.Error())
 		return
 	}
+	var boundaryPtr *store.ResultRunBoundary
+	for i := range a.assessmentRun.Boundaries {
+		if a.assessmentRun.Boundaries[i].Subject == row.Subject {
+			b := a.assessmentRun.Boundaries[i]
+			boundaryPtr = &b
+			break
+		}
+	}
 	a.resultDetail = resultDetail{
 		Row:       row,
 		PlanLabel: a.labelForVersionID(version.ID),
 		Formulas:  assessment.EffectiveFormulas(version.Config, a.assessmentContext.Exam.ExamType, a.assessmentContext.Grade),
 		Group:     group,
 		Students:  students,
+		Boundary:  boundaryPtr,
 	}
 	a.resultDetailOpen = true
 }
@@ -1226,9 +1260,13 @@ func (a *app) finishAssessmentCalculate(result calc.Result, err error, trial boo
 			a.initZeroValues()
 			return
 		}
+		if stale, ok := err.(*calc.BoundaryStaleError); ok {
+			a.setBoundaryStaleIssues(stale.Issues)
+		}
 		a.assessmentError = localizeErrorMessage(err.Error())
 		return
 	}
+	a.setBoundaryStaleIssues(nil)
 	a.zeroOpen = false
 	a.assessmentError = ""
 	if trial {
@@ -1477,6 +1515,25 @@ func (a *app) resultDetailModal(c *ui.Context, p uiPalette) {
 				})
 			}
 			a.detailRow(c, p, locales.AssessmentDetailBasis(), detail.PlanLabel)
+			if detail.Boundary != nil {
+				b := detail.Boundary
+				src := locales.AssessmentDetailBoundarySourceDefault()
+				srcTone := toneNeutral
+				if b.Source == "override" {
+					src = locales.AssessmentDetailBoundarySourceOverride()
+					srcTone = toneAccent
+				}
+				boundText := fmt.Sprintf(locales.AssessmentDetailBoundaryFormat(), b.FirstRank, b.SecondRank, b.SecondRank, b.GroupCount)
+				ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+					ui.Text(c, locales.AssessmentDetailBoundary()).FontSize(captionSize(t)).TextColor(p.muted)
+					ui.Spacer(c)
+					ui.Text(c, boundText).FontSize(bodySize(t)).FontFeatures("tnum")
+					badge(c, p, src, srcTone)
+				})
+				if b.Source == "override" && strings.TrimSpace(b.Reason) != "" {
+					a.detailRow(c, p, locales.BoundaryReason(), b.Reason)
+				}
+			}
 			a.detailRow(c, p, locales.AssessmentDetailGroup(), a.detailGroupMembers(detail))
 			a.detailRow(c, p, locales.AssessmentDetailLeadClass(), row.LeadClassName)
 			a.detailRow(c, p, locales.AssessmentDetailTeachers(), decodeNames(row.TeacherNames))
@@ -1708,6 +1765,15 @@ func (a *app) resultsPage(c *ui.Context, p uiPalette) {
 		})
 		if a.assessmentError != "" {
 			notice(c, p, noticeDanger, a.assessmentError)
+			if st := a.boundaryState(); len(st.staleIssues) > 0 {
+				if overview := a.selectedAssessmentOverview(); overview != nil && !overview.Archived {
+					ui.Row(c).FillWidth().AlignItems(ui.Center).Children(func() {
+						if labelledButton(c, locales.BoundaryReviewButton(), iconSliders, false).Clicked() {
+							a.openBoundaryModal()
+						}
+					})
+				}
+			}
 		}
 		if a.assessmentOfficialStale {
 			notice(c, p, noticeWarning, a.staleNoticeText())
@@ -1753,4 +1819,392 @@ func (a *app) resultsPage(c *ui.Context, p uiPalette) {
 		}
 		a.assessmentResults(c, p)
 	})
+}
+
+type boundaryModalRow struct {
+	Subject         string
+	GroupCount      int
+	DefaultFirst    int
+	DefaultSecond   int
+	First           float64
+	Second          float64
+	Reason          string
+	HasOverride     bool
+	SavedGroupCount int
+	Stale           bool
+}
+
+type boundaryModalState struct {
+	open          bool
+	overrideCount int
+	rows          []boundaryModalRow
+	staleIssues   []calc.BoundaryStaleIssue
+	errorText     string
+}
+
+var (
+	boundaryStatesMu sync.Mutex
+	boundaryStates   = map[*app]*boundaryModalState{}
+)
+
+func (a *app) boundaryState() *boundaryModalState {
+	boundaryStatesMu.Lock()
+	defer boundaryStatesMu.Unlock()
+	st, ok := boundaryStates[a]
+	if !ok {
+		st = &boundaryModalState{}
+		boundaryStates[a] = st
+	}
+	return st
+}
+
+func (a *app) setBoundaryStaleIssues(issues []calc.BoundaryStaleIssue) {
+	st := a.boundaryState()
+	st.staleIssues = append([]calc.BoundaryStaleIssue(nil), issues...)
+}
+
+func (a *app) refreshBoundaryOverrideCount(ctx context.Context) {
+	st := a.boundaryState()
+	if a.store == nil || a.selectedAssessmentID == 0 {
+		st.overrideCount = 0
+		return
+	}
+	list, err := a.store.ListAssessmentBoundaryOverrides(ctx, a.selectedAssessmentID)
+	if err != nil {
+		st.overrideCount = 0
+		return
+	}
+	st.overrideCount = len(list)
+}
+
+func (a *app) selectedPlanBoundaryConfig(ctx context.Context) assessment.BoundaryConfig {
+	if ver := a.publishedByLabel(a.calculateVersion); ver != nil {
+		return ver.Version.Config.Ranking.Boundary
+	}
+	if a.store != nil && a.assessmentContext.Assessment.PlanVersion > 0 {
+		if ver, err := a.store.GetVersion(ctx, a.assessmentContext.Assessment.PlanVersion); err == nil {
+			return ver.Config.Ranking.Boundary
+		}
+	}
+	return assessment.DefaultConfig().Ranking.Boundary
+}
+
+func (a *app) openBoundaryModal() {
+	st := a.boundaryState()
+	st.errorText = ""
+	st.rows = nil
+	if a.store == nil || a.selectedAssessmentID == 0 {
+		st.open = true
+		return
+	}
+	ctx := context.Background()
+	groups, err := a.store.ListExamStatGroups(ctx, a.selectedAssessmentID)
+	if err != nil {
+		st.errorText = localizeErrorMessage(err.Error())
+		st.open = true
+		return
+	}
+	overrides, err := a.store.ListAssessmentBoundaryOverrides(ctx, a.selectedAssessmentID)
+	if err != nil {
+		st.errorText = localizeErrorMessage(err.Error())
+		st.open = true
+		return
+	}
+	st.overrideCount = len(overrides)
+
+	counts := map[string]int{}
+	for _, g := range groups {
+		counts[g.Subject]++
+	}
+	subjects := make([]string, 0, len(counts))
+	for subj := range counts {
+		subjects = append(subjects, subj)
+	}
+	sort.Strings(subjects)
+
+	overrideMap := make(map[string]store.AssessmentBoundaryOverride, len(overrides))
+	for _, o := range overrides {
+		overrideMap[o.Subject] = o
+	}
+	staleSet := make(map[string]bool, len(st.staleIssues))
+	for _, issue := range st.staleIssues {
+		staleSet[issue.Subject] = true
+	}
+
+	boundaryCfg := a.selectedPlanBoundaryConfig(ctx)
+	rows := make([]boundaryModalRow, 0, len(subjects))
+	for _, subj := range subjects {
+		n := counts[subj]
+		defFirst, defSecond, defErr := calc.DefaultRankBoundaries(boundaryCfg, subj, n)
+		if defErr != nil {
+			defFirst, defSecond = 1, n
+		}
+		row := boundaryModalRow{
+			Subject:       subj,
+			GroupCount:    n,
+			DefaultFirst:  defFirst,
+			DefaultSecond: defSecond,
+			First:         float64(defFirst),
+			Second:        float64(defSecond),
+		}
+		if o, ok := overrideMap[subj]; ok {
+			row.HasOverride = true
+			row.SavedGroupCount = o.GroupCount
+			row.First = float64(o.FirstRank)
+			row.Second = float64(o.SecondRank)
+			row.Reason = o.Reason
+			if o.GroupCount != n || o.FirstRank < 1 || o.SecondRank < o.FirstRank || o.SecondRank > n || staleSet[subj] {
+				row.Stale = true
+			}
+		}
+		rows = append(rows, row)
+	}
+	st.rows = rows
+	st.open = true
+}
+
+func (a *app) boundaryModal(c *ui.Context, p uiPalette) {
+	t := p.theme
+	st := a.boundaryState()
+	resetSubj := ""
+	resetAll := false
+	save := false
+
+	if modal(c, &st.open, modalProps{
+		Key:        "boundary-overrides",
+		Title:      locales.BoundaryModalTitle(),
+		OkText:     locales.BoundarySave(),
+		CancelText: locales.BoundaryCancel(),
+		Width:      modalWidthWide,
+	}, func() {
+		ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
+			ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+				ui.Text(c, locales.BoundaryModalIntro()).FontSize(bodySize(t)).TextColor(p.muted).
+					Grow(1).Shrink(1).Pretty()
+				hasAny := false
+				for _, r := range st.rows {
+					if r.HasOverride || int(r.First) != r.DefaultFirst || int(r.Second) != r.DefaultSecond || strings.TrimSpace(r.Reason) != "" {
+						hasAny = true
+						break
+					}
+				}
+				if len(st.rows) > 0 {
+					btn := plainButton(c, locales.BoundaryResetAll())
+					btn.Disabled(!hasAny)
+					if btn.Clicked() {
+						resetAll = true
+					}
+				}
+			})
+			if len(st.rows) == 0 {
+				emptyState(c, p, iconSliders, locales.BoundaryModalEmpty(), "", nil)
+			} else {
+				ui.Column(c).FillWidth().Gap(t.Space(2.5)).Children(func() {
+					for i := range st.rows {
+						a.boundaryRowCard(c, p, &st.rows[i], func(subj string) {
+							resetSubj = subj
+						})
+					}
+				})
+			}
+			if st.errorText != "" {
+				notice(c, p, noticeDanger, st.errorText)
+			}
+		})
+	}) {
+		save = true
+	}
+
+	if resetSubj != "" {
+		a.resetBoundarySubject(resetSubj)
+	}
+	if resetAll {
+		a.resetAllBoundaries()
+	}
+	if save {
+		a.saveBoundaryOverrides()
+	}
+}
+
+func (a *app) boundaryRowCard(c *ui.Context, p uiPalette, row *boundaryModalRow, onReset func(string)) {
+	t := p.theme
+	bg := p.panelMuted
+	borderColor := p.border
+	if row.Stale {
+		bg = p.warningSoft
+		borderColor = p.warning
+	}
+	statusText := locales.BoundaryStatusDefault()
+	statusTone := toneNeutral
+	if row.Stale {
+		statusText = locales.BoundaryStatusStale()
+		statusTone = toneWarning
+	} else if row.HasOverride || int(row.First) != row.DefaultFirst || int(row.Second) != row.DefaultSecond {
+		statusText = locales.BoundaryStatusOverride()
+		statusTone = toneAccent
+	}
+
+	panel(c, p).Background(bg).Border(1, borderColor).Padding(t.Space(3)).Gap(t.Space(2)).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+			ui.Text(c, subjectLabel(row.Subject)).FontSize(bodySize(t)).FontWeight(600).Shrink(0)
+			badge(c, p, fmt.Sprintf(locales.BoundaryGroupCount(), row.GroupCount), toneNeutral)
+			badge(c, p, statusText, statusTone)
+			ui.Spacer(c)
+			if row.Stale {
+				if plainButton(c, locales.BoundaryKeepCurrentCount()).
+					Label(subjectLabel(row.Subject) + " " + locales.BoundaryKeepCurrentCount()).Clicked() {
+					if int(row.First) < 1 {
+						row.First = 1
+					}
+					if int(row.First) > row.GroupCount {
+						row.First = float64(row.GroupCount)
+					}
+					if int(row.Second) < int(row.First) {
+						row.Second = row.First
+					}
+					if int(row.Second) > row.GroupCount {
+						row.Second = float64(row.GroupCount)
+					}
+					row.SavedGroupCount = row.GroupCount
+					row.Stale = false
+				}
+			}
+			isModified := row.HasOverride || int(row.First) != row.DefaultFirst || int(row.Second) != row.DefaultSecond || strings.TrimSpace(row.Reason) != ""
+			resetBtn := plainButton(c, locales.BoundaryResetSubject()).
+				Label(subjectLabel(row.Subject) + " " + locales.BoundaryResetSubject())
+			resetBtn.Disabled(!isModified)
+			if resetBtn.Clicked() {
+				onReset(row.Subject)
+			}
+		})
+		if row.Stale && row.SavedGroupCount > 0 {
+			ui.Text(c, fmt.Sprintf(locales.BoundaryStaleDetail(), row.SavedGroupCount, row.GroupCount)).
+				FontSize(captionSize(t)).TextColor(p.warning)
+		}
+		ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
+			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(1.5)).Children(func() {
+				ui.Text(c, locales.BoundaryFirstRank()).FontSize(captionSize(t)).TextColor(p.muted)
+				numberField(c, &row.First, 1, float64(row.GroupCount), 1,
+					subjectLabel(row.Subject)+" "+locales.BoundaryFirstRank()).Width(t.Space(20))
+			})
+			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(1.5)).Children(func() {
+				ui.Text(c, locales.BoundarySecondRank()).FontSize(captionSize(t)).TextColor(p.muted)
+				numberField(c, &row.Second, 1, float64(row.GroupCount), 1,
+					subjectLabel(row.Subject)+" "+locales.BoundarySecondRank()).Width(t.Space(20))
+			})
+			secondInt := int(row.Second)
+			thirdText := locales.BoundaryThirdTierNone()
+			if secondInt < row.GroupCount {
+				thirdText = fmt.Sprintf(locales.BoundaryThirdTierRange(), secondInt+1, row.GroupCount)
+			}
+			ui.Text(c, thirdText).FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum")
+		})
+		textField(c, &row.Reason, subjectLabel(row.Subject)+" "+locales.BoundaryReason(), locales.BoundaryReasonPlaceholder()).
+			FillWidth()
+	})
+}
+
+func (a *app) resetBoundarySubject(subject string) {
+	st := a.boundaryState()
+	st.errorText = ""
+	if a.store != nil && a.selectedAssessmentID > 0 {
+		ctx := context.Background()
+		if err := a.store.ResetAssessmentBoundaryOverride(ctx, a.selectedAssessmentID, subject); err != nil {
+			st.errorText = localizeErrorMessage(err.Error())
+			return
+		}
+		a.reloadAssessments(ctx)
+	}
+	for i := range st.rows {
+		if st.rows[i].Subject == subject {
+			st.rows[i].First = float64(st.rows[i].DefaultFirst)
+			st.rows[i].Second = float64(st.rows[i].DefaultSecond)
+			st.rows[i].Reason = ""
+			st.rows[i].HasOverride = false
+			st.rows[i].SavedGroupCount = st.rows[i].GroupCount
+			st.rows[i].Stale = false
+			break
+		}
+	}
+	st.staleIssues = nil
+	a.assessmentError = ""
+}
+
+func (a *app) resetAllBoundaries() {
+	st := a.boundaryState()
+	st.errorText = ""
+	if a.store != nil && a.selectedAssessmentID > 0 {
+		ctx := context.Background()
+		if err := a.store.ResetAllAssessmentBoundaryOverrides(ctx, a.selectedAssessmentID); err != nil {
+			st.errorText = localizeErrorMessage(err.Error())
+			return
+		}
+		a.assessmentMessage = locales.BoundaryResetAllNotice()
+		a.assessmentError = ""
+		st.staleIssues = nil
+		a.reloadAssessments(ctx)
+	}
+	for i := range st.rows {
+		st.rows[i].First = float64(st.rows[i].DefaultFirst)
+		st.rows[i].Second = float64(st.rows[i].DefaultSecond)
+		st.rows[i].Reason = ""
+		st.rows[i].HasOverride = false
+		st.rows[i].SavedGroupCount = st.rows[i].GroupCount
+		st.rows[i].Stale = false
+	}
+}
+
+func (a *app) saveBoundaryOverrides() {
+	st := a.boundaryState()
+	st.errorText = ""
+	if len(st.rows) == 0 {
+		st.open = false
+		return
+	}
+	var toSave []store.AssessmentBoundaryOverride
+	var toReset []string
+	for _, r := range st.rows {
+		first := int(r.First)
+		second := int(r.Second)
+		if first < 1 || second < first || second > r.GroupCount {
+			st.errorText = fmt.Sprintf(locales.BoundaryInvalidRange(), subjectLabel(r.Subject), r.GroupCount)
+			return
+		}
+		reason := strings.TrimSpace(r.Reason)
+		if first == r.DefaultFirst && second == r.DefaultSecond && reason == "" {
+			if r.HasOverride {
+				toReset = append(toReset, r.Subject)
+			}
+			continue
+		}
+		toSave = append(toSave, store.AssessmentBoundaryOverride{
+			Subject:    r.Subject,
+			GroupCount: r.GroupCount,
+			FirstRank:  first,
+			SecondRank: second,
+			Reason:     reason,
+		})
+	}
+	if a.store != nil && a.selectedAssessmentID > 0 {
+		ctx := context.Background()
+		for _, subj := range toReset {
+			if err := a.store.ResetAssessmentBoundaryOverride(ctx, a.selectedAssessmentID, subj); err != nil {
+				st.errorText = localizeErrorMessage(err.Error())
+				return
+			}
+		}
+		if len(toSave) > 0 {
+			if err := a.store.SaveAssessmentBoundaryOverrides(ctx, a.selectedAssessmentID, toSave); err != nil {
+				st.errorText = localizeErrorMessage(err.Error())
+				return
+			}
+		}
+		st.staleIssues = nil
+		a.assessmentError = ""
+		if len(toSave) > 0 || len(toReset) > 0 {
+			a.assessmentMessage = locales.BoundarySavedNotice()
+		}
+		a.reloadAssessments(ctx)
+	}
+	st.open = false
 }

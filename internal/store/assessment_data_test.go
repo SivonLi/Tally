@@ -305,7 +305,7 @@ func TestInputSummaryAndChangedItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(summary) != 10 {
+	if len(summary) != 11 {
 		t.Fatalf("summary = %+v", summary)
 	}
 	encoded, err := json.Marshal(summary)
@@ -483,5 +483,98 @@ func TestApplyExamImportSingleSubjectTarget(t *testing.T) {
 	}
 	if !foundSingle {
 		t.Fatalf("expected single_subject=5 persisted, got %+v", targets)
+	}
+}
+
+func TestAssessmentBoundaryOverridesLifecycle(t *testing.T) {
+	fixture := openAssessmentFixture(t)
+	ctx := context.Background()
+
+	// 验证无效边界被拒绝
+	if err := fixture.Store.SaveAssessmentBoundaryOverrides(ctx, fixture.AssessmentID, []AssessmentBoundaryOverride{
+		{Subject: "chinese", GroupCount: 3, FirstRank: 3, SecondRank: 2},
+	}); err == nil {
+		t.Fatal("expected invalid boundary (first > second) to be rejected")
+	}
+
+	// 保存微调
+	if err := fixture.Store.SaveAssessmentBoundaryOverrides(ctx, fixture.AssessmentID, []AssessmentBoundaryOverride{
+		{Subject: "chinese", GroupCount: 3, FirstRank: 2, SecondRank: 3, Reason: "语文组微调"},
+		{Subject: "math", GroupCount: 3, FirstRank: 1, SecondRank: 3, Reason: "数学组微调"},
+	}); err != nil {
+		t.Fatalf("SaveAssessmentBoundaryOverrides: %v", err)
+	}
+
+	list, err := fixture.Store.ListAssessmentBoundaryOverrides(ctx, fixture.AssessmentID)
+	if err != nil {
+		t.Fatalf("ListAssessmentBoundaryOverrides: %v", err)
+	}
+	if len(list) != 2 || list[0].Subject != "chinese" || list[0].FirstRank != 2 || list[1].Subject != "math" {
+		t.Fatalf("unexpected overrides list: %+v", list)
+	}
+
+	data, err := fixture.Store.LoadAssessmentData(ctx, fixture.AssessmentID)
+	if err != nil {
+		t.Fatalf("LoadAssessmentData: %v", err)
+	}
+	if len(data.BoundaryOverrides) != 2 {
+		t.Fatalf("expected 2 overrides in BatchData, got %d", len(data.BoundaryOverrides))
+	}
+
+	// 校验 InputHash 与 InputSummary 联动
+	plan := assessment.DefaultConfig()
+	hash1, err := InputHash(plan, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	summary1, err := InputSummary(plan, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	summaryJSON, err := json.Marshal(summary1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 单科重置
+	if err := fixture.Store.ResetAssessmentBoundaryOverride(ctx, fixture.AssessmentID, "math"); err != nil {
+		t.Fatalf("ResetAssessmentBoundaryOverride: %v", err)
+	}
+	dataAfterReset, err := fixture.Store.LoadAssessmentData(ctx, fixture.AssessmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dataAfterReset.BoundaryOverrides) != 1 || dataAfterReset.BoundaryOverrides[0].Subject != "chinese" {
+		t.Fatalf("expected only chinese override left, got %+v", dataAfterReset.BoundaryOverrides)
+	}
+	hash2, err := InputHash(plan, dataAfterReset)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hash1 == hash2 {
+		t.Fatal("expected InputHash to change after boundary reset")
+	}
+	summary2, err := InputSummary(plan, dataAfterReset)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed, err := ChangedInputItems(string(summaryJSON), summary2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(changed) != 1 || changed[0] != "boundaries" {
+		t.Fatalf("expected changed item [boundaries], got %v", changed)
+	}
+
+	// 全部重置
+	if err := fixture.Store.ResetAllAssessmentBoundaryOverrides(ctx, fixture.AssessmentID); err != nil {
+		t.Fatalf("ResetAllAssessmentBoundaryOverrides: %v", err)
+	}
+	listAfterAll, err := fixture.Store.ListAssessmentBoundaryOverrides(ctx, fixture.AssessmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listAfterAll) != 0 {
+		t.Fatalf("expected 0 overrides after ResetAll, got %+v", listAfterAll)
 	}
 }

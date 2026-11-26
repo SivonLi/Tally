@@ -90,7 +90,19 @@ func calculateAssessment(ctx context.Context, storage *store.Store, assessmentID
 	for classID := range data.ExcludedCompletionClasses {
 		excluded[strconv.FormatInt(classID, 10)] = true
 	}
-	result, err := calc.Calculate(input, calc.Options{ExcludedCompletionClasses: excluded})
+	boundaryOverrides := make(map[string]calc.BoundaryOverride, len(data.BoundaryOverrides))
+	for _, item := range data.BoundaryOverrides {
+		boundaryOverrides[item.Subject] = calc.BoundaryOverride{
+			GroupCount: item.GroupCount,
+			First:      item.FirstRank,
+			Second:     item.SecondRank,
+			Reason:     item.Reason,
+		}
+	}
+	result, err := calc.Calculate(input, calc.Options{
+		ExcludedCompletionClasses: excluded,
+		BoundaryOverrides:         boundaryOverrides,
+	})
 	if err != nil {
 		return calc.Result{}, err
 	}

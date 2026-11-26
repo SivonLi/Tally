@@ -74,6 +74,12 @@ func Write(input Input) error {
 	}
 	typeText := map[string]string{"midterm": "期中", "final": "期末", "gaokao": "高考"}
 	gradeText := map[string]string{"g1": "高一", "g2": "高二", "g3": "高三"}
+	var overrideBoundaries []store.ResultRunBoundary
+	for _, b := range input.Run.Boundaries {
+		if b.Source == "override" {
+			overrideBoundaries = append(overrideBoundaries, b)
+		}
+	}
 	baseRows := [][]any{
 		{"项目", "值"},
 		{"学年学期", input.Batch.AcademicYear + " " + input.Batch.Semester},
@@ -86,8 +92,32 @@ func Write(input Input) error {
 		{"核算时间", input.Run.CreatedAt.Local().Format("2006-01-02 15:04:05")},
 		{"导出时间", generatedAt.Local().Format("2006-01-02 15:04:05")},
 	}
+	if len(overrideBoundaries) == 0 {
+		baseRows = append(baseRows, []any{"分档边界", "按方案默认边界"})
+	}
 	if err := writeTable(workbook, "计算依据", baseRows, headerStyle, bodyStyle); err != nil {
 		return err
+	}
+	if len(overrideBoundaries) > 0 {
+		boundaryRows := [][]any{{"学科", "参评组数", "一档止于", "二档止于", "调整备注"}}
+		for _, b := range overrideBoundaries {
+			boundaryRows = append(boundaryRows, []any{
+				subjectLabel(b.Subject), b.GroupCount, b.FirstRank, b.SecondRank, b.Reason,
+			})
+		}
+		if err := writeTableAt(workbook, "计算依据", len(baseRows)+2, boundaryRows, headerStyle, bodyStyle); err != nil {
+			return err
+		}
+		for _, col := range []struct {
+			name  string
+			width float64
+		}{
+			{"C", 14}, {"D", 14}, {"E", 28},
+		} {
+			if err := workbook.SetColWidth("计算依据", col.name, col.name, col.width); err != nil {
+				return err
+			}
+		}
 	}
 	if err := workbook.SetColWidth("计算依据", "A", "A", 18); err != nil {
 		return err
@@ -381,9 +411,13 @@ func addSheet(workbook *excelize.File, name string, rows [][]any, headerStyle, b
 }
 
 func writeTable(workbook *excelize.File, sheet string, rows [][]any, headerStyle, bodyStyle int) error {
+	return writeTableAt(workbook, sheet, 1, rows, headerStyle, bodyStyle)
+}
+
+func writeTableAt(workbook *excelize.File, sheet string, startRow int, rows [][]any, headerStyle, bodyStyle int) error {
 	for rowIndex, row := range rows {
 		for columnIndex, value := range row {
-			cell, err := excelize.CoordinatesToCellName(columnIndex+1, rowIndex+1)
+			cell, err := excelize.CoordinatesToCellName(columnIndex+1, startRow+rowIndex)
 			if err != nil {
 				return err
 			}

@@ -371,3 +371,40 @@ func TestInvalidStudentsAreExcluded(t *testing.T) {
 		t.Fatalf("count = %d", row.ClassCount)
 	}
 }
+
+func TestBoundaryOverridesAndStaleError(t *testing.T) {
+	input := baseInput()
+	// 默认 3 组时 first=1, second=2；覆盖为 first=2, second=3
+	result, err := Calculate(input, Options{
+		BoundaryOverrides: map[string]BoundaryOverride{
+			"chinese": {GroupCount: 3, First: 2, Second: 3, Reason: "双一档"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Calculate with valid override failed: %v", err)
+	}
+	row1 := rowByStatGroup(t, result, "SG1")
+	row2 := rowByStatGroup(t, result, "SG2")
+	row3 := rowByStatGroup(t, result, "SG3")
+	if row1.TierIndex != 0 || row2.TierIndex != 0 || row3.TierIndex != 1 {
+		t.Fatalf("unexpected tier indexes with override: SG1=%d SG2=%d SG3=%d", row1.TierIndex, row2.TierIndex, row3.TierIndex)
+	}
+	if len(result.Boundaries) != 1 || result.Boundaries[0].Source != "override" || result.Boundaries[0].Reason != "双一档" {
+		t.Fatalf("unexpected effective boundaries: %+v", result.Boundaries)
+	}
+
+	// 参评组数变化时（实际 3 组，保存时为 4 组），返回 BoundaryStaleError
+	_, err = Calculate(input, Options{
+		BoundaryOverrides: map[string]BoundaryOverride{
+			"chinese": {GroupCount: 4, First: 2, Second: 3, Reason: "旧组数"},
+		},
+	})
+	staleErr, ok := err.(*BoundaryStaleError)
+	if !ok {
+		t.Fatalf("expected *BoundaryStaleError, got %T: %v", err, err)
+	}
+	if len(staleErr.Issues) != 1 || staleErr.Issues[0].Subject != "chinese" ||
+		staleErr.Issues[0].SavedGroupCount != 4 || staleErr.Issues[0].ActualGroupCount != 3 {
+		t.Fatalf("unexpected stale issues: %+v", staleErr.Issues)
+	}
+}

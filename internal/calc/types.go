@@ -87,9 +87,28 @@ type SubjectReference struct {
 	Cutoffs              map[string]float64
 }
 
+// BoundaryOverride 表示单次核算中按学科指定的分档边界覆盖值。
+type BoundaryOverride struct {
+	GroupCount int
+	First      int
+	Second     int
+	Reason     string
+}
+
 // Options 控制核算时的特殊处理。
 type Options struct {
 	ExcludedCompletionClasses map[string]bool
+	BoundaryOverrides         map[string]BoundaryOverride
+}
+
+// EffectiveBoundary 记录某学科在本次核算中实际生效的分档边界与来源。
+type EffectiveBoundary struct {
+	Subject    string
+	GroupCount int
+	First      int
+	Second     int
+	Source     string
+	Reason     string
 }
 
 // Row 是一个统计组在某一学科下的计算结果。
@@ -145,6 +164,26 @@ type Result struct {
 	Rows                      []Row
 	Personal                  []PersonalScore
 	ExcludedCompletionClasses []string
+	Boundaries                []EffectiveBoundary
+}
+
+// BoundaryStaleIssue 描述一个已微调学科的参评统计组数变动或边界越界问题。
+type BoundaryStaleIssue struct {
+	Subject          string
+	SavedGroupCount  int
+	ActualGroupCount int
+	First            int
+	Second           int
+}
+
+// BoundaryStaleError 表示已微调的分档边界与当前参评统计组数不匹配，需要复核确认。
+type BoundaryStaleError struct {
+	Issues []BoundaryStaleIssue
+}
+
+// Error 返回可直接显示的边界失效错误。
+func (e *BoundaryStaleError) Error() string {
+	return "部分学科的参评统计组数已发生变化，已微调的分档边界需要复核确认"
 }
 
 // ZeroTargetIssue 描述一个目标基础分为零或者目标缺失的班级。
