@@ -505,9 +505,93 @@ func TestTwoDeviceSyncAndConflictRegression(t *testing.T) {
 		t.Fatalf("打开冲突前备份数据库失败: %v", err)
 	}
 	backupCohorts, err := backupStore.ListCohorts(context.Background())
-	_ = backupStore.Close()
+	if closeErr := backupStore.Close(); closeErr != nil {
+		t.Fatalf("关闭备份数据库失败: %v", closeErr)
+	}
 	if err != nil || len(backupCohorts) != 3 {
 		t.Fatalf("冲突前备份应完整保留 3 个年级，实际: len=%d, err=%v", len(backupCohorts), err)
+	}
+
+	// g) 补充冲突分支：双端同修订号分叉 (localRev == remoteRev) 与本地领先但远端亦被修改 (localRev > remoteRev)。
+	devA.addCohort(t, 2020, 2025)
+	devB.addCohort(t, 2019, 2025)
+	devB.upload(t, client, remoteDir, syncPass)
+	// 此时 devA 与 devB 均从上次同步点各自新增 1 个年级，修订号相同但内容已分叉。
+	if st := devA.checkRemote(t, client, remoteDir); st.Kind != StatusConflict {
+		t.Fatalf("双端同修订号分叉时应返回 StatusConflict，实际: %v", st.Kind)
+	}
+
+	// devA 继续新增 1 个年级使其 localRev > remoteRev，但 remoteRev != lastSyncRev。
+	devA.addCohort(t, 2018, 2025)
+	if st := devA.checkRemote(t, client, remoteDir); st.Kind != StatusConflict {
+		t.Fatalf("本地领先且远端亦相对上次同步点有改动时应返回 StatusConflict，实际: %v", st.Kind)
+	}
+
+	// 用户显式选择「保留本地」并上传覆盖远端，随后 devB 拉取恢复双端一致。
+	devA.upload(t, client, remoteDir, syncPass)
+	if st := devB.checkRemote(t, client, remoteDir); st.Kind != StatusCanPull {
+		t.Fatalf("devA 显式保留本地并上传后 devB 应可拉取，实际: %v", st.Kind)
+	}
+	devB.pullAndApply(t, client, remoteDir, syncPass)
+	if len(devB.listCohorts(t)) != len(devA.listCohorts(t)) {
+		t.Fatalf("冲突闭环恢复后双端年级数应一致: devA=%d, devB=%d", len(devA.listCohorts(t)), len(devB.listCohorts(t)))
+	}
+}
+
+func TestCrossDatabaseIDConflictProtection(t *testing.T) {
+	srv := newRFC4918Server("teacher", "dav-secret")
+	defer srv.Close()
+	client, err := NewClient(srv.URL(), "teacher", "dav-secret")
+	if err != nil {
+		t.Fatalf("NewClient 失败: %v", err)
+	}
+	const remoteDir = "Tally"
+	const syncPass = "SchoolSync@2026!"
+
+	// 设备 A 创建 2 个年级并上传（Revision 随年级增长，BaseRevision=0；手动构造与设备 B 相同 Revision 场景）。
+	devA := newSyncDevice(t, "设备A", "dev-a")
+	devA.addCohort(t, 2024, 2024)
+	devA.addCohort(t, 2025, 2025)
+	mA := devA.upload(t, client, remoteDir, syncPass)
+
+	// 独立建库的设备 B 从未同步过 (lastSyncRev=0)，且本地已建立 1 个年级 (localBatches 非空)。
+	devB := newSyncDevice(t, "设备B", "dev-b")
+	devB.addCohort(t, 2023, 2024)
+	_, revB, batchesB := devB.readRevisionState(t)
+
+	// 即使远端 BaseRevision 恰好等于 devB 的 localRev，跨 DatabaseID 也不得静默覆盖。
+	rawLatest, ok := srv.getRawFile("/Tally/latest.json")
+	if !ok {
+		t.Fatal("远端缺少 latest.json")
+	}
+	var mAdjusted SyncManifest
+	if err := json.Unmarshal(rawLatest, &mAdjusted); err != nil {
+		t.Fatalf("解析 latest.json 失败: %v", err)
+	}
+	mAdjusted.BaseRevision = revB
+	mAdjusted.Revision = revB + 4
+	adjustedBytes, err := json.Marshal(mAdjusted)
+	if err != nil {
+		t.Fatalf("序列化 latest.json 失败: %v", err)
+	}
+	srv.setRawFile("/Tally/latest.json", adjustedBytes)
+
+	status, err := CheckRemote(context.Background(), client, remoteDir, devB.dbID, revB, 0, "", batchesB)
+	if err != nil {
+		t.Fatalf("CheckRemote 失败: %v", err)
+	}
+	if status.Kind != StatusConflict {
+		t.Fatalf("跨 DatabaseID 且本地已有业务数据时应返回 StatusConflict，实际: %v (mA.Rev=%d)", status.Kind, mA.Revision)
+	}
+
+	// 新设备即便 localBatches 为空，但若在本地修改/新增了考核方案 (localRev > 2)，同样必须拦截为 StatusConflict。
+	devC := newSyncDevice(t, "设备C", "dev-c")
+	statusC, err := CheckRemote(context.Background(), client, remoteDir, devC.dbID, 3, 0, "", nil)
+	if err != nil {
+		t.Fatalf("CheckRemote 失败: %v", err)
+	}
+	if statusC.Kind != StatusConflict {
+		t.Fatalf("跨 DatabaseID 且 localRev > 2 时应返回 StatusConflict，实际: %v", statusC.Kind)
 	}
 }
 
@@ -524,6 +608,9 @@ func TestEncryptionSecurityAndTamperProtection(t *testing.T) {
 
 	devA := newSyncDevice(t, "设备A", "dev-a")
 	devA.addCohort(t, 2024, 2024)
+	attContent := []byte("PK-dummy-xlsx-secret-attachment")
+	attHash := SHA256String(attContent)
+	devA.writeAttachment(t, "secret_scores.xlsx", attContent)
 	manifest := devA.upload(t, client, remoteDir, rightPass)
 
 	// 准备设备 B 本地已有数据库与备份保护。
@@ -564,7 +651,24 @@ func TestEncryptionSecurityAndTamperProtection(t *testing.T) {
 	// 还原 latest.json。
 	srv.setRawFile("/Tally/latest.json", rawLatest)
 
-	// 3. 篡改 zip 包内的密文与 manifest（重新计算 latest.json 的 PackageHash 绕过外层校验，测试内层 AEAD + SHA-256 校验）。
+	// 3. 篡改远端加密附件密文时，DownloadSync 必须阻断报错且不写入损坏附件。
+	attRemotePath := "/Tally/files/" + attHash + ".xlsx.enc"
+	origAttEnc, ok := srv.getRawFile(attRemotePath)
+	if !ok {
+		t.Fatal("远端缺少加密附件")
+	}
+	tamperedAttEnc := append([]byte(nil), origAttEnc...)
+	tamperedAttEnc[len(tamperedAttEnc)-1] ^= 0xFF
+	srv.setRawFile(attRemotePath, tamperedAttEnc)
+	if _, err := DownloadSync(ctx, client, remoteDir, rightPass, filepath.Join(t.TempDir(), "tally.db"), devB.filesDir); err == nil {
+		t.Fatal("远端加密附件被篡改时 DownloadSync 必须报错拦截")
+	}
+	if _, err := os.Stat(filepath.Join(devB.filesDir, attHash+".xlsx")); !os.IsNotExist(err) {
+		t.Fatal("被篡改的附件不得写入本地 files 目录")
+	}
+	srv.setRawFile(attRemotePath, origAttEnc)
+
+	// 4. 篡改 zip 包内的密文与 manifest（重新计算 latest.json 的 PackageHash 绕过外层校验，测试内层 AEAD + SHA-256 校验）。
 	pkgRemotePath := "/Tally/packages/" + manifest.PackageName
 	origPkg, ok := srv.getRawFile(pkgRemotePath)
 	if !ok {
@@ -577,16 +681,21 @@ func TestEncryptionSecurityAndTamperProtection(t *testing.T) {
 	})
 	srv.setRawFile(pkgRemotePath, tamperedPkg)
 	var m2 SyncManifest
-	_ = json.Unmarshal(rawLatest, &m2)
+	if err := json.Unmarshal(rawLatest, &m2); err != nil {
+		t.Fatalf("解析 latest.json 失败: %v", err)
+	}
 	m2.PackageHash = SHA256String(tamperedPkg)
-	m2Bytes, _ := json.Marshal(m2)
+	m2Bytes, err := json.Marshal(m2)
+	if err != nil {
+		t.Fatalf("序列化 m2 失败: %v", err)
+	}
 	srv.setRawFile("/Tally/latest.json", m2Bytes)
 
 	if _, err := DownloadSync(ctx, client, remoteDir, rightPass, badTempDB, devB.filesDir); err == nil {
 		t.Fatal("密文被篡改时必须被 AES-GCM 认证标签拦截")
 	}
 
-	// 4. 确认设备 B 本地数据库完好无损。
+	// 5. 确认设备 B 本地数据库完好无损。
 	curBytesB, err := os.ReadFile(devB.dbPath)
 	if err != nil || !bytes.Equal(origBytesB, curBytesB) {
 		t.Fatal("异常数据包不得覆盖或破坏本地数据库")
@@ -608,11 +717,13 @@ func rewriteZipEntry(t *testing.T, zipBytes []byte, targetName string, mutator f
 			t.Fatalf("读取 zip 条目 %s 失败: %v", f.Name, err)
 		}
 		var data bytes.Buffer
-		if _, err := data.ReadFrom(rc); err != nil {
-			_ = rc.Close()
-			t.Fatalf("复制 zip 条目 %s 失败: %v", f.Name, err)
+		_, readErr := data.ReadFrom(rc)
+		if closeErr := rc.Close(); closeErr != nil {
+			t.Fatalf("关闭 zip 条目 %s 失败: %v", f.Name, closeErr)
 		}
-		_ = rc.Close()
+		if readErr != nil {
+			t.Fatalf("复制 zip 条目 %s 失败: %v", f.Name, readErr)
+		}
 
 		content := data.Bytes()
 		if f.Name == targetName {

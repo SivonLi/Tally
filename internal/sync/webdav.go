@@ -116,22 +116,11 @@ func (c *Client) do(ctx context.Context, method, relPath string, body []byte, he
 func (c *Client) Ping(ctx context.Context) error {
 	resp, err := c.do(ctx, "PROPFIND", "", nil, map[string]string{"Depth": "0"})
 	if err != nil {
-		// 认证、权限、路径或空间错误直接返回，不通过 OPTIONS 掩盖
-		if errors.Is(err, ErrUnauthorized) || errors.Is(err, ErrForbidden) ||
-			errors.Is(err, ErrNotFound) || errors.Is(err, ErrInsufficientStorage) {
-			return err
-		}
-		// 某些兼容性服务器若不支持根目录 PROPFIND，尝试 OPTIONS
-		optResp, optErr := c.do(ctx, "OPTIONS", "", nil, nil)
-		if optErr == nil {
-			_ = optResp.Body.Close()
-			if optResp.StatusCode >= 200 && optResp.StatusCode < 300 {
-				return nil
-			}
-		}
 		return err
 	}
-	_ = resp.Body.Close()
+	if closeErr := resp.Body.Close(); closeErr != nil {
+		return fmt.Errorf("关闭连接测试响应失败: %w", closeErr)
+	}
 	if (resp.StatusCode >= 200 && resp.StatusCode < 300) || resp.StatusCode == http.StatusMultiStatus {
 		return nil
 	}
@@ -140,7 +129,9 @@ func (c *Client) Ping(ctx context.Context) error {
 		if optErr != nil {
 			return optErr
 		}
-		_ = optResp.Body.Close()
+		if closeErr := optResp.Body.Close(); closeErr != nil {
+			return fmt.Errorf("关闭 OPTIONS 响应失败: %w", closeErr)
+		}
 		if optResp.StatusCode >= 200 && optResp.StatusCode < 300 {
 			return nil
 		}
