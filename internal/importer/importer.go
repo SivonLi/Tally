@@ -899,7 +899,7 @@ func parseTargets(table excel.Table) ([]store.ImportClassTarget, error) {
 	for tierName, tierKey := range tierAliases {
 		tc := tierCol{targetCol: -1, actualCol: -1}
 		for index, header := range table.Headers {
-			if header != tierName && !strings.HasPrefix(header, tierName+"-") && !strings.HasPrefix(header, tierName+"：") && !strings.HasPrefix(header, tierName+"/") {
+			if !matchesTierHeader(header, tierName) {
 				continue
 			}
 			if hasSubHeaders && index < len(table.Rows[0].Values) {
@@ -1210,6 +1210,17 @@ func cutoffTablePriority(sheet string) int {
 	default:
 		return 200
 	}
+}
+
+func matchesTierHeader(header, tierName string) bool {
+	if header == tierName ||
+		strings.HasPrefix(header, tierName+"-") ||
+		strings.HasPrefix(header, tierName+"：") ||
+		strings.HasPrefix(header, tierName+"/") {
+		return true
+	}
+	match := tierHeaderPattern.FindStringSubmatch(header)
+	return len(match) > 1 && match[1] == tierName
 }
 
 func isCutoffActualHeader(header string) bool {

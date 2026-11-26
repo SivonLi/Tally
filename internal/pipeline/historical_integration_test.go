@@ -6,8 +6,8 @@ import (
 	"context"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -21,10 +21,32 @@ import (
 
 func resolveHistoryDir(t *testing.T) string {
 	t.Helper()
-	candidates := []string{
-		os.Getenv("TALLY_PRIVATE_DATA_DIR"),
-		filepath.Join("..", "..", "private-data", "history"),
-		"/Users/sivon/Developer/Github/Tally/private-data/history",
+	var candidates []string
+	if envDir := strings.TrimSpace(os.Getenv("TALLY_PRIVATE_DATA_DIR")); envDir != "" {
+		candidates = append(candidates, envDir)
+	}
+	if wd, err := os.Getwd(); err == nil {
+		cur := wd
+		for i := 0; i < 6; i++ {
+			candidates = append(candidates, filepath.Join(cur, "private-data", "history"))
+			parent := filepath.Dir(cur)
+			if parent == cur {
+				break
+			}
+			cur = parent
+		}
+	}
+	if out, err := exec.Command("git", "rev-parse", "--git-common-dir").Output(); err == nil {
+		commonDir := strings.TrimSpace(string(out))
+		if commonDir != "" {
+			if !filepath.IsAbs(commonDir) {
+				if abs, err := filepath.Abs(commonDir); err == nil {
+					commonDir = abs
+				}
+			}
+			mainRoot := filepath.Dir(commonDir)
+			candidates = append(candidates, filepath.Join(mainRoot, "private-data", "history"))
+		}
 	}
 	for _, dir := range candidates {
 		if dir == "" {
@@ -327,6 +349,189 @@ func verifyCompletionAgainstWorkbook(t *testing.T, label, wbPath, sheetKeyword s
 	return matched
 }
 
+func verifyG1FinalMetrics(t *testing.T, wbPath string, res calc.Result) int {
+	t.Helper()
+	wb, err := excel.Open(wbPath)
+	if err != nil {
+		t.Fatalf("g1_final open workbook: %v", err)
+	}
+	defer func() {
+		if err := wb.Close(); err != nil {
+			t.Errorf("close workbook: %v", err)
+		}
+	}()
+
+	rankSheet := ""
+	for _, s := range wb.GetSheetList() {
+		if strings.Contains(s, "排名、赋分") {
+			rankSheet = s
+			break
+		}
+	}
+	if rankSheet == "" {
+		t.Fatalf("g1_final ranking sheet not found")
+	}
+	tbl, err := excel.ReadTableFromWorkbook(wb, rankSheet)
+	if err != nil {
+		t.Fatalf("g1_final read ranking sheet: %v", err)
+	}
+	classCol := excel.FindColumn(tbl.Headers, "班级")
+	if classCol < 0 {
+		t.Fatalf("g1_final missing class column")
+	}
+	calcImp := map[string]float64{}
+	passTotals := map[string]int{}
+	for _, r := range res.Rows {
+		calcImp[r.Subject+":"+r.LeadClassName] = r.ImprovementScore
+		passTotals[r.Subject] += r.PassCount
+	}
+
+	subjects := []struct {
+		name string
+		code string
+		want int
+	}{
+		{"数学", "math", 22},
+		{"英语", "english", 22},
+		{"物理", "physics", 18},
+		{"化学", "chemistry", 18},
+		{"生物", "biology", 13},
+	}
+	totalMatched := 0
+	for _, sub := range subjects {
+		subIdx := -1
+		for i, h := range tbl.Headers {
+			trimmed := strings.TrimSpace(h)
+			if trimmed == sub.name || (sub.name == "英语" && trimmed == "外语") {
+				subIdx = i
+				break
+			}
+		}
+		if subIdx < 0 {
+			t.Fatalf("g1_final missing subject header for %s", sub.code)
+		}
+		matched := 0
+		for _, row := range tbl.Rows {
+			if classCol >= len(row.Values) || subIdx+3 >= len(row.Values) {
+				continue
+			}
+			cn := strings.TrimSpace(row.Values[classCol])
+			if cn == "" || cn == "班级" || strings.Contains(cn, "总计") {
+				continue
+			}
+			hImp, err := strconv.ParseFloat(strings.TrimSpace(row.Values[subIdx+3]), 64)
+			if err != nil {
+				continue
+			}
+			got, ok := calcImp[sub.code+":"+cn]
+			if !ok {
+				continue
+			}
+			if math.Abs(got-hImp) > 0.02 {
+				t.Fatalf("g1_final %s improvement mismatch: hist=%.4f calc=%.4f", sub.code, hImp, got)
+			}
+			matched++
+		}
+		if matched != sub.want {
+			t.Fatalf("g1_final %s improvement matched=%d, want %d", sub.code, matched, sub.want)
+		}
+		totalMatched += matched
+	}
+
+	expectedPassTotals := map[string]int{
+		"chinese": 363,
+		"math":    427,
+		"english": 339,
+		"biology": 256,
+	}
+	for subj, want := range expectedPassTotals {
+		if passTotals[subj] != want {
+			t.Fatalf("g1_final %s pass total=%d, want %d", subj, passTotals[subj], want)
+		}
+	}
+	return totalMatched
+}
+
+func verifyChemistryAllMetrics(t *testing.T, label, wbPath, sheetKeyword string, res calc.Result, want int) int {
+	t.Helper()
+	wb, err := excel.Open(wbPath)
+	if err != nil {
+		t.Fatalf("%s open workbook: %v", label, err)
+	}
+	defer func() {
+		if err := wb.Close(); err != nil {
+			t.Errorf("close workbook: %v", err)
+		}
+	}()
+
+	targetSheet := ""
+	for _, s := range wb.GetSheetList() {
+		if strings.Contains(s, sheetKeyword) {
+			targetSheet = s
+			break
+		}
+	}
+	if targetSheet == "" {
+		t.Fatalf("%s sheet containing %q not found", label, sheetKeyword)
+	}
+	tbl, err := excel.ReadTableFromWorkbook(wb, targetSheet)
+	if err != nil {
+		t.Fatalf("%s read table: %v", label, err)
+	}
+	classCol := excel.FindColumn(tbl.Headers, "班级")
+	subIdx := -1
+	for i, h := range tbl.Headers {
+		if strings.TrimSpace(h) == "化学" {
+			subIdx = i
+			break
+		}
+	}
+	if classCol < 0 || subIdx < 0 {
+		t.Fatalf("%s missing class or chemistry column", label)
+	}
+	byClass := map[string]calc.Row{}
+	for _, r := range res.Rows {
+		if r.Subject == "chemistry" {
+			byClass[r.LeadClassName] = r
+		}
+	}
+	matched := 0
+	for _, row := range tbl.Rows {
+		if classCol >= len(row.Values) || subIdx+8 >= len(row.Values) {
+			continue
+		}
+		cn := strings.TrimSpace(row.Values[classCol])
+		hTot, errT := strconv.ParseFloat(strings.TrimSpace(row.Values[subIdx+5]), 64)
+		if errT != nil || cn == "" || cn == "班级" {
+			continue
+		}
+		hImp, _ := strconv.ParseFloat(strings.TrimSpace(row.Values[subIdx+3]), 64)
+		hPass, _ := strconv.ParseFloat(strings.TrimSpace(row.Values[subIdx+4]), 64)
+		hRank, _ := strconv.Atoi(strings.TrimSpace(row.Values[subIdx+6]))
+		hTier, _ := strconv.Atoi(strings.TrimSpace(row.Values[subIdx+7]))
+		hPts, _ := strconv.ParseFloat(strings.TrimSpace(row.Values[subIdx+8]), 64)
+		got, ok := byClass[cn]
+		if !ok {
+			continue
+		}
+		if math.Abs(got.ImprovementScore-hImp) > 0.02 ||
+			math.Abs(got.PassScore-hPass) > 0.02 ||
+			math.Abs(got.Total-hTot) > 0.02 ||
+			got.Rank != hRank ||
+			(got.TierIndex+1) != hTier ||
+			math.Abs(got.Points-hPts) > 0.01 {
+			t.Fatalf("%s chemistry mismatch: hist(imp=%.4f,pass=%.4f,tot=%.4f,r=%d,t=%d,p=%.1f) vs calc(imp=%.4f,pass=%.4f,tot=%.4f,r=%d,t=%d,p=%.1f)",
+				label, hImp, hPass, hTot, hRank, hTier, hPts,
+				got.ImprovementScore, got.PassScore, got.Total, got.Rank, got.TierIndex+1, got.Points)
+		}
+		matched++
+	}
+	if matched != want {
+		t.Fatalf("%s chemistry matched=%d, want %d", label, matched, want)
+	}
+	return matched
+}
+
 func TestHistoricalSixBatchesIntegration(t *testing.T) {
 	historyDir := resolveHistoryDir(t)
 	midDir := findSubDir(t, historyDir, "期中")
@@ -339,64 +544,73 @@ func TestHistoricalSixBatchesIntegration(t *testing.T) {
 	g1MidDir := findSubDir(t, midDir, "高一")
 	g1MidWb := findMainWorkbook(t, g1MidDir, []string{"量化"}, nil)
 	resG1Mid, _ := runHistoricalBatchIntegration(t, "g1_mid", 2025, store.ExamTermSecond, store.ExamMidterm, g1MidWb, teacherFallback, false)
-	if len(resG1Mid.Rows) == 0 || len(resG1Mid.Personal) == 0 {
-		t.Fatalf("g1_mid produced empty results")
+	if len(resG1Mid.Rows) != 141 || len(resG1Mid.Personal) != 73 {
+		t.Fatalf("g1_mid unexpected counts: rows=%d, personal=%d", len(resG1Mid.Rows), len(resG1Mid.Personal))
 	}
-	t.Logf("g1_mid: rows=%d, personal=%d", len(resG1Mid.Rows), len(resG1Mid.Personal))
+	mG1Mid := verifyCompletionAgainstWorkbook(t, "g1_mid", g1MidWb, "排名、赋分", resG1Mid)
+	if mG1Mid != 22 {
+		t.Fatalf("g1_mid expected 22 completion matches, got %d", mG1Mid)
+	}
+	t.Logf("g1_mid: rows=%d, personal=%d, completion_matched=%d", len(resG1Mid.Rows), len(resG1Mid.Personal), mG1Mid)
 
 	// 2. 高二期中
 	g2MidDir := findSubDir(t, midDir, "高二")
 	g2MidWb := findMainWorkbook(t, g2MidDir, []string{"量化"}, []string{"基础数据"})
 	resG2Mid, _ := runHistoricalBatchIntegration(t, "g2_mid", 2024, store.ExamTermSecond, store.ExamMidterm, g2MidWb, teacherFallback, false)
-	if len(resG2Mid.Rows) == 0 || len(resG2Mid.Personal) == 0 {
-		t.Fatalf("g2_mid produced empty results")
+	if len(resG2Mid.Rows) != 154 || len(resG2Mid.Personal) != 83 {
+		t.Fatalf("g2_mid unexpected counts: rows=%d, personal=%d", len(resG2Mid.Rows), len(resG2Mid.Personal))
 	}
 	mG2Mid := verifyCompletionAgainstWorkbook(t, "g2_mid", g2MidWb, "排名、赋分", resG2Mid)
+	if mG2Mid != 24 {
+		t.Fatalf("g2_mid expected 24 completion matches, got %d", mG2Mid)
+	}
 	t.Logf("g2_mid: rows=%d, personal=%d, completion_matched=%d", len(resG2Mid.Rows), len(resG2Mid.Personal), mG2Mid)
 
 	// 3. 高三期中
 	g3MidDir := findSubDir(t, midDir, "高三")
 	g3MidWb := findMainWorkbook(t, g3MidDir, []string{"量化"}, nil)
 	resG3Mid, _ := runHistoricalBatchIntegration(t, "g3_mid", 2023, store.ExamTermSecond, store.ExamMidterm, g3MidWb, teacherFallback, false)
-	if len(resG3Mid.Rows) == 0 || len(resG3Mid.Personal) == 0 {
-		t.Fatalf("g3_mid produced empty results")
+	if len(resG3Mid.Rows) != 106 || len(resG3Mid.Personal) != 60 {
+		t.Fatalf("g3_mid unexpected counts: rows=%d, personal=%d", len(resG3Mid.Rows), len(resG3Mid.Personal))
 	}
 	mG3Mid := verifyCompletionAgainstWorkbook(t, "g3_mid", g3MidWb, "排名、赋分", resG3Mid)
+	if mG3Mid != 17 {
+		t.Fatalf("g3_mid expected 17 completion matches, got %d", mG3Mid)
+	}
 	t.Logf("g3_mid: rows=%d, personal=%d, completion_matched=%d", len(resG3Mid.Rows), len(resG3Mid.Personal), mG3Mid)
 
 	// 4. 高一期末
 	g1FinWb := findMainWorkbook(t, finalDir, []string{"高一期末"}, nil)
 	resG1Fin, _ := runHistoricalBatchIntegration(t, "g1_final", 2025, store.ExamTermSecond, store.ExamFinal, g1FinWb, "", true)
-	if len(resG1Fin.Rows) == 0 || len(resG1Fin.Personal) == 0 {
-		t.Fatalf("g1_final produced empty results")
+	if len(resG1Fin.Rows) != 141 || len(resG1Fin.Personal) != 73 {
+		t.Fatalf("g1_final unexpected counts: rows=%d, personal=%d", len(resG1Fin.Rows), len(resG1Fin.Personal))
 	}
-	t.Logf("g1_final: rows=%d, personal=%d", len(resG1Fin.Rows), len(resG1Fin.Personal))
+	mG1FinImp := verifyG1FinalMetrics(t, g1FinWb, resG1Fin)
+	t.Logf("g1_final: rows=%d, personal=%d, core_imp_matched=%d", len(resG1Fin.Rows), len(resG1Fin.Personal), mG1FinImp)
 
 	// 5. 高二期末
 	g2FinWb := findMainWorkbook(t, finalDir, []string{"高二期末"}, nil)
 	resG2Fin, _ := runHistoricalBatchIntegration(t, "g2_final", 2024, store.ExamTermSecond, store.ExamFinal, g2FinWb, "", true)
-	if len(resG2Fin.Rows) == 0 || len(resG2Fin.Personal) == 0 {
-		t.Fatalf("g2_final produced empty results")
+	if len(resG2Fin.Rows) != 154 || len(resG2Fin.Personal) != 83 {
+		t.Fatalf("g2_final unexpected counts: rows=%d, personal=%d", len(resG2Fin.Rows), len(resG2Fin.Personal))
 	}
 	mG2Fin := verifyCompletionAgainstWorkbook(t, "g2_final", g2FinWb, "排名、赋分", resG2Fin)
 	if mG2Fin != 24 {
 		t.Fatalf("g2_final expected 24 completion matches, got %d", mG2Fin)
 	}
-	t.Logf("g2_final: rows=%d, personal=%d, completion_matched=%d", len(resG2Fin.Rows), len(resG2Fin.Personal), mG2Fin)
+	mG2Chem := verifyChemistryAllMetrics(t, "g2_final", g2FinWb, "排名、赋分", resG2Fin, 22)
+	t.Logf("g2_final: rows=%d, personal=%d, completion_matched=%d, chemistry_full_matched=%d",
+		len(resG2Fin.Rows), len(resG2Fin.Personal), mG2Fin, mG2Chem)
 
 	// 6. 2026 高考
 	gaokaoWb := findMainWorkbook(t, gaokaoDir, nil, []string{"应届", "成绩量化"})
 	resGaokao, _ := runHistoricalBatchIntegration(t, "gaokao", 2023, store.ExamTermSecond, store.ExamGaokao, gaokaoWb, "", false)
-	if len(resGaokao.Rows) == 0 || len(resGaokao.Personal) == 0 {
-		t.Fatalf("gaokao produced empty results")
+	if len(resGaokao.Rows) != 103 || len(resGaokao.Personal) != 69 {
+		t.Fatalf("gaokao unexpected counts: rows=%d, personal=%d", len(resGaokao.Rows), len(resGaokao.Personal))
 	}
 	mGaokao := verifyCompletionAgainstWorkbook(t, "gaokao", gaokaoWb, "教学成绩量化-新", resGaokao)
-	t.Logf("gaokao: rows=%d, personal=%d, completion_matched=%d", len(resGaokao.Rows), len(resGaokao.Personal), mGaokao)
-
-	// 汇总输出排序键，确保测试过程有明确统计。
-	keys := make([]string, 0, len(resGaokao.Rows))
-	for _, r := range resGaokao.Rows {
-		keys = append(keys, r.Subject)
+	if mGaokao != 30 {
+		t.Fatalf("gaokao expected 30 completion matches, got %d", mGaokao)
 	}
-	sort.Strings(keys)
+	t.Logf("gaokao: rows=%d, personal=%d, completion_matched=%d", len(resGaokao.Rows), len(resGaokao.Personal), mGaokao)
 }
