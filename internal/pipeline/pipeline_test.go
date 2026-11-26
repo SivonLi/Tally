@@ -300,3 +300,212 @@ func TestBoundaryOverridesPipelineAndExportGuard(t *testing.T) {
 		t.Fatalf("expected *calc.BoundaryStaleError, got %T: %v", err, err)
 	}
 }
+
+func TestMissingTierCutoffExemptionAndBlocking(t *testing.T) {
+	ctx := context.Background()
+
+	setupTwoTrackExam := func(t *testing.T, tierCutoffs []store.ImportTierCutoff) (*store.Store, int64, int64) {
+		t.Helper()
+		s, err := store.Open(ctx, filepath.Join(t.TempDir(), "tally.db"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if err := s.Close(); err != nil {
+				t.Errorf("close store: %v", err)
+			}
+		})
+		ver, err := s.EnsureDefaultPlan(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cohort, err := s.CreateCohort(ctx, 2026, 2026)
+		if err != nil {
+			t.Fatal(err)
+		}
+		stage, err := s.GetCohortStage(ctx, cohort.ID, 2026)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.ApplyStageImport(ctx, cohort.ID, stage.ID, store.StageImportRequest{
+			Kind: "students",
+			Data: store.ImportData{
+				Classes: []string{"1班", "2班"},
+				Students: []store.ImportStudent{
+					{StudentNo: "001", Name: "甲", ClassName: "1班", Track: "physics", Status: "active"},
+					{StudentNo: "002", Name: "乙", ClassName: "2班", Track: "history", Status: "active"},
+				},
+			},
+			Report: store.ImportReport{FileHash: "t-stu", Path: "stu.xlsx", RowCount: 2},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.ApplyStageImport(ctx, cohort.ID, stage.ID, store.StageImportRequest{
+			Kind: "assignments",
+			Data: store.ImportData{
+				Assignments: []store.ImportAssignment{
+					{ClassName: "1班", Subject: "chinese", TeacherName: "张老师"},
+					{ClassName: "2班", Subject: "chinese", TeacherName: "李老师"},
+				},
+			},
+			Report: store.ImportReport{FileHash: "t-asg", Path: "asg.xlsx", RowCount: 2},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.ApplyStageImport(ctx, cohort.ID, stage.ID, store.StageImportRequest{
+			Kind: "baselines",
+			Data: store.ImportData{
+				ClassBaselines: []store.ImportClassBaseline{
+					{ClassName: "1班", Subject: "chinese", Average: 95},
+					{ClassName: "2班", Subject: "chinese", Average: 90},
+				},
+				GradeBaselines: map[string]float64{"chinese": 92.5},
+			},
+			Report: store.ImportReport{FileHash: "t-bas", Path: "bas.xlsx", RowCount: 2},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		exam, err := s.CreateExam(ctx, store.CreateExamInput{
+			AcademicYearStart: 2026, Term: store.ExamTermSecond, ExamType: store.ExamFinal,
+			Name: "缺线豁免测试期末", ExamDate: "2026-07-01", CohortIDs: []int64{cohort.ID},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.ApplyExamImport(ctx, store.ExamImportRequest{
+			ExamID: exam.ID, CohortID: cohort.ID, Kind: store.ExamImportRoster,
+			Report: store.ImportReport{FileHash: "t-roster", Path: "roster.xlsx", RowCount: 2},
+			Data: store.ImportData{Roster: []store.ImportRoster{
+				{StudentNo: "001", Name: "甲", ClassName: "1班", Track: "physics", TotalScore: fp(620)},
+				{StudentNo: "002", Name: "乙", ClassName: "2班", Track: "history", TotalScore: fp(590)},
+			}},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.ApplyExamImport(ctx, store.ExamImportRequest{
+			ExamID: exam.ID, CohortID: cohort.ID, Kind: store.ExamImportScores,
+			Report: store.ImportReport{FileHash: "t-scores", Path: "scores.xlsx", RowCount: 2},
+			Data: store.ImportData{Students: []store.ImportStudent{
+				{StudentNo: "001", Scores: map[string]float64{"chinese": 105}},
+				{StudentNo: "002", Scores: map[string]float64{"chinese": 98}},
+			}},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.ApplyExamImport(ctx, store.ExamImportRequest{
+			ExamID: exam.ID, CohortID: cohort.ID, Kind: store.ExamImportCutoffs,
+			Report: store.ImportReport{FileHash: "t-cutoffs", Path: "cutoffs.xlsx", RowCount: 2},
+			Data: store.ImportData{
+				SubjectCutoffs: []store.ImportSubjectCutoff{
+					{Subject: "chinese", Track: "physics", Value: 90},
+					{Subject: "chinese", Track: "history", Value: 90},
+				},
+				TierCutoffs: tierCutoffs,
+			},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		counts := map[string]*float64{
+			"qingbei": fp(0), "c9": fp(1), "project985": fp(0),
+			"project211": fp(0), "special_control": fp(1), "undergraduate": fp(1),
+		}
+		if _, err := s.ApplyExamImport(ctx, store.ExamImportRequest{
+			ExamID: exam.ID, CohortID: cohort.ID, Kind: store.ExamImportTargets,
+			Report: store.ImportReport{FileHash: "t-targets", Path: "targets.xlsx", RowCount: 2},
+			Data: store.ImportData{ClassTargets: []store.ImportClassTarget{
+				{ClassName: "1班", Counts: counts},
+				{ClassName: "2班", Counts: counts},
+			}},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		ec, err := s.GetExamCohort(ctx, exam.ID, cohort.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assess, err := s.AssessmentForExamCohort(ctx, ec.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.EnsureAssessmentStatGroups(ctx, assess.ID); err != nil {
+			t.Fatal(err)
+		}
+		return s, assess.ID, ver.ID
+	}
+
+	// 1. 部分档位未划定任何总分线（清北、C9 全未划线，其余四档双类均已划线）：豁免阻断并按 0 达线计，目标仍计入分母
+	t.Run("exempt_unlined_tier_when_other_tiers_exist", func(t *testing.T) {
+		s, assessID, verID := setupTwoTrackExam(t, []store.ImportTierCutoff{
+			{TierKey: "project985", Track: "physics", Value: 600},
+			{TierKey: "project985", Track: "history", Value: 580},
+			{TierKey: "project211", Track: "physics", Value: 560},
+			{TierKey: "project211", Track: "history", Value: 540},
+			{TierKey: "special_control", Track: "physics", Value: 520},
+			{TierKey: "special_control", Track: "history", Value: 500},
+			{TierKey: "undergraduate", Track: "physics", Value: 460},
+			{TierKey: "undergraduate", Track: "history", Value: 440},
+		})
+		res, err := pipeline.CalculateAssessment(ctx, s, assessID, verID)
+		if err != nil {
+			t.Fatalf("expected unlined tier to be exempted, got error: %v", err)
+		}
+		if len(res.Rows) != 2 {
+			t.Fatalf("expected 2 result rows, got %d", len(res.Rows))
+		}
+		for _, r := range res.Rows {
+			// c9 目标为 1 计入分母，而实际达线按 0 计，完成率应严格小于 1.0
+			if r.CompletionScore >= 40 {
+				t.Fatalf("expected c9 target in denominator with 0 actual to keep completion score < 40, got %+v", r)
+			}
+		}
+	})
+
+	// 2. 全部档位均没有任何总分线：继续报 missing_tier_cutoff 阻断
+	t.Run("block_when_all_tiers_missing_cutoffs", func(t *testing.T) {
+		s, assessID, verID := setupTwoTrackExam(t, nil)
+		_, err := pipeline.CalculateAssessment(ctx, s, assessID, verID)
+		issueErr, ok := err.(*pipeline.ValidationError)
+		if !ok {
+			t.Fatalf("expected *pipeline.ValidationError, got %T (%v)", err, err)
+		}
+		found := false
+		for _, iss := range issueErr.Issues {
+			if iss.Kind == "missing_tier_cutoff" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected missing_tier_cutoff issue, got %+v", issueErr.Issues)
+		}
+	})
+
+	// 3. 某档仅缺部分选科类别的分数线（如物理有线但历史缺线）：继续报 missing_tier_cutoff 阻断
+	t.Run("block_when_tier_missing_single_track_cutoff", func(t *testing.T) {
+		s, assessID, verID := setupTwoTrackExam(t, []store.ImportTierCutoff{
+			{TierKey: "project985", Track: "physics", Value: 600},
+			// 故意缺少 project985 history 线
+			{TierKey: "project211", Track: "physics", Value: 560},
+			{TierKey: "project211", Track: "history", Value: 540},
+			{TierKey: "special_control", Track: "physics", Value: 520},
+			{TierKey: "special_control", Track: "history", Value: 500},
+			{TierKey: "undergraduate", Track: "physics", Value: 460},
+			{TierKey: "undergraduate", Track: "history", Value: 440},
+		})
+		_, err := pipeline.CalculateAssessment(ctx, s, assessID, verID)
+		issueErr, ok := err.(*pipeline.ValidationError)
+		if !ok {
+			t.Fatalf("expected *pipeline.ValidationError, got %T (%v)", err, err)
+		}
+		found := false
+		for _, iss := range issueErr.Issues {
+			if iss.Kind == "missing_tier_cutoff" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected missing_tier_cutoff issue for partial track cutoff, got %+v", issueErr.Issues)
+		}
+	})
+}

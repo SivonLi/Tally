@@ -259,6 +259,18 @@ func build(data store.BatchData, plan assessment.Config) (calc.Input, []Issue) {
 		}
 		tierCutoffs[item.TierKey][item.Track] = item.Value
 	}
+	hasAnyTierCutoff := false
+	for _, tier := range plan.Tiers {
+		for _, value := range tierCutoffs[tier.Key] {
+			if value > 0 {
+				hasAnyTierCutoff = true
+				break
+			}
+		}
+		if hasAnyTierCutoff {
+			break
+		}
+	}
 	hasActualCounts := func(tierKey string) bool {
 		for _, target := range data.ClassTargets {
 			if target.ActualCounts != nil && target.ActualCounts[tierKey] != nil {
@@ -269,7 +281,7 @@ func build(data store.BatchData, plan assessment.Config) (calc.Input, []Issue) {
 	}
 	for _, tier := range plan.Tiers {
 		if len(tierCutoffs[tier.Key]) == 0 {
-			if data.Batch.ExamType == "gaokao" && hasActualCounts(tier.Key) {
+			if (data.Batch.ExamType == "gaokao" && hasActualCounts(tier.Key)) || hasAnyTierCutoff {
 				continue
 			}
 			add("missing_tier_cutoff", fmt.Sprintf("档位 %s 缺少总分分数线", tier.Label))
@@ -280,6 +292,9 @@ func build(data store.BatchData, plan assessment.Config) (calc.Input, []Issue) {
 		studentTracks[normalizeTrack(student)] = true
 	}
 	for _, tier := range plan.Tiers {
+		if len(tierCutoffs[tier.Key]) == 0 && hasAnyTierCutoff {
+			continue
+		}
 		for track := range studentTracks {
 			if tierCutoffs[tier.Key][track] <= 0 {
 				if data.Batch.ExamType == "gaokao" && hasActualCounts(tier.Key) {

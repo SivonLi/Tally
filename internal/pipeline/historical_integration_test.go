@@ -143,7 +143,6 @@ func runHistoricalBatchIntegration(
 	examType string,
 	mainPath string,
 	teacherFallbackPath string,
-	fillMissingTiers bool,
 ) (calc.Result, store.ImportData) {
 	t.Helper()
 	ctx := context.Background()
@@ -172,24 +171,6 @@ func runHistoricalBatchIntegration(
 		}
 		impData.Assignments = tData.Assignments
 		impData.Teachers = tData.Teachers
-	}
-
-	if fillMissingTiers && examType != store.ExamGaokao {
-		existingTiers := map[string]bool{}
-		for _, tc := range impData.TierCutoffs {
-			existingTiers[tc.TierKey+":"+tc.Track] = true
-		}
-		for _, tierKey := range []string{"qingbei", "c9"} {
-			for _, track := range []string{"physics", "history"} {
-				if !existingTiers[tierKey+":"+track] {
-					impData.TierCutoffs = append(impData.TierCutoffs, store.ImportTierCutoff{
-						TierKey: tierKey,
-						Track:   track,
-						Value:   9999,
-					})
-				}
-			}
-		}
 	}
 
 	cohort, err := s.CreateCohort(ctx, cohortYear, 2025)
@@ -558,7 +539,7 @@ func TestHistoricalSixBatchesIntegration(t *testing.T) {
 	// 1. 高一期中
 	g1MidDir := findSubDir(t, midDir, "高一")
 	g1MidWb := findMainWorkbook(t, g1MidDir, []string{"量化"}, nil)
-	resG1Mid, _ := runHistoricalBatchIntegration(t, "g1_mid", 2025, store.ExamTermSecond, store.ExamMidterm, g1MidWb, teacherFallback, false)
+	resG1Mid, _ := runHistoricalBatchIntegration(t, "g1_mid", 2025, store.ExamTermSecond, store.ExamMidterm, g1MidWb, teacherFallback)
 	if len(resG1Mid.Rows) != 141 || len(resG1Mid.Personal) != 73 {
 		t.Fatalf("g1_mid unexpected counts: rows=%d, personal=%d", len(resG1Mid.Rows), len(resG1Mid.Personal))
 	}
@@ -571,7 +552,7 @@ func TestHistoricalSixBatchesIntegration(t *testing.T) {
 	// 2. 高二期中
 	g2MidDir := findSubDir(t, midDir, "高二")
 	g2MidWb := findMainWorkbook(t, g2MidDir, []string{"量化"}, []string{"基础数据"})
-	resG2Mid, _ := runHistoricalBatchIntegration(t, "g2_mid", 2024, store.ExamTermSecond, store.ExamMidterm, g2MidWb, teacherFallback, false)
+	resG2Mid, _ := runHistoricalBatchIntegration(t, "g2_mid", 2024, store.ExamTermSecond, store.ExamMidterm, g2MidWb, teacherFallback)
 	if len(resG2Mid.Rows) != 154 || len(resG2Mid.Personal) != 83 {
 		t.Fatalf("g2_mid unexpected counts: rows=%d, personal=%d", len(resG2Mid.Rows), len(resG2Mid.Personal))
 	}
@@ -584,7 +565,7 @@ func TestHistoricalSixBatchesIntegration(t *testing.T) {
 	// 3. 高三期中
 	g3MidDir := findSubDir(t, midDir, "高三")
 	g3MidWb := findMainWorkbook(t, g3MidDir, []string{"量化"}, nil)
-	resG3Mid, _ := runHistoricalBatchIntegration(t, "g3_mid", 2023, store.ExamTermSecond, store.ExamMidterm, g3MidWb, teacherFallback, false)
+	resG3Mid, _ := runHistoricalBatchIntegration(t, "g3_mid", 2023, store.ExamTermSecond, store.ExamMidterm, g3MidWb, teacherFallback)
 	if len(resG3Mid.Rows) != 106 || len(resG3Mid.Personal) != 60 {
 		t.Fatalf("g3_mid unexpected counts: rows=%d, personal=%d", len(resG3Mid.Rows), len(resG3Mid.Personal))
 	}
@@ -596,7 +577,7 @@ func TestHistoricalSixBatchesIntegration(t *testing.T) {
 
 	// 4. 高一期末
 	g1FinWb := findMainWorkbook(t, finalDir, []string{"高一期末"}, nil)
-	resG1Fin, _ := runHistoricalBatchIntegration(t, "g1_final", 2025, store.ExamTermSecond, store.ExamFinal, g1FinWb, "", true)
+	resG1Fin, _ := runHistoricalBatchIntegration(t, "g1_final", 2025, store.ExamTermSecond, store.ExamFinal, g1FinWb, "")
 	if len(resG1Fin.Rows) != 141 || len(resG1Fin.Personal) != 73 {
 		t.Fatalf("g1_final unexpected counts: rows=%d, personal=%d", len(resG1Fin.Rows), len(resG1Fin.Personal))
 	}
@@ -605,7 +586,7 @@ func TestHistoricalSixBatchesIntegration(t *testing.T) {
 
 	// 5. 高二期末
 	g2FinWb := findMainWorkbook(t, finalDir, []string{"高二期末"}, nil)
-	resG2Fin, _ := runHistoricalBatchIntegration(t, "g2_final", 2024, store.ExamTermSecond, store.ExamFinal, g2FinWb, "", true)
+	resG2Fin, _ := runHistoricalBatchIntegration(t, "g2_final", 2024, store.ExamTermSecond, store.ExamFinal, g2FinWb, "")
 	if len(resG2Fin.Rows) != 154 || len(resG2Fin.Personal) != 83 {
 		t.Fatalf("g2_final unexpected counts: rows=%d, personal=%d", len(resG2Fin.Rows), len(resG2Fin.Personal))
 	}
@@ -619,7 +600,7 @@ func TestHistoricalSixBatchesIntegration(t *testing.T) {
 
 	// 6. 2026 高考
 	gaokaoWb := findMainWorkbook(t, gaokaoDir, nil, []string{"应届", "成绩量化"})
-	resGaokao, _ := runHistoricalBatchIntegration(t, "gaokao", 2023, store.ExamTermSecond, store.ExamGaokao, gaokaoWb, "", false)
+	resGaokao, _ := runHistoricalBatchIntegration(t, "gaokao", 2023, store.ExamTermSecond, store.ExamGaokao, gaokaoWb, "")
 	if len(resGaokao.Rows) != 103 || len(resGaokao.Personal) != 69 {
 		t.Fatalf("gaokao unexpected counts: rows=%d, personal=%d", len(resGaokao.Rows), len(resGaokao.Personal))
 	}
