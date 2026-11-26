@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+	"weak"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -161,6 +163,10 @@ func (a *app) selectAssessment(id int64) {
 	a.assessmentMessage = ""
 	a.assessmentRunChosen = false
 	a.assessmentRunID = 0
+	st := a.boundaryState()
+	st.open = false
+	st.errorText = ""
+	st.staleIssues = nil
 	a.closeResultDetail()
 	a.loadAssessmentDetail(context.Background())
 }
@@ -1819,6 +1825,7 @@ func (a *app) resultsPage(c *ui.Context, p uiPalette) {
 		}
 		a.assessmentResults(c, p)
 	})
+	a.boundaryModal(c, p)
 }
 
 type boundaryModalRow struct {
@@ -1844,16 +1851,22 @@ type boundaryModalState struct {
 
 var (
 	boundaryStatesMu sync.Mutex
-	boundaryStates   = map[*app]*boundaryModalState{}
+	boundaryStates   = map[weak.Pointer[app]]*boundaryModalState{}
 )
 
 func (a *app) boundaryState() *boundaryModalState {
+	wp := weak.Make(a)
 	boundaryStatesMu.Lock()
 	defer boundaryStatesMu.Unlock()
-	st, ok := boundaryStates[a]
+	st, ok := boundaryStates[wp]
 	if !ok {
 		st = &boundaryModalState{}
-		boundaryStates[a] = st
+		boundaryStates[wp] = st
+		runtime.AddCleanup(a, func(key weak.Pointer[app]) {
+			boundaryStatesMu.Lock()
+			delete(boundaryStates, key)
+			boundaryStatesMu.Unlock()
+		}, wp)
 	}
 	return st
 }
@@ -1916,8 +1929,15 @@ func (a *app) openBoundaryModal() {
 	for _, g := range groups {
 		counts[g.Subject]++
 	}
-	subjects := make([]string, 0, len(counts))
+	subjectSet := make(map[string]bool, len(counts)+len(overrides))
 	for subj := range counts {
+		subjectSet[subj] = true
+	}
+	for _, o := range overrides {
+		subjectSet[o.Subject] = true
+	}
+	subjects := make([]string, 0, len(subjectSet))
+	for subj := range subjectSet {
 		subjects = append(subjects, subj)
 	}
 	sort.Strings(subjects)
@@ -1935,9 +1955,13 @@ func (a *app) openBoundaryModal() {
 	rows := make([]boundaryModalRow, 0, len(subjects))
 	for _, subj := range subjects {
 		n := counts[subj]
-		defFirst, defSecond, defErr := calc.DefaultRankBoundaries(boundaryCfg, subj, n)
-		if defErr != nil {
-			defFirst, defSecond = 1, n
+		defFirst, defSecond := 0, 0
+		if n > 0 {
+			var defErr error
+			defFirst, defSecond, defErr = calc.DefaultRankBoundaries(boundaryCfg, subj, n)
+			if defErr != nil {
+				defFirst, defSecond = 1, n
+			}
 		}
 		row := boundaryModalRow{
 			Subject:       subj,
@@ -1953,7 +1977,7 @@ func (a *app) openBoundaryModal() {
 			row.First = float64(o.FirstRank)
 			row.Second = float64(o.SecondRank)
 			row.Reason = o.Reason
-			if o.GroupCount != n || o.FirstRank < 1 || o.SecondRank < o.FirstRank || o.SecondRank > n || staleSet[subj] {
+			if n == 0 || o.GroupCount != n || o.FirstRank < 1 || o.SecondRank < o.FirstRank || o.SecondRank > n || staleSet[subj] {
 				row.Stale = true
 			}
 		}
@@ -2001,7 +2025,8 @@ func (a *app) boundaryModal(c *ui.Context, p uiPalette) {
 			} else {
 				ui.Column(c).FillWidth().Gap(t.Space(2.5)).Children(func() {
 					for i := range st.rows {
-						a.boundaryRowCard(c, p, &st.rows[i], func(subj string) {
+						rowCtx := c.Key("boundary-row-" + st.rows[i].Subject)
+						a.boundaryRowCard(rowCtx, p, &st.rows[i], func(subj string) {
 							resetSubj = subj
 						})
 					}
@@ -2050,8 +2075,8 @@ func (a *app) boundaryRowCard(c *ui.Context, p uiPalette, row *boundaryModalRow,
 			badge(c, p, fmt.Sprintf(locales.BoundaryGroupCount(), row.GroupCount), toneNeutral)
 			badge(c, p, statusText, statusTone)
 			ui.Spacer(c)
-			if row.Stale {
-				if plainButton(c, locales.BoundaryKeepCurrentCount()).
+			if row.Stale && row.GroupCount > 0 {
+				if plainButton(c.Key("keep"), locales.BoundaryKeepCurrentCount()).
 					Label(subjectLabel(row.Subject) + " " + locales.BoundaryKeepCurrentCount()).Clicked() {
 					if int(row.First) < 1 {
 						row.First = 1
@@ -2070,7 +2095,7 @@ func (a *app) boundaryRowCard(c *ui.Context, p uiPalette, row *boundaryModalRow,
 				}
 			}
 			isModified := row.HasOverride || int(row.First) != row.DefaultFirst || int(row.Second) != row.DefaultSecond || strings.TrimSpace(row.Reason) != ""
-			resetBtn := plainButton(c, locales.BoundaryResetSubject()).
+			resetBtn := plainButton(c.Key("reset"), locales.BoundaryResetSubject()).
 				Label(subjectLabel(row.Subject) + " " + locales.BoundaryResetSubject())
 			resetBtn.Disabled(!isModified)
 			if resetBtn.Clicked() {
@@ -2081,26 +2106,28 @@ func (a *app) boundaryRowCard(c *ui.Context, p uiPalette, row *boundaryModalRow,
 			ui.Text(c, fmt.Sprintf(locales.BoundaryStaleDetail(), row.SavedGroupCount, row.GroupCount)).
 				FontSize(captionSize(t)).TextColor(p.warning)
 		}
-		ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
-			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(1.5)).Children(func() {
-				ui.Text(c, locales.BoundaryFirstRank()).FontSize(captionSize(t)).TextColor(p.muted)
-				numberField(c, &row.First, 1, float64(row.GroupCount), 1,
-					subjectLabel(row.Subject)+" "+locales.BoundaryFirstRank()).Width(t.Space(20))
+		if row.GroupCount > 0 {
+			ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
+				ui.Row(c).AlignItems(ui.Center).Gap(t.Space(1.5)).Children(func() {
+					ui.Text(c, locales.BoundaryFirstRank()).FontSize(captionSize(t)).TextColor(p.muted)
+					numberField(c.Key("first"), &row.First, 1, float64(row.GroupCount), 1,
+						subjectLabel(row.Subject)+" "+locales.BoundaryFirstRank()).Width(t.Space(20))
+				})
+				ui.Row(c).AlignItems(ui.Center).Gap(t.Space(1.5)).Children(func() {
+					ui.Text(c, locales.BoundarySecondRank()).FontSize(captionSize(t)).TextColor(p.muted)
+					numberField(c.Key("second"), &row.Second, 1, float64(row.GroupCount), 1,
+						subjectLabel(row.Subject)+" "+locales.BoundarySecondRank()).Width(t.Space(20))
+				})
+				secondInt := int(row.Second)
+				thirdText := locales.BoundaryThirdTierNone()
+				if secondInt < row.GroupCount {
+					thirdText = fmt.Sprintf(locales.BoundaryThirdTierRange(), secondInt+1, row.GroupCount)
+				}
+				ui.Text(c, thirdText).FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum")
 			})
-			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(1.5)).Children(func() {
-				ui.Text(c, locales.BoundarySecondRank()).FontSize(captionSize(t)).TextColor(p.muted)
-				numberField(c, &row.Second, 1, float64(row.GroupCount), 1,
-					subjectLabel(row.Subject)+" "+locales.BoundarySecondRank()).Width(t.Space(20))
-			})
-			secondInt := int(row.Second)
-			thirdText := locales.BoundaryThirdTierNone()
-			if secondInt < row.GroupCount {
-				thirdText = fmt.Sprintf(locales.BoundaryThirdTierRange(), secondInt+1, row.GroupCount)
-			}
-			ui.Text(c, thirdText).FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum")
-		})
-		textField(c, &row.Reason, subjectLabel(row.Subject)+" "+locales.BoundaryReason(), locales.BoundaryReasonPlaceholder()).
-			FillWidth()
+			textField(c.Key("reason"), &row.Reason, subjectLabel(row.Subject)+" "+locales.BoundaryReason(), locales.BoundaryReasonPlaceholder()).
+				FillWidth()
+		}
 	})
 }
 
@@ -2115,19 +2142,32 @@ func (a *app) resetBoundarySubject(subject string) {
 		}
 		a.reloadAssessments(ctx)
 	}
+	filtered := st.rows[:0]
 	for i := range st.rows {
 		if st.rows[i].Subject == subject {
+			if st.rows[i].GroupCount == 0 {
+				continue
+			}
 			st.rows[i].First = float64(st.rows[i].DefaultFirst)
 			st.rows[i].Second = float64(st.rows[i].DefaultSecond)
 			st.rows[i].Reason = ""
 			st.rows[i].HasOverride = false
 			st.rows[i].SavedGroupCount = st.rows[i].GroupCount
 			st.rows[i].Stale = false
-			break
+		}
+		filtered = append(filtered, st.rows[i])
+	}
+	st.rows = filtered
+	remaining := st.staleIssues[:0]
+	for _, issue := range st.staleIssues {
+		if issue.Subject != subject {
+			remaining = append(remaining, issue)
 		}
 	}
-	st.staleIssues = nil
-	a.assessmentError = ""
+	st.staleIssues = remaining
+	if len(st.staleIssues) == 0 {
+		a.assessmentError = ""
+	}
 }
 
 func (a *app) resetAllBoundaries() {
@@ -2164,6 +2204,12 @@ func (a *app) saveBoundaryOverrides() {
 	var toSave []store.AssessmentBoundaryOverride
 	var toReset []string
 	for _, r := range st.rows {
+		if r.GroupCount == 0 {
+			if r.HasOverride {
+				toReset = append(toReset, r.Subject)
+			}
+			continue
+		}
 		first := int(r.First)
 		second := int(r.Second)
 		if first < 1 || second < first || second > r.GroupCount {

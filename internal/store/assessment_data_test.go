@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -576,5 +577,35 @@ func TestAssessmentBoundaryOverridesLifecycle(t *testing.T) {
 	}
 	if len(listAfterAll) != 0 {
 		t.Fatalf("expected 0 overrides after ResetAll, got %+v", listAfterAll)
+	}
+
+	// 验证事务内写入 audit_logs 并递增 data_revisions
+	auditRows, err := fixture.Store.db.Query(ctx, `SELECT action FROM audit_logs WHERE target_type = 'assessment' AND target_id = ? ORDER BY id`, fixture.AssessmentID)
+	if err != nil {
+		t.Fatalf("query audit_logs: %v", err)
+	}
+	var actions []string
+	for _, r := range auditRows.Values {
+		actions = append(actions, stringValue(r[0]))
+	}
+	expectedActions := []string{"save_boundary_overrides", "reset_boundary_override", "reset_all_boundary_overrides"}
+	for _, want := range expectedActions {
+		found := false
+		for _, got := range actions {
+			if got == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected audit action %q in %v", want, actions)
+		}
+	}
+	revRows, err := fixture.Store.db.Query(ctx, `SELECT revision FROM data_revisions WHERE scope_key = ?`, fmt.Sprintf("assessment:%d", fixture.AssessmentID))
+	if err != nil {
+		t.Fatalf("query data_revisions: %v", err)
+	}
+	if len(revRows.Values) == 0 || intValue(revRows.Values[0][0]) < 3 {
+		t.Fatalf("expected assessment revision >= 3 after save+reset+resetAll, got %+v", revRows.Values)
 	}
 }

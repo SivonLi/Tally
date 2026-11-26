@@ -775,7 +775,13 @@ func (s *Store) SaveAssessmentRun(ctx context.Context, assessmentID, versionID i
 		}
 		statements = append(statements, sqlite.Statement{
 			SQL: `INSERT INTO result_run_boundaries(run_id, subject, group_count, first_rank, second_rank, source, reason)
-				VALUES ((SELECT MAX(id) FROM result_runs WHERE assessment_id = ?), ?, ?, ?, ?, ?, ?)`,
+				VALUES ((SELECT MAX(id) FROM result_runs WHERE assessment_id = ?), ?, ?, ?, ?, ?, ?)
+				ON CONFLICT(run_id, subject) DO UPDATE SET
+					group_count = excluded.group_count,
+					first_rank = excluded.first_rank,
+					second_rank = excluded.second_rank,
+					source = excluded.source,
+					reason = excluded.reason`,
 			Args: []any{assessmentID, b.Subject, b.GroupCount, b.First, b.Second, source, b.Reason},
 		})
 	}
