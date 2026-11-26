@@ -22,6 +22,24 @@ type analysisViewFilters struct {
 	StudentID   int64  `json:"studentId,omitempty"`
 }
 
+func (a *app) ensureAnalysisCohort(ctx context.Context) *store.Cohort {
+	if cohort := a.selectedCohort(); cohort != nil {
+		return cohort
+	}
+	if len(a.cohorts) == 0 {
+		return nil
+	}
+	targetID := a.cohorts[0].ID
+	for _, co := range a.cohorts {
+		if co.CurrentPhase != store.PhaseGraduated {
+			targetID = co.ID
+			break
+		}
+	}
+	a.switchWorkspaceCohort(targetID)
+	return a.selectedCohort()
+}
+
 func (a *app) reloadAnalysis(ctx context.Context) {
 	if a.store == nil {
 		return
@@ -29,7 +47,7 @@ func (a *app) reloadAnalysis(ctx context.Context) {
 	a.analysisError = ""
 	a.loadSavedViews(ctx)
 
-	cohort := a.selectedCohort()
+	cohort := a.ensureAnalysisCohort(ctx)
 	if cohort == nil {
 		return
 	}

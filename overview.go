@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/AstraFoundry/design/packages/mygo/sunbeam"
 	"github.com/egoist/mygo/ui"
 
-	"tally/internal/importer"
 	"tally/internal/school"
 	"tally/internal/store"
 	"tally/locales"
@@ -19,220 +19,279 @@ func (a *app) overviewPage(c *ui.Context, p uiPalette) {
 		a.prepPage(c, p)
 		return
 	}
-	if !a.workspaceSummaryLoaded && a.selectedCohort() != nil && a.selectedStage() != nil {
-		a.reloadWorkspaceSummary(context.Background())
-	}
 	ui.Scroll(c).Fill().Children(func() {
 		ui.Column(c).FillWidth().Gap(t.Space(5)).Children(func() {
-			cohort := a.selectedCohort()
-			var actions func()
-			subtitle := locales.WorkspaceEmptyHint()
-			if cohort != nil {
-				subtitle = fmt.Sprintf(locales.OverviewLedgerSubtitle(), a.cohortName(cohort.EnrollmentYear))
-				actions = func() {
-					if labelledButton(c, locales.OverviewQuickNewExam(), iconPlus, false).Clicked() {
+			hasActive := len(a.schoolOverview.ActiveCohorts) > 0
+			pageHeading(c, p, locales.OverviewTitle(), locales.OverviewSchoolSubtitle(), func() {
+				if labelledButton(c, locales.NewCohort(), iconPlus, !hasActive).Clicked() {
+					a.openNewCohort()
+				}
+				if hasActive {
+					if labelledButton(c, locales.OverviewQuickNewExam(), iconExams, true).Clicked() {
 						a.navigateTo(pageExams)
 						a.openNewExam()
 					}
-					if labelledButton(c, locales.OverviewQuickImport(), iconImport, true).Clicked() {
-						a.openDataImport("", 0, 0)
-					}
 				}
-			}
-			pageHeading(c, p, locales.OverviewTitle(), subtitle, actions)
-			if cohort == nil {
-				emptyState(c, p, iconCohort, locales.WorkspaceEmpty(), locales.WorkspaceEmptyHint(), func() {
-					if labelledButton(c, locales.WorkspaceCreate(), iconPlus, true).Clicked() {
-						a.openNewCohort()
-					}
-				})
-				return
-			}
-			a.overviewContextStrip(c, p, cohort)
-			a.stageReviewBanner(c, p)
-			a.overviewMetricsGrid(c, p)
-			ui.Grid(c).FillWidth().
-				ColumnTracks(ui.Fr(3).Min(t.Space(92)), ui.Fr(2).Min(t.Space(72))).
-				Gap(t.Space(4)).Children(func() {
-				a.overviewLatestAssessmentCard(c, p)
-				a.overviewAlertsCard(c, p)
 			})
-			a.overviewExamTimelineCard(c, p)
-			a.gaokaoPanel(c, p)
+
+			a.overviewActiveCohortsSection(c, p)
+			a.overviewTeacherOccupancySection(c, p)
+			ui.Grid(c).FillWidth().
+				ColumnTracks(ui.Fr(3), ui.Fr(2)).
+				Gap(t.Space(4)).Children(func() {
+				a.overviewRecentExamsCard(c, p)
+				a.overviewRemindersCard(c, p)
+			})
 		})
 	})
 }
 
-func (a *app) overviewContextStrip(c *ui.Context, p uiPalette, cohort *store.Cohort) {
+func (a *app) overviewActiveCohortsSection(c *ui.Context, p uiPalette) {
 	t := p.theme
-	stage := a.displayStage()
-	ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-		ui.Textf(c, locales.CohortContext(), a.cohortName(cohort.EnrollmentYear),
-			a.stageName(stage.GradeLevel),
-			a.classOfName(cohort.GraduationYear)).
-			FontSize(bodySize(t)).FontWeight(500).TextColor(p.inkSecondary).SingleLine().
-			Shrink(1).MinWidth(0)
-		if !a.stageEditable() && a.selectedStage() != nil {
-			badge(c, p, locales.StageReadOnly(), toneNeutral)
+	cards := a.schoolOverview.ActiveCohorts
+	if len(cards) == 0 {
+		panel(c, p).FillWidth().Padding(t.Space(5)).Children(func() {
+			emptyState(c, p, iconCohort, locales.OverviewActiveCohortsEmpty(), locales.OverviewActiveCohortsEmptyHint(), func() {
+				if labelledButton(c, locales.CohortCreate(), iconPlus, true).Clicked() {
+					a.openNewCohort()
+				}
+			})
+		})
+		if a.schoolOverview.GraduatedCount > 0 {
+			a.overviewGraduatedBanner(c, p)
 		}
-		ui.Spacer(c)
-		ui.Text(c, a.academicYearLabel(stage.AcademicYearStart)).
-			FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum").Shrink(0)
-	})
-}
-
-func (a *app) overviewMetricsGrid(c *ui.Context, p uiPalette) {
-	t := p.theme
-	ws := a.workspaceSummary
-	stage := a.displayStage()
-
-	studentSub := fmt.Sprintf(locales.OverviewMetricStudentsSub(),
-		formatInt(ws.ActiveStudents), formatInt(ws.PhysicsStudents), formatInt(ws.HistoryStudents))
-	studentBadge := ""
-	if ws.InactiveStudents > 0 {
-		studentBadge = fmt.Sprintf(locales.OverviewMetricStudentsInactive(), formatInt(ws.InactiveStudents))
+		return
 	}
 
-	teacherSub := fmt.Sprintf(locales.OverviewMetricTeachersSub(),
-		formatInt(ws.Counts.Assignments), formatInt(ws.Counts.TeachingGroups))
-
-	baselineVal := formatInt(ws.Counts.Baselines)
-	if ws.Counts.Classes > 0 {
-		baselineVal = fmt.Sprintf("%s/%s", formatInt(ws.BaselineCoveredClasses), formatInt(ws.Counts.Classes))
-	}
-	baselineSub := fmt.Sprintf(locales.OverviewMetricBaselinesSub(),
-		formatInt(ws.BaselineCoveredClasses), formatInt(ws.Counts.Classes), formatInt(ws.BaselineSubjectCount))
-	if ws.GradeBaselineTotal > 0 {
-		baselineSub = fmt.Sprintf(locales.OverviewMetricBaselinesAvg(), strconv.FormatFloat(ws.GradeBaselineTotal, 'f', 1, 64))
-	}
-	baselineBadge := ""
-	baselineTone := toneNeutral
-	if ws.Counts.Classes > 0 && ws.BaselineCoveredClasses >= ws.Counts.Classes {
-		baselineBadge = locales.ImportCenterChecklistReady()
-		baselineTone = toneSuccess
-	} else if ws.Counts.Baselines == 0 {
-		baselineBadge = locales.ImportCenterChecklistMissing()
-		baselineTone = toneWarning
-	}
-
-	classSub := fmt.Sprintf(locales.StageOption(), a.stageName(stage.GradeLevel),
-		school.AcademicYearLabel(stage.AcademicYearStart))
-
-	ui.Grid(c).FillWidth().
-		ColumnTracks(
-			ui.Fr(1).Min(t.Space(42)),
-			ui.Fr(1).Min(t.Space(42)),
-			ui.Fr(1).Min(t.Space(42)),
-			ui.Fr(1).Min(t.Space(42)),
-		).Gap(t.Space(3)).Children(func() {
-		if kpiCard(c, p, kpiCardProps{
-			Key:       "overview-classes",
-			Title:     locales.OverviewMetricClasses(),
-			Value:     formatInt(ws.Counts.Classes),
-			Subtitle:  classSub,
-			Clickable: true,
-		}) {
-			a.baseDataTab = 0
-			a.navigateTo(pageBaseData)
-		}
-		if kpiCard(c, p, kpiCardProps{
-			Key:       "overview-students",
-			Title:     locales.OverviewMetricStudents(),
-			Value:     formatInt(ws.Counts.Students),
-			Subtitle:  studentSub,
-			BadgeText: studentBadge,
-			BadgeTone: toneNeutral,
-			Clickable: true,
-		}) {
-			a.baseDataTab = 1
-			a.navigateTo(pageBaseData)
-		}
-		if kpiCard(c, p, kpiCardProps{
-			Key:       "overview-teachers",
-			Title:     locales.OverviewMetricTeachers(),
-			Value:     formatInt(ws.Counts.Teachers),
-			Subtitle:  teacherSub,
-			Clickable: true,
-		}) {
-			a.baseDataTab = 2
-			a.navigateTo(pageBaseData)
-		}
-		if kpiCard(c, p, kpiCardProps{
-			Key:       "overview-baselines",
-			Title:     locales.OverviewMetricBaselines(),
-			Value:     baselineVal,
-			Subtitle:  baselineSub,
-			BadgeText: baselineBadge,
-			BadgeTone: baselineTone,
-			Clickable: true,
-		}) {
-			a.baseDataTab = 4
-			a.navigateTo(pageBaseData)
+	section(c, p, func() {
+		sectionHeading(c, p, locales.OverviewActiveCohortsTitle(), len(cards))
+		cols := min(len(cards), 3)
+		ui.Grid(c).FillWidth().Columns(cols).Gap(t.Space(3)).Children(func() {
+			for _, card := range cards {
+				card := card
+				a.overviewCohortCard(c, p, card)
+			}
+		})
+		if a.schoolOverview.GraduatedCount > 0 {
+			a.overviewGraduatedBanner(c, p)
 		}
 	})
 }
 
-func (a *app) overviewLatestAssessmentCard(c *ui.Context, p uiPalette) {
+func (a *app) overviewGraduatedBanner(c *ui.Context, p uiPalette) {
 	t := p.theme
-	snap := a.workspaceSummary.LatestAssessment
-	panel(c, p).FillWidth().Padding(t.Space(5)).Gap(t.Space(3)).Children(func() {
+	text := fmt.Sprintf(locales.OverviewGraduatedArchiveHint(), formatInt(a.schoolOverview.GraduatedCount))
+	row := linkRow(c, p, text, func() {
+		ui.Icon(c, iconCohort).Size(16, 16).TextColor(p.muted).Shrink(0)
+		ui.Text(c, text).FontSize(bodySize(t)).TextColor(p.inkSecondary).Grow(1).Shrink(1).MinWidth(0)
+		ui.Icon(c, iconArrowRight).Size(15, 15).TextColor(p.muted).Shrink(0)
+	})
+	if row.Clicked() {
+		a.cohortArchiveFilter = 1
+		a.cohortDetailOpen = false
+		a.navigateTo(pageCohorts)
+	}
+}
+
+func (a *app) overviewCohortCard(c *ui.Context, p uiPalette, card store.CohortOverviewCard) {
+	t := p.theme
+	cohort := card.Cohort
+	title := a.cohortName(cohort.EnrollmentYear)
+	panel(c, p).FillWidth().Padding(t.Space(4)).Gap(t.Space(3)).Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-			sectionHeading(c, p, locales.OverviewLatestAssessment(), -1)
-			ui.Spacer(c)
-			if snap != nil {
-				switch {
-				case snap.HasOfficialRun && snap.OfficialStale:
-					badge(c, p, locales.AssessmentStatusStale(), toneWarning)
-				case snap.HasOfficialRun:
+			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(1).Children(func() {
+				ui.Text(c, title).FontSize(sectionSize(t)).FontWeight(600).
+					TextColor(p.ink).SingleLine().Tooltip(title)
+				ui.Text(c, fmt.Sprintf("%s · %s", a.classOfName(cohort.GraduationYear), a.academicYearLabel(cohort.CurrentAcademicYearStart))).
+					FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
+			})
+			badge(c, p, a.stageName(cohort.CurrentPhase), toneAccent)
+		})
+
+		ui.Row(c).FillWidth().Wrap().Gap(t.Space(4)).Children(func() {
+			metricInline(c, p, uint64(card.ClassCount), locales.ReadinessClasses())
+			metricInline(c, p, uint64(card.ActiveStudents), locales.ReadinessStudents())
+			metricInline(c, p, uint64(card.ExamCount), locales.OverviewRecentExamsTitle())
+		})
+
+		rule(c)
+
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+			examText := locales.OverviewCohortNoExam()
+			if card.LatestExamName != "" {
+				examText = fmt.Sprintf(locales.OverviewCohortLatestExam(), card.LatestExamName)
+			}
+			ui.Text(c, examText).FontSize(captionSize(t)).TextColor(p.inkSecondary).
+				Grow(1).Shrink(1).MinWidth(0).SingleLine().Tooltip(examText)
+			if card.LatestExamID > 0 {
+				if card.HasOfficialRun {
 					badge(c, p, locales.OverviewLatestOfficial(), toneSuccess)
-				default:
+				} else {
 					badge(c, p, locales.OverviewLatestPending(), toneNeutral)
 				}
 			}
 		})
-		if snap == nil {
-			smallEmptyState(c, p, locales.OverviewNoExams())
-			ui.Row(c).FillWidth().Justify(ui.Center).Children(func() {
-				if labelledButton(c, locales.OverviewQuickNewExam(), iconPlus, false).Clicked() {
+
+		ui.Row(c).FillWidth().Wrap().Gap(t.Space(2)).Children(func() {
+			enterBtn := plainButton(c.Key("ov-enter-"+strconv.FormatInt(cohort.ID, 10)), locales.OverviewEnterCohort())
+			if enterBtn.Clicked() {
+				a.cohortDetailTab = 0
+				a.openCohortDetail(cohort.ID)
+				a.navigateTo(pageCohorts)
+			}
+			examBtn := textButton(c.Key("ov-exams-"+strconv.FormatInt(cohort.ID, 10)), locales.OverviewViewRecentExams())
+			if examBtn.Clicked() {
+				if card.LatestExamID > 0 {
+					a.openExamForCohort(card.LatestExamID, cohort.ID)
+				} else {
+					a.selectedExamID = 0
+					a.examCohortID = 0
 					a.navigateTo(pageExams)
-					a.openNewExam()
 				}
-			})
+			}
+		})
+	})
+}
+
+func (a *app) overviewTeacherOccupancySection(c *ui.Context, p uiPalette) {
+	t := p.theme
+	var activeTotal, singleCount, multiCount, idleCount, inactiveCount int
+	for _, occ := range a.teacherOccupancy {
+		if occ.Status == store.TeacherStatusInactive {
+			inactiveCount++
+			continue
+		}
+		activeTotal++
+		switch occ.Status {
+		case store.TeacherStatusActiveSingle:
+			singleCount++
+		case store.TeacherStatusActiveMulti:
+			multiCount++
+		case store.TeacherStatusIdle:
+			idleCount++
+		}
+	}
+
+	section(c, p, func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
+			sectionHeading(c, p, locales.OverviewOccupancyTitle(), len(a.teacherOccupancy))
+			ui.Spacer(c)
+			if activeTotal > 0 {
+				occupied := singleCount + multiCount
+				ui.Text(c, fmt.Sprintf(locales.OverviewOccupancySummary(), formatInt(occupied), formatInt(idleCount))).
+					FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum").Shrink(0)
+			}
+		})
+		if activeTotal > 0 {
+			ratio := float64(singleCount+multiCount) / float64(activeTotal)
+			sunbeam.Progress(c, ratio).Label(locales.OverviewOccupancyTitle())
+		}
+		ui.Row(c).FillWidth().Wrap().Gap(t.Space(2.5)).Children(func() {
+			jump := func(filter string) {
+				a.teacherOccupancyFilter = filter
+				a.teacherProfileOpen = false
+				a.navigateTo(pageFaculty)
+			}
+			if kpiCard(c, p, kpiCardProps{
+				Key:       "occ-total",
+				Title:     locales.OverviewOccupancyTotal(),
+				Value:     formatInt(activeTotal),
+				Clickable: true,
+			}) {
+				jump("")
+			}
+			if kpiCard(c, p, kpiCardProps{
+				Key:       "occ-single",
+				Title:     locales.OverviewOccupancySingle(),
+				Value:     formatInt(singleCount),
+				BadgeText: locales.OverviewOccupancySingle(),
+				BadgeTone: toneSuccess,
+				Clickable: true,
+			}) {
+				jump(store.TeacherStatusActiveSingle)
+			}
+			multiTone := toneNeutral
+			if multiCount > 0 {
+				multiTone = toneWarning
+			}
+			if kpiCard(c, p, kpiCardProps{
+				Key:       "occ-multi",
+				Title:     locales.OverviewOccupancyMulti(),
+				Value:     formatInt(multiCount),
+				BadgeText: locales.OverviewOccupancyMulti(),
+				BadgeTone: multiTone,
+				Clickable: true,
+			}) {
+				jump(store.TeacherStatusActiveMulti)
+			}
+			if kpiCard(c, p, kpiCardProps{
+				Key:       "occ-idle",
+				Title:     locales.OverviewOccupancyIdle(),
+				Value:     formatInt(idleCount),
+				BadgeText: locales.OverviewOccupancyIdle(),
+				BadgeTone: toneAccent,
+				Clickable: true,
+			}) {
+				jump(store.TeacherStatusIdle)
+			}
+			if kpiCard(c, p, kpiCardProps{
+				Key:       "occ-inactive",
+				Title:     locales.OverviewOccupancyInactive(),
+				Value:     formatInt(inactiveCount),
+				Clickable: true,
+			}) {
+				jump(store.TeacherStatusInactive)
+			}
+		})
+	})
+}
+
+func (a *app) overviewRecentExamsCard(c *ui.Context, p uiPalette) {
+	t := p.theme
+	exams := a.schoolOverview.RecentExams
+	panel(c, p).FillWidth().Padding(t.Space(5)).Gap(t.Space(3)).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+			sectionHeading(c, p, locales.OverviewRecentExamsTitle(), len(exams))
+			ui.Spacer(c)
+			if len(exams) > 0 {
+				if textButton(c.Key("ov-all-exams"), locales.OverviewViewRecentExams()).Clicked() {
+					a.selectedExamID = 0
+					a.navigateTo(pageExams)
+				}
+			}
+		})
+		if len(exams) == 0 {
+			smallEmptyState(c, p, locales.OverviewNoExams())
 			return
 		}
-		ui.Column(c).FillWidth().Gap(t.Space(1)).Children(func() {
-			ui.Text(c, snap.ExamName).FontSize(sectionSize(t)).FontWeight(600).
-				TextColor(p.ink).SingleLine().Tooltip(snap.ExamName)
-			ui.Textf(c, locales.ExamListMeta(), a.academicYearLabel(a.displayStage().AcademicYearStart),
-				a.examTermName(snap.Term), snap.ExamDate).
-				FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
-		})
-		if snap.HasOfficialRun {
-			ui.Row(c).FillWidth().Wrap().Gap(t.Space(6)).Padding(t.Space(1), 0).Children(func() {
-				metric(c, p, formatInt(snap.ResultRowCount), locales.AssessmentResults())
-				metric(c, p, formatInt(snap.PersonalScoreCount), locales.ColumnPersonalScore())
-				if snap.GradeAverage > 0 {
-					metric(c, p, strconv.FormatFloat(snap.GradeAverage, 'f', 1, 64), locales.AssessmentDetailGradeAverage())
+		limit := min(len(exams), 6)
+		ui.Column(c).FillWidth().Gap(0).Children(func() {
+			for idx := 0; idx < limit; idx++ {
+				exam := exams[idx]
+				if idx > 0 {
+					rule(c)
 				}
-				if snap.RosterCount > 0 {
-					metric(c, p, formatInt(snap.RosterCount), locales.OverviewMetricStudents())
-				}
-			})
-			if snap.OfficialStale {
-				notice(c, p, noticeWarning, locales.OverviewLatestStale())
-			}
-		} else {
-			ui.Text(c, locales.OverviewLatestPending()).FontSize(bodySize(t)).TextColor(p.muted)
-		}
-		ui.Row(c).FillWidth().Wrap().Gap(t.Space(2)).Padding(t.Space(1), 0, 0, 0).Children(func() {
-			if labelledButton(c, locales.OverviewOpenWorkbench(), iconBatches, false).Clicked() {
-				a.selectAssessment(snap.AssessmentID)
-				a.navigateTo(pageAssessments)
-			}
-			if snap.HasOfficialRun {
-				if labelledButton(c, locales.OverviewViewResults(), iconResults, false).Clicked() {
-					a.selectAssessment(snap.AssessmentID)
-					a.navigateTo(pageResults)
+				title := a.examBatchLabel(exam)
+				row := listRowButton(c.Key("ov-exam-"+strconv.FormatInt(exam.ID, 10)), title).
+					Height(0).MinHeight(56).Padding(t.Space(2.5), t.Space(3)).AlignItems(ui.Center)
+				row.Children(func() {
+					ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
+						ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(1).Children(func() {
+							ui.Text(c, title).FontSize(bodySize(t)).FontWeight(500).
+								TextColor(p.ink).SingleLine().Tooltip(title)
+							ui.Textf(c, locales.ExamListMeta(), a.academicYearLabel(exam.AcademicYearStart),
+								a.examTermName(exam.Term), exam.ExamDate).
+								FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
+						})
+						if len(exam.Cohorts) > 0 {
+							ui.Text(c, pluralCount(len(exam.Cohorts), locales.ExamCohortCountOne(), locales.ExamCohortCount())).
+								FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum").Shrink(0)
+						}
+						statusBadge(c, p, exam.Status, a.examStatusName(exam.Status))
+					})
+				})
+				if row.Clicked() {
+					a.openExamForCohort(exam.ID, 0)
 				}
 			}
 		})
@@ -246,88 +305,108 @@ type overviewAlertRow struct {
 	Action func()
 }
 
-func (a *app) overviewAlertsCard(c *ui.Context, p uiPalette) {
+func (a *app) overviewRemindersCard(c *ui.Context, p uiPalette) {
 	t := p.theme
-	ws := a.workspaceSummary
 	var alerts []overviewAlertRow
-	if ws.BlockingIssues > 0 {
-		alerts = append(alerts, overviewAlertRow{
-			Key:  "blocking",
-			Text: fmt.Sprintf(locales.OverviewAlertBlocking(), formatInt(ws.BlockingIssues)),
-			Tone: toneDanger,
-			Action: func() {
-				a.qualitySeverity = 1
-				a.navigateTo(pageQuality)
-			},
-		})
+
+	multiCount := 0
+	for _, occ := range a.teacherOccupancy {
+		if occ.Status == store.TeacherStatusActiveMulti {
+			multiCount++
+		}
 	}
-	if ws.WarningIssues > 0 {
+	if multiCount > 0 {
 		alerts = append(alerts, overviewAlertRow{
-			Key:  "warning",
-			Text: fmt.Sprintf(locales.OverviewAlertWarning(), formatInt(ws.WarningIssues)),
+			Key:  "cross-grade-teachers",
+			Text: fmt.Sprintf(locales.OverviewReminderCrossGrade(), formatInt(multiCount)),
 			Tone: toneWarning,
 			Action: func() {
-				a.qualitySeverity = 2
-				a.navigateTo(pageQuality)
-			},
-		})
-	}
-	if ws.LatestAssessment != nil && ws.LatestAssessment.OfficialStale {
-		assessID := ws.LatestAssessment.AssessmentID
-		alerts = append(alerts, overviewAlertRow{
-			Key:  "stale",
-			Text: locales.OverviewLatestStale(),
-			Tone: toneWarning,
-			Action: func() {
-				a.selectAssessment(assessID)
-				a.navigateTo(pageAssessments)
-			},
-		})
-	}
-	if ws.Counts.Students == 0 {
-		alerts = append(alerts, overviewAlertRow{
-			Key:  "missing-students",
-			Text: locales.OverviewAlertNoRoster(),
-			Tone: toneWarning,
-			Action: func() {
-				a.openDataImport(importer.KindStudents, 0, 0)
-			},
-		})
-	}
-	if ws.Counts.Assignments == 0 {
-		alerts = append(alerts, overviewAlertRow{
-			Key:  "missing-assignments",
-			Text: locales.OverviewAlertNoAssignments(),
-			Tone: toneWarning,
-			Action: func() {
-				a.openDataImport(importer.KindAssignments, 0, 0)
-			},
-		})
-	}
-	if ws.Counts.Baselines == 0 {
-		alerts = append(alerts, overviewAlertRow{
-			Key:  "missing-baselines",
-			Text: locales.OverviewAlertNoBaselines(),
-			Tone: toneWarning,
-			Action: func() {
-				a.openDataImport(importer.KindBaselines, 0, 0)
+				a.teacherOccupancyFilter = store.TeacherStatusActiveMulti
+				a.teacherProfileOpen = false
+				a.navigateTo(pageFaculty)
 			},
 		})
 	}
 
+	for _, card := range a.schoolOverview.ActiveCohorts {
+		card := card
+		cname := a.cohortName(card.Cohort.EnrollmentYear)
+		if card.BlockingIssues > 0 {
+			alerts = append(alerts, overviewAlertRow{
+				Key:  fmt.Sprintf("blk-%d", card.Cohort.ID),
+				Text: fmt.Sprintf(locales.OverviewReminderCohortBlocking(), cname, formatInt(card.BlockingIssues)),
+				Tone: toneDanger,
+				Action: func() {
+					a.qualitySeverity = 1
+					a.navigateTo(pageQuality)
+				},
+			})
+		}
+		if card.ActiveStudents == 0 {
+			alerts = append(alerts, overviewAlertRow{
+				Key:  fmt.Sprintf("stu-%d", card.Cohort.ID),
+				Text: fmt.Sprintf(locales.OverviewReminderCohortSetup(), cname, locales.CohortTabStudents()),
+				Tone: toneWarning,
+				Action: func() {
+					a.cohortDetailTab = 2
+					a.openCohortDetail(card.Cohort.ID)
+					a.navigateTo(pageCohorts)
+				},
+			})
+		}
+		if card.AssignmentCount == 0 {
+			alerts = append(alerts, overviewAlertRow{
+				Key:  fmt.Sprintf("assign-%d", card.Cohort.ID),
+				Text: fmt.Sprintf(locales.OverviewReminderCohortSetup(), cname, locales.CohortTabAssignments()),
+				Tone: toneWarning,
+				Action: func() {
+					a.cohortDetailTab = 3
+					a.openCohortDetail(card.Cohort.ID)
+					a.navigateTo(pageCohorts)
+				},
+			})
+		}
+		if card.BaselineCount == 0 {
+			alerts = append(alerts, overviewAlertRow{
+				Key:  fmt.Sprintf("base-%d", card.Cohort.ID),
+				Text: fmt.Sprintf(locales.OverviewReminderCohortSetup(), cname, locales.CohortTabBaselines()),
+				Tone: toneWarning,
+				Action: func() {
+					a.cohortDetailTab = 4
+					a.openCohortDetail(card.Cohort.ID)
+					a.navigateTo(pageCohorts)
+				},
+			})
+		}
+		if card.LatestAssessmentID > 0 && !card.HasOfficialRun {
+			assessID := card.LatestAssessmentID
+			examName := card.LatestExamName
+			alerts = append(alerts, overviewAlertRow{
+				Key:  fmt.Sprintf("assess-%d", card.Cohort.ID),
+				Text: fmt.Sprintf(locales.OverviewReminderCohortPendingAssess(), cname, examName),
+				Tone: toneWarning,
+				Action: func() {
+					a.selectAssessment(assessID)
+					a.navigateTo(pageAssessments)
+				},
+			})
+		}
+	}
+
 	panel(c, p).FillWidth().Padding(t.Space(5)).Gap(t.Space(3)).Children(func() {
-		sectionHeading(c, p, locales.OverviewAlertsTitle(), len(alerts))
+		sectionHeading(c, p, locales.OverviewRemindersTitle(), len(alerts))
 		if len(alerts) == 0 {
 			ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2.5)).Padding(t.Space(2), 0).Children(func() {
 				ui.Icon(c, iconCircleCheck).Size(18, 18).TextColor(p.success).Shrink(0)
-				ui.Text(c, locales.OverviewAlertsClear()).FontSize(bodySize(t)).
+				ui.Text(c, locales.OverviewRemindersClear()).FontSize(bodySize(t)).
 					TextColor(p.inkSecondary).Pretty().Grow(1).Shrink(1).MinWidth(0)
 			})
 			return
 		}
+		limit := min(len(alerts), 8)
 		ui.Column(c).FillWidth().Gap(t.Space(1)).Children(func() {
-			for index, alert := range alerts {
-				alert := alert
+			for index := 0; index < limit; index++ {
+				alert := alerts[index]
 				if index > 0 {
 					rule(c)
 				}
@@ -343,66 +422,6 @@ func (a *app) overviewAlertsCard(c *ui.Context, p uiPalette) {
 				})
 				if row.Clicked() && alert.Action != nil {
 					alert.Action()
-				}
-			}
-		})
-	})
-}
-
-func (a *app) overviewExamTimelineCard(c *ui.Context, p uiPalette) {
-	t := p.theme
-	ws := a.workspaceSummary
-	panel(c, p).FillWidth().Padding(t.Space(5)).Gap(t.Space(3)).Children(func() {
-		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-			sectionHeading(c, p, locales.OverviewExamTimeline(), -1)
-			ui.Spacer(c)
-			ui.Textf(c, locales.OverviewExamCountSub(), formatInt(ws.CalculatedExamCount), formatInt(ws.ExamCount)).
-				FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum").Shrink(0)
-		})
-		if len(ws.Exams) == 0 {
-			smallEmptyState(c, p, locales.OverviewNoExams())
-			return
-		}
-		limit := min(len(ws.Exams), 6)
-		ui.Column(c).FillWidth().Gap(0).Children(func() {
-			for idx := 0; idx < limit; idx++ {
-				exam := ws.Exams[idx]
-				if idx > 0 {
-					rule(c)
-				}
-				title := fmt.Sprintf(locales.LabelQualifier(), exam.ExamName, a.examTypeName(exam.ExamType))
-				row := listRowButton(c.Key("ov-exam-"+strconv.FormatInt(exam.ExamID, 10)), title).
-					Height(0).MinHeight(t.Space(14)).Padding(t.Space(3), t.Space(3)).AlignItems(ui.Center)
-				row.Children(func() {
-					ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
-						ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(1).Children(func() {
-							ui.Text(c, title).FontSize(bodySize(t)).FontWeight(500).
-								TextColor(p.ink).SingleLine().Tooltip(title)
-							ui.Textf(c, locales.ExamListMeta(), a.academicYearLabel(a.displayStage().AcademicYearStart),
-								a.examTermName(exam.Term), exam.ExamDate).
-								FontSize(captionSize(t)).TextColor(p.muted).SingleLine()
-						})
-						if exam.RosterCount > 0 {
-							metricInline(c, p, uint64(exam.RosterCount), locales.OverviewMetricStudents())
-						}
-						if exam.Calculated {
-							ui.Text(c, strconv.FormatFloat(exam.AverageTotal, 'f', 2, 64)).
-								FontSize(bodySize(t)).FontWeight(600).FontFeatures("tnum").
-								TextColor(p.ink).Shrink(0)
-							badge(c, p, locales.OverviewLatestOfficial(), toneSuccess)
-						} else {
-							badge(c, p, locales.OverviewLatestPending(), toneNeutral)
-						}
-					})
-				})
-				if row.Clicked() {
-					if exam.Calculated && exam.AssessmentID > 0 {
-						a.selectAssessment(exam.AssessmentID)
-						a.navigateTo(pageAssessments)
-					} else {
-						a.selectExam(exam.ExamID)
-						a.navigateTo(pageExams)
-					}
 				}
 			}
 		})
@@ -467,11 +486,11 @@ func (a *app) stageReviewModal(c *ui.Context, p uiPalette) {
 			ui.Text(c, locales.StageReviewBody()).FontSize(bodySize(t)).
 				TextColor(p.muted).Pretty()
 			ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
-				a.detailRow(c, p, locales.ReadinessClasses(), formatInt(a.stageCounts.Classes))
-				a.detailRow(c, p, locales.StageReviewTeachingGroups(),
+				a.summaryMetricRow(c, p, locales.ReadinessClasses(), formatInt(a.stageCounts.Classes))
+				a.summaryMetricRow(c, p, locales.StageReviewTeachingGroups(),
 					formatInt(a.stageCounts.TeachingGroups))
-				a.detailRow(c, p, locales.ReadinessAssignments(), formatInt(a.stageCounts.Assignments))
-				a.detailRow(c, p, locales.ReadinessStudents(), formatInt(a.stageCounts.Students))
+				a.summaryMetricRow(c, p, locales.ReadinessAssignments(), formatInt(a.stageCounts.Assignments))
+				a.summaryMetricRow(c, p, locales.ReadinessStudents(), formatInt(a.stageCounts.Students))
 			})
 		})
 	})
@@ -526,29 +545,6 @@ func (a *app) academicYearLabelForBatch(batch store.Batch) string {
 	return a.academicYearLabel(start)
 }
 
-func (a *app) gaokaoPanel(c *ui.Context, p uiPalette) {
-	t := p.theme
-	cohort := a.selectedCohort()
-	if cohort == nil || cohort.Status != "active" {
-		return
-	}
-	if cohort.GraduationYear != a.nowValue().Year() {
-		return
-	}
-	panel(c, p).FillWidth().Padding(t.Space(5)).Gap(t.Space(3)).Children(func() {
-		sectionHeading(c, p, fmt.Sprintf(locales.GaokaoTitle(), cohort.GraduationYear), -1)
-		ui.Text(c, locales.GaokaoHint()).FontSize(bodySize(t)).TextColor(p.muted).Pretty()
-		ui.Row(c).Children(func() {
-			if labelledButton(c, locales.GaokaoOpen(), iconBatches, false).Clicked() {
-				a.page = pageExams
-				a.openNewExam()
-				a.newExamType = 2
-				a.newExamName = locales.ExamTypeGaokao()
-			}
-		})
-	})
-}
-
 func (a *app) newCohortModal(c *ui.Context, p uiPalette) {
 	t := p.theme
 	wasOpen := a.newCohortOpen
@@ -581,142 +577,6 @@ func (a *app) newCohortModal(c *ui.Context, p uiPalette) {
 	} else if wasOpen && !a.newCohortOpen {
 		a.newCohortError = ""
 	}
-}
-
-func (a *app) cohortPage(c *ui.Context, p uiPalette) {
-	t := p.theme
-	if a.cohortSidebarWidth == 0 {
-		a.cohortSidebarWidth = t.Space(58)
-	}
-	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
-		pageHeading(c, p, locales.NavCohorts(), locales.CohortPageSubtitle(), func() {
-			classButton := plainButton(c, locales.ImportClasses())
-			classButton.Disabled(!a.stageEditable())
-			if classButton.Clicked() {
-				a.openDataImport(importer.KindClasses, 0, 0)
-			}
-			if len(a.cohorts) > 0 {
-				if labelledButton(c, locales.NewCohort(), iconPlus, true).Clicked() {
-					a.openNewCohort()
-				}
-			}
-		})
-		if len(a.cohorts) == 0 {
-			emptyState(c, p, iconCohort, locales.WorkspaceEmpty(), locales.WorkspaceEmptyHint(), func() {
-				if labelledButton(c, locales.WorkspaceCreate(), iconPlus, true).Clicked() {
-					a.openNewCohort()
-				}
-			})
-		} else {
-			if a.selectedStage() != nil && !a.stageEditable() {
-				notice(c, p, noticeInfo, locales.StageReadOnly())
-			}
-			ui.Split(c, &a.cohortSidebarWidth, func() {
-				ui.Column(c).Fill().MinWidth(0).Clip().Padding(0, t.Space(4), 0, 0).Children(func() {
-					a.cohortSidebar(c, p)
-				})
-			}, func() {
-				ui.Column(c).Fill().MinWidth(0).Padding(0, 0, 0, t.Space(4)).Children(func() {
-					a.cohortDetails(c, p)
-				})
-			}).Grow(1)
-		}
-	})
-}
-
-func (a *app) cohortSidebar(c *ui.Context, p uiPalette) {
-	changed := false
-	listPanel(c, p, locales.CohortListTitle(), len(a.cohorts), func() {
-		sidebar := ui.Sidebar(c, &a.selectedCohortID, func() {
-			for _, cohort := range a.cohorts {
-				ui.SidebarItem(c, strconv.FormatInt(cohort.ID, 10), iconCohort,
-					a.cohortName(cohort.EnrollmentYear))
-			}
-		}).Label(locales.CohortListTitle()).Fill()
-		if sidebar.Changed() {
-			changed = true
-		}
-	})
-	if changed {
-		a.selectedStageID = 0
-		a.reloadSelectedCohort(context.Background())
-	}
-}
-
-func (a *app) cohortDetails(c *ui.Context, p uiPalette) {
-	t := p.theme
-	cohort := a.selectedCohort()
-	if cohort == nil {
-		ui.Column(c).Fill().Children(func() {
-			emptyState(c, p, iconCohort, locales.CohortSelectHint(), "", nil)
-		})
-		return
-	}
-	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
-		section(c, p, func() {
-			ui.Row(c).AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
-				ui.Column(c).Grow(1).Gap(t.Space(1)).Children(func() {
-					ui.Text(c, a.cohortName(cohort.EnrollmentYear)).FontSize(sectionSize(t)).FontWeight(600)
-					ui.Text(c, a.classOfName(cohort.GraduationYear)).FontSize(bodySize(t)).
-						TextColor(p.muted)
-				})
-				badge(c, p, locales.CohortActive(), toneSuccess)
-			})
-			ui.Row(c).Gap(t.Space(7)).Children(func() {
-				metric(c, p, strconv.Itoa(cohort.EnrollmentYear), locales.EnrollmentYear())
-				metric(c, p, strconv.Itoa(cohort.GraduationYear), locales.CohortGraduation())
-				metric(c, p, strconv.Itoa(len(a.cohortStages)), locales.CohortStageHistory())
-				metric(c, p, strconv.Itoa(a.stageCounts.Students), locales.ReadinessStudents())
-			})
-		})
-		sectionRule(c, p, func() {
-			sectionHeading(c, p, locales.CohortStageHistory(), len(a.cohortStages))
-			if len(a.cohortStages) == 0 {
-				smallEmptyState(c, p, locales.CohortNoStages())
-				return
-			}
-			for _, stage := range a.cohortStages {
-				ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).
-					Padding(t.Space(2), 0).Children(func() {
-					ui.Text(c, a.stageName(stage.GradeLevel)).FontSize(bodySize(t)).Width(t.Space(18))
-					ui.Text(c, a.academicYearLabel(stage.AcademicYearStart)).FontSize(bodySize(t)).
-						TextColor(p.inkSecondary).Grow(1)
-					if stage.ReviewStatus == "pending" {
-						badge(c, p, locales.CohortPending(), toneWarning)
-					} else {
-						badge(c, p, locales.CohortConfirmed(), toneSuccess)
-					}
-				})
-				rule(c)
-			}
-		})
-		ui.Column(c).Grow(1).Shrink(1).MinHeight(0).Gap(t.Space(3)).Children(func() {
-			rule(c)
-			sectionHeading(c, p, locales.CohortClasses(), len(a.classes))
-			if len(a.classes) == 0 {
-				smallEmptyState(c, p, locales.CohortNoClasses())
-				return
-			}
-			a.classTable.RowHeight = tableRowHeight(t)
-			a.classTable.Key = func(row int) any { return a.classes[row].ID }
-			columns := []ui.TableColumn{
-				{Title: locales.ColumnClass(), Width: t.Space(24)},
-				{Title: locales.ReadinessStudents(), Width: 0, Align: ui.End},
-				{Title: locales.ClassHeadTeacher(), Width: 0},
-			}
-			ui.Table(c, &a.classTable, columns, len(a.classes), func(row, col int) {
-				class := a.classes[row]
-				switch col {
-				case 0:
-					cellText(c, p, class.Name)
-				case 1:
-					ui.Text(c, formatInt(class.Students)).FontFeatures("tnum")
-				case 2:
-					cellText(c, p, class.HeadTeacher)
-				}
-			}).Label(locales.CohortClasses()).Grow(1).Shrink(1).MinHeight(0).Fill()
-		})
-	})
 }
 
 func containsString(values []string, target string) bool {

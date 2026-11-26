@@ -14,15 +14,7 @@ func (a *app) reloadExams(ctx context.Context) {
 	if a.store == nil {
 		return
 	}
-	var (
-		exams []store.Exam
-		err   error
-	)
-	if cohort := a.selectedCohort(); cohort != nil {
-		exams, err = a.store.ListExamsByCohort(ctx, cohort.ID)
-	} else {
-		exams = nil
-	}
+	exams, err := a.store.ListExams(ctx)
 	if err != nil {
 		a.examError = err.Error()
 		return
@@ -53,9 +45,9 @@ func (a *app) selectedExam() *store.Exam {
 	return &a.exam
 }
 
-func (a *app) selectExam(id int64) {
+func (a *app) setExamSelectionState(id, cohortID int64) {
 	a.selectedExamID = id
-	a.examCohortID = 0
+	a.examCohortID = cohortID
 	a.examTab = 0
 	a.examRosterQuery = ""
 	a.examRosterPage = 0
@@ -63,7 +55,17 @@ func (a *app) selectExam(id int64) {
 	a.examScoreSubject = ""
 	a.examScoreClass = 0
 	a.examScorePage = 0
+}
+
+func (a *app) selectExam(id int64) {
+	a.setExamSelectionState(id, 0)
 	a.reloadExamData(context.Background())
+}
+
+// openExamForCohort 预设目标考试与年级后跳转至考试详情页，避免路由切换触发双次全量加载。
+func (a *app) openExamForCohort(examID, cohortID int64) {
+	a.setExamSelectionState(examID, cohortID)
+	a.navigateTo(pageExams)
 }
 
 func (a *app) clearExamLoadedData() {
@@ -384,7 +386,7 @@ func (a *app) examTypeName(code string) string {
 
 func (a *app) examStatusName(code string) string {
 	switch code {
-	case "imported":
+	case "imported", "applied", "scored", "assessed":
 		return locales.ExamStatusImported()
 	default:
 		return locales.ExamStatusDraft()

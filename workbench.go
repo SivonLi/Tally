@@ -118,15 +118,7 @@ func (a *app) reloadAssessments(ctx context.Context) {
 	if a.store == nil {
 		return
 	}
-	var (
-		items []store.AssessmentOverview
-		err   error
-	)
-	if cohort := a.selectedCohort(); cohort != nil {
-		items, err = a.store.ListAssessmentOverviewByCohort(ctx, cohort.ID)
-	} else {
-		items = nil
-	}
+	items, err := a.store.ListAssessmentOverview(ctx)
 	if err != nil {
 		a.assessmentError = err.Error()
 		return
@@ -320,8 +312,9 @@ func (a *app) staleInputItems(ctx context.Context, run store.ResultRun) ([]strin
 
 func (a *app) assessmentPage(c *ui.Context, p uiPalette) {
 	t := p.theme
-	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
-		pageHeading(c, p, locales.AssessmentTitle(), locales.AssessmentSubtitle(), func() {
+	ui.Column(c).Fill().Gap(t.Space(2.5)).Children(func() {
+		a.examHubSubnav(c, p, 1)
+		pageHeading(c, p, locales.AssessmentTitle(), "", func() {
 			if labelledButton(c, locales.AssessmentNewExam(), iconPlus, len(a.assessments) == 0).Clicked() {
 				a.page = pageExams
 				a.openNewExam()
@@ -434,7 +427,7 @@ func (a *app) assessmentDetail(c *ui.Context, p uiPalette) {
 	default:
 		stage = 1
 	}
-	ui.Column(c).Fill().MinHeight(0).Gap(t.Space(2)).Children(func() {
+	ui.Column(c).Fill().MinHeight(0).Gap(t.Space(1.5)).Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Start).Gap(t.Space(3)).Children(func() {
 			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(t.Space(1)).Children(func() {
 				ui.Text(c, overview.ExamName).FontSize(titleSize(t)).FontWeight(600).
@@ -480,10 +473,10 @@ func (a *app) assessmentSteps(c *ui.Context, p uiPalette, current int) {
 // assessmentStatusDisplay 返回状态徽标的取值与文字；
 // 已核算但数据已变化时显示「需要重新计算」。
 func (a *app) assessmentStatusDisplay(overview store.AssessmentOverview) (string, string) {
+	if overview.Status == "stale" || (overview.Status == "calculated" && a.assessmentOfficialStale) {
+		return "stale", locales.AssessmentStatusStale()
+	}
 	if overview.Status == "calculated" {
-		if a.assessmentOfficialStale {
-			return "stale", locales.AssessmentStatusStale()
-		}
 		return "calculated", locales.AssessmentStatusCalculated()
 	}
 	return "draft", locales.AssessmentStatusDraft()
@@ -586,16 +579,16 @@ func (a *app) assessmentChecklist(c *ui.Context, p uiPalette, overview store.Ass
 
 // openExamTab 跳到这场考试的对应页签，让准备清单可以直接补数据。
 func (a *app) openExamTab(overview store.AssessmentOverview, tab int) {
-	a.page = pageExams
-	a.selectExam(overview.ExamID)
-	a.examCohortID = overview.CohortID
+	a.setExamSelectionState(overview.ExamID, overview.CohortID)
 	a.examTab = tab
+	a.page = pageExams
+	a.lastPage = pageExams
 	a.reloadExamData(context.Background())
 }
 
 func (a *app) assessmentActions(c *ui.Context, p uiPalette, overview store.AssessmentOverview) {
 	t := p.theme
-	ui.Column(c).FillWidth().Gap(t.Space(3)).Children(func() {
+	ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
 		rule(c)
 		missing := a.assessmentMissingItems(overview)
 		if len(missing) > 0 {
@@ -658,7 +651,7 @@ func (a *app) assessmentActions(c *ui.Context, p uiPalette, overview store.Asses
 
 func (a *app) assessmentResults(c *ui.Context, p uiPalette) {
 	t := p.theme
-	ui.Column(c).Grow(1).Shrink(1).MinHeight(0).FillWidth().Gap(t.Space(2)).Children(func() {
+	ui.Column(c).Grow(1).Shrink(1).MinHeight(0).FillWidth().Gap(t.Space(1.5)).Children(func() {
 		a.assessmentResultsHeader(c, p)
 		if len(a.assessmentRows) == 0 {
 			smallEmptyState(c, p, locales.AssessmentNoResults())

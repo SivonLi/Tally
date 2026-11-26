@@ -2578,14 +2578,24 @@ func (msgs Messages) NavOverview() string {
 	return Catalog.Format(msgs.locale, "navOverview", nil)
 }
 
-// NavCohorts says "Cohorts and classes"
+// NavCohorts says "Cohorts"
 // in the language the app shows.
 func NavCohorts() string { return In(i18n.Locale()).NavCohorts() }
 
-// NavCohorts says "Cohorts and classes"
+// NavCohorts says "Cohorts"
 // in the language of msgs.
 func (msgs Messages) NavCohorts() string {
 	return Catalog.Format(msgs.locale, "navCohorts", nil)
+}
+
+// NavTeachers says "Teachers"
+// in the language the app shows.
+func NavTeachers() string { return In(i18n.Locale()).NavTeachers() }
+
+// NavTeachers says "Teachers"
+// in the language of msgs.
+func (msgs Messages) NavTeachers() string {
+	return Catalog.Format(msgs.locale, "navTeachers", nil)
 }
 
 // NavStudents says "Students"
@@ -11780,4 +11790,2554 @@ func BaseDataTabBaselines() string { return In(i18n.Locale()).BaseDataTabBaselin
 // in the language of msgs.
 func (msgs Messages) BaseDataTabBaselines() string {
 	return Catalog.Format(msgs.locale, "baseDataTabBaselines", nil)
+}
+
+// NavSettingsSync says "Settings & sync"
+// in the language the app shows.
+func NavSettingsSync() string { return In(i18n.Locale()).NavSettingsSync() }
+
+// NavSettingsSync says "Settings & sync"
+// in the language of msgs.
+func (msgs Messages) NavSettingsSync() string {
+	return Catalog.Format(msgs.locale, "navSettingsSync", nil)
+}
+
+// NavGroupMain says "School"
+// in the language the app shows.
+func NavGroupMain() string { return In(i18n.Locale()).NavGroupMain() }
+
+// NavGroupMain says "School"
+// in the language of msgs.
+func (msgs Messages) NavGroupMain() string {
+	return Catalog.Format(msgs.locale, "navGroupMain", nil)
+}
+
+// OverviewSchoolSubtitle says "School-wide active cohorts, teacher occupancy, recent exams and action reminders."
+// in the language the app shows.
+func OverviewSchoolSubtitle() string { return In(i18n.Locale()).OverviewSchoolSubtitle() }
+
+// OverviewSchoolSubtitle says "School-wide active cohorts, teacher occupancy, recent exams and action reminders."
+// in the language of msgs.
+func (msgs Messages) OverviewSchoolSubtitle() string {
+	return Catalog.Format(msgs.locale, "overviewSchoolSubtitle", nil)
+}
+
+// OverviewActiveCohortsTitle says "Active cohorts"
+// in the language the app shows.
+func OverviewActiveCohortsTitle() string { return In(i18n.Locale()).OverviewActiveCohortsTitle() }
+
+// OverviewActiveCohortsTitle says "Active cohorts"
+// in the language of msgs.
+func (msgs Messages) OverviewActiveCohortsTitle() string {
+	return Catalog.Format(msgs.locale, "overviewActiveCohortsTitle", nil)
+}
+
+// OverviewActiveCohortsEmpty says "No active cohorts yet"
+// in the language the app shows.
+func OverviewActiveCohortsEmpty() string { return In(i18n.Locale()).OverviewActiveCohortsEmpty() }
+
+// OverviewActiveCohortsEmpty says "No active cohorts yet"
+// in the language of msgs.
+func (msgs Messages) OverviewActiveCohortsEmpty() string {
+	return Catalog.Format(msgs.locale, "overviewActiveCohortsEmpty", nil)
+}
+
+// OverviewActiveCohortsEmptyHint says "Create a cohort to organize classes, students, teachers and exams."
+// in the language the app shows.
+func OverviewActiveCohortsEmptyHint() string {
+	return In(i18n.Locale()).OverviewActiveCohortsEmptyHint()
+}
+
+// OverviewActiveCohortsEmptyHint says "Create a cohort to organize classes, students, teachers and exams."
+// in the language of msgs.
+func (msgs Messages) OverviewActiveCohortsEmptyHint() string {
+	return Catalog.Format(msgs.locale, "overviewActiveCohortsEmptyHint", nil)
+}
+
+// OverviewCohortClassesCount says "%s classes"
+// in the language the app shows.
+func OverviewCohortClassesCount() string { return In(i18n.Locale()).OverviewCohortClassesCount() }
+
+// OverviewCohortClassesCount says "%s classes"
+// in the language of msgs.
+func (msgs Messages) OverviewCohortClassesCount() string {
+	return Catalog.Format(msgs.locale, "overviewCohortClassesCount", nil)
+}
+
+// OverviewCohortStudentsCount says "%s active students"
+// in the language the app shows.
+func OverviewCohortStudentsCount() string { return In(i18n.Locale()).OverviewCohortStudentsCount() }
+
+// OverviewCohortStudentsCount says "%s active students"
+// in the language of msgs.
+func (msgs Messages) OverviewCohortStudentsCount() string {
+	return Catalog.Format(msgs.locale, "overviewCohortStudentsCount", nil)
+}
+
+// OverviewCohortLatestExam says "Latest: %s"
+// in the language the app shows.
+func OverviewCohortLatestExam() string { return In(i18n.Locale()).OverviewCohortLatestExam() }
+
+// OverviewCohortLatestExam says "Latest: %s"
+// in the language of msgs.
+func (msgs Messages) OverviewCohortLatestExam() string {
+	return Catalog.Format(msgs.locale, "overviewCohortLatestExam", nil)
+}
+
+// OverviewCohortNoExam says "No exams yet"
+// in the language the app shows.
+func OverviewCohortNoExam() string { return In(i18n.Locale()).OverviewCohortNoExam() }
+
+// OverviewCohortNoExam says "No exams yet"
+// in the language of msgs.
+func (msgs Messages) OverviewCohortNoExam() string {
+	return Catalog.Format(msgs.locale, "overviewCohortNoExam", nil)
+}
+
+// OverviewEnterCohort says "Enter cohort"
+// in the language the app shows.
+func OverviewEnterCohort() string { return In(i18n.Locale()).OverviewEnterCohort() }
+
+// OverviewEnterCohort says "Enter cohort"
+// in the language of msgs.
+func (msgs Messages) OverviewEnterCohort() string {
+	return Catalog.Format(msgs.locale, "overviewEnterCohort", nil)
+}
+
+// OverviewViewRecentExams says "Recent exams"
+// in the language the app shows.
+func OverviewViewRecentExams() string { return In(i18n.Locale()).OverviewViewRecentExams() }
+
+// OverviewViewRecentExams says "Recent exams"
+// in the language of msgs.
+func (msgs Messages) OverviewViewRecentExams() string {
+	return Catalog.Format(msgs.locale, "overviewViewRecentExams", nil)
+}
+
+// OverviewGraduatedArchiveHint says "%s graduated cohorts archived"
+// in the language the app shows.
+func OverviewGraduatedArchiveHint() string { return In(i18n.Locale()).OverviewGraduatedArchiveHint() }
+
+// OverviewGraduatedArchiveHint says "%s graduated cohorts archived"
+// in the language of msgs.
+func (msgs Messages) OverviewGraduatedArchiveHint() string {
+	return Catalog.Format(msgs.locale, "overviewGraduatedArchiveHint", nil)
+}
+
+// OverviewOccupancyTitle says "Teacher occupancy"
+// in the language the app shows.
+func OverviewOccupancyTitle() string { return In(i18n.Locale()).OverviewOccupancyTitle() }
+
+// OverviewOccupancyTitle says "Teacher occupancy"
+// in the language of msgs.
+func (msgs Messages) OverviewOccupancyTitle() string {
+	return Catalog.Format(msgs.locale, "overviewOccupancyTitle", nil)
+}
+
+// OverviewOccupancyTotal says "Active faculty"
+// in the language the app shows.
+func OverviewOccupancyTotal() string { return In(i18n.Locale()).OverviewOccupancyTotal() }
+
+// OverviewOccupancyTotal says "Active faculty"
+// in the language of msgs.
+func (msgs Messages) OverviewOccupancyTotal() string {
+	return Catalog.Format(msgs.locale, "overviewOccupancyTotal", nil)
+}
+
+// OverviewOccupancySingle says "Single cohort"
+// in the language the app shows.
+func OverviewOccupancySingle() string { return In(i18n.Locale()).OverviewOccupancySingle() }
+
+// OverviewOccupancySingle says "Single cohort"
+// in the language of msgs.
+func (msgs Messages) OverviewOccupancySingle() string {
+	return Catalog.Format(msgs.locale, "overviewOccupancySingle", nil)
+}
+
+// OverviewOccupancyMulti says "Cross-grade"
+// in the language the app shows.
+func OverviewOccupancyMulti() string { return In(i18n.Locale()).OverviewOccupancyMulti() }
+
+// OverviewOccupancyMulti says "Cross-grade"
+// in the language of msgs.
+func (msgs Messages) OverviewOccupancyMulti() string {
+	return Catalog.Format(msgs.locale, "overviewOccupancyMulti", nil)
+}
+
+// OverviewOccupancyIdle says "Idle"
+// in the language the app shows.
+func OverviewOccupancyIdle() string { return In(i18n.Locale()).OverviewOccupancyIdle() }
+
+// OverviewOccupancyIdle says "Idle"
+// in the language of msgs.
+func (msgs Messages) OverviewOccupancyIdle() string {
+	return Catalog.Format(msgs.locale, "overviewOccupancyIdle", nil)
+}
+
+// OverviewOccupancyInactive says "Inactive"
+// in the language the app shows.
+func OverviewOccupancyInactive() string { return In(i18n.Locale()).OverviewOccupancyInactive() }
+
+// OverviewOccupancyInactive says "Inactive"
+// in the language of msgs.
+func (msgs Messages) OverviewOccupancyInactive() string {
+	return Catalog.Format(msgs.locale, "overviewOccupancyInactive", nil)
+}
+
+// OverviewOccupancySummary says "%s active · %s idle"
+// in the language the app shows.
+func OverviewOccupancySummary() string { return In(i18n.Locale()).OverviewOccupancySummary() }
+
+// OverviewOccupancySummary says "%s active · %s idle"
+// in the language of msgs.
+func (msgs Messages) OverviewOccupancySummary() string {
+	return Catalog.Format(msgs.locale, "overviewOccupancySummary", nil)
+}
+
+// OverviewRecentExamsTitle says "Recent exams"
+// in the language the app shows.
+func OverviewRecentExamsTitle() string { return In(i18n.Locale()).OverviewRecentExamsTitle() }
+
+// OverviewRecentExamsTitle says "Recent exams"
+// in the language of msgs.
+func (msgs Messages) OverviewRecentExamsTitle() string {
+	return Catalog.Format(msgs.locale, "overviewRecentExamsTitle", nil)
+}
+
+// OverviewRemindersTitle says "Reminders"
+// in the language the app shows.
+func OverviewRemindersTitle() string { return In(i18n.Locale()).OverviewRemindersTitle() }
+
+// OverviewRemindersTitle says "Reminders"
+// in the language of msgs.
+func (msgs Messages) OverviewRemindersTitle() string {
+	return Catalog.Format(msgs.locale, "overviewRemindersTitle", nil)
+}
+
+// OverviewReminderCrossGrade says "%s teachers are assigned across multiple active cohorts"
+// in the language the app shows.
+func OverviewReminderCrossGrade() string { return In(i18n.Locale()).OverviewReminderCrossGrade() }
+
+// OverviewReminderCrossGrade says "%s teachers are assigned across multiple active cohorts"
+// in the language of msgs.
+func (msgs Messages) OverviewReminderCrossGrade() string {
+	return Catalog.Format(msgs.locale, "overviewReminderCrossGrade", nil)
+}
+
+// OverviewReminderCohortSetup says "%s needs %s"
+// in the language the app shows.
+func OverviewReminderCohortSetup() string { return In(i18n.Locale()).OverviewReminderCohortSetup() }
+
+// OverviewReminderCohortSetup says "%s needs %s"
+// in the language of msgs.
+func (msgs Messages) OverviewReminderCohortSetup() string {
+	return Catalog.Format(msgs.locale, "overviewReminderCohortSetup", nil)
+}
+
+// OverviewReminderCohortPendingAssess says "%s · %s has pending assessment"
+// in the language the app shows.
+func OverviewReminderCohortPendingAssess() string {
+	return In(i18n.Locale()).OverviewReminderCohortPendingAssess()
+}
+
+// OverviewReminderCohortPendingAssess says "%s · %s has pending assessment"
+// in the language of msgs.
+func (msgs Messages) OverviewReminderCohortPendingAssess() string {
+	return Catalog.Format(msgs.locale, "overviewReminderCohortPendingAssess", nil)
+}
+
+// OverviewReminderCohortBlocking says "%s has %s blocking data issues"
+// in the language the app shows.
+func OverviewReminderCohortBlocking() string {
+	return In(i18n.Locale()).OverviewReminderCohortBlocking()
+}
+
+// OverviewReminderCohortBlocking says "%s has %s blocking data issues"
+// in the language of msgs.
+func (msgs Messages) OverviewReminderCohortBlocking() string {
+	return Catalog.Format(msgs.locale, "overviewReminderCohortBlocking", nil)
+}
+
+// OverviewRemindersClear says "Everything across active cohorts is on track."
+// in the language the app shows.
+func OverviewRemindersClear() string { return In(i18n.Locale()).OverviewRemindersClear() }
+
+// OverviewRemindersClear says "Everything across active cohorts is on track."
+// in the language of msgs.
+func (msgs Messages) OverviewRemindersClear() string {
+	return Catalog.Format(msgs.locale, "overviewRemindersClear", nil)
+}
+
+// CohortListSubtitle says "Manage active cohorts, grade promotion, and read-only graduated archives."
+// in the language the app shows.
+func CohortListSubtitle() string { return In(i18n.Locale()).CohortListSubtitle() }
+
+// CohortListSubtitle says "Manage active cohorts, grade promotion, and read-only graduated archives."
+// in the language of msgs.
+func (msgs Messages) CohortListSubtitle() string {
+	return Catalog.Format(msgs.locale, "cohortListSubtitle", nil)
+}
+
+// CohortDetailBackToList says "Cohorts"
+// in the language the app shows.
+func CohortDetailBackToList() string { return In(i18n.Locale()).CohortDetailBackToList() }
+
+// CohortDetailBackToList says "Cohorts"
+// in the language of msgs.
+func (msgs Messages) CohortDetailBackToList() string {
+	return Catalog.Format(msgs.locale, "cohortDetailBackToList", nil)
+}
+
+// CohortFilterActive says "Active cohorts"
+// in the language the app shows.
+func CohortFilterActive() string { return In(i18n.Locale()).CohortFilterActive() }
+
+// CohortFilterActive says "Active cohorts"
+// in the language of msgs.
+func (msgs Messages) CohortFilterActive() string {
+	return Catalog.Format(msgs.locale, "cohortFilterActive", nil)
+}
+
+// CohortFilterGraduated says "Graduated archive"
+// in the language the app shows.
+func CohortFilterGraduated() string { return In(i18n.Locale()).CohortFilterGraduated() }
+
+// CohortFilterGraduated says "Graduated archive"
+// in the language of msgs.
+func (msgs Messages) CohortFilterGraduated() string {
+	return Catalog.Format(msgs.locale, "cohortFilterGraduated", nil)
+}
+
+// CohortEmptyActive says "No active cohorts"
+// in the language the app shows.
+func CohortEmptyActive() string { return In(i18n.Locale()).CohortEmptyActive() }
+
+// CohortEmptyActive says "No active cohorts"
+// in the language of msgs.
+func (msgs Messages) CohortEmptyActive() string {
+	return Catalog.Format(msgs.locale, "cohortEmptyActive", nil)
+}
+
+// CohortEmptyActiveHint says "Create a cohort to manage classes, students, teachers and exams."
+// in the language the app shows.
+func CohortEmptyActiveHint() string { return In(i18n.Locale()).CohortEmptyActiveHint() }
+
+// CohortEmptyActiveHint says "Create a cohort to manage classes, students, teachers and exams."
+// in the language of msgs.
+func (msgs Messages) CohortEmptyActiveHint() string {
+	return Catalog.Format(msgs.locale, "cohortEmptyActiveHint", nil)
+}
+
+// CohortEmptyGraduated says "No graduated cohorts yet"
+// in the language the app shows.
+func CohortEmptyGraduated() string { return In(i18n.Locale()).CohortEmptyGraduated() }
+
+// CohortEmptyGraduated says "No graduated cohorts yet"
+// in the language of msgs.
+func (msgs Messages) CohortEmptyGraduated() string {
+	return Catalog.Format(msgs.locale, "cohortEmptyGraduated", nil)
+}
+
+// CohortEmptyGraduatedHint says "Graduated cohorts appear here as read-only archives."
+// in the language the app shows.
+func CohortEmptyGraduatedHint() string { return In(i18n.Locale()).CohortEmptyGraduatedHint() }
+
+// CohortEmptyGraduatedHint says "Graduated cohorts appear here as read-only archives."
+// in the language of msgs.
+func (msgs Messages) CohortEmptyGraduatedHint() string {
+	return Catalog.Format(msgs.locale, "cohortEmptyGraduatedHint", nil)
+}
+
+// CohortArchiveNotice says "Graduated cohorts are archived in read-only mode. Historical records remain preserved."
+// in the language the app shows.
+func CohortArchiveNotice() string { return In(i18n.Locale()).CohortArchiveNotice() }
+
+// CohortArchiveNotice says "Graduated cohorts are archived in read-only mode. Historical records remain preserved."
+// in the language of msgs.
+func (msgs Messages) CohortArchiveNotice() string {
+	return Catalog.Format(msgs.locale, "cohortArchiveNotice", nil)
+}
+
+// CohortRestoreHint says "Graduated cohorts are locked as immutable historical archives."
+// in the language the app shows.
+func CohortRestoreHint() string { return In(i18n.Locale()).CohortRestoreHint() }
+
+// CohortRestoreHint says "Graduated cohorts are locked as immutable historical archives."
+// in the language of msgs.
+func (msgs Messages) CohortRestoreHint() string {
+	return Catalog.Format(msgs.locale, "cohortRestoreHint", nil)
+}
+
+// CohortPhaseSwitcher says "Phase"
+// in the language the app shows.
+func CohortPhaseSwitcher() string { return In(i18n.Locale()).CohortPhaseSwitcher() }
+
+// CohortPhaseSwitcher says "Phase"
+// in the language of msgs.
+func (msgs Messages) CohortPhaseSwitcher() string {
+	return Catalog.Format(msgs.locale, "cohortPhaseSwitcher", nil)
+}
+
+// CohortTabOverview says "Overview & cycle"
+// in the language the app shows.
+func CohortTabOverview() string { return In(i18n.Locale()).CohortTabOverview() }
+
+// CohortTabOverview says "Overview & cycle"
+// in the language of msgs.
+func (msgs Messages) CohortTabOverview() string {
+	return Catalog.Format(msgs.locale, "cohortTabOverview", nil)
+}
+
+// CohortTabClasses says "Classes & groups"
+// in the language the app shows.
+func CohortTabClasses() string { return In(i18n.Locale()).CohortTabClasses() }
+
+// CohortTabClasses says "Classes & groups"
+// in the language of msgs.
+func (msgs Messages) CohortTabClasses() string {
+	return Catalog.Format(msgs.locale, "cohortTabClasses", nil)
+}
+
+// CohortTabStudents says "Students"
+// in the language the app shows.
+func CohortTabStudents() string { return In(i18n.Locale()).CohortTabStudents() }
+
+// CohortTabStudents says "Students"
+// in the language of msgs.
+func (msgs Messages) CohortTabStudents() string {
+	return Catalog.Format(msgs.locale, "cohortTabStudents", nil)
+}
+
+// CohortTabAssignments says "Assignments"
+// in the language the app shows.
+func CohortTabAssignments() string { return In(i18n.Locale()).CohortTabAssignments() }
+
+// CohortTabAssignments says "Assignments"
+// in the language of msgs.
+func (msgs Messages) CohortTabAssignments() string {
+	return Catalog.Format(msgs.locale, "cohortTabAssignments", nil)
+}
+
+// CohortTabBaselines says "Entry scores"
+// in the language the app shows.
+func CohortTabBaselines() string { return In(i18n.Locale()).CohortTabBaselines() }
+
+// CohortTabBaselines says "Entry scores"
+// in the language of msgs.
+func (msgs Messages) CohortTabBaselines() string {
+	return Catalog.Format(msgs.locale, "cohortTabBaselines", nil)
+}
+
+// CohortTabExams says "Exams"
+// in the language the app shows.
+func CohortTabExams() string { return In(i18n.Locale()).CohortTabExams() }
+
+// CohortTabExams says "Exams"
+// in the language of msgs.
+func (msgs Messages) CohortTabExams() string {
+	return Catalog.Format(msgs.locale, "cohortTabExams", nil)
+}
+
+// CohortTabGroupLabel says "Cohort detail tabs"
+// in the language the app shows.
+func CohortTabGroupLabel() string { return In(i18n.Locale()).CohortTabGroupLabel() }
+
+// CohortTabGroupLabel says "Cohort detail tabs"
+// in the language of msgs.
+func (msgs Messages) CohortTabGroupLabel() string {
+	return Catalog.Format(msgs.locale, "cohortTabGroupLabel", nil)
+}
+
+// CohortLifecycleTitle says "Three-year lifecycle"
+// in the language the app shows.
+func CohortLifecycleTitle() string { return In(i18n.Locale()).CohortLifecycleTitle() }
+
+// CohortLifecycleTitle says "Three-year lifecycle"
+// in the language of msgs.
+func (msgs Messages) CohortLifecycleTitle() string {
+	return Catalog.Format(msgs.locale, "cohortLifecycleTitle", nil)
+}
+
+// CohortStepGaokao says "Gaokao"
+// in the language the app shows.
+func CohortStepGaokao() string { return In(i18n.Locale()).CohortStepGaokao() }
+
+// CohortStepGaokao says "Gaokao"
+// in the language of msgs.
+func (msgs Messages) CohortStepGaokao() string {
+	return Catalog.Format(msgs.locale, "cohortStepGaokao", nil)
+}
+
+// CohortPromoteAction says "Promote cohort"
+// in the language the app shows.
+func CohortPromoteAction() string { return In(i18n.Locale()).CohortPromoteAction() }
+
+// CohortPromoteAction says "Promote cohort"
+// in the language of msgs.
+func (msgs Messages) CohortPromoteAction() string {
+	return Catalog.Format(msgs.locale, "cohortPromoteAction", nil)
+}
+
+// CohortGraduateAction says "Graduate & archive"
+// in the language the app shows.
+func CohortGraduateAction() string { return In(i18n.Locale()).CohortGraduateAction() }
+
+// CohortGraduateAction says "Graduate & archive"
+// in the language of msgs.
+func (msgs Messages) CohortGraduateAction() string {
+	return Catalog.Format(msgs.locale, "cohortGraduateAction", nil)
+}
+
+// CohortPromoteTitle says "Promote %s"
+// in the language the app shows.
+func CohortPromoteTitle() string { return In(i18n.Locale()).CohortPromoteTitle() }
+
+// CohortPromoteTitle says "Promote %s"
+// in the language of msgs.
+func (msgs Messages) CohortPromoteTitle() string {
+	return Catalog.Format(msgs.locale, "cohortPromoteTitle", nil)
+}
+
+// CohortPromoteSubtitle says "Advance this cohort to the next grade phase and academic year."
+// in the language the app shows.
+func CohortPromoteSubtitle() string { return In(i18n.Locale()).CohortPromoteSubtitle() }
+
+// CohortPromoteSubtitle says "Advance this cohort to the next grade phase and academic year."
+// in the language of msgs.
+func (msgs Messages) CohortPromoteSubtitle() string {
+	return Catalog.Format(msgs.locale, "cohortPromoteSubtitle", nil)
+}
+
+// CohortPromoteTargetPhase says "Target phase"
+// in the language the app shows.
+func CohortPromoteTargetPhase() string { return In(i18n.Locale()).CohortPromoteTargetPhase() }
+
+// CohortPromoteTargetPhase says "Target phase"
+// in the language of msgs.
+func (msgs Messages) CohortPromoteTargetPhase() string {
+	return Catalog.Format(msgs.locale, "cohortPromoteTargetPhase", nil)
+}
+
+// CohortPromoteTargetYear says "Target academic year"
+// in the language the app shows.
+func CohortPromoteTargetYear() string { return In(i18n.Locale()).CohortPromoteTargetYear() }
+
+// CohortPromoteTargetYear says "Target academic year"
+// in the language of msgs.
+func (msgs Messages) CohortPromoteTargetYear() string {
+	return Catalog.Format(msgs.locale, "cohortPromoteTargetYear", nil)
+}
+
+// CohortPromoteModeLabel says "Transition mode"
+// in the language the app shows.
+func CohortPromoteModeLabel() string { return In(i18n.Locale()).CohortPromoteModeLabel() }
+
+// CohortPromoteModeLabel says "Transition mode"
+// in the language of msgs.
+func (msgs Messages) CohortPromoteModeLabel() string {
+	return Catalog.Format(msgs.locale, "cohortPromoteModeLabel", nil)
+}
+
+// CohortPromoteModeDirect says "Direct promotion (keep classes & teachers)"
+// in the language the app shows.
+func CohortPromoteModeDirect() string { return In(i18n.Locale()).CohortPromoteModeDirect() }
+
+// CohortPromoteModeDirect says "Direct promotion (keep classes & teachers)"
+// in the language of msgs.
+func (msgs Messages) CohortPromoteModeDirect() string {
+	return Catalog.Format(msgs.locale, "cohortPromoteModeDirect", nil)
+}
+
+// CohortPromoteModeDirectDesc says "Creates linked next-phase classes and carries over head teachers, admin groups and assignments."
+// in the language the app shows.
+func CohortPromoteModeDirectDesc() string { return In(i18n.Locale()).CohortPromoteModeDirectDesc() }
+
+// CohortPromoteModeDirectDesc says "Creates linked next-phase classes and carries over head teachers, admin groups and assignments."
+// in the language of msgs.
+func (msgs Messages) CohortPromoteModeDirectDesc() string {
+	return Catalog.Format(msgs.locale, "cohortPromoteModeDirectDesc", nil)
+}
+
+// CohortPromoteModeReclassify says "Reclassify by subject tracks"
+// in the language the app shows.
+func CohortPromoteModeReclassify() string { return In(i18n.Locale()).CohortPromoteModeReclassify() }
+
+// CohortPromoteModeReclassify says "Reclassify by subject tracks"
+// in the language of msgs.
+func (msgs Messages) CohortPromoteModeReclassify() string {
+	return Catalog.Format(msgs.locale, "cohortPromoteModeReclassify", nil)
+}
+
+// CohortPromoteModeReclassifyDesc says "Archives old-phase classes and assignments so the new phase starts with a clean structure."
+// in the language the app shows.
+func CohortPromoteModeReclassifyDesc() string {
+	return In(i18n.Locale()).CohortPromoteModeReclassifyDesc()
+}
+
+// CohortPromoteModeReclassifyDesc says "Archives old-phase classes and assignments so the new phase starts with a clean structure."
+// in the language of msgs.
+func (msgs Messages) CohortPromoteModeReclassifyDesc() string {
+	return Catalog.Format(msgs.locale, "cohortPromoteModeReclassifyDesc", nil)
+}
+
+// CohortPromoteConfirm says "Confirm promotion"
+// in the language the app shows.
+func CohortPromoteConfirm() string { return In(i18n.Locale()).CohortPromoteConfirm() }
+
+// CohortPromoteConfirm says "Confirm promotion"
+// in the language of msgs.
+func (msgs Messages) CohortPromoteConfirm() string {
+	return Catalog.Format(msgs.locale, "cohortPromoteConfirm", nil)
+}
+
+// CohortPromoteDoneToast says "Promoted %s to %s."
+// in the language the app shows.
+func CohortPromoteDoneToast() string { return In(i18n.Locale()).CohortPromoteDoneToast() }
+
+// CohortPromoteDoneToast says "Promoted %s to %s."
+// in the language of msgs.
+func (msgs Messages) CohortPromoteDoneToast() string {
+	return Catalog.Format(msgs.locale, "cohortPromoteDoneToast", nil)
+}
+
+// CohortGraduateTitle says "Graduate & archive %s"
+// in the language the app shows.
+func CohortGraduateTitle() string { return In(i18n.Locale()).CohortGraduateTitle() }
+
+// CohortGraduateTitle says "Graduate & archive %s"
+// in the language of msgs.
+func (msgs Messages) CohortGraduateTitle() string {
+	return Catalog.Format(msgs.locale, "cohortGraduateTitle", nil)
+}
+
+// CohortGraduateWarning says "Graduation archives all active students and closes all active teaching assignments for this cohort."
+// in the language the app shows.
+func CohortGraduateWarning() string { return In(i18n.Locale()).CohortGraduateWarning() }
+
+// CohortGraduateWarning says "Graduation archives all active students and closes all active teaching assignments for this cohort."
+// in the language of msgs.
+func (msgs Messages) CohortGraduateWarning() string {
+	return Catalog.Format(msgs.locale, "cohortGraduateWarning", nil)
+}
+
+// CohortGraduateImpactStudents says "Active students to archive"
+// in the language the app shows.
+func CohortGraduateImpactStudents() string { return In(i18n.Locale()).CohortGraduateImpactStudents() }
+
+// CohortGraduateImpactStudents says "Active students to archive"
+// in the language of msgs.
+func (msgs Messages) CohortGraduateImpactStudents() string {
+	return Catalog.Format(msgs.locale, "cohortGraduateImpactStudents", nil)
+}
+
+// CohortGraduateImpactExams says "Historical exams preserved"
+// in the language the app shows.
+func CohortGraduateImpactExams() string { return In(i18n.Locale()).CohortGraduateImpactExams() }
+
+// CohortGraduateImpactExams says "Historical exams preserved"
+// in the language of msgs.
+func (msgs Messages) CohortGraduateImpactExams() string {
+	return Catalog.Format(msgs.locale, "cohortGraduateImpactExams", nil)
+}
+
+// CohortGraduateReleasedIdle says "Teachers released back to Idle (%s)"
+// in the language the app shows.
+func CohortGraduateReleasedIdle() string { return In(i18n.Locale()).CohortGraduateReleasedIdle() }
+
+// CohortGraduateReleasedIdle says "Teachers released back to Idle (%s)"
+// in the language of msgs.
+func (msgs Messages) CohortGraduateReleasedIdle() string {
+	return Catalog.Format(msgs.locale, "cohortGraduateReleasedIdle", nil)
+}
+
+// CohortGraduateStillCross says "Teachers remaining Active in other cohorts (%s)"
+// in the language the app shows.
+func CohortGraduateStillCross() string { return In(i18n.Locale()).CohortGraduateStillCross() }
+
+// CohortGraduateStillCross says "Teachers remaining Active in other cohorts (%s)"
+// in the language of msgs.
+func (msgs Messages) CohortGraduateStillCross() string {
+	return Catalog.Format(msgs.locale, "cohortGraduateStillCross", nil)
+}
+
+// CohortGraduateNoneAffected says "None"
+// in the language the app shows.
+func CohortGraduateNoneAffected() string { return In(i18n.Locale()).CohortGraduateNoneAffected() }
+
+// CohortGraduateNoneAffected says "None"
+// in the language of msgs.
+func (msgs Messages) CohortGraduateNoneAffected() string {
+	return Catalog.Format(msgs.locale, "cohortGraduateNoneAffected", nil)
+}
+
+// CohortGraduateConfirm says "Confirm graduation"
+// in the language the app shows.
+func CohortGraduateConfirm() string { return In(i18n.Locale()).CohortGraduateConfirm() }
+
+// CohortGraduateConfirm says "Confirm graduation"
+// in the language of msgs.
+func (msgs Messages) CohortGraduateConfirm() string {
+	return Catalog.Format(msgs.locale, "cohortGraduateConfirm", nil)
+}
+
+// CohortGraduateDoneToast says "Graduated %s; released %s teachers to idle."
+// in the language the app shows.
+func CohortGraduateDoneToast() string { return In(i18n.Locale()).CohortGraduateDoneToast() }
+
+// CohortGraduateDoneToast says "Graduated %s; released %s teachers to idle."
+// in the language of msgs.
+func (msgs Messages) CohortGraduateDoneToast() string {
+	return Catalog.Format(msgs.locale, "cohortGraduateDoneToast", nil)
+}
+
+// CohortGraduatedAtLabel says "Graduated on %s"
+// in the language the app shows.
+func CohortGraduatedAtLabel() string { return In(i18n.Locale()).CohortGraduatedAtLabel() }
+
+// CohortGraduatedAtLabel says "Graduated on %s"
+// in the language of msgs.
+func (msgs Messages) CohortGraduatedAtLabel() string {
+	return Catalog.Format(msgs.locale, "cohortGraduatedAtLabel", nil)
+}
+
+// CohortNewClass says "New class"
+// in the language the app shows.
+func CohortNewClass() string { return In(i18n.Locale()).CohortNewClass() }
+
+// CohortNewClass says "New class"
+// in the language of msgs.
+func (msgs Messages) CohortNewClass() string {
+	return Catalog.Format(msgs.locale, "cohortNewClass", nil)
+}
+
+// CohortClassName says "Class name"
+// in the language the app shows.
+func CohortClassName() string { return In(i18n.Locale()).CohortClassName() }
+
+// CohortClassName says "Class name"
+// in the language of msgs.
+func (msgs Messages) CohortClassName() string {
+	return Catalog.Format(msgs.locale, "cohortClassName", nil)
+}
+
+// CohortClassTrackHint says "Track hint"
+// in the language the app shows.
+func CohortClassTrackHint() string { return In(i18n.Locale()).CohortClassTrackHint() }
+
+// CohortClassTrackHint says "Track hint"
+// in the language of msgs.
+func (msgs Messages) CohortClassTrackHint() string {
+	return Catalog.Format(msgs.locale, "cohortClassTrackHint", nil)
+}
+
+// CohortClassRoom says "Room"
+// in the language the app shows.
+func CohortClassRoom() string { return In(i18n.Locale()).CohortClassRoom() }
+
+// CohortClassRoom says "Room"
+// in the language of msgs.
+func (msgs Messages) CohortClassRoom() string {
+	return Catalog.Format(msgs.locale, "cohortClassRoom", nil)
+}
+
+// CohortClassContinuedFrom says "Continued from"
+// in the language the app shows.
+func CohortClassContinuedFrom() string { return In(i18n.Locale()).CohortClassContinuedFrom() }
+
+// CohortClassContinuedFrom says "Continued from"
+// in the language of msgs.
+func (msgs Messages) CohortClassContinuedFrom() string {
+	return Catalog.Format(msgs.locale, "cohortClassContinuedFrom", nil)
+}
+
+// CohortClassTrendBtn says "Trend chain"
+// in the language the app shows.
+func CohortClassTrendBtn() string { return In(i18n.Locale()).CohortClassTrendBtn() }
+
+// CohortClassTrendBtn says "Trend chain"
+// in the language of msgs.
+func (msgs Messages) CohortClassTrendBtn() string {
+	return Catalog.Format(msgs.locale, "cohortClassTrendBtn", nil)
+}
+
+// CohortClassSetHeadBtn says "Head teacher"
+// in the language the app shows.
+func CohortClassSetHeadBtn() string { return In(i18n.Locale()).CohortClassSetHeadBtn() }
+
+// CohortClassSetHeadBtn says "Head teacher"
+// in the language of msgs.
+func (msgs Messages) CohortClassSetHeadBtn() string {
+	return Catalog.Format(msgs.locale, "cohortClassSetHeadBtn", nil)
+}
+
+// CohortClassDeleteBtn says "Delete"
+// in the language the app shows.
+func CohortClassDeleteBtn() string { return In(i18n.Locale()).CohortClassDeleteBtn() }
+
+// CohortClassDeleteBtn says "Delete"
+// in the language of msgs.
+func (msgs Messages) CohortClassDeleteBtn() string {
+	return Catalog.Format(msgs.locale, "cohortClassDeleteBtn", nil)
+}
+
+// CohortClassTrendTitle says "Class inheritance chain & trend: %s"
+// in the language the app shows.
+func CohortClassTrendTitle() string { return In(i18n.Locale()).CohortClassTrendTitle() }
+
+// CohortClassTrendTitle says "Class inheritance chain & trend: %s"
+// in the language of msgs.
+func (msgs Messages) CohortClassTrendTitle() string {
+	return Catalog.Format(msgs.locale, "cohortClassTrendTitle", nil)
+}
+
+// CohortClassTrendChainLabel says "Inheritance chain"
+// in the language the app shows.
+func CohortClassTrendChainLabel() string { return In(i18n.Locale()).CohortClassTrendChainLabel() }
+
+// CohortClassTrendChainLabel says "Inheritance chain"
+// in the language of msgs.
+func (msgs Messages) CohortClassTrendChainLabel() string {
+	return Catalog.Format(msgs.locale, "cohortClassTrendChainLabel", nil)
+}
+
+// CohortClassTrendNoData says "No official exam results recorded along this class chain yet."
+// in the language the app shows.
+func CohortClassTrendNoData() string { return In(i18n.Locale()).CohortClassTrendNoData() }
+
+// CohortClassTrendNoData says "No official exam results recorded along this class chain yet."
+// in the language of msgs.
+func (msgs Messages) CohortClassTrendNoData() string {
+	return Catalog.Format(msgs.locale, "cohortClassTrendNoData", nil)
+}
+
+// CohortHeadTeacherModalTitle says "Set head teacher for %s"
+// in the language the app shows.
+func CohortHeadTeacherModalTitle() string { return In(i18n.Locale()).CohortHeadTeacherModalTitle() }
+
+// CohortHeadTeacherModalTitle says "Set head teacher for %s"
+// in the language of msgs.
+func (msgs Messages) CohortHeadTeacherModalTitle() string {
+	return Catalog.Format(msgs.locale, "cohortHeadTeacherModalTitle", nil)
+}
+
+// CohortTeacherSelectLabel says "Select teacher"
+// in the language the app shows.
+func CohortTeacherSelectLabel() string { return In(i18n.Locale()).CohortTeacherSelectLabel() }
+
+// CohortTeacherSelectLabel says "Select teacher"
+// in the language of msgs.
+func (msgs Messages) CohortTeacherSelectLabel() string {
+	return Catalog.Format(msgs.locale, "cohortTeacherSelectLabel", nil)
+}
+
+// CohortClassCreatedToast says "Created class %s."
+// in the language the app shows.
+func CohortClassCreatedToast() string { return In(i18n.Locale()).CohortClassCreatedToast() }
+
+// CohortClassCreatedToast says "Created class %s."
+// in the language of msgs.
+func (msgs Messages) CohortClassCreatedToast() string {
+	return Catalog.Format(msgs.locale, "cohortClassCreatedToast", nil)
+}
+
+// CohortClassDeletedToast says "Deleted class %s."
+// in the language the app shows.
+func CohortClassDeletedToast() string { return In(i18n.Locale()).CohortClassDeletedToast() }
+
+// CohortClassDeletedToast says "Deleted class %s."
+// in the language of msgs.
+func (msgs Messages) CohortClassDeletedToast() string {
+	return Catalog.Format(msgs.locale, "cohortClassDeletedToast", nil)
+}
+
+// CohortHeadTeacherSavedToast says "Updated head teacher for %s."
+// in the language the app shows.
+func CohortHeadTeacherSavedToast() string { return In(i18n.Locale()).CohortHeadTeacherSavedToast() }
+
+// CohortHeadTeacherSavedToast says "Updated head teacher for %s."
+// in the language of msgs.
+func (msgs Messages) CohortHeadTeacherSavedToast() string {
+	return Catalog.Format(msgs.locale, "cohortHeadTeacherSavedToast", nil)
+}
+
+// CohortWalkingGroupsTitle says "Walking teaching groups"
+// in the language the app shows.
+func CohortWalkingGroupsTitle() string { return In(i18n.Locale()).CohortWalkingGroupsTitle() }
+
+// CohortWalkingGroupsTitle says "Walking teaching groups"
+// in the language of msgs.
+func (msgs Messages) CohortWalkingGroupsTitle() string {
+	return Catalog.Format(msgs.locale, "cohortWalkingGroupsTitle", nil)
+}
+
+// CohortNewWalkingGroup says "New walking group"
+// in the language the app shows.
+func CohortNewWalkingGroup() string { return In(i18n.Locale()).CohortNewWalkingGroup() }
+
+// CohortNewWalkingGroup says "New walking group"
+// in the language of msgs.
+func (msgs Messages) CohortNewWalkingGroup() string {
+	return Catalog.Format(msgs.locale, "cohortNewWalkingGroup", nil)
+}
+
+// CohortWalkingGroupName says "Group name"
+// in the language the app shows.
+func CohortWalkingGroupName() string { return In(i18n.Locale()).CohortWalkingGroupName() }
+
+// CohortWalkingGroupName says "Group name"
+// in the language of msgs.
+func (msgs Messages) CohortWalkingGroupName() string {
+	return Catalog.Format(msgs.locale, "cohortWalkingGroupName", nil)
+}
+
+// CohortWalkingManageStudents says "Manage students"
+// in the language the app shows.
+func CohortWalkingManageStudents() string { return In(i18n.Locale()).CohortWalkingManageStudents() }
+
+// CohortWalkingManageStudents says "Manage students"
+// in the language of msgs.
+func (msgs Messages) CohortWalkingManageStudents() string {
+	return Catalog.Format(msgs.locale, "cohortWalkingManageStudents", nil)
+}
+
+// CohortWalkingStudentsTitle says "Walking group students: %s"
+// in the language the app shows.
+func CohortWalkingStudentsTitle() string { return In(i18n.Locale()).CohortWalkingStudentsTitle() }
+
+// CohortWalkingStudentsTitle says "Walking group students: %s"
+// in the language of msgs.
+func (msgs Messages) CohortWalkingStudentsTitle() string {
+	return Catalog.Format(msgs.locale, "cohortWalkingStudentsTitle", nil)
+}
+
+// CohortWalkingAddStudent says "Add student to group"
+// in the language the app shows.
+func CohortWalkingAddStudent() string { return In(i18n.Locale()).CohortWalkingAddStudent() }
+
+// CohortWalkingAddStudent says "Add student to group"
+// in the language of msgs.
+func (msgs Messages) CohortWalkingAddStudent() string {
+	return Catalog.Format(msgs.locale, "cohortWalkingAddStudent", nil)
+}
+
+// CohortWalkingRemoveStudent says "Remove"
+// in the language the app shows.
+func CohortWalkingRemoveStudent() string { return In(i18n.Locale()).CohortWalkingRemoveStudent() }
+
+// CohortWalkingRemoveStudent says "Remove"
+// in the language of msgs.
+func (msgs Messages) CohortWalkingRemoveStudent() string {
+	return Catalog.Format(msgs.locale, "cohortWalkingRemoveStudent", nil)
+}
+
+// CohortWalkingGroupCreatedToast says "Created walking group %s."
+// in the language the app shows.
+func CohortWalkingGroupCreatedToast() string {
+	return In(i18n.Locale()).CohortWalkingGroupCreatedToast()
+}
+
+// CohortWalkingGroupCreatedToast says "Created walking group %s."
+// in the language of msgs.
+func (msgs Messages) CohortWalkingGroupCreatedToast() string {
+	return Catalog.Format(msgs.locale, "cohortWalkingGroupCreatedToast", nil)
+}
+
+// CohortNewStudent says "Add student"
+// in the language the app shows.
+func CohortNewStudent() string { return In(i18n.Locale()).CohortNewStudent() }
+
+// CohortNewStudent says "Add student"
+// in the language of msgs.
+func (msgs Messages) CohortNewStudent() string {
+	return Catalog.Format(msgs.locale, "cohortNewStudent", nil)
+}
+
+// CohortStudentCreatedToast says "Added student %s."
+// in the language the app shows.
+func CohortStudentCreatedToast() string { return In(i18n.Locale()).CohortStudentCreatedToast() }
+
+// CohortStudentCreatedToast says "Added student %s."
+// in the language of msgs.
+func (msgs Messages) CohortStudentCreatedToast() string {
+	return Catalog.Format(msgs.locale, "cohortStudentCreatedToast", nil)
+}
+
+// StudentProfilePreviousLink says "Previously enrolled in %s · View original archive (%s)"
+// in the language the app shows.
+func StudentProfilePreviousLink() string { return In(i18n.Locale()).StudentProfilePreviousLink() }
+
+// StudentProfilePreviousLink says "Previously enrolled in %s · View original archive (%s)"
+// in the language of msgs.
+func (msgs Messages) StudentProfilePreviousLink() string {
+	return Catalog.Format(msgs.locale, "studentProfilePreviousLink", nil)
+}
+
+// StudentProfileEntryTotal says "Entry total"
+// in the language the app shows.
+func StudentProfileEntryTotal() string { return In(i18n.Locale()).StudentProfileEntryTotal() }
+
+// StudentProfileEntryTotal says "Entry total"
+// in the language of msgs.
+func (msgs Messages) StudentProfileEntryTotal() string {
+	return Catalog.Format(msgs.locale, "studentProfileEntryTotal", nil)
+}
+
+// StudentProfileExamCount says "Exams taken"
+// in the language the app shows.
+func StudentProfileExamCount() string { return In(i18n.Locale()).StudentProfileExamCount() }
+
+// StudentProfileExamCount says "Exams taken"
+// in the language of msgs.
+func (msgs Messages) StudentProfileExamCount() string {
+	return Catalog.Format(msgs.locale, "studentProfileExamCount", nil)
+}
+
+// StudentProfileForeignLang says "Foreign language"
+// in the language the app shows.
+func StudentProfileForeignLang() string { return In(i18n.Locale()).StudentProfileForeignLang() }
+
+// StudentProfileForeignLang says "Foreign language"
+// in the language of msgs.
+func (msgs Messages) StudentProfileForeignLang() string {
+	return Catalog.Format(msgs.locale, "studentProfileForeignLang", nil)
+}
+
+// StudentProfileElective says "Elective combo"
+// in the language the app shows.
+func StudentProfileElective() string { return In(i18n.Locale()).StudentProfileElective() }
+
+// StudentProfileElective says "Elective combo"
+// in the language of msgs.
+func (msgs Messages) StudentProfileElective() string {
+	return Catalog.Format(msgs.locale, "studentProfileElective", nil)
+}
+
+// StudentProfileCandidateCode says "Candidate code"
+// in the language the app shows.
+func StudentProfileCandidateCode() string { return In(i18n.Locale()).StudentProfileCandidateCode() }
+
+// StudentProfileCandidateCode says "Candidate code"
+// in the language of msgs.
+func (msgs Messages) StudentProfileCandidateCode() string {
+	return Catalog.Format(msgs.locale, "studentProfileCandidateCode", nil)
+}
+
+// StudentProfileRecordEvent says "Record status / class event"
+// in the language the app shows.
+func StudentProfileRecordEvent() string { return In(i18n.Locale()).StudentProfileRecordEvent() }
+
+// StudentProfileRecordEvent says "Record status / class event"
+// in the language of msgs.
+func (msgs Messages) StudentProfileRecordEvent() string {
+	return Catalog.Format(msgs.locale, "studentProfileRecordEvent", nil)
+}
+
+// StudentProfileExportExcel says "Export profile Excel"
+// in the language the app shows.
+func StudentProfileExportExcel() string { return In(i18n.Locale()).StudentProfileExportExcel() }
+
+// StudentProfileExportExcel says "Export profile Excel"
+// in the language of msgs.
+func (msgs Messages) StudentProfileExportExcel() string {
+	return Catalog.Format(msgs.locale, "studentProfileExportExcel", nil)
+}
+
+// StudentProfileExportFile says "%s-%s-3Year-Profile.xlsx"
+// in the language the app shows.
+func StudentProfileExportFile() string { return In(i18n.Locale()).StudentProfileExportFile() }
+
+// StudentProfileExportFile says "%s-%s-3Year-Profile.xlsx"
+// in the language of msgs.
+func (msgs Messages) StudentProfileExportFile() string {
+	return Catalog.Format(msgs.locale, "studentProfileExportFile", nil)
+}
+
+// StudentProfileExportSavedToast says "Exported student profile to %s."
+// in the language the app shows.
+func StudentProfileExportSavedToast() string {
+	return In(i18n.Locale()).StudentProfileExportSavedToast()
+}
+
+// StudentProfileExportSavedToast says "Exported student profile to %s."
+// in the language of msgs.
+func (msgs Messages) StudentProfileExportSavedToast() string {
+	return Catalog.Format(msgs.locale, "studentProfileExportSavedToast", nil)
+}
+
+// StudentProfileEntryAnchor says "Entry"
+// in the language the app shows.
+func StudentProfileEntryAnchor() string { return In(i18n.Locale()).StudentProfileEntryAnchor() }
+
+// StudentProfileEntryAnchor says "Entry"
+// in the language of msgs.
+func (msgs Messages) StudentProfileEntryAnchor() string {
+	return Catalog.Format(msgs.locale, "studentProfileEntryAnchor", nil)
+}
+
+// StudentProfileEntrySummaryTitle says "Entry baseline scores"
+// in the language the app shows.
+func StudentProfileEntrySummaryTitle() string {
+	return In(i18n.Locale()).StudentProfileEntrySummaryTitle()
+}
+
+// StudentProfileEntrySummaryTitle says "Entry baseline scores"
+// in the language of msgs.
+func (msgs Messages) StudentProfileEntrySummaryTitle() string {
+	return Catalog.Format(msgs.locale, "studentProfileEntrySummaryTitle", nil)
+}
+
+// StudentProfileTrendTitle says "Three-year score & rank trend"
+// in the language the app shows.
+func StudentProfileTrendTitle() string { return In(i18n.Locale()).StudentProfileTrendTitle() }
+
+// StudentProfileTrendTitle says "Three-year score & rank trend"
+// in the language of msgs.
+func (msgs Messages) StudentProfileTrendTitle() string {
+	return Catalog.Format(msgs.locale, "studentProfileTrendTitle", nil)
+}
+
+// StudentProfileTrendHintRank says "Higher position on the chart indicates a better rank (#1 at top)."
+// in the language the app shows.
+func StudentProfileTrendHintRank() string { return In(i18n.Locale()).StudentProfileTrendHintRank() }
+
+// StudentProfileTrendHintRank says "Higher position on the chart indicates a better rank (#1 at top)."
+// in the language of msgs.
+func (msgs Messages) StudentProfileTrendHintRank() string {
+	return Catalog.Format(msgs.locale, "studentProfileTrendHintRank", nil)
+}
+
+// StudentProfileTrendHintScore says "Includes entry baseline anchor and chronological exams across G1–G3."
+// in the language the app shows.
+func StudentProfileTrendHintScore() string { return In(i18n.Locale()).StudentProfileTrendHintScore() }
+
+// StudentProfileTrendHintScore says "Includes entry baseline anchor and chronological exams across G1–G3."
+// in the language of msgs.
+func (msgs Messages) StudentProfileTrendHintScore() string {
+	return Catalog.Format(msgs.locale, "studentProfileTrendHintScore", nil)
+}
+
+// StudentProfileMetricGradeRank says "Grade rank"
+// in the language the app shows.
+func StudentProfileMetricGradeRank() string { return In(i18n.Locale()).StudentProfileMetricGradeRank() }
+
+// StudentProfileMetricGradeRank says "Grade rank"
+// in the language of msgs.
+func (msgs Messages) StudentProfileMetricGradeRank() string {
+	return Catalog.Format(msgs.locale, "studentProfileMetricGradeRank", nil)
+}
+
+// StudentProfileMetricTrackRank says "Track rank"
+// in the language the app shows.
+func StudentProfileMetricTrackRank() string { return In(i18n.Locale()).StudentProfileMetricTrackRank() }
+
+// StudentProfileMetricTrackRank says "Track rank"
+// in the language of msgs.
+func (msgs Messages) StudentProfileMetricTrackRank() string {
+	return Catalog.Format(msgs.locale, "studentProfileMetricTrackRank", nil)
+}
+
+// StudentProfileMetricTotalScore says "Total score"
+// in the language the app shows.
+func StudentProfileMetricTotalScore() string {
+	return In(i18n.Locale()).StudentProfileMetricTotalScore()
+}
+
+// StudentProfileMetricTotalScore says "Total score"
+// in the language of msgs.
+func (msgs Messages) StudentProfileMetricTotalScore() string {
+	return Catalog.Format(msgs.locale, "studentProfileMetricTotalScore", nil)
+}
+
+// StudentProfileMetricSubject says "Subject scores"
+// in the language the app shows.
+func StudentProfileMetricSubject() string { return In(i18n.Locale()).StudentProfileMetricSubject() }
+
+// StudentProfileMetricSubject says "Subject scores"
+// in the language of msgs.
+func (msgs Messages) StudentProfileMetricSubject() string {
+	return Catalog.Format(msgs.locale, "studentProfileMetricSubject", nil)
+}
+
+// StudentProfileSelectSubjects says "Select subjects"
+// in the language the app shows.
+func StudentProfileSelectSubjects() string { return In(i18n.Locale()).StudentProfileSelectSubjects() }
+
+// StudentProfileSelectSubjects says "Select subjects"
+// in the language of msgs.
+func (msgs Messages) StudentProfileSelectSubjects() string {
+	return Catalog.Format(msgs.locale, "studentProfileSelectSubjects", nil)
+}
+
+// StudentProfileBestRank says "Best rank"
+// in the language the app shows.
+func StudentProfileBestRank() string { return In(i18n.Locale()).StudentProfileBestRank() }
+
+// StudentProfileBestRank says "Best rank"
+// in the language of msgs.
+func (msgs Messages) StudentProfileBestRank() string {
+	return Catalog.Format(msgs.locale, "studentProfileBestRank", nil)
+}
+
+// StudentProfileLatestRank says "Latest rank"
+// in the language the app shows.
+func StudentProfileLatestRank() string { return In(i18n.Locale()).StudentProfileLatestRank() }
+
+// StudentProfileLatestRank says "Latest rank"
+// in the language of msgs.
+func (msgs Messages) StudentProfileLatestRank() string {
+	return Catalog.Format(msgs.locale, "studentProfileLatestRank", nil)
+}
+
+// StudentProfileChangePrev says "Vs previous"
+// in the language the app shows.
+func StudentProfileChangePrev() string { return In(i18n.Locale()).StudentProfileChangePrev() }
+
+// StudentProfileChangePrev says "Vs previous"
+// in the language of msgs.
+func (msgs Messages) StudentProfileChangePrev() string {
+	return Catalog.Format(msgs.locale, "studentProfileChangePrev", nil)
+}
+
+// StudentProfileHighestScore says "Highest score"
+// in the language the app shows.
+func StudentProfileHighestScore() string { return In(i18n.Locale()).StudentProfileHighestScore() }
+
+// StudentProfileHighestScore says "Highest score"
+// in the language of msgs.
+func (msgs Messages) StudentProfileHighestScore() string {
+	return Catalog.Format(msgs.locale, "studentProfileHighestScore", nil)
+}
+
+// StudentProfileLatestScore says "Latest score"
+// in the language the app shows.
+func StudentProfileLatestScore() string { return In(i18n.Locale()).StudentProfileLatestScore() }
+
+// StudentProfileLatestScore says "Latest score"
+// in the language of msgs.
+func (msgs Messages) StudentProfileLatestScore() string {
+	return Catalog.Format(msgs.locale, "studentProfileLatestScore", nil)
+}
+
+// StudentProfileAverageScore says "Average score"
+// in the language the app shows.
+func StudentProfileAverageScore() string { return In(i18n.Locale()).StudentProfileAverageScore() }
+
+// StudentProfileAverageScore says "Average score"
+// in the language of msgs.
+func (msgs Messages) StudentProfileAverageScore() string {
+	return Catalog.Format(msgs.locale, "studentProfileAverageScore", nil)
+}
+
+// StudentProfileChangeUp says "Up %s"
+// in the language the app shows.
+func StudentProfileChangeUp() string { return In(i18n.Locale()).StudentProfileChangeUp() }
+
+// StudentProfileChangeUp says "Up %s"
+// in the language of msgs.
+func (msgs Messages) StudentProfileChangeUp() string {
+	return Catalog.Format(msgs.locale, "studentProfileChangeUp", nil)
+}
+
+// StudentProfileChangeDown says "Down %s"
+// in the language the app shows.
+func StudentProfileChangeDown() string { return In(i18n.Locale()).StudentProfileChangeDown() }
+
+// StudentProfileChangeDown says "Down %s"
+// in the language of msgs.
+func (msgs Messages) StudentProfileChangeDown() string {
+	return Catalog.Format(msgs.locale, "studentProfileChangeDown", nil)
+}
+
+// StudentProfileChangeSame says "Unchanged"
+// in the language the app shows.
+func StudentProfileChangeSame() string { return In(i18n.Locale()).StudentProfileChangeSame() }
+
+// StudentProfileChangeSame says "Unchanged"
+// in the language of msgs.
+func (msgs Messages) StudentProfileChangeSame() string {
+	return Catalog.Format(msgs.locale, "studentProfileChangeSame", nil)
+}
+
+// StudentProfileRankValue says "#%s"
+// in the language the app shows.
+func StudentProfileRankValue() string { return In(i18n.Locale()).StudentProfileRankValue() }
+
+// StudentProfileRankValue says "#%s"
+// in the language of msgs.
+func (msgs Messages) StudentProfileRankValue() string {
+	return Catalog.Format(msgs.locale, "studentProfileRankValue", nil)
+}
+
+// StudentProfileRankOutOf says "#%s / %s"
+// in the language the app shows.
+func StudentProfileRankOutOf() string { return In(i18n.Locale()).StudentProfileRankOutOf() }
+
+// StudentProfileRankOutOf says "#%s / %s"
+// in the language of msgs.
+func (msgs Messages) StudentProfileRankOutOf() string {
+	return Catalog.Format(msgs.locale, "studentProfileRankOutOf", nil)
+}
+
+// StudentProfileChartEmpty says "No exam or entry records available for this metric yet."
+// in the language the app shows.
+func StudentProfileChartEmpty() string { return In(i18n.Locale()).StudentProfileChartEmpty() }
+
+// StudentProfileChartEmpty says "No exam or entry records available for this metric yet."
+// in the language of msgs.
+func (msgs Messages) StudentProfileChartEmpty() string {
+	return Catalog.Format(msgs.locale, "studentProfileChartEmpty", nil)
+}
+
+// StudentProfileExamTableTitle says "Exam history & score breakdown"
+// in the language the app shows.
+func StudentProfileExamTableTitle() string { return In(i18n.Locale()).StudentProfileExamTableTitle() }
+
+// StudentProfileExamTableTitle says "Exam history & score breakdown"
+// in the language of msgs.
+func (msgs Messages) StudentProfileExamTableTitle() string {
+	return Catalog.Format(msgs.locale, "studentProfileExamTableTitle", nil)
+}
+
+// StudentProfileExamTableEmpty says "No exam records for this student yet."
+// in the language the app shows.
+func StudentProfileExamTableEmpty() string { return In(i18n.Locale()).StudentProfileExamTableEmpty() }
+
+// StudentProfileExamTableEmpty says "No exam records for this student yet."
+// in the language of msgs.
+func (msgs Messages) StudentProfileExamTableEmpty() string {
+	return Catalog.Format(msgs.locale, "studentProfileExamTableEmpty", nil)
+}
+
+// StudentProfileExamDetailTitle says "Subject breakdown: %s"
+// in the language the app shows.
+func StudentProfileExamDetailTitle() string { return In(i18n.Locale()).StudentProfileExamDetailTitle() }
+
+// StudentProfileExamDetailTitle says "Subject breakdown: %s"
+// in the language of msgs.
+func (msgs Messages) StudentProfileExamDetailTitle() string {
+	return Catalog.Format(msgs.locale, "studentProfileExamDetailTitle", nil)
+}
+
+// StudentProfileOpenExamBtn says "Open exam details"
+// in the language the app shows.
+func StudentProfileOpenExamBtn() string { return In(i18n.Locale()).StudentProfileOpenExamBtn() }
+
+// StudentProfileOpenExamBtn says "Open exam details"
+// in the language of msgs.
+func (msgs Messages) StudentProfileOpenExamBtn() string {
+	return Catalog.Format(msgs.locale, "studentProfileOpenExamBtn", nil)
+}
+
+// StudentProfileColPhase says "Phase"
+// in the language the app shows.
+func StudentProfileColPhase() string { return In(i18n.Locale()).StudentProfileColPhase() }
+
+// StudentProfileColPhase says "Phase"
+// in the language of msgs.
+func (msgs Messages) StudentProfileColPhase() string {
+	return Catalog.Format(msgs.locale, "studentProfileColPhase", nil)
+}
+
+// StudentProfileColExam says "Exam & date"
+// in the language the app shows.
+func StudentProfileColExam() string { return In(i18n.Locale()).StudentProfileColExam() }
+
+// StudentProfileColExam says "Exam & date"
+// in the language of msgs.
+func (msgs Messages) StudentProfileColExam() string {
+	return Catalog.Format(msgs.locale, "studentProfileColExam", nil)
+}
+
+// StudentProfileColClassSnapshot says "Class at exam"
+// in the language the app shows.
+func StudentProfileColClassSnapshot() string {
+	return In(i18n.Locale()).StudentProfileColClassSnapshot()
+}
+
+// StudentProfileColClassSnapshot says "Class at exam"
+// in the language of msgs.
+func (msgs Messages) StudentProfileColClassSnapshot() string {
+	return Catalog.Format(msgs.locale, "studentProfileColClassSnapshot", nil)
+}
+
+// StudentProfileColGradeRank says "Grade rank"
+// in the language the app shows.
+func StudentProfileColGradeRank() string { return In(i18n.Locale()).StudentProfileColGradeRank() }
+
+// StudentProfileColGradeRank says "Grade rank"
+// in the language of msgs.
+func (msgs Messages) StudentProfileColGradeRank() string {
+	return Catalog.Format(msgs.locale, "studentProfileColGradeRank", nil)
+}
+
+// StudentProfileColTrackRank says "Track rank"
+// in the language the app shows.
+func StudentProfileColTrackRank() string { return In(i18n.Locale()).StudentProfileColTrackRank() }
+
+// StudentProfileColTrackRank says "Track rank"
+// in the language of msgs.
+func (msgs Messages) StudentProfileColTrackRank() string {
+	return Catalog.Format(msgs.locale, "studentProfileColTrackRank", nil)
+}
+
+// StudentProfileColClassRank says "Class rank"
+// in the language the app shows.
+func StudentProfileColClassRank() string { return In(i18n.Locale()).StudentProfileColClassRank() }
+
+// StudentProfileColClassRank says "Class rank"
+// in the language of msgs.
+func (msgs Messages) StudentProfileColClassRank() string {
+	return Catalog.Format(msgs.locale, "studentProfileColClassRank", nil)
+}
+
+// StudentProfileColSubjects says "Subjects"
+// in the language the app shows.
+func StudentProfileColSubjects() string { return In(i18n.Locale()).StudentProfileColSubjects() }
+
+// StudentProfileColSubjects says "Subjects"
+// in the language of msgs.
+func (msgs Messages) StudentProfileColSubjects() string {
+	return Catalog.Format(msgs.locale, "studentProfileColSubjects", nil)
+}
+
+// StudentProfileSubjectRankLabel says "Rank #%s"
+// in the language the app shows.
+func StudentProfileSubjectRankLabel() string {
+	return In(i18n.Locale()).StudentProfileSubjectRankLabel()
+}
+
+// StudentProfileSubjectRankLabel says "Rank #%s"
+// in the language of msgs.
+func (msgs Messages) StudentProfileSubjectRankLabel() string {
+	return Catalog.Format(msgs.locale, "studentProfileSubjectRankLabel", nil)
+}
+
+// StudentProfileEventsTitle says "Enrollment & class change timeline"
+// in the language the app shows.
+func StudentProfileEventsTitle() string { return In(i18n.Locale()).StudentProfileEventsTitle() }
+
+// StudentProfileEventsTitle says "Enrollment & class change timeline"
+// in the language of msgs.
+func (msgs Messages) StudentProfileEventsTitle() string {
+	return Catalog.Format(msgs.locale, "studentProfileEventsTitle", nil)
+}
+
+// StudentProfileEventsEmpty says "No enrollment or class change events recorded yet."
+// in the language the app shows.
+func StudentProfileEventsEmpty() string { return In(i18n.Locale()).StudentProfileEventsEmpty() }
+
+// StudentProfileEventsEmpty says "No enrollment or class change events recorded yet."
+// in the language of msgs.
+func (msgs Messages) StudentProfileEventsEmpty() string {
+	return Catalog.Format(msgs.locale, "studentProfileEventsEmpty", nil)
+}
+
+// StudentEventTypeEnrolled says "Enrolled"
+// in the language the app shows.
+func StudentEventTypeEnrolled() string { return In(i18n.Locale()).StudentEventTypeEnrolled() }
+
+// StudentEventTypeEnrolled says "Enrolled"
+// in the language of msgs.
+func (msgs Messages) StudentEventTypeEnrolled() string {
+	return Catalog.Format(msgs.locale, "studentEventTypeEnrolled", nil)
+}
+
+// StudentEventTypePromoted says "Promoted"
+// in the language the app shows.
+func StudentEventTypePromoted() string { return In(i18n.Locale()).StudentEventTypePromoted() }
+
+// StudentEventTypePromoted says "Promoted"
+// in the language of msgs.
+func (msgs Messages) StudentEventTypePromoted() string {
+	return Catalog.Format(msgs.locale, "studentEventTypePromoted", nil)
+}
+
+// StudentEventTypeClassChanged says "Class changed"
+// in the language the app shows.
+func StudentEventTypeClassChanged() string { return In(i18n.Locale()).StudentEventTypeClassChanged() }
+
+// StudentEventTypeClassChanged says "Class changed"
+// in the language of msgs.
+func (msgs Messages) StudentEventTypeClassChanged() string {
+	return Catalog.Format(msgs.locale, "studentEventTypeClassChanged", nil)
+}
+
+// StudentEventTypeTrackChanged says "Track changed"
+// in the language the app shows.
+func StudentEventTypeTrackChanged() string { return In(i18n.Locale()).StudentEventTypeTrackChanged() }
+
+// StudentEventTypeTrackChanged says "Track changed"
+// in the language of msgs.
+func (msgs Messages) StudentEventTypeTrackChanged() string {
+	return Catalog.Format(msgs.locale, "studentEventTypeTrackChanged", nil)
+}
+
+// StudentEventTypeStatusChanged says "Status changed"
+// in the language the app shows.
+func StudentEventTypeStatusChanged() string { return In(i18n.Locale()).StudentEventTypeStatusChanged() }
+
+// StudentEventTypeStatusChanged says "Status changed"
+// in the language of msgs.
+func (msgs Messages) StudentEventTypeStatusChanged() string {
+	return Catalog.Format(msgs.locale, "studentEventTypeStatusChanged", nil)
+}
+
+// StudentEventTypeMerged says "Merged"
+// in the language the app shows.
+func StudentEventTypeMerged() string { return In(i18n.Locale()).StudentEventTypeMerged() }
+
+// StudentEventTypeMerged says "Merged"
+// in the language of msgs.
+func (msgs Messages) StudentEventTypeMerged() string {
+	return Catalog.Format(msgs.locale, "studentEventTypeMerged", nil)
+}
+
+// StudentEventTypeGraduated says "Graduated"
+// in the language the app shows.
+func StudentEventTypeGraduated() string { return In(i18n.Locale()).StudentEventTypeGraduated() }
+
+// StudentEventTypeGraduated says "Graduated"
+// in the language of msgs.
+func (msgs Messages) StudentEventTypeGraduated() string {
+	return Catalog.Format(msgs.locale, "studentEventTypeGraduated", nil)
+}
+
+// StudentEventModalTitle says "Record enrollment / class event"
+// in the language the app shows.
+func StudentEventModalTitle() string { return In(i18n.Locale()).StudentEventModalTitle() }
+
+// StudentEventModalTitle says "Record enrollment / class event"
+// in the language of msgs.
+func (msgs Messages) StudentEventModalTitle() string {
+	return Catalog.Format(msgs.locale, "studentEventModalTitle", nil)
+}
+
+// StudentEventTypeLabel says "Event type"
+// in the language the app shows.
+func StudentEventTypeLabel() string { return In(i18n.Locale()).StudentEventTypeLabel() }
+
+// StudentEventTypeLabel says "Event type"
+// in the language of msgs.
+func (msgs Messages) StudentEventTypeLabel() string {
+	return Catalog.Format(msgs.locale, "studentEventTypeLabel", nil)
+}
+
+// StudentEventTargetClass says "Target class"
+// in the language the app shows.
+func StudentEventTargetClass() string { return In(i18n.Locale()).StudentEventTargetClass() }
+
+// StudentEventTargetClass says "Target class"
+// in the language of msgs.
+func (msgs Messages) StudentEventTargetClass() string {
+	return Catalog.Format(msgs.locale, "studentEventTargetClass", nil)
+}
+
+// StudentEventTargetTrack says "Target track"
+// in the language the app shows.
+func StudentEventTargetTrack() string { return In(i18n.Locale()).StudentEventTargetTrack() }
+
+// StudentEventTargetTrack says "Target track"
+// in the language of msgs.
+func (msgs Messages) StudentEventTargetTrack() string {
+	return Catalog.Format(msgs.locale, "studentEventTargetTrack", nil)
+}
+
+// StudentEventTargetElective says "Elective combo"
+// in the language the app shows.
+func StudentEventTargetElective() string { return In(i18n.Locale()).StudentEventTargetElective() }
+
+// StudentEventTargetElective says "Elective combo"
+// in the language of msgs.
+func (msgs Messages) StudentEventTargetElective() string {
+	return Catalog.Format(msgs.locale, "studentEventTargetElective", nil)
+}
+
+// StudentEventTargetForeignLang says "Foreign language"
+// in the language the app shows.
+func StudentEventTargetForeignLang() string { return In(i18n.Locale()).StudentEventTargetForeignLang() }
+
+// StudentEventTargetForeignLang says "Foreign language"
+// in the language of msgs.
+func (msgs Messages) StudentEventTargetForeignLang() string {
+	return Catalog.Format(msgs.locale, "studentEventTargetForeignLang", nil)
+}
+
+// StudentEventTargetStatus says "Target status"
+// in the language the app shows.
+func StudentEventTargetStatus() string { return In(i18n.Locale()).StudentEventTargetStatus() }
+
+// StudentEventTargetStatus says "Target status"
+// in the language of msgs.
+func (msgs Messages) StudentEventTargetStatus() string {
+	return Catalog.Format(msgs.locale, "studentEventTargetStatus", nil)
+}
+
+// StudentEventNoteLabel says "Note"
+// in the language the app shows.
+func StudentEventNoteLabel() string { return In(i18n.Locale()).StudentEventNoteLabel() }
+
+// StudentEventNoteLabel says "Note"
+// in the language of msgs.
+func (msgs Messages) StudentEventNoteLabel() string {
+	return Catalog.Format(msgs.locale, "studentEventNoteLabel", nil)
+}
+
+// StudentEventSavedToast says "Recorded event and updated student profile."
+// in the language the app shows.
+func StudentEventSavedToast() string { return In(i18n.Locale()).StudentEventSavedToast() }
+
+// StudentEventSavedToast says "Recorded event and updated student profile."
+// in the language of msgs.
+func (msgs Messages) StudentEventSavedToast() string {
+	return Catalog.Format(msgs.locale, "studentEventSavedToast", nil)
+}
+
+// StudentEventTransition says "%s -> %s"
+// in the language the app shows.
+func StudentEventTransition() string { return In(i18n.Locale()).StudentEventTransition() }
+
+// StudentEventTransition says "%s -> %s"
+// in the language of msgs.
+func (msgs Messages) StudentEventTransition() string {
+	return Catalog.Format(msgs.locale, "studentEventTransition", nil)
+}
+
+// StudentStatusGraduated says "Graduated"
+// in the language the app shows.
+func StudentStatusGraduated() string { return In(i18n.Locale()).StudentStatusGraduated() }
+
+// StudentStatusGraduated says "Graduated"
+// in the language of msgs.
+func (msgs Messages) StudentStatusGraduated() string {
+	return Catalog.Format(msgs.locale, "studentStatusGraduated", nil)
+}
+
+// StudentProfileLoading says "Loading student three-year profile…"
+// in the language the app shows.
+func StudentProfileLoading() string { return In(i18n.Locale()).StudentProfileLoading() }
+
+// StudentProfileLoading says "Loading student three-year profile…"
+// in the language of msgs.
+func (msgs Messages) StudentProfileLoading() string {
+	return Catalog.Format(msgs.locale, "studentProfileLoading", nil)
+}
+
+// StudentProfileLoadErrorTitle says "Could not load student profile"
+// in the language the app shows.
+func StudentProfileLoadErrorTitle() string { return In(i18n.Locale()).StudentProfileLoadErrorTitle() }
+
+// StudentProfileLoadErrorTitle says "Could not load student profile"
+// in the language of msgs.
+func (msgs Messages) StudentProfileLoadErrorTitle() string {
+	return Catalog.Format(msgs.locale, "studentProfileLoadErrorTitle", nil)
+}
+
+// StudentProfileLoadErrorDetail says "The student profile may have been removed or could not be read from the database."
+// in the language the app shows.
+func StudentProfileLoadErrorDetail() string { return In(i18n.Locale()).StudentProfileLoadErrorDetail() }
+
+// StudentProfileLoadErrorDetail says "The student profile may have been removed or could not be read from the database."
+// in the language of msgs.
+func (msgs Messages) StudentProfileLoadErrorDetail() string {
+	return Catalog.Format(msgs.locale, "studentProfileLoadErrorDetail", nil)
+}
+
+// CohortAssignAdminTitle says "Admin class × subject assignments"
+// in the language the app shows.
+func CohortAssignAdminTitle() string { return In(i18n.Locale()).CohortAssignAdminTitle() }
+
+// CohortAssignAdminTitle says "Admin class × subject assignments"
+// in the language of msgs.
+func (msgs Messages) CohortAssignAdminTitle() string {
+	return Catalog.Format(msgs.locale, "cohortAssignAdminTitle", nil)
+}
+
+// CohortAssignWalkingTitle says "Walking group assignments"
+// in the language the app shows.
+func CohortAssignWalkingTitle() string { return In(i18n.Locale()).CohortAssignWalkingTitle() }
+
+// CohortAssignWalkingTitle says "Walking group assignments"
+// in the language of msgs.
+func (msgs Messages) CohortAssignWalkingTitle() string {
+	return Catalog.Format(msgs.locale, "cohortAssignWalkingTitle", nil)
+}
+
+// CohortAssignBtn says "Assign teacher"
+// in the language the app shows.
+func CohortAssignBtn() string { return In(i18n.Locale()).CohortAssignBtn() }
+
+// CohortAssignBtn says "Assign teacher"
+// in the language of msgs.
+func (msgs Messages) CohortAssignBtn() string {
+	return Catalog.Format(msgs.locale, "cohortAssignBtn", nil)
+}
+
+// CohortUnassignBtn says "Release"
+// in the language the app shows.
+func CohortUnassignBtn() string { return In(i18n.Locale()).CohortUnassignBtn() }
+
+// CohortUnassignBtn says "Release"
+// in the language of msgs.
+func (msgs Messages) CohortUnassignBtn() string {
+	return Catalog.Format(msgs.locale, "cohortUnassignBtn", nil)
+}
+
+// CohortAssignModalTitle says "Assign teacher"
+// in the language the app shows.
+func CohortAssignModalTitle() string { return In(i18n.Locale()).CohortAssignModalTitle() }
+
+// CohortAssignModalTitle says "Assign teacher"
+// in the language of msgs.
+func (msgs Messages) CohortAssignModalTitle() string {
+	return Catalog.Format(msgs.locale, "cohortAssignModalTitle", nil)
+}
+
+// CohortAssignGroupLabel says "Teaching group"
+// in the language the app shows.
+func CohortAssignGroupLabel() string { return In(i18n.Locale()).CohortAssignGroupLabel() }
+
+// CohortAssignGroupLabel says "Teaching group"
+// in the language of msgs.
+func (msgs Messages) CohortAssignGroupLabel() string {
+	return Catalog.Format(msgs.locale, "cohortAssignGroupLabel", nil)
+}
+
+// CohortCrossGradeWarning says "Cross-grade notice: %s is already active in %s. You can still confirm to assign concurrently."
+// in the language the app shows.
+func CohortCrossGradeWarning() string { return In(i18n.Locale()).CohortCrossGradeWarning() }
+
+// CohortCrossGradeWarning says "Cross-grade notice: %s is already active in %s. You can still confirm to assign concurrently."
+// in the language of msgs.
+func (msgs Messages) CohortCrossGradeWarning() string {
+	return Catalog.Format(msgs.locale, "cohortCrossGradeWarning", nil)
+}
+
+// CohortAssignConfirm says "Confirm assignment"
+// in the language the app shows.
+func CohortAssignConfirm() string { return In(i18n.Locale()).CohortAssignConfirm() }
+
+// CohortAssignConfirm says "Confirm assignment"
+// in the language of msgs.
+func (msgs Messages) CohortAssignConfirm() string {
+	return Catalog.Format(msgs.locale, "cohortAssignConfirm", nil)
+}
+
+// CohortAssignSavedToast says "Assigned %s."
+// in the language the app shows.
+func CohortAssignSavedToast() string { return In(i18n.Locale()).CohortAssignSavedToast() }
+
+// CohortAssignSavedToast says "Assigned %s."
+// in the language of msgs.
+func (msgs Messages) CohortAssignSavedToast() string {
+	return Catalog.Format(msgs.locale, "cohortAssignSavedToast", nil)
+}
+
+// CohortUnassignDoneToast says "Ended teaching assignment."
+// in the language the app shows.
+func CohortUnassignDoneToast() string { return In(i18n.Locale()).CohortUnassignDoneToast() }
+
+// CohortUnassignDoneToast says "Ended teaching assignment."
+// in the language of msgs.
+func (msgs Messages) CohortUnassignDoneToast() string {
+	return Catalog.Format(msgs.locale, "cohortUnassignDoneToast", nil)
+}
+
+// TeacherTagIdle says "[Idle]"
+// in the language the app shows.
+func TeacherTagIdle() string { return In(i18n.Locale()).TeacherTagIdle() }
+
+// TeacherTagIdle says "[Idle]"
+// in the language of msgs.
+func (msgs Messages) TeacherTagIdle() string {
+	return Catalog.Format(msgs.locale, "teacherTagIdle", nil)
+}
+
+// TeacherTagActiveCohort says "[Active · %s]"
+// in the language the app shows.
+func TeacherTagActiveCohort() string { return In(i18n.Locale()).TeacherTagActiveCohort() }
+
+// TeacherTagActiveCohort says "[Active · %s]"
+// in the language of msgs.
+func (msgs Messages) TeacherTagActiveCohort() string {
+	return Catalog.Format(msgs.locale, "teacherTagActiveCohort", nil)
+}
+
+// TeacherTagCrossGrade says "[Cross-grade]"
+// in the language the app shows.
+func TeacherTagCrossGrade() string { return In(i18n.Locale()).TeacherTagCrossGrade() }
+
+// TeacherTagCrossGrade says "[Cross-grade]"
+// in the language of msgs.
+func (msgs Messages) TeacherTagCrossGrade() string {
+	return Catalog.Format(msgs.locale, "teacherTagCrossGrade", nil)
+}
+
+// TeacherTagInactive says "[Inactive]"
+// in the language the app shows.
+func TeacherTagInactive() string { return In(i18n.Locale()).TeacherTagInactive() }
+
+// TeacherTagInactive says "[Inactive]"
+// in the language of msgs.
+func (msgs Messages) TeacherTagInactive() string {
+	return Catalog.Format(msgs.locale, "teacherTagInactive", nil)
+}
+
+// CohortBaselineEditBtn says "Edit baseline"
+// in the language the app shows.
+func CohortBaselineEditBtn() string { return In(i18n.Locale()).CohortBaselineEditBtn() }
+
+// CohortBaselineEditBtn says "Edit baseline"
+// in the language of msgs.
+func (msgs Messages) CohortBaselineEditBtn() string {
+	return Catalog.Format(msgs.locale, "cohortBaselineEditBtn", nil)
+}
+
+// CohortBaselineModalTitle says "Edit entry baseline override"
+// in the language the app shows.
+func CohortBaselineModalTitle() string { return In(i18n.Locale()).CohortBaselineModalTitle() }
+
+// CohortBaselineModalTitle says "Edit entry baseline override"
+// in the language of msgs.
+func (msgs Messages) CohortBaselineModalTitle() string {
+	return Catalog.Format(msgs.locale, "cohortBaselineModalTitle", nil)
+}
+
+// CohortBaselineScopeLabel says "Scope"
+// in the language the app shows.
+func CohortBaselineScopeLabel() string { return In(i18n.Locale()).CohortBaselineScopeLabel() }
+
+// CohortBaselineScopeLabel says "Scope"
+// in the language of msgs.
+func (msgs Messages) CohortBaselineScopeLabel() string {
+	return Catalog.Format(msgs.locale, "cohortBaselineScopeLabel", nil)
+}
+
+// CohortBaselineScopeClass says "Class"
+// in the language the app shows.
+func CohortBaselineScopeClass() string { return In(i18n.Locale()).CohortBaselineScopeClass() }
+
+// CohortBaselineScopeClass says "Class"
+// in the language of msgs.
+func (msgs Messages) CohortBaselineScopeClass() string {
+	return Catalog.Format(msgs.locale, "cohortBaselineScopeClass", nil)
+}
+
+// CohortBaselineScopeGrade says "Grade overall"
+// in the language the app shows.
+func CohortBaselineScopeGrade() string { return In(i18n.Locale()).CohortBaselineScopeGrade() }
+
+// CohortBaselineScopeGrade says "Grade overall"
+// in the language of msgs.
+func (msgs Messages) CohortBaselineScopeGrade() string {
+	return Catalog.Format(msgs.locale, "cohortBaselineScopeGrade", nil)
+}
+
+// CohortBaselineAverageLabel says "Entry average"
+// in the language the app shows.
+func CohortBaselineAverageLabel() string { return In(i18n.Locale()).CohortBaselineAverageLabel() }
+
+// CohortBaselineAverageLabel says "Entry average"
+// in the language of msgs.
+func (msgs Messages) CohortBaselineAverageLabel() string {
+	return Catalog.Format(msgs.locale, "cohortBaselineAverageLabel", nil)
+}
+
+// CohortBaselineRatioLabel says "Baseline ratio (optional)"
+// in the language the app shows.
+func CohortBaselineRatioLabel() string { return In(i18n.Locale()).CohortBaselineRatioLabel() }
+
+// CohortBaselineRatioLabel says "Baseline ratio (optional)"
+// in the language of msgs.
+func (msgs Messages) CohortBaselineRatioLabel() string {
+	return Catalog.Format(msgs.locale, "cohortBaselineRatioLabel", nil)
+}
+
+// CohortBaselineSavedToast says "Saved baseline override."
+// in the language the app shows.
+func CohortBaselineSavedToast() string { return In(i18n.Locale()).CohortBaselineSavedToast() }
+
+// CohortBaselineSavedToast says "Saved baseline override."
+// in the language of msgs.
+func (msgs Messages) CohortBaselineSavedToast() string {
+	return Catalog.Format(msgs.locale, "cohortBaselineSavedToast", nil)
+}
+
+// CohortExamsPhaseAtExam says "Phase at exam"
+// in the language the app shows.
+func CohortExamsPhaseAtExam() string { return In(i18n.Locale()).CohortExamsPhaseAtExam() }
+
+// CohortExamsPhaseAtExam says "Phase at exam"
+// in the language of msgs.
+func (msgs Messages) CohortExamsPhaseAtExam() string {
+	return Catalog.Format(msgs.locale, "cohortExamsPhaseAtExam", nil)
+}
+
+// CohortExamsOpenExam says "Open exam"
+// in the language the app shows.
+func CohortExamsOpenExam() string { return In(i18n.Locale()).CohortExamsOpenExam() }
+
+// CohortExamsOpenExam says "Open exam"
+// in the language of msgs.
+func (msgs Messages) CohortExamsOpenExam() string {
+	return Catalog.Format(msgs.locale, "cohortExamsOpenExam", nil)
+}
+
+// CohortExamsEmpty says "This cohort has not participated in any exams yet."
+// in the language the app shows.
+func CohortExamsEmpty() string { return In(i18n.Locale()).CohortExamsEmpty() }
+
+// CohortExamsEmpty says "This cohort has not participated in any exams yet."
+// in the language of msgs.
+func (msgs Messages) CohortExamsEmpty() string {
+	return Catalog.Format(msgs.locale, "cohortExamsEmpty", nil)
+}
+
+// TeachersDirectoryTitle says "Teachers"
+// in the language the app shows.
+func TeachersDirectoryTitle() string { return In(i18n.Locale()).TeachersDirectoryTitle() }
+
+// TeachersDirectoryTitle says "Teachers"
+// in the language of msgs.
+func (msgs Messages) TeachersDirectoryTitle() string {
+	return Catalog.Format(msgs.locale, "teachersDirectoryTitle", nil)
+}
+
+// TeachersDirectorySubtitle says "School-wide faculty roster with live occupancy across active cohorts."
+// in the language the app shows.
+func TeachersDirectorySubtitle() string { return In(i18n.Locale()).TeachersDirectorySubtitle() }
+
+// TeachersDirectorySubtitle says "School-wide faculty roster with live occupancy across active cohorts."
+// in the language of msgs.
+func (msgs Messages) TeachersDirectorySubtitle() string {
+	return Catalog.Format(msgs.locale, "teachersDirectorySubtitle", nil)
+}
+
+// TeachersNewTeacher says "New teacher"
+// in the language the app shows.
+func TeachersNewTeacher() string { return In(i18n.Locale()).TeachersNewTeacher() }
+
+// TeachersNewTeacher says "New teacher"
+// in the language of msgs.
+func (msgs Messages) TeachersNewTeacher() string {
+	return Catalog.Format(msgs.locale, "teachersNewTeacher", nil)
+}
+
+// TeachersNewModalTitle says "New teacher"
+// in the language the app shows.
+func TeachersNewModalTitle() string { return In(i18n.Locale()).TeachersNewModalTitle() }
+
+// TeachersNewModalTitle says "New teacher"
+// in the language of msgs.
+func (msgs Messages) TeachersNewModalTitle() string {
+	return Catalog.Format(msgs.locale, "teachersNewModalTitle", nil)
+}
+
+// TeachersCreatedToast says "Added teacher %s."
+// in the language the app shows.
+func TeachersCreatedToast() string { return In(i18n.Locale()).TeachersCreatedToast() }
+
+// TeachersCreatedToast says "Added teacher %s."
+// in the language of msgs.
+func (msgs Messages) TeachersCreatedToast() string {
+	return Catalog.Format(msgs.locale, "teachersCreatedToast", nil)
+}
+
+// TeachersOccupancyCol says "Occupancy"
+// in the language the app shows.
+func TeachersOccupancyCol() string { return In(i18n.Locale()).TeachersOccupancyCol() }
+
+// TeachersOccupancyCol says "Occupancy"
+// in the language of msgs.
+func (msgs Messages) TeachersOccupancyCol() string {
+	return Catalog.Format(msgs.locale, "teachersOccupancyCol", nil)
+}
+
+// TeachersAssignmentsCol says "Active duties"
+// in the language the app shows.
+func TeachersAssignmentsCol() string { return In(i18n.Locale()).TeachersAssignmentsCol() }
+
+// TeachersAssignmentsCol says "Active duties"
+// in the language of msgs.
+func (msgs Messages) TeachersAssignmentsCol() string {
+	return Catalog.Format(msgs.locale, "teachersAssignmentsCol", nil)
+}
+
+// TeachersFilterAll says "All"
+// in the language the app shows.
+func TeachersFilterAll() string { return In(i18n.Locale()).TeachersFilterAll() }
+
+// TeachersFilterAll says "All"
+// in the language of msgs.
+func (msgs Messages) TeachersFilterAll() string {
+	return Catalog.Format(msgs.locale, "teachersFilterAll", nil)
+}
+
+// TeachersFilterActiveSingle says "Single cohort"
+// in the language the app shows.
+func TeachersFilterActiveSingle() string { return In(i18n.Locale()).TeachersFilterActiveSingle() }
+
+// TeachersFilterActiveSingle says "Single cohort"
+// in the language of msgs.
+func (msgs Messages) TeachersFilterActiveSingle() string {
+	return Catalog.Format(msgs.locale, "teachersFilterActiveSingle", nil)
+}
+
+// TeachersFilterActiveMulti says "Cross-grade"
+// in the language the app shows.
+func TeachersFilterActiveMulti() string { return In(i18n.Locale()).TeachersFilterActiveMulti() }
+
+// TeachersFilterActiveMulti says "Cross-grade"
+// in the language of msgs.
+func (msgs Messages) TeachersFilterActiveMulti() string {
+	return Catalog.Format(msgs.locale, "teachersFilterActiveMulti", nil)
+}
+
+// TeachersFilterIdle says "Idle"
+// in the language the app shows.
+func TeachersFilterIdle() string { return In(i18n.Locale()).TeachersFilterIdle() }
+
+// TeachersFilterIdle says "Idle"
+// in the language of msgs.
+func (msgs Messages) TeachersFilterIdle() string {
+	return Catalog.Format(msgs.locale, "teachersFilterIdle", nil)
+}
+
+// TeachersFilterInactive says "Inactive"
+// in the language the app shows.
+func TeachersFilterInactive() string { return In(i18n.Locale()).TeachersFilterInactive() }
+
+// TeachersFilterInactive says "Inactive"
+// in the language of msgs.
+func (msgs Messages) TeachersFilterInactive() string {
+	return Catalog.Format(msgs.locale, "teachersFilterInactive", nil)
+}
+
+// TeachersToggleActive says "Enable"
+// in the language the app shows.
+func TeachersToggleActive() string { return In(i18n.Locale()).TeachersToggleActive() }
+
+// TeachersToggleActive says "Enable"
+// in the language of msgs.
+func (msgs Messages) TeachersToggleActive() string {
+	return Catalog.Format(msgs.locale, "teachersToggleActive", nil)
+}
+
+// TeachersToggleInactive says "Deactivate"
+// in the language the app shows.
+func TeachersToggleInactive() string { return In(i18n.Locale()).TeachersToggleInactive() }
+
+// TeachersToggleInactive says "Deactivate"
+// in the language of msgs.
+func (msgs Messages) TeachersToggleInactive() string {
+	return Catalog.Format(msgs.locale, "teachersToggleInactive", nil)
+}
+
+// TeacherProfileEditBtn says "Edit profile"
+// in the language the app shows.
+func TeacherProfileEditBtn() string { return In(i18n.Locale()).TeacherProfileEditBtn() }
+
+// TeacherProfileEditBtn says "Edit profile"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileEditBtn() string {
+	return Catalog.Format(msgs.locale, "teacherProfileEditBtn", nil)
+}
+
+// TeacherProfileEditTitle says "Edit teacher info"
+// in the language the app shows.
+func TeacherProfileEditTitle() string { return In(i18n.Locale()).TeacherProfileEditTitle() }
+
+// TeacherProfileEditTitle says "Edit teacher info"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileEditTitle() string {
+	return Catalog.Format(msgs.locale, "teacherProfileEditTitle", nil)
+}
+
+// TeacherProfileExportExcel says "Export profile Excel"
+// in the language the app shows.
+func TeacherProfileExportExcel() string { return In(i18n.Locale()).TeacherProfileExportExcel() }
+
+// TeacherProfileExportExcel says "Export profile Excel"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileExportExcel() string {
+	return Catalog.Format(msgs.locale, "teacherProfileExportExcel", nil)
+}
+
+// TeacherProfileExportFile says "%s-%s-Teaching-Profile.xlsx"
+// in the language the app shows.
+func TeacherProfileExportFile() string { return In(i18n.Locale()).TeacherProfileExportFile() }
+
+// TeacherProfileExportFile says "%s-%s-Teaching-Profile.xlsx"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileExportFile() string {
+	return Catalog.Format(msgs.locale, "teacherProfileExportFile", nil)
+}
+
+// TeacherProfileExportSavedToast says "Exported teacher profile to %s."
+// in the language the app shows.
+func TeacherProfileExportSavedToast() string {
+	return In(i18n.Locale()).TeacherProfileExportSavedToast()
+}
+
+// TeacherProfileExportSavedToast says "Exported teacher profile to %s."
+// in the language of msgs.
+func (msgs Messages) TeacherProfileExportSavedToast() string {
+	return Catalog.Format(msgs.locale, "teacherProfileExportSavedToast", nil)
+}
+
+// TeacherProfileNoteLabel says "Note"
+// in the language the app shows.
+func TeacherProfileNoteLabel() string { return In(i18n.Locale()).TeacherProfileNoteLabel() }
+
+// TeacherProfileNoteLabel says "Note"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileNoteLabel() string {
+	return Catalog.Format(msgs.locale, "teacherProfileNoteLabel", nil)
+}
+
+// TeacherProfileUpdatedToast says "Updated teacher %s."
+// in the language the app shows.
+func TeacherProfileUpdatedToast() string { return In(i18n.Locale()).TeacherProfileUpdatedToast() }
+
+// TeacherProfileUpdatedToast says "Updated teacher %s."
+// in the language of msgs.
+func (msgs Messages) TeacherProfileUpdatedToast() string {
+	return Catalog.Format(msgs.locale, "teacherProfileUpdatedToast", nil)
+}
+
+// TeacherProfileOccupancyTitle says "Live occupancy"
+// in the language the app shows.
+func TeacherProfileOccupancyTitle() string { return In(i18n.Locale()).TeacherProfileOccupancyTitle() }
+
+// TeacherProfileOccupancyTitle says "Live occupancy"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileOccupancyTitle() string {
+	return Catalog.Format(msgs.locale, "teacherProfileOccupancyTitle", nil)
+}
+
+// TeacherProfileOccSingleDesc says "Active in %s (%s duties)"
+// in the language the app shows.
+func TeacherProfileOccSingleDesc() string { return In(i18n.Locale()).TeacherProfileOccSingleDesc() }
+
+// TeacherProfileOccSingleDesc says "Active in %s (%s duties)"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileOccSingleDesc() string {
+	return Catalog.Format(msgs.locale, "teacherProfileOccSingleDesc", nil)
+}
+
+// TeacherProfileOccMultiDesc says "Concurrently teaching across %s"
+// in the language the app shows.
+func TeacherProfileOccMultiDesc() string { return In(i18n.Locale()).TeacherProfileOccMultiDesc() }
+
+// TeacherProfileOccMultiDesc says "Concurrently teaching across %s"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileOccMultiDesc() string {
+	return Catalog.Format(msgs.locale, "teacherProfileOccMultiDesc", nil)
+}
+
+// TeacherProfileOccIdleDesc says "Idle and ready for assignment"
+// in the language the app shows.
+func TeacherProfileOccIdleDesc() string { return In(i18n.Locale()).TeacherProfileOccIdleDesc() }
+
+// TeacherProfileOccIdleDesc says "Idle and ready for assignment"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileOccIdleDesc() string {
+	return Catalog.Format(msgs.locale, "teacherProfileOccIdleDesc", nil)
+}
+
+// TeacherProfileOccInactiveDesc says "Account deactivated"
+// in the language the app shows.
+func TeacherProfileOccInactiveDesc() string { return In(i18n.Locale()).TeacherProfileOccInactiveDesc() }
+
+// TeacherProfileOccInactiveDesc says "Account deactivated"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileOccInactiveDesc() string {
+	return Catalog.Format(msgs.locale, "teacherProfileOccInactiveDesc", nil)
+}
+
+// TeacherProfileReleasedFrom says "Recently released from %s (%s)"
+// in the language the app shows.
+func TeacherProfileReleasedFrom() string { return In(i18n.Locale()).TeacherProfileReleasedFrom() }
+
+// TeacherProfileReleasedFrom says "Recently released from %s (%s)"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileReleasedFrom() string {
+	return Catalog.Format(msgs.locale, "teacherProfileReleasedFrom", nil)
+}
+
+// TeacherProfileReleaseGraduated says "cohort graduated & archived"
+// in the language the app shows.
+func TeacherProfileReleaseGraduated() string {
+	return In(i18n.Locale()).TeacherProfileReleaseGraduated()
+}
+
+// TeacherProfileReleaseGraduated says "cohort graduated & archived"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileReleaseGraduated() string {
+	return Catalog.Format(msgs.locale, "teacherProfileReleaseGraduated", nil)
+}
+
+// TeacherProfileReleaseManual says "manual release"
+// in the language the app shows.
+func TeacherProfileReleaseManual() string { return In(i18n.Locale()).TeacherProfileReleaseManual() }
+
+// TeacherProfileReleaseManual says "manual release"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileReleaseManual() string {
+	return Catalog.Format(msgs.locale, "teacherProfileReleaseManual", nil)
+}
+
+// TeacherProfileReleaseReplaced says "reassigned"
+// in the language the app shows.
+func TeacherProfileReleaseReplaced() string { return In(i18n.Locale()).TeacherProfileReleaseReplaced() }
+
+// TeacherProfileReleaseReplaced says "reassigned"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileReleaseReplaced() string {
+	return Catalog.Format(msgs.locale, "teacherProfileReleaseReplaced", nil)
+}
+
+// TeacherProfileReleaseReclassified says "reclassified"
+// in the language the app shows.
+func TeacherProfileReleaseReclassified() string {
+	return In(i18n.Locale()).TeacherProfileReleaseReclassified()
+}
+
+// TeacherProfileReleaseReclassified says "reclassified"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileReleaseReclassified() string {
+	return Catalog.Format(msgs.locale, "teacherProfileReleaseReclassified", nil)
+}
+
+// TeacherProfileActiveDutiesTitle says "Active classes & latest performance"
+// in the language the app shows.
+func TeacherProfileActiveDutiesTitle() string {
+	return In(i18n.Locale()).TeacherProfileActiveDutiesTitle()
+}
+
+// TeacherProfileActiveDutiesTitle says "Active classes & latest performance"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileActiveDutiesTitle() string {
+	return Catalog.Format(msgs.locale, "teacherProfileActiveDutiesTitle", nil)
+}
+
+// TeacherProfileIdleCardTitle says "Currently idle · No active cohort duties"
+// in the language the app shows.
+func TeacherProfileIdleCardTitle() string { return In(i18n.Locale()).TeacherProfileIdleCardTitle() }
+
+// TeacherProfileIdleCardTitle says "Currently idle · No active cohort duties"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileIdleCardTitle() string {
+	return Catalog.Format(msgs.locale, "teacherProfileIdleCardTitle", nil)
+}
+
+// TeacherProfileIdleCardHint says "Assign classes or teaching groups in an active cohort to schedule this teacher."
+// in the language the app shows.
+func TeacherProfileIdleCardHint() string { return In(i18n.Locale()).TeacherProfileIdleCardHint() }
+
+// TeacherProfileIdleCardHint says "Assign classes or teaching groups in an active cohort to schedule this teacher."
+// in the language of msgs.
+func (msgs Messages) TeacherProfileIdleCardHint() string {
+	return Catalog.Format(msgs.locale, "teacherProfileIdleCardHint", nil)
+}
+
+// TeacherProfileGoAssignBtn says "Assign in cohorts"
+// in the language the app shows.
+func TeacherProfileGoAssignBtn() string { return In(i18n.Locale()).TeacherProfileGoAssignBtn() }
+
+// TeacherProfileGoAssignBtn says "Assign in cohorts"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileGoAssignBtn() string {
+	return Catalog.Format(msgs.locale, "teacherProfileGoAssignBtn", nil)
+}
+
+// TeacherProfileLatestPerf says "Latest (%s): Score %s · Avg %s · Pass %s"
+// in the language the app shows.
+func TeacherProfileLatestPerf() string { return In(i18n.Locale()).TeacherProfileLatestPerf() }
+
+// TeacherProfileLatestPerf says "Latest (%s): Score %s · Avg %s · Pass %s"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileLatestPerf() string {
+	return Catalog.Format(msgs.locale, "teacherProfileLatestPerf", nil)
+}
+
+// TeacherProfileCrossChartTitle says "Cross-cohort personal score trend"
+// in the language the app shows.
+func TeacherProfileCrossChartTitle() string { return In(i18n.Locale()).TeacherProfileCrossChartTitle() }
+
+// TeacherProfileCrossChartTitle says "Cross-cohort personal score trend"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileCrossChartTitle() string {
+	return Catalog.Format(msgs.locale, "teacherProfileCrossChartTitle", nil)
+}
+
+// TeacherProfileCrossChartEmpty says "No official personal assessment scores across cohorts yet."
+// in the language the app shows.
+func TeacherProfileCrossChartEmpty() string { return In(i18n.Locale()).TeacherProfileCrossChartEmpty() }
+
+// TeacherProfileCrossChartEmpty says "No official personal assessment scores across cohorts yet."
+// in the language of msgs.
+func (msgs Messages) TeacherProfileCrossChartEmpty() string {
+	return Catalog.Format(msgs.locale, "teacherProfileCrossChartEmpty", nil)
+}
+
+// TeacherProfileMetricCohorts says "Cohorts taught"
+// in the language the app shows.
+func TeacherProfileMetricCohorts() string { return In(i18n.Locale()).TeacherProfileMetricCohorts() }
+
+// TeacherProfileMetricCohorts says "Cohorts taught"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileMetricCohorts() string {
+	return Catalog.Format(msgs.locale, "teacherProfileMetricCohorts", nil)
+}
+
+// TeacherProfileMetricAssessments says "Assessments"
+// in the language the app shows.
+func TeacherProfileMetricAssessments() string {
+	return In(i18n.Locale()).TeacherProfileMetricAssessments()
+}
+
+// TeacherProfileMetricAssessments says "Assessments"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileMetricAssessments() string {
+	return Catalog.Format(msgs.locale, "teacherProfileMetricAssessments", nil)
+}
+
+// TeacherProfileMetricBestScore says "Highest score"
+// in the language the app shows.
+func TeacherProfileMetricBestScore() string { return In(i18n.Locale()).TeacherProfileMetricBestScore() }
+
+// TeacherProfileMetricBestScore says "Highest score"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileMetricBestScore() string {
+	return Catalog.Format(msgs.locale, "teacherProfileMetricBestScore", nil)
+}
+
+// TeacherProfileMetricLatestScore says "Latest score"
+// in the language the app shows.
+func TeacherProfileMetricLatestScore() string {
+	return In(i18n.Locale()).TeacherProfileMetricLatestScore()
+}
+
+// TeacherProfileMetricLatestScore says "Latest score"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileMetricLatestScore() string {
+	return Catalog.Format(msgs.locale, "teacherProfileMetricLatestScore", nil)
+}
+
+// TeacherProfileHistoryTitle says "Cohort history & assessment records"
+// in the language the app shows.
+func TeacherProfileHistoryTitle() string { return In(i18n.Locale()).TeacherProfileHistoryTitle() }
+
+// TeacherProfileHistoryTitle says "Cohort history & assessment records"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileHistoryTitle() string {
+	return Catalog.Format(msgs.locale, "teacherProfileHistoryTitle", nil)
+}
+
+// TeacherProfileHistoryEmpty says "No historical teaching assignments or exam records yet."
+// in the language the app shows.
+func TeacherProfileHistoryEmpty() string { return In(i18n.Locale()).TeacherProfileHistoryEmpty() }
+
+// TeacherProfileHistoryEmpty says "No historical teaching assignments or exam records yet."
+// in the language of msgs.
+func (msgs Messages) TeacherProfileHistoryEmpty() string {
+	return Catalog.Format(msgs.locale, "teacherProfileHistoryEmpty", nil)
+}
+
+// TeacherProfileHistoryCohortActive says "Active"
+// in the language the app shows.
+func TeacherProfileHistoryCohortActive() string {
+	return In(i18n.Locale()).TeacherProfileHistoryCohortActive()
+}
+
+// TeacherProfileHistoryCohortActive says "Active"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileHistoryCohortActive() string {
+	return Catalog.Format(msgs.locale, "teacherProfileHistoryCohortActive", nil)
+}
+
+// TeacherProfileHistoryCohortGraduated says "Graduated archive"
+// in the language the app shows.
+func TeacherProfileHistoryCohortGraduated() string {
+	return In(i18n.Locale()).TeacherProfileHistoryCohortGraduated()
+}
+
+// TeacherProfileHistoryCohortGraduated says "Graduated archive"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileHistoryCohortGraduated() string {
+	return Catalog.Format(msgs.locale, "teacherProfileHistoryCohortGraduated", nil)
+}
+
+// TeacherProfileHistorySummary says "%s duties · %s assessments"
+// in the language the app shows.
+func TeacherProfileHistorySummary() string { return In(i18n.Locale()).TeacherProfileHistorySummary() }
+
+// TeacherProfileHistorySummary says "%s duties · %s assessments"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileHistorySummary() string {
+	return Catalog.Format(msgs.locale, "teacherProfileHistorySummary", nil)
+}
+
+// TeacherProfileDutyActive says "Active"
+// in the language the app shows.
+func TeacherProfileDutyActive() string { return In(i18n.Locale()).TeacherProfileDutyActive() }
+
+// TeacherProfileDutyActive says "Active"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileDutyActive() string {
+	return Catalog.Format(msgs.locale, "teacherProfileDutyActive", nil)
+}
+
+// TeacherProfileDutyEnded says "Ended"
+// in the language the app shows.
+func TeacherProfileDutyEnded() string { return In(i18n.Locale()).TeacherProfileDutyEnded() }
+
+// TeacherProfileDutyEnded says "Ended"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileDutyEnded() string {
+	return Catalog.Format(msgs.locale, "teacherProfileDutyEnded", nil)
+}
+
+// TeacherProfileRolePrimary says "Teacher"
+// in the language the app shows.
+func TeacherProfileRolePrimary() string { return In(i18n.Locale()).TeacherProfileRolePrimary() }
+
+// TeacherProfileRolePrimary says "Teacher"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileRolePrimary() string {
+	return Catalog.Format(msgs.locale, "teacherProfileRolePrimary", nil)
+}
+
+// TeacherProfileRoleAssistant says "Co-teacher"
+// in the language the app shows.
+func TeacherProfileRoleAssistant() string { return In(i18n.Locale()).TeacherProfileRoleAssistant() }
+
+// TeacherProfileRoleAssistant says "Co-teacher"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileRoleAssistant() string {
+	return Catalog.Format(msgs.locale, "teacherProfileRoleAssistant", nil)
+}
+
+// TeacherProfileRoleHead says "Head teacher"
+// in the language the app shows.
+func TeacherProfileRoleHead() string { return In(i18n.Locale()).TeacherProfileRoleHead() }
+
+// TeacherProfileRoleHead says "Head teacher"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileRoleHead() string {
+	return Catalog.Format(msgs.locale, "teacherProfileRoleHead", nil)
+}
+
+// TeacherProfileCohortExamsTitle says "Cohort assessment history"
+// in the language the app shows.
+func TeacherProfileCohortExamsTitle() string {
+	return In(i18n.Locale()).TeacherProfileCohortExamsTitle()
+}
+
+// TeacherProfileCohortExamsTitle says "Cohort assessment history"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileCohortExamsTitle() string {
+	return Catalog.Format(msgs.locale, "teacherProfileCohortExamsTitle", nil)
+}
+
+// TeacherProfileCohortDutiesTitle says "Classes & head teacher duties"
+// in the language the app shows.
+func TeacherProfileCohortDutiesTitle() string {
+	return In(i18n.Locale()).TeacherProfileCohortDutiesTitle()
+}
+
+// TeacherProfileCohortDutiesTitle says "Classes & head teacher duties"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileCohortDutiesTitle() string {
+	return Catalog.Format(msgs.locale, "teacherProfileCohortDutiesTitle", nil)
+}
+
+// TeacherProfileGroupPoints says "Group pts: %s"
+// in the language the app shows.
+func TeacherProfileGroupPoints() string { return In(i18n.Locale()).TeacherProfileGroupPoints() }
+
+// TeacherProfileGroupPoints says "Group pts: %s"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileGroupPoints() string {
+	return Catalog.Format(msgs.locale, "teacherProfileGroupPoints", nil)
+}
+
+// TeacherProfileBackToCohort says "Back to cohort"
+// in the language the app shows.
+func TeacherProfileBackToCohort() string { return In(i18n.Locale()).TeacherProfileBackToCohort() }
+
+// TeacherProfileBackToCohort says "Back to cohort"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileBackToCohort() string {
+	return Catalog.Format(msgs.locale, "teacherProfileBackToCohort", nil)
+}
+
+// TeacherProfileLoading says "Loading teacher profile…"
+// in the language the app shows.
+func TeacherProfileLoading() string { return In(i18n.Locale()).TeacherProfileLoading() }
+
+// TeacherProfileLoading says "Loading teacher profile…"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileLoading() string {
+	return Catalog.Format(msgs.locale, "teacherProfileLoading", nil)
+}
+
+// TeacherProfileLoadErrorTitle says "Could not load teacher profile"
+// in the language the app shows.
+func TeacherProfileLoadErrorTitle() string { return In(i18n.Locale()).TeacherProfileLoadErrorTitle() }
+
+// TeacherProfileLoadErrorTitle says "Could not load teacher profile"
+// in the language of msgs.
+func (msgs Messages) TeacherProfileLoadErrorTitle() string {
+	return Catalog.Format(msgs.locale, "teacherProfileLoadErrorTitle", nil)
+}
+
+// TeacherProfileLoadErrorDetail says "The teacher profile may have been removed or could not be read from the database."
+// in the language the app shows.
+func TeacherProfileLoadErrorDetail() string { return In(i18n.Locale()).TeacherProfileLoadErrorDetail() }
+
+// TeacherProfileLoadErrorDetail says "The teacher profile may have been removed or could not be read from the database."
+// in the language of msgs.
+func (msgs Messages) TeacherProfileLoadErrorDetail() string {
+	return Catalog.Format(msgs.locale, "teacherProfileLoadErrorDetail", nil)
+}
+
+// ExamHubTabExams says "Exams"
+// in the language the app shows.
+func ExamHubTabExams() string { return In(i18n.Locale()).ExamHubTabExams() }
+
+// ExamHubTabExams says "Exams"
+// in the language of msgs.
+func (msgs Messages) ExamHubTabExams() string {
+	return Catalog.Format(msgs.locale, "examHubTabExams", nil)
+}
+
+// ExamHubTabWorkbench says "Assessments"
+// in the language the app shows.
+func ExamHubTabWorkbench() string { return In(i18n.Locale()).ExamHubTabWorkbench() }
+
+// ExamHubTabWorkbench says "Assessments"
+// in the language of msgs.
+func (msgs Messages) ExamHubTabWorkbench() string {
+	return Catalog.Format(msgs.locale, "examHubTabWorkbench", nil)
+}
+
+// ExamHubTabQuality says "Data quality"
+// in the language the app shows.
+func ExamHubTabQuality() string { return In(i18n.Locale()).ExamHubTabQuality() }
+
+// ExamHubTabQuality says "Data quality"
+// in the language of msgs.
+func (msgs Messages) ExamHubTabQuality() string {
+	return Catalog.Format(msgs.locale, "examHubTabQuality", nil)
+}
+
+// ExamHubTabAnalysis says "Analysis"
+// in the language the app shows.
+func ExamHubTabAnalysis() string { return In(i18n.Locale()).ExamHubTabAnalysis() }
+
+// ExamHubTabAnalysis says "Analysis"
+// in the language of msgs.
+func (msgs Messages) ExamHubTabAnalysis() string {
+	return Catalog.Format(msgs.locale, "examHubTabAnalysis", nil)
 }

@@ -221,31 +221,31 @@ func TestRuntimeScrollStaysInsideItsContainer(t *testing.T) {
 		})
 	}
 
-	t.Run("总览页班级表不被Scroll包裹且在容器内", func(t *testing.T) {
+	t.Run("教师档案表不被Scroll包裹且在容器内", func(t *testing.T) {
 		a := newPopulatedTestApp(t)
-		a.page = pageCohorts
+		a.page = pageFaculty
 		tt := newChineseTester(t, a.view, 1024, 640)
 
-		table, ok := findNode(tt, ui.RoleTable, locales.CohortClasses())
+		table, ok := findNode(tt, ui.RoleTable, locales.TeachersDirectoryTitle())
 		if !ok {
-			t.Fatalf("找不到总览班级表")
+			t.Fatalf("找不到教师档案表")
 		}
 		for _, info := range tt.AccessAll() {
 			if info.Role == ui.RoleScroll && info.Bounds.X >= table.Bounds.X-20 && rectRight(info.Bounds) >= rectRight(table.Bounds) {
-				failGeometry(t, tt, "总览班级表外层嵌套Scroll", fmt.Sprintf(
-					"总览班级表外层存在 RoleScroll %.1f,%.1f (%.1fx%.1f)，形成嵌套滚动",
+				failGeometry(t, tt, "教师档案表外层嵌套Scroll", fmt.Sprintf(
+					"教师档案表外层存在 RoleScroll %.1f,%.1f (%.1fx%.1f)，形成嵌套滚动",
 					info.Bounds.X, info.Bounds.Y, info.Bounds.W, info.Bounds.H))
 			}
 		}
 		if rectBottom(table.Bounds) > 640 {
-			failGeometry(t, tt, "总览班级表溢出窗口", fmt.Sprintf(
+			failGeometry(t, tt, "教师档案表溢出窗口", fmt.Sprintf(
 				"表格底边 %.1f 超出窗口高度 640", rectBottom(table.Bounds)))
 		}
 
 		tt.Scroll(table.Bounds.X+50, table.Bounds.Y+50, 0, 100)
 		settleTester(tt)
 		if rectBottom(table.Bounds) > 640 {
-			failGeometry(t, tt, "总览班级表滚动后溢出窗口", fmt.Sprintf(
+			failGeometry(t, tt, "教师档案表滚动后溢出窗口", fmt.Sprintf(
 				"滚动后表格底边 %.1f 超出窗口高度 640", rectBottom(table.Bounds)))
 		}
 	})
@@ -495,30 +495,22 @@ func TestRuntimeSplitSpacingAndImportGap(t *testing.T) {
 		}
 	})
 
-	t.Run("年级总览分栏", func(t *testing.T) {
+	t.Run("年级详情页面切换无重叠", func(t *testing.T) {
 		a := newPopulatedTestApp(t)
 		a.page = pageCohorts
+		a.openCohortDetail(a.cohorts[0].ID)
 		tt := newChineseTester(t, a.view, 1280, 800)
 
-		divider, ok := findNode(tt, ui.RoleSplitter, "")
-		if !ok {
-			t.Fatalf("找不到年级分栏分割线")
-		}
-		dividerRight := rectRight(divider.Bounds)
-		minRightX := float32(-1)
-		for _, info := range contentNodes(tt, dividerRight, divider.Bounds.Y) {
-			if info.Bounds.X <= divider.Bounds.X {
-				continue
-			}
-			if minRightX < 0 || info.Bounds.X < minRightX {
-				minRightX = info.Bounds.X
-			}
-		}
-		if minRightX >= 0 {
-			if gap := minRightX - dividerRight; gap < 16 {
-				failGeometry(t, tt, "年级分栏间距", fmt.Sprintf(
-					"右侧详情最左内容位于 %.1f，与分割线右边界 %.1f 的间距为 %.1f，低于 16",
-					minRightX, dividerRight, gap))
+		for _, tab := range []string{
+			locales.CohortTabOverview(),
+			locales.CohortTabClasses(),
+			locales.CohortTabStudents(),
+			locales.CohortTabAssignments(),
+			locales.CohortTabBaselines(),
+			locales.CohortTabExams(),
+		} {
+			if _, ok := findNode(tt, ui.RoleTab, tab); !ok {
+				failGeometry(t, tt, "年级详情页签", fmt.Sprintf("找不到年级详情页签 %q", tab))
 			}
 		}
 	})
@@ -727,13 +719,14 @@ func TestRuntimeSearchAndSelectWidthsAndSidebar(t *testing.T) {
 		}
 
 		bottomActions := map[string]bool{
-			locales.NavHelp():     true,
-			locales.NavSettings(): true,
+			locales.NavImports():      true,
+			locales.NavSettingsSync(): true,
+			locales.NavHelp():         true,
 		}
 		for _, label := range []string{
-			locales.NavOverview(), locales.NavDataImport(), locales.NavBaseData(),
-			locales.NavExamHub(), locales.NavQuality(), locales.NavAnalysis(),
-			locales.NavPlans(), locales.NavHelp(), locales.NavSettings(),
+			locales.NavOverview(), locales.NavCohorts(), locales.NavTeachers(),
+			locales.NavExamHub(), locales.NavPlans(),
+			locales.NavImports(), locales.NavSettingsSync(), locales.NavHelp(),
 		} {
 			item, ok := findNode(tt, ui.RoleButton, label)
 			if !ok {

@@ -2,33 +2,32 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
 
-	"tally/internal/importer"
+	"tally/internal/store"
 	"tally/locales"
 )
 
 func TestOverviewLiveLedgerPopulatedAndNavigation(t *testing.T) {
 	a := newPopulatedTestApp(t)
 	a.page = pageOverview
-	a.reloadWorkspaceSummary(context.Background())
+	a.reloadSchoolOverview(context.Background())
 
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	settleTester(tt)
 
-	// 验证总览显示真实台账 KPI、最近一次考核快照与历次考试时间轴，而非旧版「准备情况」引导页。
+	// 验证总览驾驶舱显示在读年级态势卡、教师占用统计、近期考试与待办提醒。
 	for _, want := range []string{
-		locales.OverviewMetricClasses(),
-		locales.OverviewMetricStudents(),
-		locales.OverviewMetricTeachers(),
-		locales.OverviewMetricBaselines(),
-		locales.OverviewLatestAssessment(),
-		locales.OverviewLatestOfficial(),
-		locales.OverviewExamTimeline(),
-		locales.OverviewQuickImport(),
+		locales.OverviewActiveCohortsTitle(),
+		locales.OverviewOccupancyTitle(),
+		locales.OverviewOccupancySingle(),
+		locales.OverviewRecentExamsTitle(),
+		locales.OverviewRemindersTitle(),
+		locales.OverviewEnterCohort(),
 	} {
 		if !tt.HasText(want) {
 			t.Fatalf("overview ledger missing %q in %q", want, tt.Texts())
@@ -38,38 +37,24 @@ func TestOverviewLiveLedgerPopulatedAndNavigation(t *testing.T) {
 		t.Fatalf("legacy onboarding button should not appear on overview: %q", tt.Texts())
 	}
 
-	// 点击「学生总数」KPI 卡片跳转到基础数据-学生页签。
-	if err := tt.Click(locales.OverviewMetricStudents()); err != nil {
+	// 点击「单届在任」占用 KPI 卡片跳转到教师档案并预选筛选状态。
+	if err := tt.Click(locales.OverviewOccupancySingle()); err != nil {
 		t.Fatal(err)
 	}
 	settleTester(tt)
-	if a.page != pageBaseData || a.baseDataTab != 1 {
-		t.Fatalf("clicking Students KPI -> page=%q tab=%d, want base_data/1", a.page, a.baseDataTab)
+	if a.page != pageFaculty || a.teacherOccupancyFilter != store.TeacherStatusActiveSingle {
+		t.Fatalf("clicking Single cohort KPI -> page=%q filter=%q", a.page, a.teacherOccupancyFilter)
 	}
 
-	// 回到总览，点击「去导入数据」应携带返回总览上下文跳转到独立数据导入页。
+	// 回到总览，点击年级态势卡「进入年级档案」跳转到年级详情页。
 	a.navigateTo(pageOverview)
 	settleTester(tt)
-	if err := tt.Click(locales.OverviewQuickImport()); err != nil {
+	if err := tt.Click(locales.OverviewEnterCohort()); err != nil {
 		t.Fatal(err)
 	}
 	settleTester(tt)
-	if a.page != pageImports || a.importReturn == nil || a.importReturn.Page != pageOverview {
-		t.Fatalf("clicking Import data -> page=%q return=%+v", a.page, a.importReturn)
-	}
-
-	// 回到总览，点击「进入考核工作台」跳转到考核页。
-	a.returnFromImport()
-	settleTester(tt)
-	if a.page != pageOverview {
-		t.Fatalf("returnFromImport did not restore overview: %q", a.page)
-	}
-	if err := tt.Click(locales.OverviewOpenWorkbench()); err != nil {
-		t.Fatal(err)
-	}
-	settleTester(tt)
-	if a.page != pageAssessments {
-		t.Fatalf("clicking Open workbench -> page=%q, want %q", a.page, pageAssessments)
+	if a.page != pageCohorts || !a.cohortDetailOpen {
+		t.Fatalf("clicking Enter cohort -> page=%q detailOpen=%v", a.page, a.cohortDetailOpen)
 	}
 }
 
@@ -77,24 +62,22 @@ func TestOverviewMissingDataAlertsJumpToImportWithReturn(t *testing.T) {
 	a := newTestApp(t)
 	addCohort(t, a, 2026)
 	a.page = pageOverview
-	a.reloadWorkspaceSummary(context.Background())
+	a.reloadSchoolOverview(context.Background())
 
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	settleTester(tt)
 
-	if !tt.HasText(locales.OverviewAlertNoRoster()) {
-		t.Fatalf("expected missing roster alert in %q", tt.Texts())
+	wantReminder := fmt.Sprintf(locales.OverviewReminderCohortSetup(), a.cohortName(2026), locales.CohortTabStudents())
+	if !tt.HasText(wantReminder) {
+		t.Fatalf("expected missing students reminder %q in %q", wantReminder, tt.Texts())
 	}
-	if err := tt.Click(locales.OverviewAlertNoRoster()); err != nil {
+	if err := tt.Click(wantReminder); err != nil {
 		t.Fatal(err)
 	}
 	settleTester(tt)
-	if a.page != pageImports || !a.importWizardActive() || a.importWizard.Kind != importer.KindStudents {
-		t.Fatalf("clicking missing roster alert -> page=%q active=%v wizard=%+v",
-			a.page, a.importWizardActive(), a.importWizard)
-	}
-	if a.importReturn == nil || a.importReturn.Page != pageOverview {
-		t.Fatalf("expected import return context to overview, got %+v", a.importReturn)
+	if a.page != pageCohorts || !a.cohortDetailOpen || a.cohortDetailTab != 2 {
+		t.Fatalf("clicking missing students reminder -> page=%q detail=%v tab=%d",
+			a.page, a.cohortDetailOpen, a.cohortDetailTab)
 	}
 }

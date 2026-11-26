@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -493,20 +492,23 @@ func (a *app) importCenterGuideTab(c *ui.Context, p uiPalette) {
 func (a *app) openBaseDataTabForPage(page pageID) {
 	switch page {
 	case pageCohorts:
-		a.baseDataTab = 0
+		a.cohortDetailTab = 1
 	case pageStudents:
-		a.baseDataTab = 1
+		a.cohortDetailTab = 2
 	case pageFaculty:
-		a.baseDataTab = 2
+		a.cohortDetailTab = 3
 	case pageGroups:
-		a.baseDataTab = 3
+		a.cohortDetailTab = 1
 	case pageBaseline:
-		a.baseDataTab = 4
+		a.cohortDetailTab = 4
 	default:
 		a.navigateTo(page)
 		return
 	}
-	a.navigateTo(pageBaseData)
+	if a.selectedCohort() != nil {
+		a.cohortDetailOpen = true
+	}
+	a.navigateTo(pageCohorts)
 }
 
 func (a *app) importCenterHistoryTab(c *ui.Context, p uiPalette) {
@@ -587,17 +589,8 @@ func (a *app) importDetailPanel(c *ui.Context, p uiPalette) {
 		return
 	}
 	t := p.theme
-	canUndo := false
-	reason := ""
-	if a.store != nil {
-		value, why, err := a.store.CanUndoImport(context.Background(), detail.Run.ID)
-		if err != nil {
-			a.dataError = err.Error()
-		} else {
-			canUndo = value
-			reason = why
-		}
-	}
+	canUndo := a.importCanUndo[detail.Run.ID]
+	reason := a.importUndoReason[detail.Run.ID]
 	listPanel(c, p, locales.ImportDetailTitle(), len(detail.Issues), func() {
 		ui.Scroll(c).Fill().Children(func() {
 			ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {

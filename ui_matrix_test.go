@@ -504,13 +504,14 @@ func TestModalMatrix_NewCohort(t *testing.T) {
 func TestModalMatrix_StageReview(t *testing.T) {
 	a := newTestApp(t)
 	ctx := context.Background()
-	_, err := a.store.CreateCohort(ctx, 2026, 2026)
+	cohort, err := a.store.CreateCohort(ctx, 2026, 2026)
 	if err != nil {
 		t.Fatal(err)
 	}
 	a.reloadCohorts(ctx)
+	a.openCohortDetail(cohort.ID)
 
-	a.page = pageOverview
+	a.page = pageCohorts
 	a.stageReviewOpen = true
 	tt := ui.NewTester(a.view, 1280, 800)
 	useChineseUI(t)

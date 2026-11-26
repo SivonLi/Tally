@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image/color"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo/plugins/sqlite"
 	"github.com/egoist/mygo/ui"
 
 	"tally/internal/store"
@@ -32,10 +34,10 @@ func TestOverviewEmptyStateAndCohortCreation(t *testing.T) {
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
-	if !tt.HasText(locales.WorkspaceEmpty()) {
+	if !tt.HasText(locales.OverviewActiveCohortsEmpty()) {
 		t.Fatalf("texts = %q", tt.Texts())
 	}
-	if err := tt.Click(locales.WorkspaceCreate()); err != nil {
+	if err := tt.Click(locales.CohortCreate()); err != nil {
 		t.Fatal(err)
 	}
 	if !a.newCohortOpen {
@@ -56,9 +58,10 @@ func TestOverviewEmptyStateAndCohortCreation(t *testing.T) {
 	}
 	tt.Frame()
 	for _, text := range []string{
-		"2026 cohort · Grade 10 · Class of 2029",
-		"2026-2027 academic year",
-		locales.OverviewAlertNoRoster(),
+		"2026 cohort",
+		"Class of 2029 · 2026-2027 academic year",
+		"Grade 10",
+		fmt.Sprintf(locales.OverviewReminderCohortSetup(), a.cohortName(2026), locales.CohortTabStudents()),
 	} {
 		if !tt.HasText(text) {
 			t.Errorf("missing %q in %q", text, tt.Texts())
@@ -73,6 +76,14 @@ func TestStageAdvancesWithAcademicYear(t *testing.T) {
 	a := newTestApp(t)
 	a.page = pageOverview
 	addCohort(t, a, 2026)
+	cohortID := a.selectedCohort().ID
+	if _, err := a.store.PromoteCohort(context.Background(), cohortID, store.PromoteInput{
+		ToPhase:             store.PhaseG2,
+		ToAcademicYearStart: 2027,
+		Mode:                store.PromoteDirect,
+	}); err != nil {
+		t.Fatal(err)
+	}
 	a.setAcademicYear(2027)
 	if a.settingsError != "" {
 		t.Fatal(a.settingsError)
@@ -81,8 +92,9 @@ func TestStageAdvancesWithAcademicYear(t *testing.T) {
 	tt.SetLocale("en")
 	tt.Frame()
 	for _, text := range []string{
-		"2026 cohort · Grade 11 · Class of 2029",
-		"2027-2028 academic year",
+		"2026 cohort",
+		"Class of 2029 · 2027-2028 academic year",
+		"Grade 11",
 	} {
 		if !tt.HasText(text) {
 			t.Errorf("missing %q in %q", text, tt.Texts())
@@ -102,28 +114,24 @@ func TestStageAdvancesWithAcademicYear(t *testing.T) {
 
 func TestCohortSwitcher(t *testing.T) {
 	a := newTestApp(t)
-	a.page = pageOverview
+	a.page = pageCohorts
 	addCohort(t, a, 2025)
 	addCohort(t, a, 2026)
-	if got := a.selectedCohort(); got == nil || got.EnrollmentYear != 2026 {
-		t.Fatalf("selected cohort = %+v", got)
-	}
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
-	if err := tt.Click(locales.WorkspaceSwitchLabel()); err != nil {
-		t.Fatal(err)
+	if !tt.HasText("2025 cohort") || !tt.HasText("2026 cohort") {
+		t.Fatalf("cohorts list missing items: %q", tt.Texts())
 	}
-	tt.Frame()
 	if err := tt.Click("2025 cohort"); err != nil {
 		t.Fatal(err)
 	}
 	cohort := a.selectedCohort()
-	if cohort == nil || cohort.EnrollmentYear != 2025 {
-		t.Fatalf("selected cohort = %+v", cohort)
+	if cohort == nil || cohort.EnrollmentYear != 2025 || !a.cohortDetailOpen {
+		t.Fatalf("selected cohort = %+v detailOpen=%v", cohort, a.cohortDetailOpen)
 	}
 	tt.Frame()
-	if !tt.HasText("2025 cohort · Grade 11 · Class of 2028") {
+	if !tt.HasText("Class of 2028 · 2026-2027 academic year") {
 		t.Errorf("texts = %q", tt.Texts())
 	}
 }
@@ -137,20 +145,30 @@ func TestCohortSwitcherHiddenWithoutCohorts(t *testing.T) {
 	if _, ok := tt.Find("Current cohort"); ok {
 		t.Error("the cohort switcher shows without a cohort")
 	}
-	if !tt.HasText(locales.WorkspaceEmpty()) {
+	if !tt.HasText(locales.OverviewActiveCohortsEmpty()) {
 		t.Errorf("texts = %q", tt.Texts())
 	}
 }
 
 func TestStageHistorySwitching(t *testing.T) {
 	a := newTestApp(t)
-	a.page = pageOverview
 	addCohort(t, a, 2026)
-	a.setAcademicYear(2027)
+	cohortID := a.selectedCohort().ID
+	if _, err := a.store.PromoteCohort(context.Background(), cohortID, store.PromoteInput{
+		ToPhase:             store.PhaseG2,
+		ToAcademicYearStart: 2027,
+		Mode:                store.PromoteDirect,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	a.reloadCohorts(context.Background())
+	a.selectedStageID = 0
+	a.openCohortDetail(cohortID)
+	a.page = pageCohorts
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
-	if err := tt.Click(locales.WorkspaceSwitchLabel()); err != nil {
+	if err := tt.Click("Grade 11 · 2027-2028"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
@@ -162,10 +180,7 @@ func TestStageHistorySwitching(t *testing.T) {
 		t.Fatalf("stage = %+v", stage)
 	}
 	tt.Frame()
-	if !tt.HasText("2026 cohort · Grade 10 · Class of 2029") {
-		t.Errorf("texts = %q", tt.Texts())
-	}
-	if !tt.HasText("2026-2027 academic year") {
+	if !tt.HasText(locales.StageReadOnly()) {
 		t.Errorf("texts = %q", tt.Texts())
 	}
 }
@@ -250,24 +265,24 @@ func TestSidebarNavigationToDataPages(t *testing.T) {
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
-	if err := tt.Click(locales.NavBaseData()); err != nil {
+	if err := tt.Click(locales.NavCohorts()); err != nil {
 		t.Fatal(err)
 	}
-	if a.page != pageBaseData {
+	if a.page != pageCohorts {
 		t.Fatalf("page = %q", a.page)
 	}
 	tt.Frame()
-	if err := tt.Click(locales.BaseDataTabStudents()); err != nil {
+	if !tt.HasText(locales.CohortEmptyActive()) {
+		t.Errorf("texts = %q", tt.Texts())
+	}
+	if err := tt.Click(locales.NavTeachers()); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if a.baseDataTab != 1 {
-		t.Fatalf("baseDataTab = %d", a.baseDataTab)
+	if a.page != pageFaculty || !tt.HasText(locales.TeachersDirectoryTitle()) {
+		t.Fatalf("page = %q texts = %q", a.page, tt.Texts())
 	}
-	if !tt.HasText(locales.WorkspaceEmpty()) {
-		t.Errorf("texts = %q", tt.Texts())
-	}
-	if err := tt.Click("Settings"); err != nil {
+	if err := tt.Click(locales.NavSettingsSync()); err != nil {
 		t.Fatal(err)
 	}
 	settings := ui.NewTester(a.settingsView, 760, 620)
@@ -324,9 +339,10 @@ func TestShellAtMinimumSize(t *testing.T) {
 	tt.Frame()
 	for _, text := range []string{
 		"Overview",
-		"2026 cohort · Grade 10 · Class of 2029",
-		locales.OverviewQuickImport(),
-		locales.OverviewMetricStudents(),
+		"2026 cohort",
+		"Class of 2029 · 2026-2027 academic year",
+		locales.OverviewActiveCohortsTitle(),
+		locales.OverviewOccupancyTitle(),
 	} {
 		box, ok := tt.Find(text)
 		if !ok {
@@ -351,8 +367,9 @@ func TestDarkThemeShell(t *testing.T) {
 	tt.Frame()
 	for _, text := range []string{
 		"Overview",
-		"2026 cohort · Grade 10 · Class of 2029",
-		locales.OverviewLatestAssessment(),
+		"2026 cohort",
+		locales.OverviewOccupancyTitle(),
+		locales.OverviewRecentExamsTitle(),
 	} {
 		if !tt.HasText(text) {
 			t.Errorf("missing %q in %q", text, tt.Texts())
@@ -395,22 +412,34 @@ func TestLoadDefaultsToOverviewAndDerivesLegacyCohort(t *testing.T) {
 	})
 	ctx := context.Background()
 	path := filepath.Join(dir, "tally.db")
-	opened, err := store.Open(ctx, path)
+	// 验证旧版库结构（如含 batches 表）会被清晰拒绝，不做旧迁移。
+	legacyDB, err := sqlite.Open(ctx, path, sqlite.OpenOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := opened.CreateBatch(ctx, store.CreateBatchInput{
-		AcademicYear: "2026-2027",
-		Semester:     "autumn",
-		ExamType:     "midterm",
-		Grade:        "g1",
-	}); err != nil {
+	if _, err := legacyDB.Execute(ctx, `CREATE TABLE batches (id INTEGER PRIMARY KEY)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := legacyDB.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Open(ctx, path); !errors.Is(err, store.ErrIncompatibleDatabase) {
+		t.Fatalf("expected ErrIncompatibleDatabase, got %v", err)
+	}
+
+	// 新建干净库并创建年级，验证应用正常启动。
+	cleanPath := filepath.Join(dir, "clean")
+	opened, err := store.Open(ctx, filepath.Join(cleanPath, "tally.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := opened.CreateCohort(ctx, 2026, 2026); err != nil {
 		t.Fatal(err)
 	}
 	if err := opened.Close(); err != nil {
 		t.Fatal(err)
 	}
-	a := &app{dataDir: dir, language: "en"}
+	a := &app{dataDir: cleanPath, language: "en"}
 	a.now = func() time.Time { return time.Date(2026, time.November, 19, 12, 0, 0, 0, time.Local) }
 	a.load()
 	if a.loadError != "" {
@@ -430,7 +459,7 @@ func TestLoadDefaultsToOverviewAndDerivesLegacyCohort(t *testing.T) {
 	if len(a.cohorts) != 1 || a.cohorts[0].EnrollmentYear != 2026 {
 		t.Fatalf("cohorts = %+v", a.cohorts)
 	}
-	if len(a.cohortStages) != 1 || a.cohortStages[0].GradeLevel != "g1" {
-		t.Fatalf("stages = %+v", a.cohortStages)
+	if len(a.schoolOverview.ActiveCohorts) != 1 || a.schoolOverview.ActiveCohorts[0].Cohort.CurrentPhase != "g1" {
+		t.Fatalf("active cohorts = %+v", a.schoolOverview.ActiveCohorts)
 	}
 }

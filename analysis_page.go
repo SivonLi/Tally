@@ -17,7 +17,8 @@ func (a *app) analysisPage(c *ui.Context, p uiPalette) {
 	ctx := context.Background()
 
 	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
-		cohort := a.selectedCohort()
+		a.examHubSubnav(c, p, 3)
+		cohort := a.ensureAnalysisCohort(ctx)
 		var actions func()
 		if cohort != nil {
 			actions = func() {

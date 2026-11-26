@@ -33,6 +33,7 @@ func (a *app) examsPage(c *ui.Context, p uiPalette) {
 	}
 	t := p.theme
 	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
+		a.examHubSubnav(c, p, 0)
 		pageHeading(c, p, locales.NavExams(), locales.ExamsPageSubtitle(), func() {
 			if labelledButton(c, locales.ExamNew(), iconPlus, len(a.exams) == 0).Clicked() {
 				a.openNewExam()

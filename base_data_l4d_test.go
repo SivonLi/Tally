@@ -10,7 +10,7 @@ import (
 
 func TestBaseDataStudentDetailCardAndSnapshots(t *testing.T) {
 	aEmpty := newTestApp(t)
-	aEmpty.page = pageBaseData
+	aEmpty.page = pageCohorts
 	ttEmpty := ui.NewTester(aEmpty.view, 1280, 800)
 	useChineseUI(t)
 	ttEmpty.SetLocale("zh-Hans")
@@ -18,18 +18,19 @@ func TestBaseDataStudentDetailCardAndSnapshots(t *testing.T) {
 	captureDualSnapshot(t, ttEmpty, "view_basedata_empty")
 
 	a := newChinesePopulatedTestApp(t)
-	a.page = pageBaseData
+	a.page = pageCohorts
+	a.openCohortDetail(a.cohorts[0].ID)
 	tt := ui.NewTester(a.view, 1280, 800)
 	useChineseUI(t)
 	tt.SetLocale("zh-Hans")
 	settleTester(tt)
 
-	if err := tt.Click(locales.BaseDataTabStudents()); err != nil {
+	if err := tt.Click(locales.CohortTabStudents()); err != nil {
 		t.Fatal(err)
 	}
 	settleTester(tt)
-	if a.baseDataTab != 1 || len(a.students) == 0 {
-		t.Fatalf("students tab state: tab=%d len=%d", a.baseDataTab, len(a.students))
+	if a.cohortDetailTab != 2 || len(a.students) == 0 {
+		t.Fatalf("students tab state: tab=%d len=%d", a.cohortDetailTab, len(a.students))
 	}
 
 	firstStudent := a.students[0]
@@ -37,25 +38,25 @@ func TestBaseDataStudentDetailCardAndSnapshots(t *testing.T) {
 		t.Fatal(err)
 	}
 	settleTester(tt)
-	if !a.studentDetailOpen || a.selectedStudentID != firstStudent.ID {
-		t.Fatalf("student detail panel did not open: open=%v selected=%d want=%d",
-			a.studentDetailOpen, a.selectedStudentID, firstStudent.ID)
+	if !a.studentProfileOpen || a.selectedStudentID != firstStudent.ID {
+		t.Fatalf("student profile shell did not open: open=%v selected=%d want=%d",
+			a.studentProfileOpen, a.selectedStudentID, firstStudent.ID)
 	}
-	if !tt.HasText(locales.StudentDetailTitle()) || !tt.HasText(firstStudent.StudentNo) {
-		t.Fatalf("student detail card missing expected text: %q", tt.Texts())
+	if !tt.HasText(firstStudent.Name) || !tt.HasText(firstStudent.StudentNo) {
+		t.Fatalf("student profile shell missing expected text: %q", tt.Texts())
 	}
 	if tt.FramePending() {
-		t.Fatal("student detail panel enter did not settle")
+		t.Fatal("student profile shell did not settle")
 	}
 
 	captureDualSnapshot(t, tt, "view_basedata_populated")
 
-	if err := tt.Click(locales.StudentCloseDetail()); err != nil {
+	if err := tt.Click(locales.Back()); err != nil {
 		t.Fatal(err)
 	}
 	settleTester(tt)
-	if a.studentDetailOpen || tt.FramePending() {
-		t.Fatalf("student detail panel did not close cleanly: open=%v pending=%v",
-			a.studentDetailOpen, tt.FramePending())
+	if a.studentProfileOpen || tt.FramePending() {
+		t.Fatalf("student profile shell did not close cleanly: open=%v pending=%v",
+			a.studentProfileOpen, tt.FramePending())
 	}
 }

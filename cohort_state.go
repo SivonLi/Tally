@@ -23,49 +23,73 @@ func (a *app) reloadCohorts(ctx context.Context) {
 	if a.store == nil {
 		return
 	}
+	a.invalidateProfileCaches()
 	cohorts, err := a.store.ListCohorts(ctx)
 	if err != nil {
 		a.loadError = err.Error()
 		return
 	}
 	a.cohorts = cohorts
-	for _, cohort := range cohorts {
-		index := school.StageIndex(cohort.EnrollmentYear, a.academicYearStart)
-		if index < school.StageFirst || index > school.StageThird {
-			continue
-		}
-		_, err := a.store.GetCohortStage(ctx, cohort.ID, a.academicYearStart)
-		if err != nil && !errors.Is(err, store.ErrNotFound) {
-			a.loadError = err.Error()
-			return
-		}
-		newStage := errors.Is(err, store.ErrNotFound)
-		stage, err := a.store.EnsureCohortStage(ctx, cohort.ID, a.academicYearStart, school.StageKey(index))
-		if err != nil {
-			a.loadError = err.Error()
-			return
-		}
-		if newStage {
-			if _, err := a.store.CopyStageFromPrevious(ctx, cohort.ID, stage.ID); err != nil {
-				a.loadError = err.Error()
-				return
-			}
-		}
-	}
 	if a.selectedCohort() == nil {
 		a.selectedCohortID = ""
 		a.selectedStageID = 0
-		for _, cohort := range cohorts {
-			index := school.StageIndex(cohort.EnrollmentYear, a.academicYearStart)
-			if index >= school.StageFirst && index <= school.StageThird {
-				a.selectedCohortID = strconv.FormatInt(cohort.ID, 10)
-				break
-			}
-		}
-		if a.selectedCohortID == "" && len(cohorts) > 0 {
-			a.selectedCohortID = strconv.FormatInt(cohorts[0].ID, 10)
+		a.cohortDetailOpen = false
+	}
+	if a.selectedCohort() != nil {
+		a.reloadSelectedCohort(ctx)
+	}
+	a.reloadSchoolOverview(ctx)
+	a.reloadTeacherDirectory(ctx)
+}
+
+// reloadSchoolOverview 刷新全校在读年级态势、全校教师占用与近期考试。
+func (a *app) reloadSchoolOverview(ctx context.Context) {
+	if a.store == nil {
+		return
+	}
+	ov, err := a.store.GetSchoolOverview(ctx)
+	if err == nil {
+		a.schoolOverview = ov
+		a.schoolOverviewLoaded = true
+	}
+	if occ, err := a.store.ListTeachersWithOccupancy(ctx, "", "", ""); err == nil {
+		a.teacherOccupancy = occ
+	}
+}
+
+// reloadTeacherDirectory 刷新全校教师目录缓存。
+func (a *app) reloadTeacherDirectory(ctx context.Context) {
+	if a.store == nil {
+		return
+	}
+	occ, err := a.store.ListTeachersWithOccupancy(ctx, "", "", "")
+	if err == nil {
+		a.teacherOccupancy = occ
+	}
+	if a.selectedTeacherID > 0 && a.teacherProfileOpen {
+		if prof, err := a.store.GetTeacherProfile(ctx, a.selectedTeacherID); err == nil {
+			a.teacherProfile = prof
 		}
 	}
+}
+
+// openCohortDetail 进入指定年级的 6 页签档案详情视图。
+func (a *app) openCohortDetail(cohortID int64) {
+	idStr := strconv.FormatInt(cohortID, 10)
+	changed := a.selectedCohortID != idStr
+	a.selectedCohortID = idStr
+	if changed {
+		a.selectedStageID = 0
+		a.dataClassFilter = 0
+		a.baselineClassFilter = 0
+		a.selectedStudentID = 0
+		a.studentDetailOpen = false
+		a.studentProfileOpen = false
+		a.studentProfileStack = nil
+		a.studentPage = 0
+	}
+	a.cohortDetailOpen = true
+	ctx := context.Background()
 	a.reloadSelectedCohort(ctx)
 }
 
@@ -73,17 +97,14 @@ func (a *app) reloadSelectedCohort(ctx context.Context) {
 	a.cohortStages = nil
 	a.stageCounts = store.StageCounts{}
 	a.stageClasses = nil
+	a.prevPhaseClasses = nil
+	a.cohortAssignments = nil
+	a.cohortExams = nil
+	a.cohortAssessments = nil
 	a.workspaceSummary = store.WorkspaceSummary{}
 	a.workspaceSummaryLoaded = false
 	cohort := a.selectedCohort()
 	if cohort == nil || a.store == nil {
-		a.exams = nil
-		a.selectedExamID = 0
-		a.clearExamLoadedData()
-		a.assessments = nil
-		a.selectedAssessmentID = 0
-		a.assessmentRows = nil
-		a.assessmentPersonal = nil
 		a.qualityExams = nil
 		a.qualityLoaded = false
 		a.reloadDataPages(ctx)
@@ -95,16 +116,21 @@ func (a *app) reloadSelectedCohort(ctx context.Context) {
 		return
 	}
 	a.cohortStages = stages
-	if a.selectedStageID == 0 {
-		index := school.StageIndex(cohort.EnrollmentYear, a.academicYearStart)
-		if index >= school.StageFirst && index <= school.StageThird {
-			if stage, err := a.store.GetCohortStage(ctx, cohort.ID, a.academicYearStart); err == nil {
-				a.selectedStageID = stage.ID
+	if a.selectedStage() == nil {
+		targetPhase := cohort.CurrentPhase
+		if targetPhase == store.PhaseGraduated {
+			targetPhase = store.PhaseG3
+		}
+		targetStageID := store.EncodeStageID(cohort.ID, targetPhase)
+		for _, st := range stages {
+			if st.ID == targetStageID {
+				a.selectedStageID = st.ID
+				break
 			}
 		}
-	}
-	if a.selectedStage() == nil && len(stages) > 0 {
-		a.selectedStageID = stages[len(stages)-1].ID
+		if a.selectedStage() == nil && len(stages) > 0 {
+			a.selectedStageID = stages[len(stages)-1].ID
+		}
 	}
 	stage := a.selectedStage()
 	if stage == nil {
@@ -125,7 +151,28 @@ func (a *app) reloadSelectedCohort(ctx context.Context) {
 		return
 	}
 	a.stageClasses = classes
+	if prevPhase := prevStagePhase(stage); prevPhase != "" {
+		prevClasses, pErr := a.store.ListClasses(ctx, cohort.ID, store.EncodeStageID(cohort.ID, prevPhase))
+		if pErr != nil {
+			a.loadError = pErr.Error()
+			return
+		}
+		lookup := make(map[int64]string, len(prevClasses))
+		for _, pc := range prevClasses {
+			lookup[pc.ID] = pc.Name
+		}
+		a.prevPhaseClasses = lookup
+	}
 	a.reloadDataPages(ctx)
+	if assigns, aErr := a.store.ListCohortAssignments(ctx, cohort.ID, stage.GradeLevel); aErr == nil {
+		a.cohortAssignments = assigns
+	}
+	if cExams, eErr := a.store.ListExamsByCohort(ctx, cohort.ID); eErr == nil {
+		a.cohortExams = cExams
+	}
+	if cAssess, ovErr := a.store.ListAssessmentOverviewByCohort(ctx, cohort.ID); ovErr == nil {
+		a.cohortAssessments = cAssess
+	}
 	a.reloadExams(ctx)
 	a.reloadAssessments(ctx)
 	a.qualityLoaded = false
@@ -181,8 +228,9 @@ func (a *app) selectedStage() *store.CohortStage {
 }
 
 func (a *app) stageEditable() bool {
+	cohort := a.selectedCohort()
 	stage := a.selectedStage()
-	return stage != nil && stage.AcademicYearStart == a.academicYearStart
+	return cohort != nil && cohort.CurrentPhase != store.PhaseGraduated && stage != nil && stage.GradeLevel == cohort.CurrentPhase
 }
 
 // displayStage 返回顶栏和总览使用的阶段。没有手工选择历史阶段时按当前学年推导。
@@ -305,7 +353,6 @@ func (a *app) createCohort() {
 	a.selectedCohortID = strconv.FormatInt(cohort.ID, 10)
 	a.selectedStageID = 0
 	a.reloadCohorts(context.Background())
-	a.page = pageOverview
 	a.notifyMain(fmt.Sprintf(locales.CohortCreatedToast(), a.cohortName(cohort.EnrollmentYear)))
 }
 
