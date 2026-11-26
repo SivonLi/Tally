@@ -2,10 +2,9 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
-
-	"github.com/egoist/mygo/plugins/sqlite"
 )
 
 // SavedView 保存的界面视图（筛选、列配置、排序）。
@@ -20,21 +19,11 @@ type SavedView struct {
 	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
-func savedViewsSchema() []sqlite.Statement {
-	return []sqlite.Statement{
-		{SQL: `CREATE TABLE IF NOT EXISTS saved_views (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			page TEXT NOT NULL,
-			name TEXT NOT NULL,
-			filters_json TEXT NOT NULL DEFAULT '{}',
-			columns_json TEXT NOT NULL DEFAULT '[]',
-			sort_json TEXT NOT NULL DEFAULT '{}',
-			created_at TEXT NOT NULL,
-			updated_at TEXT NOT NULL
-		)`},
-		{SQL: `CREATE UNIQUE INDEX IF NOT EXISTS saved_views_page_name
-			ON saved_views(page, name)`},
-	}
+type savedViewPayload struct {
+	FiltersJSON string `json:"filters_json"`
+	ColumnsJSON string `json:"columns_json"`
+	SortJSON    string `json:"sort_json"`
+	UpdatedAt   string `json:"updated_at"`
 }
 
 // SaveView 保存或更新一个命名视图。
@@ -52,24 +41,27 @@ func (s *Store) SaveView(ctx context.Context, view SavedView) (int64, error) {
 		view.SortJSON = "{}"
 	}
 	now := s.now().Format(time.RFC3339Nano)
+	encoded, err := json.Marshal(savedViewPayload{
+		FiltersJSON: view.FiltersJSON,
+		ColumnsJSON: view.ColumnsJSON,
+		SortJSON:    view.SortJSON,
+		UpdatedAt:   now,
+	})
+	if err != nil {
+		return 0, err
+	}
 	if view.ID > 0 {
-		_, err := s.db.Execute(ctx, `UPDATE saved_views
-			SET name = ?, filters_json = ?, columns_json = ?, sort_json = ?, updated_at = ?
-			WHERE id = ?`,
-			view.Name, view.FiltersJSON, view.ColumnsJSON, view.SortJSON, now, view.ID)
+		_, err := s.db.Execute(ctx, `UPDATE saved_views SET name = ?, config_json = ? WHERE id = ?`,
+			view.Name, string(encoded), view.ID)
 		if err != nil {
 			return 0, err
 		}
 		return view.ID, nil
 	}
-	res, err := s.db.Execute(ctx, `INSERT INTO saved_views (page, name, filters_json, columns_json, sort_json, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(page, name) DO UPDATE SET
-			filters_json = excluded.filters_json,
-			columns_json = excluded.columns_json,
-			sort_json = excluded.sort_json,
-			updated_at = excluded.updated_at`,
-		view.Page, view.Name, view.FiltersJSON, view.ColumnsJSON, view.SortJSON, now, now)
+	res, err := s.db.Execute(ctx, `INSERT INTO saved_views(page, name, config_json, created_at)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(page, name) DO UPDATE SET config_json = excluded.config_json`,
+		view.Page, view.Name, string(encoded), now)
 	if err != nil {
 		return 0, err
 	}
@@ -78,30 +70,45 @@ func (s *Store) SaveView(ctx context.Context, view SavedView) (int64, error) {
 
 // ListViews 列出指定页面的所有已保存视图。
 func (s *Store) ListViews(ctx context.Context, page string) ([]SavedView, error) {
-	rows, err := s.db.Query(ctx, `SELECT id, page, name, filters_json, columns_json, sort_json, created_at, updated_at
+	rows, err := s.db.Query(ctx, `SELECT id, page, name, config_json, created_at
 		FROM saved_views WHERE page = ? ORDER BY name ASC`, page)
 	if err != nil {
 		return nil, err
 	}
 	views := make([]SavedView, 0, len(rows.Values))
 	for _, row := range rows.Values {
-		id, _ := row[0].(int64)
-		pg, _ := row[1].(string)
-		name, _ := row[2].(string)
-		filters, _ := row[3].(string)
-		columns, _ := row[4].(string)
-		sort, _ := row[5].(string)
-		createdAtStr, _ := row[6].(string)
-		updatedAtStr, _ := row[7].(string)
-		created, _ := time.Parse(time.RFC3339Nano, createdAtStr)
-		updated, _ := time.Parse(time.RFC3339Nano, updatedAtStr)
+		created, err := parseTime(row[4])
+		if err != nil {
+			return nil, err
+		}
+		var payload savedViewPayload
+		if raw := stringValue(row[3]); raw != "" {
+			if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+				return nil, err
+			}
+		}
+		if payload.FiltersJSON == "" {
+			payload.FiltersJSON = "{}"
+		}
+		if payload.ColumnsJSON == "" {
+			payload.ColumnsJSON = "[]"
+		}
+		if payload.SortJSON == "" {
+			payload.SortJSON = "{}"
+		}
+		updated := created
+		if payload.UpdatedAt != "" {
+			if parsed, err := parseTime(payload.UpdatedAt); err == nil {
+				updated = parsed
+			}
+		}
 		views = append(views, SavedView{
-			ID:          id,
-			Page:        pg,
-			Name:        name,
-			FiltersJSON: filters,
-			ColumnsJSON: columns,
-			SortJSON:    sort,
+			ID:          intValue(row[0]),
+			Page:        stringValue(row[1]),
+			Name:        stringValue(row[2]),
+			FiltersJSON: payload.FiltersJSON,
+			ColumnsJSON: payload.ColumnsJSON,
+			SortJSON:    payload.SortJSON,
 			CreatedAt:   created,
 			UpdatedAt:   updated,
 		})

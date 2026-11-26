@@ -2,7 +2,6 @@
 package importer
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -494,19 +493,6 @@ func splitList(value string) []string {
 		}
 	}
 	return result
-}
-
-// ImportInto 读取工作簿并写入批次。
-func ImportInto(ctx context.Context, storage *store.Store, batchID int64, path string, options Options) (store.ImportSummary, store.ImportData, error) {
-	data, report, err := ImportWorkspace(path, options)
-	if err != nil {
-		return store.ImportSummary{}, store.ImportData{}, err
-	}
-	summary, err := storage.MergeImport(ctx, batchID, data, report)
-	if err != nil {
-		return store.ImportSummary{}, store.ImportData{}, err
-	}
-	return summary, data, nil
 }
 
 type roleSelection struct {

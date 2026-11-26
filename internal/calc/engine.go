@@ -195,8 +195,8 @@ func validateReferences(input Input, statGroups map[string]StatGroup) error {
 		if group.BaselineAverage <= 0 && group.BaselineRatio <= 0 {
 			return fmt.Errorf("统计组 %s 的基数均分必须大于零", group.ID)
 		}
-		if group.Target <= 0 {
-			return fmt.Errorf("统计组 %s 的目标必须大于零", group.ID)
+		if group.Target < 0 {
+			return fmt.Errorf("统计组 %s 的目标不能为负数", group.ID)
 		}
 	}
 	for _, assignment := range input.Assignments {

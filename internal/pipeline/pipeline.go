@@ -39,23 +39,6 @@ func (e *ValidationError) Error() string {
 	return "核算前校验失败: " + strings.Join(parts, "；")
 }
 
-// BuildInput 读取批次数据并生成计算引擎输入。
-func BuildInput(ctx context.Context, storage *store.Store, batchID int64, plan assessment.Config) (calc.Input, store.BatchData, string, error) {
-	data, err := storage.LoadBatchData(ctx, batchID)
-	if err != nil {
-		return calc.Input{}, store.BatchData{}, "", err
-	}
-	input, issues := build(data, plan)
-	if len(issues) > 0 {
-		return calc.Input{}, data, "", &ValidationError{Issues: issues}
-	}
-	hash, err := store.InputHash(plan, data)
-	if err != nil {
-		return calc.Input{}, data, "", err
-	}
-	return input, data, hash, nil
-}
-
 // BuildAssessmentInput 读取本次考核的数据并生成计算引擎输入与输入摘要。
 func BuildAssessmentInput(ctx context.Context, storage *store.Store, assessmentID int64, plan assessment.Config) (calc.Input, store.BatchData, string, map[string]string, error) {
 	data, err := storage.LoadAssessmentData(ctx, assessmentID)
@@ -143,78 +126,6 @@ func ExportAssessment(ctx context.Context, storage *store.Store, assessmentID in
 		Grade:        context.Grade,
 		Status:       "calculated",
 		Revision:     context.Assessment.Revision,
-	}
-	if err := exporter.Write(exporter.Input{
-		Path:        path,
-		Batch:       batch,
-		Plan:        version,
-		Run:         run,
-		Rows:        rows,
-		Personal:    personal,
-		Students:    data.Students,
-		Classes:     data.Classes,
-		GeneratedAt: time.Now(),
-	}); err != nil {
-		return err
-	}
-	hash, err := fileHash(path)
-	if err != nil {
-		return err
-	}
-	return storage.SaveExport(ctx, run.ID, path, hash)
-}
-
-// CalculateBatch 按选定的方案版本核算批次并保存结果。
-func CalculateBatch(ctx context.Context, storage *store.Store, batchID, versionID int64) (calc.Result, error) {
-	version, err := storage.GetVersion(ctx, versionID)
-	if err != nil {
-		return calc.Result{}, err
-	}
-	if version.Status != "published" {
-		return calc.Result{}, fmt.Errorf("正式核算只能选择已发布的方案版本")
-	}
-	input, data, hash, err := BuildInput(ctx, storage, batchID, version.Config)
-	if err != nil {
-		return calc.Result{}, err
-	}
-	excluded := make(map[string]bool, len(data.ExcludedCompletionClasses))
-	for classID := range data.ExcludedCompletionClasses {
-		excluded[strconv.FormatInt(classID, 10)] = true
-	}
-	result, err := calc.Calculate(input, calc.Options{ExcludedCompletionClasses: excluded})
-	if err != nil {
-		return calc.Result{}, err
-	}
-	if _, err := storage.SaveRun(ctx, batchID, versionID, hash, result); err != nil {
-		return calc.Result{}, err
-	}
-	return result, nil
-}
-
-// ExportLatest 把批次最新的核算结果写成工作簿，并记录导出文件。
-func ExportLatest(ctx context.Context, storage *store.Store, batchID int64, path string) error {
-	run, rows, personal, err := storage.LatestRun(ctx, batchID)
-	if err != nil {
-		return err
-	}
-	batch, err := storage.GetBatch(ctx, batchID)
-	if err != nil {
-		return err
-	}
-	version, err := storage.GetVersion(ctx, run.PlanVersionID)
-	if err != nil {
-		return err
-	}
-	_, _, currentHash, err := BuildInput(ctx, storage, batchID, version.Config)
-	if err != nil {
-		return err
-	}
-	if currentHash != run.InputHash {
-		return fmt.Errorf("批次数据或者方案已经变化，需要重新核算后才能导出")
-	}
-	data, err := storage.LoadBatchData(ctx, batchID)
-	if err != nil {
-		return err
 	}
 	if err := exporter.Write(exporter.Input{
 		Path:        path,
@@ -418,8 +329,8 @@ func build(data store.BatchData, plan assessment.Config) (calc.Input, []Issue) {
 			add("missing_stat_baseline", fmt.Sprintf("统计组 %s %s 缺少基数均分", group.Subject, group.Name))
 			continue
 		}
-		if group.Target <= 0 {
-			add("missing_stat_target", fmt.Sprintf("统计组 %s %s 缺少单科目标", group.Subject, group.Name))
+		if group.Target < 0 {
+			add("missing_stat_target", fmt.Sprintf("统计组 %s %s 单科目标不能为负数", group.Subject, group.Name))
 			continue
 		}
 		statGroups = append(statGroups, calc.StatGroup{

@@ -99,6 +99,7 @@ type Row struct {
 	Subject       string
 	LeadClassID   string
 	LeadClassName string
+	TeacherIDs    []string
 	TeacherNames  []string
 
 	ClassAverage    float64

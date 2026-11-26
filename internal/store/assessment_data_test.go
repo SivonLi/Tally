@@ -391,3 +391,97 @@ func TestEnsureAssessmentStatGroupsFromTeachingGroups(t *testing.T) {
 		}
 	}
 }
+
+func TestSaveAssessmentRunOfficialOverwriteAndAtomicity(t *testing.T) {
+	fixture := openAssessmentFixture(t)
+	ctx := context.Background()
+
+	result1 := calc.Result{
+		Rows: []calc.Row{{
+			StatGroupID: "1", StatGroupName: "1班", Subject: "chinese", LeadClassID: "1",
+			LeadClassName: "1班", ClassCount: 2, ClassAverage: 95, Total: 88, Rank: 1,
+		}},
+		Personal: []calc.PersonalScore{{
+			TeacherID: "1", TeacherName: "张老师", Grade: "g1", Subject: "chinese", Score: 70,
+		}},
+	}
+	run1, err := fixture.Store.SaveAssessmentRun(ctx, fixture.AssessmentID, fixture.VersionID, "h1", nil, result1, true)
+	if err != nil {
+		t.Fatalf("SaveAssessmentRun 1: %v", err)
+	}
+	run2, err := fixture.Store.SaveAssessmentRun(ctx, fixture.AssessmentID, fixture.VersionID, "h2", nil, result1, true)
+	if err != nil {
+		t.Fatalf("SaveAssessmentRun 2: %v", err)
+	}
+
+	runs, err := fixture.Store.ListAssessmentRuns(ctx, fixture.AssessmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(runs) != 2 {
+		t.Fatalf("expected 2 runs, got %+v", runs)
+	}
+	officialCount := 0
+	for _, r := range runs {
+		if r.IsOfficial {
+			officialCount++
+		}
+	}
+	if officialCount != 1 || runs[0].ID != run2 || !runs[0].IsOfficial || runs[1].ID != run1 || runs[1].IsOfficial {
+		t.Fatalf("expected only latest run2=%d official, got officialCount=%d runs=%+v", run2, officialCount, runs)
+	}
+
+	// 验证单事务原子性：中途触发 FK 错误（不存在的 teacher_id）时整次写入必须回滚，不得残留脏 run/rows 或清除旧官方标记。
+	badResult := calc.Result{
+		Rows: result1.Rows,
+		Personal: []calc.PersonalScore{{
+			TeacherID: "999999", TeacherName: "不存在教师", Grade: "g1", Subject: "chinese", Score: 70,
+		}},
+	}
+	if _, err := fixture.Store.SaveAssessmentRun(ctx, fixture.AssessmentID, fixture.VersionID, "h3", nil, badResult, true); err == nil {
+		t.Fatal("expected FK failure on non-existent teacher_id")
+	}
+	runsAfterFail, err := fixture.Store.ListAssessmentRuns(ctx, fixture.AssessmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(runsAfterFail) != 2 || !runsAfterFail[0].IsOfficial || runsAfterFail[0].ID != run2 {
+		t.Fatalf("atomicity violated after failed SaveAssessmentRun: %+v", runsAfterFail)
+	}
+}
+
+func TestApplyExamImportSingleSubjectTarget(t *testing.T) {
+	fixture := openAssessmentFixture(t)
+	ctx := context.Background()
+
+	_, err := fixture.Store.ApplyExamImport(ctx, ExamImportRequest{
+		ExamID: fixture.ExamID, CohortID: fixture.CohortID, Kind: ExamImportTargets,
+		Report: ImportReport{FileHash: "single-subject-targets", Path: "targets_ss.xlsx", RowCount: 2},
+		Data: ImportData{ClassTargets: []ImportClassTarget{
+			{ClassName: "1班", Counts: map[string]*float64{
+				"undergraduate":  floatPointer(2),
+				"single_subject": floatPointer(5),
+			}},
+			{ClassName: "2班", Counts: map[string]*float64{
+				"undergraduate":  floatPointer(0),
+				"single_subject": floatPointer(0),
+			}},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("ApplyExamImport with single_subject failed: %v", err)
+	}
+	targets, err := fixture.Store.ListClassTargets(ctx, fixture.AssessmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundSingle := false
+	for _, tgt := range targets {
+		if tgt.TierKey == "single_subject" && tgt.Target == 5 {
+			foundSingle = true
+		}
+	}
+	if !foundSingle {
+		t.Fatalf("expected single_subject=5 persisted, got %+v", targets)
+	}
+}

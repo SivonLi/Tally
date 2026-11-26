@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/egoist/mygo/plugins/sqlite"
+
 	"tally/internal/school"
 	"tally/internal/store"
 )
@@ -107,41 +109,36 @@ func TestCurrentAcademicYear(t *testing.T) {
 	}
 }
 
-func TestLegacyBatchesProduceCohorts(t *testing.T) {
+func TestLegacyDatabaseIsRejectedCleanly(t *testing.T) {
 	ctx := context.Background()
-	s, path := openCohortStorePath(t)
-	if _, err := s.CreateBatch(ctx, store.CreateBatchInput{
-		AcademicYear: "2025-2026",
-		Semester:     "spring",
-		ExamType:     "midterm",
-		Grade:        "g1",
-	}); err != nil {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("locate test file")
+	}
+	scratch := filepath.Join(filepath.Dir(file), "..", "..", ".scratch")
+	if err := os.MkdirAll(scratch, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Close(); err != nil {
-		t.Fatal(err)
-	}
-	opened, err := store.Open(ctx, path)
+	dir, err := os.MkdirTemp(scratch, "legacy-reject-")
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { opened.Close() })
-	cohorts, err := opened.ListCohorts(ctx)
+	t.Cleanup(func() {
+		_ = os.RemoveAll(dir)
+	})
+	path := filepath.Join(dir, "legacy.db")
+	rawDB, err := sqlite.Open(ctx, path, sqlite.OpenOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cohorts) != 1 {
-		t.Fatalf("cohorts = %+v", cohorts)
-	}
-	if cohorts[0].EnrollmentYear != 2025 || cohorts[0].GraduationYear != 2028 {
-		t.Fatalf("cohort = %+v", cohorts[0])
-	}
-	stages, err := opened.ListCohortStages(ctx, cohorts[0].ID)
-	if err != nil {
+	if _, err := rawDB.Execute(ctx, `CREATE TABLE batches (id INTEGER PRIMARY KEY)`); err != nil {
 		t.Fatal(err)
 	}
-	if len(stages) != 1 || stages[0].AcademicYearStart != 2025 || stages[0].GradeLevel != "g1" {
-		t.Fatalf("stages = %+v", stages)
+	if err := rawDB.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Open(ctx, path); !errors.Is(err, store.ErrIncompatibleDatabase) {
+		t.Fatalf("expected ErrIncompatibleDatabase, got %v", err)
 	}
 }
 
@@ -152,35 +149,48 @@ func TestStageCounts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	batch, err := s.CreateBatch(ctx, store.CreateBatchInput{
-		AcademicYear: "2026-2027",
-		Semester:     "autumn",
-		ExamType:     "midterm",
-		Grade:        "g1",
-	})
+	stage, err := s.GetCohortStage(ctx, cohort.ID, 2026)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = s.MergeImport(ctx, batch.ID, store.ImportData{
-		Classes: []string{"1班"},
-		Students: []store.ImportStudent{{
-			StudentNo: "001",
-			Name:      "甲",
-			ClassName: "1班",
-		}},
-		Teachers: []string{"张老师"},
-		Assignments: []store.ImportAssignment{{
-			ClassName:   "1班",
-			Subject:     "chinese",
-			TeacherName: "张老师",
-		}},
-		ClassBaselines: []store.ImportClassBaseline{{
-			ClassName: "1班",
-			Subject:   "chinese",
-			Average:   80,
-		}},
-	}, store.ImportReport{})
-	if err != nil {
+	if _, err := s.ApplyStageImport(ctx, cohort.ID, stage.ID, store.StageImportRequest{
+		Kind: "students",
+		Data: store.ImportData{
+			Classes: []string{"1班"},
+			Students: []store.ImportStudent{{
+				StudentNo: "001",
+				Name:      "甲",
+				ClassName: "1班",
+			}},
+		},
+		Report: store.ImportReport{FileHash: "cohort-test-students"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ApplyStageImport(ctx, cohort.ID, stage.ID, store.StageImportRequest{
+		Kind: "assignments",
+		Data: store.ImportData{
+			Assignments: []store.ImportAssignment{{
+				ClassName:   "1班",
+				Subject:     "chinese",
+				TeacherName: "张老师",
+			}},
+		},
+		Report: store.ImportReport{FileHash: "cohort-test-assign"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ApplyStageImport(ctx, cohort.ID, stage.ID, store.StageImportRequest{
+		Kind: "baselines",
+		Data: store.ImportData{
+			ClassBaselines: []store.ImportClassBaseline{{
+				ClassName: "1班",
+				Subject:   "chinese",
+				Average:   80,
+			}},
+		},
+		Report: store.ImportReport{FileHash: "cohort-test-base"},
+	}); err != nil {
 		t.Fatal(err)
 	}
 	counts, err := s.StageCounts(ctx, cohort.ID, 2026, "g1")
