@@ -189,17 +189,34 @@ func ImportWorkspace(path string, options Options) (store.ImportData, store.Impo
 		}
 	}
 	data.StatGroups, report.Warnings = parseMergeNotes(tables, data, report.Warnings)
+	tierCutoffScore := 0
+	if len(data.TierCutoffs) > 0 {
+		tierCutoffScore = 1000 + len(data.TierCutoffs)
+	}
+	subjectCutoffScore := 0
+	if len(data.SubjectCutoffs) > 0 {
+		subjectCutoffScore = 1000 + len(data.SubjectCutoffs)
+	}
 	for _, table := range tables {
 		if table.HeaderRow == 0 {
 			continue
 		}
-		if tierCutoffs := tierCutoffsFromHeaders(table.Headers); len(tierCutoffs) > len(data.TierCutoffs) {
-			data.TierCutoffs = tierCutoffs
-			report.Sheets = append(report.Sheets, sheetReport(table, "tier_cutoffs"))
+		priority := cutoffTablePriority(table.Sheet)
+		if tierCutoffs := tierCutoffsFromHeaders(table.Headers); len(tierCutoffs) > 0 {
+			score := priority + len(tierCutoffs)
+			if score > tierCutoffScore {
+				tierCutoffScore = score
+				data.TierCutoffs = tierCutoffs
+				report.Sheets = append(report.Sheets, sheetReport(table, "tier_cutoffs"))
+			}
 		}
-		if subjectCutoffs := subjectCutoffsFromHeaders(table.Headers); len(subjectCutoffs) > len(data.SubjectCutoffs) {
-			data.SubjectCutoffs = subjectCutoffs
-			report.Sheets = append(report.Sheets, sheetReport(table, "subject_cutoffs"))
+		if subjectCutoffs := subjectCutoffsFromHeaders(table.Headers); len(subjectCutoffs) > 0 {
+			score := priority + len(subjectCutoffs)
+			if score > subjectCutoffScore {
+				subjectCutoffScore = score
+				data.SubjectCutoffs = subjectCutoffs
+				report.Sheets = append(report.Sheets, sheetReport(table, "subject_cutoffs"))
+			}
 		}
 	}
 	data.Classes = collectClasses(data)
@@ -567,14 +584,21 @@ func detectRoles(tables []excel.Table) roleSelection {
 		}
 		if hasHeader(table.Headers, "班级") && (hasHeader(table.Headers, "清北") || hasHeader(table.Headers, "本科")) && !hasHeader(table.Headers, "考号") && !hasHeader(table.Headers, "姓名") {
 			score := 30 + rowScore(table.Rows)
+			if strings.Contains(name, "目标任务") {
+				score += 100
+			}
 			if strings.Contains(name, "完成率") {
-				score += 150
+				score += 80
 			}
 			if strings.Contains(name, "完成率计算") {
 				score += 20
 			}
-			if strings.Contains(name, "目标任务") {
-				score += 60
+			if hasHeader(table.Headers, "班级目标任务", "本科达线目标", "达线目标") {
+				score += 120
+			}
+			// 高考完成率表同时包含「完成率」与「本科达线目标/达线目标」，兼顾目标与显式实际完成数，优先级高于纯目标表。
+			if strings.Contains(name, "完成率") && hasHeader(table.Headers, "本科达线目标", "达线目标") {
+				score += 100
 			}
 			if strings.Contains(name, "走班") {
 				score -= 20
@@ -856,10 +880,12 @@ func parseTargets(table excel.Table) ([]store.ImportClassTarget, error) {
 		return nil, fmt.Errorf("工作表 %s 缺少班级列", table.Sheet)
 	}
 
+	hasSubHeaders := false
 	startRow := 0
 	if len(table.Rows) > 0 {
 		row0Text := strings.Join(table.Rows[0].Values, " ")
 		if strings.Contains(row0Text, "完成") || strings.Contains(row0Text, "目标") {
+			hasSubHeaders = true
 			startRow = 1
 		}
 	}
@@ -871,23 +897,36 @@ func parseTargets(table excel.Table) ([]store.ImportClassTarget, error) {
 	tierCols := map[string]tierCol{}
 
 	for tierName, tierKey := range tierAliases {
-		firstCol := -1
-		secondCol := -1
+		tc := tierCol{targetCol: -1, actualCol: -1}
 		for index, header := range table.Headers {
-			if header == tierName || strings.HasPrefix(header, tierName+"-") || strings.HasPrefix(header, tierName+"：") || strings.HasPrefix(header, tierName+"/") {
-				if firstCol == -1 {
-					firstCol = index
-				} else if secondCol == -1 {
-					secondCol = index
-					break
+			if header != tierName && !strings.HasPrefix(header, tierName+"-") && !strings.HasPrefix(header, tierName+"：") && !strings.HasPrefix(header, tierName+"/") {
+				continue
+			}
+			if hasSubHeaders && index < len(table.Rows[0].Values) {
+				sub := strings.TrimSpace(table.Rows[0].Values[index])
+				if strings.Contains(sub, "完成") && tc.actualCol == -1 {
+					tc.actualCol = index
+					continue
+				}
+				if strings.Contains(sub, "目标") && tc.targetCol == -1 {
+					tc.targetCol = index
+					continue
 				}
 			}
-		}
-		if firstCol >= 0 {
-			tc := tierCol{targetCol: firstCol, actualCol: -1}
-			if secondCol >= 0 {
-				tc.actualCol = secondCol
+			// 带有分数线后缀（如 清北641/663、985-571/593）的列为实际达线列，不是目标列。
+			if isCutoffActualHeader(header) {
+				if tc.actualCol == -1 {
+					tc.actualCol = index
+				}
+				continue
 			}
+			if tc.targetCol == -1 {
+				tc.targetCol = index
+			} else if tc.actualCol == -1 {
+				tc.actualCol = index
+			}
+		}
+		if tc.targetCol >= 0 || tc.actualCol >= 0 {
 			tierCols[tierKey] = tc
 		}
 	}
@@ -1154,6 +1193,35 @@ func parseCutoffs(table excel.Table) ([]store.ImportSubjectCutoff, []store.Impor
 		}
 	}
 	return subjectCutoffs, tierCutoffs, nil
+}
+
+func cutoffTablePriority(sheet string) int {
+	switch {
+	case strings.Contains(sheet, "分数线"):
+		return 800
+	case strings.Contains(sheet, "达线整理"):
+		return 600
+	case strings.Contains(sheet, "达线统计") || strings.Contains(sheet, "达线人数"):
+		return 500
+	case strings.Contains(sheet, "达线率"):
+		return 400
+	case strings.Contains(sheet, "完成率") || strings.Contains(sheet, "排名") || strings.Contains(sheet, "赋分"):
+		return 100
+	default:
+		return 200
+	}
+}
+
+func isCutoffActualHeader(header string) bool {
+	if strings.Contains(header, "%") {
+		return false
+	}
+	match := tierHeaderPattern.FindStringSubmatch(header)
+	if len(match) == 0 {
+		return false
+	}
+	v, err := strconv.ParseFloat(match[2], 64)
+	return err == nil && v > 100
 }
 
 func tierCutoffsFromHeaders(headers []string) []store.ImportTierCutoff {
