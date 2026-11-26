@@ -501,18 +501,33 @@ func verifyChemistryAllMetrics(t *testing.T, label, wbPath, sheetKeyword string,
 			continue
 		}
 		cn := strings.TrimSpace(row.Values[classCol])
-		hTot, errT := strconv.ParseFloat(strings.TrimSpace(row.Values[subIdx+5]), 64)
-		if errT != nil || cn == "" || cn == "班级" {
-			continue
-		}
-		hImp, _ := strconv.ParseFloat(strings.TrimSpace(row.Values[subIdx+3]), 64)
-		hPass, _ := strconv.ParseFloat(strings.TrimSpace(row.Values[subIdx+4]), 64)
-		hRank, _ := strconv.Atoi(strings.TrimSpace(row.Values[subIdx+6]))
-		hTier, _ := strconv.Atoi(strings.TrimSpace(row.Values[subIdx+7]))
-		hPts, _ := strconv.ParseFloat(strings.TrimSpace(row.Values[subIdx+8]), 64)
 		got, ok := byClass[cn]
 		if !ok {
 			continue
+		}
+		hTot, errT := strconv.ParseFloat(strings.TrimSpace(row.Values[subIdx+5]), 64)
+		if errT != nil {
+			continue
+		}
+		hImp, err := strconv.ParseFloat(strings.TrimSpace(row.Values[subIdx+3]), 64)
+		if err != nil {
+			t.Fatalf("%s chemistry parse imp: %v", label, err)
+		}
+		hPass, err := strconv.ParseFloat(strings.TrimSpace(row.Values[subIdx+4]), 64)
+		if err != nil {
+			t.Fatalf("%s chemistry parse pass: %v", label, err)
+		}
+		hRank, err := strconv.Atoi(strings.TrimSpace(row.Values[subIdx+6]))
+		if err != nil {
+			t.Fatalf("%s chemistry parse rank: %v", label, err)
+		}
+		hTier, err := strconv.Atoi(strings.TrimSpace(row.Values[subIdx+7]))
+		if err != nil {
+			t.Fatalf("%s chemistry parse tier: %v", label, err)
+		}
+		hPts, err := strconv.ParseFloat(strings.TrimSpace(row.Values[subIdx+8]), 64)
+		if err != nil {
+			t.Fatalf("%s chemistry parse points: %v", label, err)
 		}
 		if math.Abs(got.ImprovementScore-hImp) > 0.02 ||
 			math.Abs(got.PassScore-hPass) > 0.02 ||
