@@ -16,13 +16,12 @@
 - **学生建档、多级匹配、复读前溯与重复合并**（`internal/store/students.go`）：`students` 在级内按 `(cohort_id, student_no)` 建档并支持 `previous_student_id` 关联往届复读/留级前档（`SetStudentPreviousLink`）；`MatchStudent` 按 `student_no > candidate_code > name+class_name` 匹配并拦截同班重名歧义（`ErrAmbiguousStudentMatch`）；`MergeStudents` 在同届内原子合并重复档案并记录 `student_events`；`ListBaselines` 结合 `student_entry_scores` 与 `cohort_baseline_overrides` 输出班级与年级入口基数。
 - **考试快照、成绩排名、考核引擎与结果归档**（`internal/store/exams.go`、`assessments.go`、`exam_import.go`、`archive.go`）：`exams` / `exam_cohorts` / `exam_participants` / `exam_scores` / `exam_cutoffs` 完整固化参考快照与各级排名（`RecomputeExamRanks`）；`assessments` / `assessment_class_targets`（含 `actual_count`） / `assessment_stat_groups` / `assessment_stat_group_members` / `assessment_target_adjustments` 承接本次考核；`result_runs` / `result_rows`（含 `participants_json` 与 `indicator_values_json`） / `result_row_teachers` / `personal_scores` / `archived_assessments` / `export_records` 持久化正式/试算与归档只读结果。
 - **全校统一导航与师生三年完整档案**（`shell.go`、`cohort_pages.go`、`profile_pages.go`、`internal/store/profiles.go`、`internal/exporter/analysis.go`）：左侧栏统一为「总览 / 年级档案 / 教师档案 / 考试与考核 / 考核方案」主导航与底部工具栏；年级详情 6 页签含走班教学班与学生编排弹窗、班级走势传承链弹窗；学生三年档案（含复读前溯一键跳转、异动时间线与导出）和教师执教档案（含实时占用徽章、跨届得分趋势与 Excel 导出）均已上线。
-- **其余功能页面**：六步引导式导入与撤销（含结果归档导入向导）、考试列表与六页签详情、数据质量、本次考核工作台（试算、正式计算、重新计算标记、零目标补齐、结果详情、版本对比抽屉与导出）、多维分析工作台与保存视图（`saved_views`）、方案配置页（公式选项表单）、WebDAV 加密同步与目录备份恢复。
+- **其余功能页面**：六步引导式导入与撤销（含结果归档导入向导）、考试列表与六页签详情、数据质量、本次考核工作台（试算、正式计算、重新计算标记、零目标补齐、考核级分档边界按科微调弹窗、结果详情与边界溯源、版本对比抽屉与导出）、多维分析工作台与保存视图（`saved_views`）、方案配置页（公式选项表单）、WebDAV 加密同步（含本地双端协议与冲突回归测试）与目录备份恢复。
 
-当前后续计划（阶段 3 收口及远期）：
+当前后续计划（发版后远期规划）：
 
-- 本次考核分档边界按科微调入口（默认按方案比例预填，支持针对某次考试因请假或参评人数变动手工微调单个学科区间并随本次考核快照保存）。
-- 高二、高三及高考专项真实历史工作簿的复算验收，以及导出模板最终样式确认（后置至功能打磨与复算验收之后）。
-- 自动触发核算（当前保持手动点击触发）；远期规划包含智能分班与智能分考场模块。
+- 真实 WebDAV 网盘端到端实测与导出模板最终样式确认（后置至发版后跟进）。
+- 智能分班与智能分考场模块；核算触发继续维持手动点击触发。
 
 ## 总体组成
 
@@ -95,10 +94,10 @@ flowchart LR
 | `store.ExamScoreSummaries`、`ExamScoreBands`、`ExamClassAverages`、`ExamCutoffImpacts`、`ExamQualityIssues`、`ExamPrep` | 考试与级 | 返回科目汇总、分布、班级均分、达线影响、数据质量问题与准备清单 |
 | `store.ListClassTargets`、`SetClassTarget`、`AdjustAssessmentTarget`、`ExcludeAssessmentClass`、`ApplyZeroTargetBatch` | 本次考核目标参数 | 维护班级六档目标、补录调整与不参与完成率记录 |
 | `store.EnsureAssessmentStatGroups`、`ListExamStatGroups`、`SaveStatGroup`、`DeleteStatGroup` | 本次考核合并组参数 | 维护统计组、成员教学班与统计组目标 |
-| `store.AssessmentForExamCohort`、`LoadAssessmentContext`、`LoadAssessmentData`、`SaveAssessmentRun`、`LatestOfficialAssessmentRun`、`AssessmentRowStudents` | 本次考核标识 | 读取考试快照数据构建 `BatchData`，保存运行、`result_rows`、`result_row_teachers`、`personal_scores` 与 `ChangedInputItems` |
+| `store.AssessmentForExamCohort`、`LoadAssessmentContext`、`LoadAssessmentData`、`ListAssessmentBoundaryOverrides`、`SaveAssessmentBoundaryOverrides`、`ResetAssessmentBoundaryOverride`、`ResetAllAssessmentBoundaryOverrides`、`SaveAssessmentRun`、`LatestOfficialAssessmentRun`、`AssessmentRowStudents` | 本次考核标识与边界微调 | 读取考试快照与分档微调数据构建 `BatchData`，维护考核级按科分档边界覆盖（事务内记录 `audit_logs` 与修订号），保存运行、`result_run_boundaries`、`result_rows`、`result_row_teachers`、`personal_scores` 与 `ChangedInputItems` |
 | `store.QueryTeacherTrends`、`QueryClassTrends`、`QuerySubjectComparison`、`QueryStudentTracking`、`QueryAssessmentComparison` | 多维分析参数 | 返回五大维度分析数据；支持 `SaveView` / `ListViews` / `DeleteView` |
-| `pipeline.BuildAssessmentInput`、`CalculateAssessment`、`TrialAssessment`、`ExportAssessment`、`DiffAssessmentRuns` | 本次考核与方案版本 | 构建计算输入、校验并执行试算/正式计算；导出前核对 `InputHash`，不一致时拒绝导出 |
-| `calc.Calculate(input, options)` | 计算输入与选项 | 纯内存计算三项指标、排名、分档、赋分与个人得分；零目标返回 `ZeroTargetError` |
+| `pipeline.BuildAssessmentInput`、`CalculateAssessment`、`TrialAssessment`、`ExportAssessment`、`DiffAssessmentRuns` | 本次考核与方案版本 | 构建计算输入、校验并执行试算/正式计算；对存在其他有效总分线时全选科未划线档位豁免阻断按零达线计；导出前核对 `InputHash`，不一致时拒绝导出 |
+| `calc.Calculate(input, options)` | 计算输入与选项 | 纯内存计算三项指标、排名、分档（优先采用 `BoundaryOverrides`，参评组数变化或越界返回 `BoundaryStaleError`）、赋分与个人得分；零目标返回 `ZeroTargetError` |
 | `exporter.Write`、`ExportTeacherTrend` 等 | 导出数据 | 先写临时文件，成功后再原子替换目标文件 |
 | `assessment.Decode`、`Config.Validate`、`Config.ValidateFormulas` | 方案 JSON 与配置 | 严格解析配置并校验语义、公式语法与指标依赖 |
 
@@ -376,7 +375,7 @@ sequenceDiagram
 | `dense` | 1、1、2 |
 | `ordinal` | 1、2、3 |
 
-分档默认按参评统计组数量生成：一档止于 `floor(n/3)`，二档止于 `round(2n/3)`。`overrides` 按学科和参评数量覆盖；`manual` 模式按学科读取人工区间。赋分默认 70、67、64。
+分档默认按参评统计组数量生成：一档止于 `floor(n/3)`，二档止于 `round(2n/3)`。`overrides` 按学科和参评数量覆盖；`manual` 模式按学科读取人工区间；考核级按科微调（`assessment_boundary_overrides`）优先级高于方案配置，若参评统计组数发生变化则触发 `BoundaryStaleError` 阻断并引导复核；每次运行通过 `result_run_boundaries` 固化各科生效边界与来源。赋分默认 70、67、64。
 
 ### 个人得分
 
@@ -411,7 +410,7 @@ sequenceDiagram
 
 `store.InputHash` 对方案配置和 `BatchData` 做 JSON 编码后计算 SHA-256。计算前把元信息的 `Status`、`Revision`、`CurrentPlanVersionID`、`CreatedAt` 清零，避免核算本身改变摘要。导入、方案变化、目标补录或者班级排除都会改变摘要。
 
-`store.InputSummary` 分别对方案与每个数据项（`roster`、`scores`、`cutoffs`、`targets`、`groups`、`baseline`、`assignments`、`classes`、`exclusions`）计算哈希，保存在运行记录的 `input_summary_json` 里；`store.ChangedInputItems` 对比运行保存的摘要与当前摘要，返回变化数据项的标识。
+`store.InputSummary` 分别对方案与每个数据项（`roster`、`scores`、`cutoffs`、`targets`、`groups`、`baseline`、`assignments`、`classes`、`exclusions`、`boundaries`）计算哈希，保存在运行记录的 `input_summary_json` 里；`store.ChangedInputItems` 对比运行保存的摘要与当前摘要，返回变化数据项的标识。
 
 ## 导出设计
 
@@ -428,7 +427,7 @@ sequenceDiagram
 
 | 工作表 | 内容 |
 |---|---|
-| 计算依据 | 学年学期、考试类型、年级、方案名称与版本、输入摘要、核算时间、导出时间 |
+| 计算依据 | 学年学期、考试类型、年级、方案名称与版本、分档边界微调清单（学科、参评组数、一档止于、二档止于、调整备注，无微调时写明按方案默认边界）、输入摘要、核算时间、导出时间 |
 | 量化计算 | 每个统计组的班级、学科、教师、人数、均分、基数、三项得分和总分 |
 | 排名赋分 | 每个统计组的教学量化成绩、排名、档次和赋分 |
 | 个人得分 | 教师、年级、学科、所教统计组赋分和个人得分 |
@@ -478,9 +477,11 @@ erDiagram
   ASSESSMENT_STAT_GROUPS ||--o{ ASSESSMENT_STAT_GROUP_MEMBERS : contains
   TEACHING_GROUPS ||--o{ ASSESSMENT_STAT_GROUP_MEMBERS : joins
   ASSESSMENTS ||--o{ ASSESSMENT_TARGET_ADJUSTMENTS : adjusts
+  ASSESSMENTS ||--o{ ASSESSMENT_BOUNDARY_OVERRIDES : overrides
   ASSESSMENTS ||--o{ RESULT_RUNS : runs
   ASSESSMENTS ||--o| ARCHIVED_ASSESSMENTS : archives
   PLAN_VERSIONS ||--o{ RESULT_RUNS : uses
+  RESULT_RUNS ||--o{ RESULT_RUN_BOUNDARIES : records
   RESULT_RUNS ||--o{ RESULT_ROWS : contains
   RESULT_ROWS ||--o{ RESULT_ROW_TEACHERS : credits
   RESULT_RUNS ||--o{ PERSONAL_SCORES : summarizes
@@ -536,7 +537,9 @@ erDiagram
 | `assessment_stat_groups` | `id`、`assessment_id`、`subject`、`name`、`lead_class_id`、`target_count`、`baseline_average`、`baseline_ratio`、`baseline_source`、`explicit` | 唯一约束 `(assessment_id, subject, name)` |
 | `assessment_stat_group_members` | `stat_group_id`、`teaching_group_id` | 主键 `(stat_group_id, teaching_group_id)` |
 | `assessment_target_adjustments` | `id`、`assessment_id`、`class_id`、`tier_key`、`adjusted_target`、`excluded`、`reason`、`updated_at` | 唯一约束 `(assessment_id, class_id, tier_key)` |
+| `assessment_boundary_overrides` | `id`、`assessment_id`、`subject`、`group_count`、`first_rank`、`second_rank`、`reason`、`updated_at` | 唯一约束 `(assessment_id, subject)` |
 | `result_runs` | `id`、`assessment_id`、`plan_version_id`、`input_hash`、`input_summary_json`、`is_official`、`created_at` | 每次核算新增一条，旧记录保留 |
+| `result_run_boundaries` | `id`、`run_id`、`subject`、`group_count`、`first_rank`、`second_rank`、`source`、`reason` | 唯一约束 `(run_id, subject)`；`source IN ('default','override')` |
 | `result_rows` | `id`、`run_id`、`stat_group_id`、`stat_group_name`、`subject`、`lead_class_id`、`lead_class_name`、`class_count`、`class_average`、`grade_average`、`baseline_average`、`baseline_ratio`、`improvement_raw`、`improvement_score`、`pass_count`、`pass_target`、`pass_raw`、`pass_score`、`completion_actual`、`completion_base`、`completion_raw`、`completion_participate`、`completion_score`、`total_score`、`rank`、`tier_index`、`points`、`participants_json`、`indicator_values_json` | 一个统计组一条 |
 | `result_row_teachers` | `result_row_id`、`teacher_id`、`teacher_name_snapshot` | 主键 `(result_row_id, teacher_id)`；索引 `(teacher_id)` |
 | `personal_scores` | `id`、`run_id`、`teacher_id`、`teacher_name_snapshot`、`cohort_id`、`phase_at_exam`、`subject`、`group_points_json`、`score` | 唯一约束 `(run_id, teacher_id, subject)`；索引 `(teacher_id)` |
@@ -597,7 +600,7 @@ erDiagram
 - 数据质量：按阻断和提醒筛选，按数据项筛选；导入记录筛选只列被质量问题引用的记录，没有引用时隐藏；问题按数据项分组，点击问题跳到对应考试页签，学生问题同时带上学生查询。
 - 设置：当前学年、学科名称与满分、选科类别、立即备份、备份列表、恢复确认、WebDAV 加密同步、外观和语言。
 - 考核方案：顶部方案下拉框和类型标签，下方是分节的可视化配置表单，底部固定一个保存按钮；保存时选择更新当前方案或保存为新的方案。指标公式、比例模式分档边界和完成率覆盖用公式选项表单修改：下拉框选择形状、数字框填写份数或权重、句子预览公式含义，选择编译成原公式文本写回配置。
-- 本次考核：左侧考核列表，右侧是详情：数据、计算、导出三步流程、准备清单、方案版本选择、「开始试算」「正式计算」与「导出」动作、输入变化后的「需要重新计算」标记（列出变化数据项）、结果版本下拉（正式与试算运行）、版本对比抽屉和结果表；点击结果行打开结果详情弹窗，显示各指标的公式、操作数、封顶前与得分值、计算依据、合并组、承担班级、任课教师和参与学生。归档考核隐藏试算、重算与方案切换入口，保留结果查阅与导出。
+- 本次考核：左侧考核列表，右侧是详情：数据、计算、导出三步流程、准备清单、方案版本选择、操作区「调整分档边界」弹窗入口（支持按科预填、行内编辑一档/二档区间与备注、单科与全部恢复默认、参评组数变化复核高亮）、「开始试算」「正式计算」与「导出」动作、输入变化后的「需要重新计算」标记（列出变化数据项）、结果版本下拉（正式与试算运行）、版本对比抽屉和结果表；点击结果行打开结果详情弹窗，显示各指标的公式、操作数、封顶前与得分值、计算依据、生效分档边界与来源、合并组、承担班级、任课教师和参与学生。归档考核隐藏试算、重算、边界微调与方案切换入口，保留结果查阅与导出。
 - 结果与多维分析：支持按教师、班级、学科、学生和考核五大维度汇总对比、保存视图与报表导出。
 
 空状态使用图标、一句说明和完成该页目标的按钮。导入、核算、导出和错误结果以带图标的提示块显示在操作附近。状态使用徽标区分草稿、已导入、已核算、已发布和已停用。
@@ -669,15 +672,14 @@ erDiagram
 
 ## 已知限制
 
-- 考核级分档边界按科微调入口尚未在工作台独立上线；当前可在方案配置页维护 `ratio + overrides` 或 `manual` 区间表。
 - 方案页提供覆盖全部配置项的分节表单、方案下拉切换和保存后询问更新当前方案或保存为新的方案；公式使用选项表单修改，超出既有形状的规则只能以自定义表达式只读回显；版本记录只在数据库里供已有核算结果引用。
 - 引导式导入支持班级、学生、教师、任课关系、入口成绩、报名名单、成绩、分数线、班级目标与结果归档；合并组通过考试页面的合并组编辑器维护。
 - 工作簿版本标记（新、旧、修改）尚未写入；工作表角色由名称、表头和用户选择确定。
 - 撤销以导入范围为单位检查更新的导入：同一范围存在任何更新导入时阻止撤销，避免删除后续导入仍在引用的数据。
 - 单科 0 分按导入规则固定处理，尚未做成方案开关。
-- 导出工作簿的表头、列宽、合并单元格、打印区域和样式后置至功能打磨与历史数据复算完成后确认。
+- 导出工作簿的表头、列宽、合并单元格、打印区域和样式后置至发版后与学校确认。
 - 第 20 项零目标具体细则待学校确认（当前维持安全拦截、弹窗补齐与审计策略）。
-- 分班、分考场和自动触发核算属于后续阶段。
+- 核算维持手动点击触发；分班、分考场属于后续阶段。
 
 ## 代码索引
 

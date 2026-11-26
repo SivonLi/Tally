@@ -1518,11 +1518,13 @@ erDiagram
   ASSESSMENTS ||--o{ ASSESSMENT_CLASS_TARGETS : has
   ASSESSMENTS ||--o{ ASSESSMENT_STAT_GROUPS : has
   ASSESSMENTS ||--o{ ASSESSMENT_TARGET_ADJUSTMENTS : adjusts
+  ASSESSMENTS ||--o{ ASSESSMENT_BOUNDARY_OVERRIDES : overrides
   ASSESSMENT_STAT_GROUPS ||--o{ ASSESSMENT_STAT_GROUP_MEMBERS : contains
   PLANS ||--o{ PLAN_VERSIONS : versions
   PLAN_VERSIONS ||--o{ ASSESSMENTS : selected
   ASSESSMENTS ||--o{ RESULT_RUNS : produces
   PLAN_VERSIONS ||--o{ RESULT_RUNS : uses
+  RESULT_RUNS ||--o{ RESULT_RUN_BOUNDARIES : records
   RESULT_RUNS ||--o{ RESULT_ROWS : contains
   RESULT_ROWS ||--o{ RESULT_ROW_TEACHERS : credits
   RESULT_RUNS ||--o{ PERSONAL_SCORES : contains
@@ -1535,7 +1537,7 @@ erDiagram
 
 - **全校配置与师资层**：`schema_migrations`、`app_settings`、`subjects`（10 学科）、`tracks`、`plans`、`plan_versions`、`sync_state`、`saved_views`、`teachers`。
 - **年级生命周期层**：`cohorts`、`classes`（含 `continued_from_class_id`）、`class_head_teachers`、`teaching_groups`、`students`（含 `previous_student_id`）、`teaching_group_students`（仅存走班显式映射）、`teaching_assignments`、`student_entry_scores`、`cohort_baseline_overrides`、`student_events`。
-- **考试与考核层**：`exams`、`exam_cohorts`、`exam_participants`、`exam_scores`、`exam_cutoffs`、`assessments`、`assessment_class_targets`（含 `actual_count`）、`assessment_stat_groups`、`assessment_stat_group_members`、`assessment_target_adjustments`、`result_runs`、`result_rows`（含 `participants_json` 与 `indicator_values_json`）、`result_row_teachers`、`personal_scores`、`export_records`。
+- **考试与考核层**：`exams`、`exam_cohorts`、`exam_participants`、`exam_scores`、`exam_cutoffs`、`assessments`、`assessment_class_targets`（含 `actual_count`）、`assessment_stat_groups`、`assessment_stat_group_members`、`assessment_target_adjustments`、`assessment_boundary_overrides`、`result_runs`、`result_run_boundaries`、`result_rows`（含 `participants_json` 与 `indicator_values_json`）、`result_row_teachers`、`personal_scores`、`archived_assessments`、`export_records`。
 - **导入、修订与审计层**：`import_runs`、`import_sheets`、`import_columns`、`import_issues`、`import_changes`、`data_revisions`、`audit_logs`。
 
 ### 7.4 数据一致性
@@ -1593,13 +1595,13 @@ erDiagram
 
 每一阶段都能独立使用，后一阶段引用前一阶段的数据与组件。
 
-阶段一至六的基础产品功能已经全部实现：应用外壳与基础数据（阶段一～二）、六步引导式导入与撤销（阶段三）、考试与数据质量（阶段四）、本次考核工作台与方案配置（阶段五）、多维分析、保存视图与万行级性能验证（阶段六）。在此基础上，Tally v2 架构重构已完成**阶段 1（洁净 Schema v1 单一真理源存储引擎，彻底移除旧版迁移包袱）**、**阶段 2（全校统一导航、年级档案 6 页签、升学与毕业封存向导、走班教学班编排、师生三年完整档案与导出）**及**结果归档历史数据导入模式**，当前应用包体积为 34.8 MB（≤ 40 MB，含内嵌字体），正处于 v2 阶段 3 收口。
+阶段一至六的基础产品功能已经全部实现：应用外壳与基础数据（阶段一～二）、六步引导式导入与撤销（阶段三）、考试与数据质量（阶段四）、本次考核工作台与方案配置（阶段五）、多维分析、保存视图与万行级性能验证（阶段六）。在此基础上，Tally v2 架构重构已完成**阶段 1（洁净 Schema v1 单一真理源存储引擎，彻底移除旧版迁移包袱）**、**阶段 2（全校统一导航、年级档案 6 页签、升学与毕业封存向导、走班教学班编排、师生三年完整档案与导出）**及**阶段 3（考核级按科分档边界微调、6 批历史复算验收、WebDAV 本地双端协议与冲突回归）**，真实 WebDAV 网盘实测延后至发版后跟进。
 
 | 阶段 | 交付内容 | 状态 | 验收方式 |
 |---|---|---|---|
 | v2 阶段 1 | 洁净 Schema v1 单一真理源存储引擎、年级三年生命周期与升学/结届引擎、全校师资实时占用、行政班传承链、学生复读前溯与合并、考试不可变快照与师生档案查询 | 已完成 | 旧库返回 `ErrIncompatibleDatabase`；全量单元测试与高一期中 697 核对点 0 差异 |
 | v2 阶段 2 | 全校统一导航（移除单级工作区锁定）、年级档案 6 页签、升学与毕业封存向导、走班教学班与学生编排弹窗、学生三年档案与教师执教档案（含趋势图与导出）、结果归档历史导入与原子撤销 | 已完成 | `ui.NewTester` 交互测试与浅/深双色 Empty/Populated 快照通过；全套质量门禁与打包体积 ≤ 40 MB |
-| v2 阶段 3 | 本次考核分档边界按科微调入口、高二/高三/高考专项历史数据复算验收、WebDAV 多端实测与文档/发布收口 | 进行中 | 考核级分档微调可独立留痕；高二/高三/高考复算核对通过；全套门禁通过后合并 `main` 发版 |
+| v2 阶段 3 | 本次考核分档边界按科微调入口、6 批历史数据复算验收、WebDAV 本地双端协议与冲突回归（真实网盘实测延后发版后跟进）、文档与收口 | 已完成 | 考核级分档微调可独立留痕与阻断复核；6 批历史复算与双端冲突回归通过；全套门禁通过后发起 `0.4.0` 发布 PR |
 
 视觉评审按 6.16 执行。每个阶段完成后，用中文与英文、浅色与深色、默认与最小窗口各渲染一次。
 

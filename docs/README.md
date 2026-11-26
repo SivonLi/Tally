@@ -19,7 +19,7 @@
 
 ## 当前状态
 
-- 阶段：产品与数据架构重构**阶段 1（Schema v1 单一真理源与存储引擎重构）与阶段 2（全校统一导航、年级档案 6 页签、升学与毕业封存向导、师生三年完整档案、走班教学班编排与结果归档导入模式）均已完成**，当前处于 **阶段 3 收口**。旧版 `batches` / `terms` / `cohort_stages` / `class_stage_info` / `legacy_*` 表及旧库迁移代码已彻底移除，全量 UI、双态双色快照与高一期中 697 个计算核对点 0 差异回归全部通过。
+- 阶段：产品与数据架构重构 **v2 阶段 1、阶段 2 与阶段 3 核心开发、6 批历史复算验收、WebDAV 本地双端协议与冲突回归均已完成**，维持手动触发核算，待全套门禁通过后发起 `0.4.0` 发布 PR。旧版 `batches` / `terms` / `cohort_stages` / `class_stage_info` / `legacy_*` 表及旧库迁移代码已彻底移除，全量 UI、双态双色快照与 6 批历史复算集成测试全部通过。
 - 代码状态：
   - 根包界面：`shell.go`、`overview.go`、`cohort_state.go`、`cohort_pages.go`、`profile_state.go`、`profile_pages.go`、`ui_theme.go`、`ui_components.go`、`ui_icons.go`、`data_state.go`、`data_pages.go`、`exam_state.go`、`exam_pages.go`、`quality_page.go`、`import_wizard.go`、`import_center.go`、`prep_wizard.go`、`plan_page.go`、`main.go`、`workbench.go`、`workbench_diff.go`、`analysis_page.go`、`analysis_state.go`、`error_localization.go`、`settings_school.go`、`settings_sync.go`、`settings_window.go`；字体与 Sunbeam 主题由 `internal/fonts` 与 `github.com/AstraFoundry/design/packages/mygo/sunbeam` 提供。
   - 核心存储与业务引擎：`internal/store` 已完成 Schema v1 模块化拆分（`schema.go`、`store.go`、`types.go`、`cohort.go`、`faculty.go`、`students.go`、`exams.go`、`assessments.go`、`archive.go`、`profiles.go`、`imports.go`、`imports_apply.go`、`analysis.go`、`workspace.go`、`saved_views.go`、`appearance.go`、`sync_settings.go`、`backup.go`）；`internal/school`、`internal/assessment`、`internal/formula`、`internal/calc`、`internal/importer`（含结果归档导入 `archive.go`）、`internal/excel`、`internal/pipeline`、`internal/exporter`（含师生档案与五维分析导出）、`internal/sync` 保持单向依赖与计算引擎红线。当前实现细节见 `docs/system-design.md`。
@@ -35,8 +35,8 @@
 - 已经确认的口径：三项指标分值 40/40/20 且都不封顶、档位权重 50/40/30/20/10/8、三档赋分 70/67/64、排名并列跳过后续名次（`competition`，如 `1, 1, 3`）、分档边界采用默认比例参考 + 按科人工维护区间表（支持 `manual` 与考核级按科微调）、个人得分取最高两个统计组、高考完成率 60/40、基数取中考、走班历史按统计组合并且新口径支持走班单独成班统计；当前仅第 20 项零目标细则待学校核准（维持安全拦截、弹窗补齐与审计策略）。
 - 待确认项：第 20 项零目标具体细则（详见 `docs/requirements-analysis.md`）；导出模板最终样式（已确认后置，待核心功能打磨与数据复算无误后再确认）。
 - 外部依赖：`private-data/history/` 下已有历次期中、期末及高考专项量化材料（不入库，不在文档中出现真实名称）。开发环境已安装 LibreOffice，`soffice` 位于 `/opt/homebrew/bin/soffice`；旧版 `.xls` 已实际转换并读取。
-- 下一步：推进阶段 3 收口（本次考核分档边界按科微调交互、高二/高三/高考历史数据复算验收、WebDAV 多端实测与自动触发核算评估）。
-- 阻塞项：第 20 项零目标细则待学校确认；导出模板最终样式后置至功能打磨与复算完成后确认。
+- 下一步：待全套 `CONSTRAINTS.md` 门禁通过后由人工确认发起 `0.4.0` 发布 PR；真实 WebDAV 网盘实测与导出模板最终样式确认延后至发版后跟进。
+- 阻塞项：第 20 项零目标细则待学校确认；导出模板最终样式后置至发版后与学校确认。
 - 当前打包体积：macOS 应用包为 34.8 MB，低于 40 MB 上限（内嵌 Allo 与 zstd 压缩的霞鹜文楷屏幕阅读版字体）。
 - 真实材料验收：高一期中工作簿黄金样例导入 965 名有效考生、135 个统计组，核算 135 条结果和 73 条个人得分，导出的工作簿可以被 excelize 重新打开；年级语文总均分、实考缺考标记、走班合并归属及各科均分提升率、单科达线率、班级完成率全部对齐，697 个计算核对点差异为 0。
 
@@ -89,7 +89,7 @@
 - **教学班（`teaching_groups`）与走班映射（`teaching_group_students`）**：常规教学班（`kind = 'admin'`）关联 `admin_class_id`，学生通过 `students.current_class_id` 自动进入；仅跨行政班走班（`kind = 'walking'`）在 `teaching_group_students` 中维护显式学生映射，并通过部分唯一索引保证同学生同阶段同科至多存在一条活跃（`ended_at IS NULL`）走班记录。
 - **学生（`students`）、入口基数与异动事件**：`students` 在级内按 `(cohort_id, student_no)` 建档（允许同批复读/留级生在新届独立建档以保持各届人数与基数统计纯净），通过可选外键 `previous_student_id` 前溯关联往届档案；学生单科入学成绩保存在 `student_entry_scores`，手工或导入的班级/年级汇总基数覆盖保存在 `cohort_baseline_overrides`；学籍、分班、升学、合并、毕业异动记入 `student_events`。
 - **考试与不可变快照（`exams` / `exam_cohorts` / `exam_participants` / `exam_scores` / `exam_cutoffs`）**：一场考试通过 `exam_cohorts` 覆盖一个或多个级并固化 `phase_at_exam` 与 `subjects_json`；`exam_participants` 固化参考时的 `class_id`、`class_name_snapshot`、`track_snapshot`、`elective_snapshot`、`foreign_lang_snapshot`、`status_snapshot` 与各级排名；`exam_scores` 固化 `teaching_group_id_snapshot` 与单科排名；后续升学或转班不改变历史考试快照。
-- **考核与结果（`assessments` / `result_runs` / `result_rows` / `result_row_teachers` / `personal_scores`）**：每个 `exam_cohort_id` 至多对应一条 `assessments` 记录；班级六档目标保存在 `assessment_class_targets`（含 `actual_count`），补录与不参与保存在 `assessment_target_adjustments`，统计组保存在 `assessment_stat_groups` 与 `assessment_stat_group_members`。每次核算写入一条 `result_runs`（`is_official` 区分正式与试算，保存 `input_hash` 与 `input_summary_json`），结果行保存 `participants_json` 与 `indicator_values_json`，并通过 `result_row_teachers` 与 `personal_scores` 绑定 `teacher_id` 与快照姓名，导出路径与哈希记入 `export_records`。
+- **考核与结果（`assessments` / `assessment_boundary_overrides` / `result_runs` / `result_run_boundaries` / `result_rows` / `result_row_teachers` / `personal_scores`）**：每个 `exam_cohort_id` 至多对应一条 `assessments` 记录；班级六档目标保存在 `assessment_class_targets`（含 `actual_count`），补录与不参与保存在 `assessment_target_adjustments`，统计组保存在 `assessment_stat_groups` 与 `assessment_stat_group_members`，考核级按科分档边界微调保存在 `assessment_boundary_overrides`。每次核算写入一条 `result_runs`（`is_official` 区分正式与试算，保存 `input_hash` 与 `input_summary_json`）与 `result_run_boundaries`（固化各科生效边界与来源），结果行保存 `participants_json` 与 `indicator_values_json`，并通过 `result_row_teachers` 与 `personal_scores` 绑定 `teacher_id` 与快照姓名，导出路径与哈希记入 `export_records`。
 - **考核方案与版本**：`plans` 与 `plan_versions` 保存内置默认方案与派生方案，版本状态为 `draft | published | retired`；内置方案不能停用，始终保留至少一个已发布版本，旧结果继续引用历史方案版本。
 - **文档同步规则**：修改数据模型时，必须同步更新 `docs/system-design.md` 的 ER 图与表结构、`docs/product-redesign.md` 的目标模型说明与 `docs/README.md`。
 
