@@ -443,7 +443,9 @@ func (s *Store) deleteImportRun(ctx context.Context, runID int64) error {
 }
 
 func (s *Store) importChangeStatements(runID int64, changes []importChange) []sqlite.Statement {
-	var statements []sqlite.Statement
+	statements := []sqlite.Statement{
+		{SQL: `DELETE FROM import_changes WHERE import_run_id = ?`, Args: []any{runID}},
+	}
 	for _, ch := range changes {
 		beforeJSON := mustJSONString(ch.Before)
 		afterJSON := ""
@@ -537,19 +539,22 @@ func (s *Store) UndoImportRun(ctx context.Context, runID int64) error {
 		return err
 	}
 
+	now := s.now().Format(time.RFC3339Nano)
 	var statements []sqlite.Statement
 	for _, r := range cRows.Values {
 		tableName := stringValue(r[0])
 		rowID := intValue(r[1])
 		action := stringValue(r[2])
 		var before map[string]any
-		_ = json.Unmarshal([]byte(stringValue(r[3])), &before)
+		if raw := strings.TrimSpace(stringValue(r[3])); raw != "" {
+			if err := json.Unmarshal([]byte(raw), &before); err != nil {
+				return fmt.Errorf("解析撤销快照失败: %w", err)
+			}
+		}
 
 		switch action {
 		case "insert":
-			if stmt, has := s.undoInsertStatement(tableName, rowID, before, runID); has {
-				statements = append(statements, stmt)
-			}
+			statements = append(statements, s.undoInsertStatements(tableName, rowID, before, runID, now)...)
 		case "update":
 			if stmt, has := s.undoUpdateStatement(tableName, rowID, before); has {
 				statements = append(statements, stmt)
@@ -557,7 +562,6 @@ func (s *Store) UndoImportRun(ctx context.Context, runID int64) error {
 		}
 	}
 
-	now := s.now().Format(time.RFC3339Nano)
 	statements = append(statements,
 		sqlite.Statement{SQL: `UPDATE import_runs SET status = 'undone' WHERE id = ?`, Args: []any{runID}},
 		auditLogStatement("undo_import", "import_run", runID, map[string]any{"changes": len(cRows.Values)}, now),
@@ -566,48 +570,156 @@ func (s *Store) UndoImportRun(ctx context.Context, runID int64) error {
 	return err
 }
 
-func (s *Store) undoInsertStatement(tableName string, rowID int64, before map[string]any, runID int64) (sqlite.Statement, bool) {
+func (s *Store) undoInsertStatements(tableName string, rowID int64, before map[string]any, runID int64, now string) []sqlite.Statement {
 	switch tableName {
 	case "classes":
-		return sqlite.Statement{SQL: `DELETE FROM classes WHERE id = ?`, Args: []any{rowID}}, rowID > 0
+		if rowID > 0 {
+			return []sqlite.Statement{{SQL: `DELETE FROM classes WHERE id = ?`, Args: []any{rowID}}}
+		}
+		cohortID := intValue(before["cohort_id"])
+		phase, _ := before["phase"].(string)
+		name, _ := before["name"].(string)
+		if cohortID > 0 && phase != "" && name != "" {
+			return []sqlite.Statement{{
+				SQL: `DELETE FROM classes WHERE import_run_id = ? AND cohort_id = ? AND phase = ? AND name = ?
+					AND NOT EXISTS (SELECT 1 FROM students s WHERE s.current_class_id = classes.id)
+					AND NOT EXISTS (SELECT 1 FROM exam_participants ep WHERE ep.class_id = classes.id)
+					AND NOT EXISTS (SELECT 1 FROM teaching_groups tg WHERE tg.admin_class_id = classes.id)
+					AND NOT EXISTS (SELECT 1 FROM assessment_stat_groups sg WHERE sg.lead_class_id = classes.id)
+					AND NOT EXISTS (SELECT 1 FROM result_rows rr WHERE rr.lead_class_id = classes.id)`,
+				Args: []any{runID, cohortID, phase, name},
+			}}
+		}
+		return nil
 	case "students":
-		return sqlite.Statement{SQL: `DELETE FROM students WHERE id = ?`, Args: []any{rowID}}, rowID > 0
+		if rowID > 0 {
+			return []sqlite.Statement{{SQL: `DELETE FROM students WHERE id = ?`, Args: []any{rowID}}}
+		}
+		return nil
 	case "teachers":
-		return sqlite.Statement{SQL: `DELETE FROM teachers WHERE id = ?`, Args: []any{rowID}}, rowID > 0
+		if rowID > 0 {
+			return []sqlite.Statement{{SQL: `DELETE FROM teachers WHERE id = ?`, Args: []any{rowID}}}
+		}
+		name, _ := before["name"].(string)
+		subj, _ := before["primary_subject"].(string)
+		if name != "" {
+			return []sqlite.Statement{{
+				SQL: `DELETE FROM teachers WHERE import_run_id = ? AND teacher_no = '' AND name = ? AND primary_subject = ?
+					AND NOT EXISTS (SELECT 1 FROM teaching_assignments ta WHERE ta.teacher_id = teachers.id)
+					AND NOT EXISTS (SELECT 1 FROM class_head_teachers cht WHERE cht.teacher_id = teachers.id)
+					AND NOT EXISTS (SELECT 1 FROM result_row_teachers rrt WHERE rrt.teacher_id = teachers.id)
+					AND NOT EXISTS (SELECT 1 FROM personal_scores ps WHERE ps.teacher_id = teachers.id)`,
+				Args: []any{runID, name, subj},
+			}}
+		}
+		return nil
 	case "teaching_groups":
-		return sqlite.Statement{SQL: `DELETE FROM teaching_groups WHERE id = ?`, Args: []any{rowID}}, rowID > 0
+		if rowID > 0 {
+			return []sqlite.Statement{{SQL: `DELETE FROM teaching_groups WHERE id = ?`, Args: []any{rowID}}}
+		}
+		return nil
 	case "teaching_assignments":
-		return sqlite.Statement{SQL: `DELETE FROM teaching_assignments WHERE id = ?`, Args: []any{rowID}}, rowID > 0
+		if rowID > 0 {
+			return []sqlite.Statement{{SQL: `DELETE FROM teaching_assignments WHERE id = ?`, Args: []any{rowID}}}
+		}
+		return nil
 	case "cohort_baseline_overrides":
 		if rowID > 0 {
-			return sqlite.Statement{SQL: `DELETE FROM cohort_baseline_overrides WHERE id = ?`, Args: []any{rowID}}, true
+			return []sqlite.Statement{{SQL: `DELETE FROM cohort_baseline_overrides WHERE id = ?`, Args: []any{rowID}}}
 		}
-		return sqlite.Statement{SQL: `DELETE FROM cohort_baseline_overrides WHERE import_run_id = ?`, Args: []any{runID}}, true
+		return []sqlite.Statement{{SQL: `DELETE FROM cohort_baseline_overrides WHERE import_run_id = ?`, Args: []any{runID}}}
 	case "student_entry_scores":
-		return sqlite.Statement{SQL: `DELETE FROM student_entry_scores WHERE import_run_id = ?`, Args: []any{runID}}, true
+		return []sqlite.Statement{{SQL: `DELETE FROM student_entry_scores WHERE import_run_id = ?`, Args: []any{runID}}}
 	case "exam_participants":
 		ecID := intValue(before["exam_cohort_id"])
 		sid := intValue(before["student_id"])
-		return sqlite.Statement{SQL: `DELETE FROM exam_participants WHERE exam_cohort_id = ? AND student_id = ?`, Args: []any{ecID, sid}}, ecID > 0 && sid > 0
+		if ecID > 0 && sid > 0 {
+			return []sqlite.Statement{{SQL: `DELETE FROM exam_participants WHERE exam_cohort_id = ? AND student_id = ?`, Args: []any{ecID, sid}}}
+		}
+		return nil
 	case "exam_scores":
 		epID := intValue(before["exam_participant_id"])
 		subj, _ := before["subject"].(string)
-		return sqlite.Statement{SQL: `DELETE FROM exam_scores WHERE exam_participant_id = ? AND subject = ?`, Args: []any{epID, subj}}, epID > 0 && subj != ""
+		if epID > 0 && subj != "" {
+			return []sqlite.Statement{{SQL: `DELETE FROM exam_scores WHERE exam_participant_id = ? AND subject = ?`, Args: []any{epID, subj}}}
+		}
+		return nil
 	case "exam_cutoffs":
 		ecID := intValue(before["exam_cohort_id"])
 		kind, _ := before["kind"].(string)
 		key, _ := before["key"].(string)
 		track, _ := before["track"].(string)
-		return sqlite.Statement{SQL: `DELETE FROM exam_cutoffs WHERE exam_cohort_id = ? AND kind = ? AND "key" = ? AND track = ?`,
-			Args: []any{ecID, kind, key, track}}, ecID > 0
+		if ecID > 0 {
+			return []sqlite.Statement{{
+				SQL:  `DELETE FROM exam_cutoffs WHERE exam_cohort_id = ? AND kind = ? AND "key" = ? AND track = ?`,
+				Args: []any{ecID, kind, key, track},
+			}}
+		}
+		return nil
 	case "assessment_class_targets":
 		aid := intValue(before["assessment_id"])
 		cid := intValue(before["class_id"])
 		tier, _ := before["tier_key"].(string)
-		return sqlite.Statement{SQL: `DELETE FROM assessment_class_targets WHERE assessment_id = ? AND class_id = ? AND tier_key = ?`,
-			Args: []any{aid, cid, tier}}, aid > 0
+		if aid > 0 {
+			return []sqlite.Statement{{
+				SQL:  `DELETE FROM assessment_class_targets WHERE assessment_id = ? AND class_id = ? AND tier_key = ?`,
+				Args: []any{aid, cid, tier},
+			}}
+		}
+		return nil
+	case "archived_assessments":
+		aid := intValue(before["assessment_id"])
+		if aid <= 0 {
+			return nil
+		}
+		var stmts []sqlite.Statement
+		summaryMarker, _ := before["input_summary_json"].(string)
+		if summaryMarker != "" {
+			stmts = append(stmts, sqlite.Statement{
+				SQL:  `DELETE FROM result_runs WHERE assessment_id = ? AND input_summary_json = ?`,
+				Args: []any{aid, summaryMarker},
+			})
+		}
+		if prevOfficial := intValue(before["previous_official_run_id"]); prevOfficial > 0 {
+			stmts = append(stmts, sqlite.Statement{
+				SQL:  `UPDATE result_runs SET is_official = 1 WHERE id = ? AND assessment_id = ?`,
+				Args: []any{prevOfficial, aid},
+			})
+		}
+		hadArchive, _ := before["had_archive"].(bool)
+		if hadArchive {
+			prevImportRunID := intValue(before["prev_archive_import_run_id"])
+			prevCreatedAt, _ := before["prev_archive_created_at"].(string)
+			stmts = append(stmts, sqlite.Statement{
+				SQL:  `UPDATE archived_assessments SET import_run_id = ?, created_at = ? WHERE assessment_id = ?`,
+				Args: []any{prevImportRunID, prevCreatedAt, aid},
+			})
+		} else {
+			stmts = append(stmts, sqlite.Statement{
+				SQL:  `DELETE FROM archived_assessments WHERE assessment_id = ?`,
+				Args: []any{aid},
+			})
+		}
+		prevStatus, _ := before["prev_assessment_status"].(string)
+		prevCurrentRunID := intValue(before["prev_current_run_id"])
+		if prevStatus != "" {
+			stmts = append(stmts, sqlite.Statement{
+				SQL:  `UPDATE assessments SET status = ?, current_run_id = ?, revision = revision + 1 WHERE id = ?`,
+				Args: []any{prevStatus, nullableID(prevCurrentRunID), aid},
+			})
+		}
+		examID := intValue(before["exam_id"])
+		prevExamStatus, _ := before["prev_exam_status"].(string)
+		if examID > 0 && prevExamStatus != "" && prevExamStatus != "archived" {
+			stmts = append(stmts, sqlite.Statement{
+				SQL:  `UPDATE exams SET status = ? WHERE id = ? AND status <> 'archived'`,
+				Args: []any{prevExamStatus, examID},
+			})
+		}
+		stmts = append(stmts, bumpRevisionStatement(fmt.Sprintf("assessment:%d", aid), now))
+		return stmts
 	default:
-		return sqlite.Statement{}, false
+		return nil
 	}
 }
 

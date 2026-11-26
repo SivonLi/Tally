@@ -72,6 +72,9 @@ func TrialAssessment(ctx context.Context, storage *store.Store, assessmentID, ve
 }
 
 func calculateAssessment(ctx context.Context, storage *store.Store, assessmentID, versionID int64, official bool) (calc.Result, error) {
+	if err := storage.AssertAssessmentCalculable(ctx, assessmentID); err != nil {
+		return calc.Result{}, err
+	}
 	version, err := storage.GetVersion(ctx, versionID)
 	if err != nil {
 		return calc.Result{}, err
@@ -111,14 +114,24 @@ func ExportAssessment(ctx context.Context, storage *store.Store, assessmentID in
 	if err != nil {
 		return err
 	}
-	_, _, currentHash, _, err := BuildAssessmentInput(ctx, storage, assessmentID, version.Config)
+	archived, err := storage.AssessmentArchived(ctx, assessmentID)
 	if err != nil {
 		return err
 	}
-	if currentHash != run.InputHash {
-		return fmt.Errorf("本次考核的数据或者方案已经变化，需要重新核算后才能导出")
+	// 归档考核只有最终结果，没有可以重建的输入，导出直接使用保存的结果。
+	if !archived {
+		_, _, currentHash, _, err := BuildAssessmentInput(ctx, storage, assessmentID, version.Config)
+		if err != nil {
+			return err
+		}
+		if currentHash != run.InputHash {
+			return fmt.Errorf("本次考核的数据或者方案已经变化，需要重新核算后才能导出")
+		}
 	}
-	data, _ := storage.LoadAssessmentData(ctx, assessmentID)
+	data, err := storage.LoadAssessmentData(ctx, assessmentID)
+	if err != nil {
+		return err
+	}
 	batch := store.Batch{
 		AcademicYear: context.AcademicYear,
 		Semester:     context.Exam.Term,

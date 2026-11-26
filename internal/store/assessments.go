@@ -81,7 +81,8 @@ func (s *Store) AssessmentForExamCohort(ctx context.Context, examCohortID int64)
 
 func (s *Store) findAssessmentByExamCohort(ctx context.Context, examCohortID int64) (Assessment, error) {
 	rows, err := s.db.Query(ctx, `SELECT id, exam_cohort_id, COALESCE(plan_version_id, 0),
-		status, COALESCE(current_run_id, 0), revision, created_at
+		status, COALESCE(current_run_id, 0), revision, created_at,
+		EXISTS(SELECT 1 FROM archived_assessments aa WHERE aa.assessment_id = assessments.id)
 		FROM assessments WHERE exam_cohort_id = ?`, examCohortID)
 	if err != nil {
 		return Assessment{}, err
@@ -100,6 +101,7 @@ func (s *Store) findAssessmentByExamCohort(ctx context.Context, examCohortID int
 		Status:       stringValue(rows.Values[0][3]),
 		CurrentRunID: intValue(rows.Values[0][4]),
 		Revision:     int(intValue(rows.Values[0][5])),
+		Archived:     intValue(rows.Values[0][7]) != 0,
 		CreatedAt:    createdAt,
 	}, nil
 }
@@ -110,7 +112,8 @@ func (s *Store) LoadAssessmentContext(ctx context.Context, assessmentID int64) (
 		a.status, COALESCE(a.current_run_id, 0), a.revision, a.created_at,
 		e.id, e.academic_year_start, e.term, e.exam_type, e.name, e.exam_date, e.sequence, e.status, e.created_at,
 		ec.id, ec.cohort_id, ec.phase_at_exam,
-		c.id, c.enrollment_year, c.graduation_year, c.current_phase, c.current_academic_year_start, c.graduated_at, c.created_at
+		c.id, c.enrollment_year, c.graduation_year, c.current_phase, c.current_academic_year_start, c.graduated_at, c.created_at,
+		EXISTS(SELECT 1 FROM archived_assessments aa WHERE aa.assessment_id = a.id)
 		FROM assessments a
 		JOIN exam_cohorts ec ON ec.id = a.exam_cohort_id
 		JOIN exams e ON e.id = ec.exam_id
@@ -158,6 +161,7 @@ func (s *Store) LoadAssessmentContext(ctx context.Context, assessmentID int64) (
 			Status:       stringValue(r[3]),
 			CurrentRunID: intValue(r[4]),
 			Revision:     int(intValue(r[5])),
+			Archived:     intValue(r[26]) != 0,
 			CreatedAt:    assessCreated,
 		},
 		Exam: Exam{
@@ -1523,7 +1527,8 @@ func (s *Store) queryAssessmentOverviews(ctx context.Context, whereSQL string, a
 		(SELECT COUNT(*) FROM exam_cutoffs x WHERE x.exam_cohort_id = ec.id AND x.kind = 'subject'),
 		(SELECT COUNT(*) FROM exam_cutoffs x WHERE x.exam_cohort_id = ec.id AND x.kind = 'tier'),
 		(SELECT COUNT(*) FROM assessment_class_targets t WHERE t.assessment_id = a.id),
-		(SELECT COUNT(*) FROM assessment_stat_groups g WHERE g.assessment_id = a.id)
+		(SELECT COUNT(*) FROM assessment_stat_groups g WHERE g.assessment_id = a.id),
+		EXISTS(SELECT 1 FROM archived_assessments aa WHERE aa.assessment_id = a.id)
 		FROM assessments a
 		JOIN exam_cohorts ec ON ec.id = a.exam_cohort_id
 		JOIN exams e ON e.id = ec.exam_id
@@ -1551,6 +1556,7 @@ func (s *Store) queryAssessmentOverviews(ctx context.Context, whereSQL string, a
 			PlanVersionID:     intValue(r[12]),
 			CurrentRunID:      runID,
 			HasOfficial:       runID > 0,
+			Archived:          intValue(r[20]) != 0,
 			RosterCount:       int(intValue(r[14])),
 			ScoreCount:        int(intValue(r[15])),
 			SubjectCutoffCnt:  int(intValue(r[16])),
@@ -1590,7 +1596,10 @@ func (s *Store) markAssessmentStale(ctx context.Context, examCohortID int64, ass
 		if aid <= 0 {
 			continue
 		}
-		if _, err := s.db.Execute(ctx, `UPDATE assessments SET status = 'stale' WHERE id = ? AND status = 'calculated'`, aid); err != nil {
+		// 归档考核的结果只读，输入数据变化不会让它需要重新计算。
+		if _, err := s.db.Execute(ctx, `UPDATE assessments SET status = 'stale'
+			WHERE id = ? AND status = 'calculated'
+			AND NOT EXISTS (SELECT 1 FROM archived_assessments WHERE assessment_id = assessments.id)`, aid); err != nil {
 			return err
 		}
 	}

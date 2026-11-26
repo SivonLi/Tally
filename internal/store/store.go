@@ -152,6 +152,11 @@ func (s *Store) initOrValidateSchema(ctx context.Context) error {
 			return fmt.Errorf("%w: 数据库版本为 v%d，当前仅支持全新 v%d，请新建干净数据库",
 				ErrIncompatibleDatabase, current, SchemaVersion)
 		}
+		// Schema v1 的建表语句全部带 IF NOT EXISTS，同版本数据库重复执行只会补齐后续
+		// 追加的表与索引，已有数据保持不变。
+		if _, err := s.db.Transaction(ctx, schemaV1Statements()); err != nil {
+			return fmt.Errorf("补齐 Schema v1 结构: %w", err)
+		}
 		return s.seedDefaults(ctx)
 	}
 

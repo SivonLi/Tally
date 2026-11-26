@@ -426,6 +426,13 @@ func schemaV1Statements() []sqlite.Statement {
 		)`},
 		{SQL: `CREATE INDEX IF NOT EXISTS idx_personal_scores_teacher
 			ON personal_scores(teacher_id)`},
+		{SQL: `CREATE TABLE IF NOT EXISTS archived_assessments (
+			assessment_id INTEGER PRIMARY KEY REFERENCES assessments(id) ON DELETE CASCADE,
+			import_run_id INTEGER NOT NULL DEFAULT 0,
+			created_at TEXT NOT NULL
+		)`},
+		{SQL: `CREATE INDEX IF NOT EXISTS idx_archived_assessments_import
+			ON archived_assessments(import_run_id)`},
 		{SQL: `CREATE TABLE IF NOT EXISTS export_records (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			run_id INTEGER NOT NULL REFERENCES result_runs(id) ON DELETE CASCADE,

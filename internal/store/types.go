@@ -1146,6 +1146,7 @@ type Assessment struct {
 	Status       string
 	CurrentRunID int64
 	Revision     int
+	Archived     bool
 	CreatedAt    time.Time
 }
 
@@ -1186,6 +1187,7 @@ type AssessmentOverview struct {
 	PlanVersionID     int64
 	CurrentRunID      int64
 	HasOfficial       bool
+	Archived          bool
 	RosterCount       int
 	ScoreCount        int
 	SubjectCutoffCnt  int
