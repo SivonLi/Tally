@@ -2,6 +2,7 @@ package pipeline_test
 
 import (
 	"context"
+	"math"
 	"path/filepath"
 	"testing"
 
@@ -453,9 +454,11 @@ func TestMissingTierCutoffExemptionAndBlocking(t *testing.T) {
 			t.Fatalf("expected 2 result rows, got %d", len(res.Rows))
 		}
 		for _, r := range res.Rows {
-			// c9 目标为 1 计入分母，而实际达线按 0 计，完成率应严格小于 1.0
-			if r.CompletionScore >= 40 {
-				t.Fatalf("expected c9 target in denominator with 0 actual to keep completion score < 40, got %+v", r)
+			// c9(权重 40 * 1) + special_control(10 * 1) + undergraduate(8 * 1) = 58
+			// 实际达线最高档为 project985(权重 30 * 1) = 30，c9 未划线按 0 计
+			wantScore := (30.0 / 58.0) * 20.0
+			if r.CompletionBase != 58 || r.CompletionActual != 30 || math.Abs(r.CompletionScore-wantScore) > 1e-6 {
+				t.Fatalf("unexpected completion metrics (want base=58, actual=30, score=%.6f): got %+v", wantScore, r)
 			}
 		}
 	})
