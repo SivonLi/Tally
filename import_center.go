@@ -369,6 +369,7 @@ func (a *app) importCenterKindGrid(c *ui.Context, p uiPalette, scope string) {
 			importer.KindScores,
 			importer.KindCutoffs,
 			importer.KindTargets,
+			importer.KindArchivedResults,
 		}
 	}
 	editable := (scope == "stage" && a.stageEditable()) ||

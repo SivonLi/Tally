@@ -14341,3 +14341,473 @@ func ExamHubTabAnalysis() string { return In(i18n.Locale()).ExamHubTabAnalysis()
 func (msgs Messages) ExamHubTabAnalysis() string {
 	return Catalog.Format(msgs.locale, "examHubTabAnalysis", nil)
 }
+
+// ExamKindArchivedResults says "Result archive"
+// in the language the app shows.
+func ExamKindArchivedResults() string { return In(i18n.Locale()).ExamKindArchivedResults() }
+
+// ExamKindArchivedResults says "Result archive"
+// in the language of msgs.
+func (msgs Messages) ExamKindArchivedResults() string {
+	return Catalog.Format(msgs.locale, "examKindArchivedResults", nil)
+}
+
+// ExamKindArchivedResultsPurpose says "Import quantitative calculation, rank-and-points, and personal score result sheets directly as read-only archives."
+// in the language the app shows.
+func ExamKindArchivedResultsPurpose() string {
+	return In(i18n.Locale()).ExamKindArchivedResultsPurpose()
+}
+
+// ExamKindArchivedResultsPurpose says "Import quantitative calculation, rank-and-points, and personal score result sheets directly as read-only archives."
+// in the language of msgs.
+func (msgs Messages) ExamKindArchivedResultsPurpose() string {
+	return Catalog.Format(msgs.locale, "examKindArchivedResultsPurpose", nil)
+}
+
+// ExamImportArchivedAction says "Import Archived Results"
+// in the language the app shows.
+func ExamImportArchivedAction() string { return In(i18n.Locale()).ExamImportArchivedAction() }
+
+// ExamImportArchivedAction says "Import Archived Results"
+// in the language of msgs.
+func (msgs Messages) ExamImportArchivedAction() string {
+	return Catalog.Format(msgs.locale, "examImportArchivedAction", nil)
+}
+
+// ExamArchivedBadge says "Archived (Read-only)"
+// in the language the app shows.
+func ExamArchivedBadge() string { return In(i18n.Locale()).ExamArchivedBadge() }
+
+// ExamArchivedBadge says "Archived (Read-only)"
+// in the language of msgs.
+func (msgs Messages) ExamArchivedBadge() string {
+	return Catalog.Format(msgs.locale, "examArchivedBadge", nil)
+}
+
+// ExamArchivedNotice says "This assessment is a read-only archive; trial runs and recalculations are not permitted."
+// in the language the app shows.
+func ExamArchivedNotice() string { return In(i18n.Locale()).ExamArchivedNotice() }
+
+// ExamArchivedNotice says "This assessment is a read-only archive; trial runs and recalculations are not permitted."
+// in the language of msgs.
+func (msgs Messages) ExamArchivedNotice() string {
+	return Catalog.Format(msgs.locale, "examArchivedNotice", nil)
+}
+
+// ExamArchivedViewResults says "View Assessment Results"
+// in the language the app shows.
+func ExamArchivedViewResults() string { return In(i18n.Locale()).ExamArchivedViewResults() }
+
+// ExamArchivedViewResults says "View Assessment Results"
+// in the language of msgs.
+func (msgs Messages) ExamArchivedViewResults() string {
+	return Catalog.Format(msgs.locale, "examArchivedViewResults", nil)
+}
+
+// ArchiveSheetRoleQuant says "Quantitative Calculation"
+// in the language the app shows.
+func ArchiveSheetRoleQuant() string { return In(i18n.Locale()).ArchiveSheetRoleQuant() }
+
+// ArchiveSheetRoleQuant says "Quantitative Calculation"
+// in the language of msgs.
+func (msgs Messages) ArchiveSheetRoleQuant() string {
+	return Catalog.Format(msgs.locale, "archiveSheetRoleQuant", nil)
+}
+
+// ArchiveSheetRoleRank says "Rank & Points"
+// in the language the app shows.
+func ArchiveSheetRoleRank() string { return In(i18n.Locale()).ArchiveSheetRoleRank() }
+
+// ArchiveSheetRoleRank says "Rank & Points"
+// in the language of msgs.
+func (msgs Messages) ArchiveSheetRoleRank() string {
+	return Catalog.Format(msgs.locale, "archiveSheetRoleRank", nil)
+}
+
+// ArchiveSheetRolePersonal says "Personal Scores"
+// in the language the app shows.
+func ArchiveSheetRolePersonal() string { return In(i18n.Locale()).ArchiveSheetRolePersonal() }
+
+// ArchiveSheetRolePersonal says "Personal Scores"
+// in the language of msgs.
+func (msgs Messages) ArchiveSheetRolePersonal() string {
+	return Catalog.Format(msgs.locale, "archiveSheetRolePersonal", nil)
+}
+
+// ArchiveSheetRoleOther says "Ignored"
+// in the language the app shows.
+func ArchiveSheetRoleOther() string { return In(i18n.Locale()).ArchiveSheetRoleOther() }
+
+// ArchiveSheetRoleOther says "Ignored"
+// in the language of msgs.
+func (msgs Messages) ArchiveSheetRoleOther() string {
+	return Catalog.Format(msgs.locale, "archiveSheetRoleOther", nil)
+}
+
+// ArchivePreviewTitle says "Archive Workbook Recognition & Preview"
+// in the language the app shows.
+func ArchivePreviewTitle() string { return In(i18n.Locale()).ArchivePreviewTitle() }
+
+// ArchivePreviewTitle says "Archive Workbook Recognition & Preview"
+// in the language of msgs.
+func (msgs Messages) ArchivePreviewTitle() string {
+	return Catalog.Format(msgs.locale, "archivePreviewTitle", nil)
+}
+
+// ArchivePreviewSheetsBadge says "%s result sheets"
+// in the language the app shows.
+func ArchivePreviewSheetsBadge() string { return In(i18n.Locale()).ArchivePreviewSheetsBadge() }
+
+// ArchivePreviewSheetsBadge says "%s result sheets"
+// in the language of msgs.
+func (msgs Messages) ArchivePreviewSheetsBadge() string {
+	return Catalog.Format(msgs.locale, "archivePreviewSheetsBadge", nil)
+}
+
+// ArchivePreviewResultRowsBadge says "%s result rows"
+// in the language the app shows.
+func ArchivePreviewResultRowsBadge() string { return In(i18n.Locale()).ArchivePreviewResultRowsBadge() }
+
+// ArchivePreviewResultRowsBadge says "%s result rows"
+// in the language of msgs.
+func (msgs Messages) ArchivePreviewResultRowsBadge() string {
+	return Catalog.Format(msgs.locale, "archivePreviewResultRowsBadge", nil)
+}
+
+// ArchivePreviewPersonalBadge says "%s personal scores"
+// in the language the app shows.
+func ArchivePreviewPersonalBadge() string { return In(i18n.Locale()).ArchivePreviewPersonalBadge() }
+
+// ArchivePreviewPersonalBadge says "%s personal scores"
+// in the language of msgs.
+func (msgs Messages) ArchivePreviewPersonalBadge() string {
+	return Catalog.Format(msgs.locale, "archivePreviewPersonalBadge", nil)
+}
+
+// ArchivePreviewSheetMeta says "%s · %s · %s rows"
+// in the language the app shows.
+func ArchivePreviewSheetMeta() string { return In(i18n.Locale()).ArchivePreviewSheetMeta() }
+
+// ArchivePreviewSheetMeta says "%s · %s · %s rows"
+// in the language of msgs.
+func (msgs Messages) ArchivePreviewSheetMeta() string {
+	return Catalog.Format(msgs.locale, "archivePreviewSheetMeta", nil)
+}
+
+// ArchiveFormatWide says "Wide table"
+// in the language the app shows.
+func ArchiveFormatWide() string { return In(i18n.Locale()).ArchiveFormatWide() }
+
+// ArchiveFormatWide says "Wide table"
+// in the language of msgs.
+func (msgs Messages) ArchiveFormatWide() string {
+	return Catalog.Format(msgs.locale, "archiveFormatWide", nil)
+}
+
+// ArchiveFormatLong says "Long table"
+// in the language the app shows.
+func ArchiveFormatLong() string { return In(i18n.Locale()).ArchiveFormatLong() }
+
+// ArchiveFormatLong says "Long table"
+// in the language of msgs.
+func (msgs Messages) ArchiveFormatLong() string {
+	return Catalog.Format(msgs.locale, "archiveFormatLong", nil)
+}
+
+// ArchivePreviewRowTitle says "Result Rows Preview"
+// in the language the app shows.
+func ArchivePreviewRowTitle() string { return In(i18n.Locale()).ArchivePreviewRowTitle() }
+
+// ArchivePreviewRowTitle says "Result Rows Preview"
+// in the language of msgs.
+func (msgs Messages) ArchivePreviewRowTitle() string {
+	return Catalog.Format(msgs.locale, "archivePreviewRowTitle", nil)
+}
+
+// ArchivePreviewPersonalTitle says "Personal Scores Preview"
+// in the language the app shows.
+func ArchivePreviewPersonalTitle() string { return In(i18n.Locale()).ArchivePreviewPersonalTitle() }
+
+// ArchivePreviewPersonalTitle says "Personal Scores Preview"
+// in the language of msgs.
+func (msgs Messages) ArchivePreviewPersonalTitle() string {
+	return Catalog.Format(msgs.locale, "archivePreviewPersonalTitle", nil)
+}
+
+// ImportResultArchived says "Archived %s class-subject result rows and %s teacher personal scores."
+// in the language the app shows.
+func ImportResultArchived() string { return In(i18n.Locale()).ImportResultArchived() }
+
+// ImportResultArchived says "Archived %s class-subject result rows and %s teacher personal scores."
+// in the language of msgs.
+func (msgs Messages) ImportResultArchived() string {
+	return Catalog.Format(msgs.locale, "importResultArchived", nil)
+}
+
+// ImportFieldTier says "Tier"
+// in the language the app shows.
+func ImportFieldTier() string { return In(i18n.Locale()).ImportFieldTier() }
+
+// ImportFieldTier says "Tier"
+// in the language of msgs.
+func (msgs Messages) ImportFieldTier() string {
+	return Catalog.Format(msgs.locale, "importFieldTier", nil)
+}
+
+// ImportFieldPoints says "Points"
+// in the language the app shows.
+func ImportFieldPoints() string { return In(i18n.Locale()).ImportFieldPoints() }
+
+// ImportFieldPoints says "Points"
+// in the language of msgs.
+func (msgs Messages) ImportFieldPoints() string {
+	return Catalog.Format(msgs.locale, "importFieldPoints", nil)
+}
+
+// ImportFieldRank says "Rank"
+// in the language the app shows.
+func ImportFieldRank() string { return In(i18n.Locale()).ImportFieldRank() }
+
+// ImportFieldRank says "Rank"
+// in the language of msgs.
+func (msgs Messages) ImportFieldRank() string {
+	return Catalog.Format(msgs.locale, "importFieldRank", nil)
+}
+
+// ImportFieldQuantTotalScore says "Quant total score"
+// in the language the app shows.
+func ImportFieldQuantTotalScore() string { return In(i18n.Locale()).ImportFieldQuantTotalScore() }
+
+// ImportFieldQuantTotalScore says "Quant total score"
+// in the language of msgs.
+func (msgs Messages) ImportFieldQuantTotalScore() string {
+	return Catalog.Format(msgs.locale, "importFieldQuantTotalScore", nil)
+}
+
+// ImportFieldPersonalScore says "Personal score"
+// in the language the app shows.
+func ImportFieldPersonalScore() string { return In(i18n.Locale()).ImportFieldPersonalScore() }
+
+// ImportFieldPersonalScore says "Personal score"
+// in the language of msgs.
+func (msgs Messages) ImportFieldPersonalScore() string {
+	return Catalog.Format(msgs.locale, "importFieldPersonalScore", nil)
+}
+
+// ImportFieldStatGroup says "Stat group"
+// in the language the app shows.
+func ImportFieldStatGroup() string { return In(i18n.Locale()).ImportFieldStatGroup() }
+
+// ImportFieldStatGroup says "Stat group"
+// in the language of msgs.
+func (msgs Messages) ImportFieldStatGroup() string {
+	return Catalog.Format(msgs.locale, "importFieldStatGroup", nil)
+}
+
+// ImportFieldImprovementScore says "Improvement score"
+// in the language the app shows.
+func ImportFieldImprovementScore() string { return In(i18n.Locale()).ImportFieldImprovementScore() }
+
+// ImportFieldImprovementScore says "Improvement score"
+// in the language of msgs.
+func (msgs Messages) ImportFieldImprovementScore() string {
+	return Catalog.Format(msgs.locale, "importFieldImprovementScore", nil)
+}
+
+// ImportFieldPassScore says "Pass rate score"
+// in the language the app shows.
+func ImportFieldPassScore() string { return In(i18n.Locale()).ImportFieldPassScore() }
+
+// ImportFieldPassScore says "Pass rate score"
+// in the language of msgs.
+func (msgs Messages) ImportFieldPassScore() string {
+	return Catalog.Format(msgs.locale, "importFieldPassScore", nil)
+}
+
+// ImportFieldCompletionScore says "Completion score"
+// in the language the app shows.
+func ImportFieldCompletionScore() string { return In(i18n.Locale()).ImportFieldCompletionScore() }
+
+// ImportFieldCompletionScore says "Completion score"
+// in the language of msgs.
+func (msgs Messages) ImportFieldCompletionScore() string {
+	return Catalog.Format(msgs.locale, "importFieldCompletionScore", nil)
+}
+
+// ImportFieldGroupPoints says "Group points"
+// in the language the app shows.
+func ImportFieldGroupPoints() string { return In(i18n.Locale()).ImportFieldGroupPoints() }
+
+// ImportFieldGroupPoints says "Group points"
+// in the language of msgs.
+func (msgs Messages) ImportFieldGroupPoints() string {
+	return Catalog.Format(msgs.locale, "importFieldGroupPoints", nil)
+}
+
+// ImportFieldClassCount says "Class size"
+// in the language the app shows.
+func ImportFieldClassCount() string { return In(i18n.Locale()).ImportFieldClassCount() }
+
+// ImportFieldClassCount says "Class size"
+// in the language of msgs.
+func (msgs Messages) ImportFieldClassCount() string {
+	return Catalog.Format(msgs.locale, "importFieldClassCount", nil)
+}
+
+// ImportFieldClassAverage says "Class average"
+// in the language the app shows.
+func ImportFieldClassAverage() string { return In(i18n.Locale()).ImportFieldClassAverage() }
+
+// ImportFieldClassAverage says "Class average"
+// in the language of msgs.
+func (msgs Messages) ImportFieldClassAverage() string {
+	return Catalog.Format(msgs.locale, "importFieldClassAverage", nil)
+}
+
+// ImportFieldGradeAverage says "Grade average"
+// in the language the app shows.
+func ImportFieldGradeAverage() string { return In(i18n.Locale()).ImportFieldGradeAverage() }
+
+// ImportFieldGradeAverage says "Grade average"
+// in the language of msgs.
+func (msgs Messages) ImportFieldGradeAverage() string {
+	return Catalog.Format(msgs.locale, "importFieldGradeAverage", nil)
+}
+
+// ImportFieldBaselineAverage says "Baseline average"
+// in the language the app shows.
+func ImportFieldBaselineAverage() string { return In(i18n.Locale()).ImportFieldBaselineAverage() }
+
+// ImportFieldBaselineAverage says "Baseline average"
+// in the language of msgs.
+func (msgs Messages) ImportFieldBaselineAverage() string {
+	return Catalog.Format(msgs.locale, "importFieldBaselineAverage", nil)
+}
+
+// ImportFieldBaselineRatio says "Baseline ratio"
+// in the language the app shows.
+func ImportFieldBaselineRatio() string { return In(i18n.Locale()).ImportFieldBaselineRatio() }
+
+// ImportFieldBaselineRatio says "Baseline ratio"
+// in the language of msgs.
+func (msgs Messages) ImportFieldBaselineRatio() string {
+	return Catalog.Format(msgs.locale, "importFieldBaselineRatio", nil)
+}
+
+// ImportFieldImprovementRaw says "Raw improvement"
+// in the language the app shows.
+func ImportFieldImprovementRaw() string { return In(i18n.Locale()).ImportFieldImprovementRaw() }
+
+// ImportFieldImprovementRaw says "Raw improvement"
+// in the language of msgs.
+func (msgs Messages) ImportFieldImprovementRaw() string {
+	return Catalog.Format(msgs.locale, "importFieldImprovementRaw", nil)
+}
+
+// ImportFieldPassCount says "Pass count"
+// in the language the app shows.
+func ImportFieldPassCount() string { return In(i18n.Locale()).ImportFieldPassCount() }
+
+// ImportFieldPassCount says "Pass count"
+// in the language of msgs.
+func (msgs Messages) ImportFieldPassCount() string {
+	return Catalog.Format(msgs.locale, "importFieldPassCount", nil)
+}
+
+// ImportFieldPassTarget says "Pass target"
+// in the language the app shows.
+func ImportFieldPassTarget() string { return In(i18n.Locale()).ImportFieldPassTarget() }
+
+// ImportFieldPassTarget says "Pass target"
+// in the language of msgs.
+func (msgs Messages) ImportFieldPassTarget() string {
+	return Catalog.Format(msgs.locale, "importFieldPassTarget", nil)
+}
+
+// ImportFieldPassRaw says "Raw pass rate"
+// in the language the app shows.
+func ImportFieldPassRaw() string { return In(i18n.Locale()).ImportFieldPassRaw() }
+
+// ImportFieldPassRaw says "Raw pass rate"
+// in the language of msgs.
+func (msgs Messages) ImportFieldPassRaw() string {
+	return Catalog.Format(msgs.locale, "importFieldPassRaw", nil)
+}
+
+// ImportIssueArchiveInvalidTier says "Tier %s cannot be recognized and was skipped."
+// in the language the app shows.
+func ImportIssueArchiveInvalidTier() string { return In(i18n.Locale()).ImportIssueArchiveInvalidTier() }
+
+// ImportIssueArchiveInvalidTier says "Tier %s cannot be recognized and was skipped."
+// in the language of msgs.
+func (msgs Messages) ImportIssueArchiveInvalidTier() string {
+	return Catalog.Format(msgs.locale, "importIssueArchiveInvalidTier", nil)
+}
+
+// ImportIssueArchiveMissingPoints says "%s (%s) is missing assigned points."
+// in the language the app shows.
+func ImportIssueArchiveMissingPoints() string {
+	return In(i18n.Locale()).ImportIssueArchiveMissingPoints()
+}
+
+// ImportIssueArchiveMissingPoints says "%s (%s) is missing assigned points."
+// in the language of msgs.
+func (msgs Messages) ImportIssueArchiveMissingPoints() string {
+	return Catalog.Format(msgs.locale, "importIssueArchiveMissingPoints", nil)
+}
+
+// ImportIssueArchiveMissingTotal says "%s (%s) is missing quantitative total score."
+// in the language the app shows.
+func ImportIssueArchiveMissingTotal() string {
+	return In(i18n.Locale()).ImportIssueArchiveMissingTotal()
+}
+
+// ImportIssueArchiveMissingTotal says "%s (%s) is missing quantitative total score."
+// in the language of msgs.
+func (msgs Messages) ImportIssueArchiveMissingTotal() string {
+	return Catalog.Format(msgs.locale, "importIssueArchiveMissingTotal", nil)
+}
+
+// ImportIssueArchiveMissingTeacher says "%s (%s) has no teacher assigned."
+// in the language the app shows.
+func ImportIssueArchiveMissingTeacher() string {
+	return In(i18n.Locale()).ImportIssueArchiveMissingTeacher()
+}
+
+// ImportIssueArchiveMissingTeacher says "%s (%s) has no teacher assigned."
+// in the language of msgs.
+func (msgs Messages) ImportIssueArchiveMissingTeacher() string {
+	return Catalog.Format(msgs.locale, "importIssueArchiveMissingTeacher", nil)
+}
+
+// ImportIssueArchiveMissingRank says "%s (%s) has no rank value."
+// in the language the app shows.
+func ImportIssueArchiveMissingRank() string { return In(i18n.Locale()).ImportIssueArchiveMissingRank() }
+
+// ImportIssueArchiveMissingRank says "%s (%s) has no rank value."
+// in the language of msgs.
+func (msgs Messages) ImportIssueArchiveMissingRank() string {
+	return Catalog.Format(msgs.locale, "importIssueArchiveMissingRank", nil)
+}
+
+// ImportIssueArchiveStatGroupDup says "Duplicate archive row for %s (%s)."
+// in the language the app shows.
+func ImportIssueArchiveStatGroupDup() string {
+	return In(i18n.Locale()).ImportIssueArchiveStatGroupDup()
+}
+
+// ImportIssueArchiveStatGroupDup says "Duplicate archive row for %s (%s)."
+// in the language of msgs.
+func (msgs Messages) ImportIssueArchiveStatGroupDup() string {
+	return Catalog.Format(msgs.locale, "importIssueArchiveStatGroupDup", nil)
+}
+
+// ImportIssueArchivePersonalDup says "Duplicate personal score for %s (%s)."
+// in the language the app shows.
+func ImportIssueArchivePersonalDup() string { return In(i18n.Locale()).ImportIssueArchivePersonalDup() }
+
+// ImportIssueArchivePersonalDup says "Duplicate personal score for %s (%s)."
+// in the language of msgs.
+func (msgs Messages) ImportIssueArchivePersonalDup() string {
+	return Catalog.Format(msgs.locale, "importIssueArchivePersonalDup", nil)
+}

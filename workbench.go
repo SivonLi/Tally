@@ -120,7 +120,7 @@ func (a *app) reloadAssessments(ctx context.Context) {
 	}
 	items, err := a.store.ListAssessmentOverview(ctx)
 	if err != nil {
-		a.assessmentError = err.Error()
+		a.assessmentError = localizeErrorMessage(err.Error())
 		return
 	}
 	a.assessments = items
@@ -170,7 +170,7 @@ func (a *app) loadAssessmentDetail(ctx context.Context) {
 	}
 	detail, err := a.store.LoadAssessmentContext(ctx, a.selectedAssessmentID)
 	if err != nil {
-		a.assessmentError = err.Error()
+		a.assessmentError = localizeErrorMessage(err.Error())
 		return
 	}
 	a.assessmentContext = detail
@@ -181,7 +181,7 @@ func (a *app) loadAssessmentDetail(ctx context.Context) {
 	}
 	a.assessmentRuns, err = a.store.ListAssessmentRuns(ctx, a.selectedAssessmentID)
 	if err != nil {
-		a.assessmentError = err.Error()
+		a.assessmentError = localizeErrorMessage(err.Error())
 		return
 	}
 	if !a.assessmentRunChosen || !a.runExists(a.assessmentRunID) {
@@ -200,7 +200,7 @@ func (a *app) loadAssessmentDetail(ctx context.Context) {
 	run, rows, personal, err := a.store.AssessmentRunDetail(ctx, a.selectedAssessmentID, a.assessmentRunID)
 	if err != nil {
 		if !errors.Is(err, store.ErrNotFound) {
-			a.assessmentError = err.Error()
+			a.assessmentError = localizeErrorMessage(err.Error())
 			return
 		}
 		a.assessmentRunChosen = false
@@ -273,7 +273,7 @@ func (a *app) loadAssessmentStaleness(ctx context.Context) {
 		officialItems, officialStale, err = a.staleInputItems(ctx, detail)
 	}
 	if err != nil {
-		a.assessmentError = err.Error()
+		a.assessmentError = localizeErrorMessage(err.Error())
 		return
 	}
 	a.assessmentOfficialStale = officialStale
@@ -284,6 +284,9 @@ func (a *app) loadAssessmentStaleness(ctx context.Context) {
 // 返回变化的数据项与是否需要重新计算；
 // 旧运行没有摘要时回退整体哈希对比，此时没有数据项清单。
 func (a *app) staleInputItems(ctx context.Context, run store.ResultRun) ([]string, bool, error) {
+	if a.assessmentContext.Assessment.Archived || strings.Contains(run.InputSummary, `"mode":"archived"`) {
+		return nil, false, nil
+	}
 	version, err := a.store.GetVersion(ctx, run.PlanVersionID)
 	if err != nil {
 		return nil, false, err
@@ -418,6 +421,8 @@ func (a *app) assessmentDetail(c *ui.Context, p uiPalette) {
 	t := p.theme
 	stage := 0
 	switch {
+	case overview.Archived:
+		stage = 2
 	case overview.RosterCount == 0:
 		stage = 0
 	case !a.assessmentReady(*overview):
@@ -437,6 +442,9 @@ func (a *app) assessmentDetail(c *ui.Context, p uiPalette) {
 					badge(c, p, a.examTypeName(overview.ExamType), toneAccent)
 					badge(c, p, overview.CohortName, toneNeutral)
 					badge(c, p, a.stageName(overview.GradeLevel), toneNeutral)
+					if overview.Archived {
+						badge(c, p, locales.ExamArchivedBadge(), toneWarning)
+					}
 				})
 				ui.Textf(c, locales.AssessmentDetailMeta(), a.academicYearLabel(overview.AcademicYearStart),
 					a.examTermName(overview.Term), overview.ExamDate).FontSize(captionSize(t)).
@@ -473,6 +481,9 @@ func (a *app) assessmentSteps(c *ui.Context, p uiPalette, current int) {
 // assessmentStatusDisplay 返回状态徽标的取值与文字；
 // 已核算但数据已变化时显示「需要重新计算」。
 func (a *app) assessmentStatusDisplay(overview store.AssessmentOverview) (string, string) {
+	if overview.Archived {
+		return "calculated", locales.AssessmentStatusCalculated()
+	}
 	if overview.Status == "stale" || (overview.Status == "calculated" && a.assessmentOfficialStale) {
 		return "stale", locales.AssessmentStatusStale()
 	}
@@ -590,13 +601,17 @@ func (a *app) assessmentActions(c *ui.Context, p uiPalette, overview store.Asses
 	t := p.theme
 	ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
 		rule(c)
-		missing := a.assessmentMissingItems(overview)
-		if len(missing) > 0 {
-			notice(c, p, noticeWarning, fmt.Sprintf(locales.AssessmentPrepareRequired(),
-				strings.Join(missing, locales.ListSeparator())))
-		}
-		if a.assessmentOfficialStale {
-			notice(c, p, noticeWarning, a.staleNoticeText())
+		if overview.Archived {
+			notice(c, p, noticeInfo, locales.ExamArchivedNotice())
+		} else {
+			missing := a.assessmentMissingItems(overview)
+			if len(missing) > 0 {
+				notice(c, p, noticeWarning, fmt.Sprintf(locales.AssessmentPrepareRequired(),
+					strings.Join(missing, locales.ListSeparator())))
+			}
+			if a.assessmentOfficialStale {
+				notice(c, p, noticeWarning, a.staleNoticeText())
+			}
 		}
 		ui.Row(c).Wrap().AlignItems(ui.End).Gap(t.Space(3)).Children(func() {
 			ui.Column(c).Width(t.Space(56)).MinWidth(0).Gap(t.Space(1)).Children(func() {
@@ -615,18 +630,16 @@ func (a *app) assessmentActions(c *ui.Context, p uiPalette, overview store.Asses
 					a.openExamTab(overview, 0)
 				}
 				trial := labelledButton(c, locales.AssessmentTrial(), iconCalculate, false)
-				trial.Disabled(a.assessmentBusy || len(a.published) == 0 ||
-					!a.assessmentReady(overview))
+				trial.Disabled(a.assessmentBusy || (!overview.Archived && (len(a.published) == 0 || !a.assessmentReady(overview))))
 				if trial.Clicked() {
 					a.startAssessmentTrial()
 				}
-				calculate := labelledButton(c, locales.AssessmentCalculate(), iconCalculate, true)
-				calculate.Disabled(a.assessmentBusy || len(a.published) == 0 ||
-					!a.assessmentReady(overview))
+				calculate := labelledButton(c, locales.AssessmentCalculate(), iconCalculate, !overview.Archived)
+				calculate.Disabled(a.assessmentBusy || (!overview.Archived && (len(a.published) == 0 || !a.assessmentReady(overview))))
 				if calculate.Clicked() {
 					a.startAssessmentCalculate()
 				}
-				export := labelledButton(c, locales.AssessmentExport(), iconExport, false)
+				export := labelledButton(c, locales.AssessmentExport(), iconExport, overview.Archived)
 				export.Disabled(a.assessmentBusy || !a.officialExportReady())
 				if export.Clicked() {
 					a.chooseAssessmentExport()
@@ -737,7 +750,8 @@ func (a *app) assessmentSubjectResults(c *ui.Context, p uiPalette) {
 	}
 	rows := a.filteredAssessmentRows()
 	a.resultTable.Key = func(row int) any {
-		return fmt.Sprintf("%d:%s", rows[row].StatGroupID, rows[row].Subject)
+		r := rows[row]
+		return fmt.Sprintf("%d:%d:%s:%s:%s", r.ID, r.StatGroupID, r.Subject, r.LeadClassName, r.StatGroupName)
 	}
 	a.resultTable.Selection = &a.resultSelection
 	a.resultTable.RowHeight = tableRowHeight(t)
@@ -1043,21 +1057,44 @@ func (a *app) consumeResultRowSelection() {
 }
 
 func (a *app) resultRowByKey(key string) *store.StoredResultRow {
-	idText, subject, ok := strings.Cut(key, ":")
-	if !ok {
-		return nil
-	}
-	id, err := strconv.ParseInt(idText, 10, 64)
-	if err != nil {
-		return nil
-	}
-	for index := range a.assessmentRows {
-		row := &a.assessmentRows[index]
-		if row.StatGroupID == id && row.Subject == subject {
-			return row
+	parts := strings.SplitN(key, ":", 5)
+	switch len(parts) {
+	case 5:
+		rowID, err1 := strconv.ParseInt(parts[0], 10, 64)
+		sgID, err2 := strconv.ParseInt(parts[1], 10, 64)
+		subject, leadClass, sgName := parts[2], parts[3], parts[4]
+		if err1 == nil && rowID > 0 {
+			for index := range a.assessmentRows {
+				if a.assessmentRows[index].ID == rowID {
+					return &a.assessmentRows[index]
+				}
+			}
 		}
+		if err2 == nil {
+			for index := range a.assessmentRows {
+				row := &a.assessmentRows[index]
+				if row.StatGroupID == sgID && row.Subject == subject &&
+					row.LeadClassName == leadClass && row.StatGroupName == sgName {
+					return row
+				}
+			}
+		}
+		return nil
+	case 2:
+		id, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			return nil
+		}
+		for index := range a.assessmentRows {
+			row := &a.assessmentRows[index]
+			if row.StatGroupID == id && row.Subject == parts[1] {
+				return row
+			}
+		}
+		return nil
+	default:
+		return nil
 	}
-	return nil
 }
 
 // resultDetail 是一条结果行详情弹窗的展示数据，
@@ -1088,12 +1125,12 @@ func (a *app) openResultDetail(row store.StoredResultRow) {
 	ctx := context.Background()
 	version, err := a.store.GetVersion(ctx, a.assessmentRun.PlanVersionID)
 	if err != nil {
-		a.assessmentError = err.Error()
+		a.assessmentError = localizeErrorMessage(err.Error())
 		return
 	}
 	groups, err := a.store.ListExamStatGroups(ctx, a.selectedAssessmentID)
 	if err != nil {
-		a.assessmentError = err.Error()
+		a.assessmentError = localizeErrorMessage(err.Error())
 		return
 	}
 	var group store.ExamStatGroup
@@ -1105,7 +1142,7 @@ func (a *app) openResultDetail(row store.StoredResultRow) {
 	}
 	students, err := a.store.AssessmentRowStudents(ctx, a.assessmentRun.ID, row.StatGroupID, row.Subject)
 	if err != nil {
-		a.assessmentError = err.Error()
+		a.assessmentError = localizeErrorMessage(err.Error())
 		return
 	}
 	a.resultDetail = resultDetail{
@@ -1132,12 +1169,16 @@ func (a *app) runAssessmentCalculate(trial bool) {
 	if a.store == nil || a.selectedAssessmentID == 0 {
 		return
 	}
+	assessmentID := a.selectedAssessmentID
+	if err := a.store.AssertAssessmentCalculable(context.Background(), assessmentID); err != nil {
+		a.assessmentError = localizeErrorMessage(err.Error())
+		return
+	}
 	version := a.publishedByLabel(a.calculateVersion)
 	if version == nil {
 		a.assessmentError = locales.BatchSelectVersion()
 		return
 	}
-	assessmentID := a.selectedAssessmentID
 	a.assessmentBusy = true
 	a.assessmentError = ""
 	if trial {
@@ -1147,6 +1188,9 @@ func (a *app) runAssessmentCalculate(trial bool) {
 	}
 	work := func() (calc.Result, error) {
 		ctx := context.Background()
+		if err := a.store.AssertAssessmentCalculable(ctx, assessmentID); err != nil {
+			return calc.Result{}, err
+		}
 		if trial {
 			return pipeline.TrialAssessment(ctx, a.store, assessmentID, version.Version.ID)
 		}
@@ -1182,7 +1226,7 @@ func (a *app) finishAssessmentCalculate(result calc.Result, err error, trial boo
 			a.initZeroValues()
 			return
 		}
-		a.assessmentError = err.Error()
+		a.assessmentError = localizeErrorMessage(err.Error())
 		return
 	}
 	a.zeroOpen = false
@@ -1251,7 +1295,7 @@ func (a *app) startAssessmentExport(path string) {
 func (a *app) finishAssessmentExport(path string, err error) {
 	a.assessmentBusy = false
 	if err != nil {
-		a.assessmentError = err.Error()
+		a.assessmentError = localizeErrorMessage(err.Error())
 		return
 	}
 	a.assessmentError = ""
@@ -1634,7 +1678,7 @@ func (a *app) finishZeroWork(result calc.Result, err error) {
 			return
 		}
 		a.zeroError = err.Error()
-		a.assessmentError = err.Error()
+		a.assessmentError = localizeErrorMessage(err.Error())
 		return
 	}
 	a.zeroOpen = false
