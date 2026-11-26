@@ -320,6 +320,14 @@ sequenceDiagram
 
 引导式导入写入 `import_sheets` 的工作表名称、角色、表头行和数据范围，以及 `import_columns` 的标准字段与原始列名。`import_sheets.version_tag` 尚未写入；工作表版本选择和候选工作表确认属于后续导入界面。
 
+### 结果归档导入
+
+历史考试缺少完整成绩或方案参数时，可通过考试详情页「导入归档结果」或导入中心「结果归档」模式直接导入历史结果工作簿：
+
+- **表头与角色识别（`importer.InspectArchiveWorkbook`）**：先调用 `excel.ReadMergedRows` 按左上角取值展开合并单元格，在前 15 行定位单行或双行复合表头，严格按列名识别 `量化计算`、`排名赋分`、`个人得分` 三类结果工作表（不依赖工作表顺序），同时支持长表、多学科宽表及历史多栏个人得分汇总块，并将空值与异常值按 `blocking` / `warning` 写入 `ImportIssue`。
+- **事务写入与只读保护（`store.ValidateArchivedResultImport` / `ApplyArchivedResultImport`）**：校验无阻断错误后，在同一事务内补建缺失班级与教师档案、写入 `result_runs(is_official=1, input_summary_json='{"mode":"archived","import_run_id":<run_id>}')`、`result_rows`、`result_row_teachers`、`personal_scores`、在 `archived_assessments` 登记只读归档记录并记入 `import_runs`、`import_changes` 与 `audit_logs`（支持安全撤销回滚）。
+- **只读约束与防误标**：`AssertAssessmentCalculable` 与 `pipeline` 在试算及正式计算前拦截归档考核并报错（`ErrAssessmentArchived`）；底层变更标记及工作台 `staleInputItems` 自动跳过归档考核，界面展示「结果归档（只读）」徽章与说明。
+
 ## 核算流程
 
 ### 输入构建
@@ -471,6 +479,7 @@ erDiagram
   TEACHING_GROUPS ||--o{ ASSESSMENT_STAT_GROUP_MEMBERS : joins
   ASSESSMENTS ||--o{ ASSESSMENT_TARGET_ADJUSTMENTS : adjusts
   ASSESSMENTS ||--o{ RESULT_RUNS : runs
+  ASSESSMENTS ||--o| ARCHIVED_ASSESSMENTS : archives
   PLAN_VERSIONS ||--o{ RESULT_RUNS : uses
   RESULT_RUNS ||--o{ RESULT_ROWS : contains
   RESULT_ROWS ||--o{ RESULT_ROW_TEACHERS : credits
@@ -531,6 +540,7 @@ erDiagram
 | `result_rows` | `id`、`run_id`、`stat_group_id`、`stat_group_name`、`subject`、`lead_class_id`、`lead_class_name`、`class_count`、`class_average`、`grade_average`、`baseline_average`、`baseline_ratio`、`improvement_raw`、`improvement_score`、`pass_count`、`pass_target`、`pass_raw`、`pass_score`、`completion_actual`、`completion_base`、`completion_raw`、`completion_participate`、`completion_score`、`total_score`、`rank`、`tier_index`、`points`、`participants_json`、`indicator_values_json` | 一个统计组一条 |
 | `result_row_teachers` | `result_row_id`、`teacher_id`、`teacher_name_snapshot` | 主键 `(result_row_id, teacher_id)`；索引 `(teacher_id)` |
 | `personal_scores` | `id`、`run_id`、`teacher_id`、`teacher_name_snapshot`、`cohort_id`、`phase_at_exam`、`subject`、`group_points_json`、`score` | 唯一约束 `(run_id, teacher_id, subject)`；索引 `(teacher_id)` |
+| `archived_assessments` | `assessment_id`、`import_run_id`、`created_at` | 主键 `assessment_id`；索引 `idx_archived_assessments_import(import_run_id)`；标记考核为结果归档只读状态 |
 | `export_records` | `id`、`run_id`、`file_path`、`file_hash`、`exported_at` | 导出记录 |
 
 导入、修订与审计表：
@@ -674,7 +684,7 @@ erDiagram
 - 单科 0 分按导入规则固定处理，尚未做成方案开关。
 - 导出工作簿的表头、列宽、合并单元格、打印区域和样式仍待学校确认。
 - 第 16 项排名并列和第 17 项分档边界仍待学校确认。
-- 结果归档、分班、分考场和教务统计属于后续阶段。
+- 分班、分考场和教务统计属于后续阶段。
 
 ## 代码索引
 
@@ -701,12 +711,12 @@ erDiagram
 | `internal/store/faculty.go` | 全校师资实时占用、`DetectCrossGradeWarnings`、班主任与任课分配/结束、班级与教学班管理 |
 | `internal/store/students.go` | 学生查询、`MatchStudent` 多级匹配、`SetStudentPreviousLink` 复读前溯、`MergeStudents` 合并、入口基数聚合 |
 | `internal/store/exams.go`、`exam_import.go` | 考试与级快照、报名名单生成与补建、成绩/分数线/目标导入校验与写入、`RecomputeExamRanks`、准备清单与质量检查 |
-| `internal/store/assessments.go` | 本次考核上下文、核算输入加载、运行/结果/个人得分事务保存、统计组、目标调整与输入哈希摘要 |
+| `internal/store/assessments.go`、`archive.go` | 本次考核上下文、核算输入加载、运行/结果/个人得分事务保存、结果归档校验写入与只读守卫、统计组、目标调整与输入哈希摘要 |
 | `internal/store/profiles.go` | `GetStudentProfile`、`GetTeacherProfile` 与 `QueryClassTrendChain` |
 | `internal/store/analysis.go`、`workspace.go` | 五大维度多维分析查询与工作区实时台账聚合 |
 | `internal/store/imports.go`、`imports_apply.go` | 阶段引导式导入校验、事务写入、变更记录、撤销与文件副本存储 |
 | `internal/store/backup.go`、`saved_views.go`、`appearance.go`、`sync_settings.go` | 备份与恢复、保存视图、外观设置与同步状态 |
-| `internal/importer/` | 工作表识别、引导式导入字段、列名映射、解析、模板与问题清单导出 |
+| `internal/importer/` | 工作表识别、引导式导入字段、列名映射、解析、结果归档工作簿解析（`archive.go`）、模板与问题清单导出 |
 | `internal/excel/` | 工作簿读取、表头识别、LibreOffice 转换 |
 | `internal/pipeline/` | 输入构建、试算与正式核算、版本差异、导出 |
 | `internal/exporter/` | 结果工作簿与五大维度分析报表生成 |
