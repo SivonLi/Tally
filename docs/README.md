@@ -19,25 +19,25 @@
 
 ## 当前状态
 
-- 阶段：产品与数据架构重构**阶段 1（Schema v1 单一真理源与存储引擎重构）已完成**。彻底移除旧版 `batches` / `terms` / `cohort_stages` / `class_stage_info` / `legacy_*` 表及旧库迁移代码，建立全新 `SchemaVersion = 1` SQLite 模型（见 `internal/store/schema.go`），并通过阶段 1 界面兼容层保障现有全量 UI 与 697 个计算核对点 0 差异回归通过；后续阶段将基于已落地的全校师资占用、升学流转与师生三年档案接口推进阶段 2+ 全校统一导航与「档案即分析」界面重构。
+- 阶段：产品与数据架构重构**阶段 1（Schema v1 单一真理源与存储引擎重构）与阶段 2（全校统一导航、年级档案 6 页签、升学与毕业封存向导、师生三年完整档案、走班教学班编排与结果归档导入模式）均已完成**，当前处于 **阶段 3 收口**。旧版 `batches` / `terms` / `cohort_stages` / `class_stage_info` / `legacy_*` 表及旧库迁移代码已彻底移除，全量 UI、双态双色快照与高一期中 697 个计算核对点 0 差异回归全部通过。
 - 代码状态：
-  - 根包界面：`shell.go`、`overview.go`、`cohort_state.go`、`ui_theme.go`、`ui_components.go`、`ui_icons.go`、`data_state.go`、`data_pages.go`、`exam_state.go`、`exam_pages.go`、`quality_page.go`、`import_wizard.go`、`import_center.go`、`prep_wizard.go`、`plan_page.go`、`main.go`、`workbench.go`、`analysis_page.go`、`analysis_state.go`、`settings_school.go`、`settings_sync.go`、`settings_window.go`；字体与 Sunbeam 主题由 `internal/fonts` 与 `github.com/AstraFoundry/design/packages/mygo/sunbeam` 提供。
-  - 核心存储与业务引擎：`internal/store` 已完成 Schema v1 模块化拆分（`schema.go`、`store.go`、`types.go`、`cohort.go`、`faculty.go`、`students.go`、`exams.go`、`assessments.go`、`archive.go`、`profiles.go`、`imports.go`、`imports_apply.go`、`analysis.go`、`workspace.go`、`saved_views.go`、`appearance.go`、`sync_settings.go`、`backup.go`）；`internal/school`、`internal/assessment`、`internal/formula`、`internal/calc`、`internal/importer`（含结果归档导入 `archive.go`）、`internal/excel`、`internal/pipeline`、`internal/exporter`、`internal/sync` 保持单向依赖与计算引擎红线。当前实现细节见 `docs/system-design.md`。
-- 阶段 1 已落地能力：
+  - 根包界面：`shell.go`、`overview.go`、`cohort_state.go`、`cohort_pages.go`、`profile_state.go`、`profile_pages.go`、`ui_theme.go`、`ui_components.go`、`ui_icons.go`、`data_state.go`、`data_pages.go`、`exam_state.go`、`exam_pages.go`、`quality_page.go`、`import_wizard.go`、`import_center.go`、`prep_wizard.go`、`plan_page.go`、`main.go`、`workbench.go`、`workbench_diff.go`、`analysis_page.go`、`analysis_state.go`、`error_localization.go`、`settings_school.go`、`settings_sync.go`、`settings_window.go`；字体与 Sunbeam 主题由 `internal/fonts` 与 `github.com/AstraFoundry/design/packages/mygo/sunbeam` 提供。
+  - 核心存储与业务引擎：`internal/store` 已完成 Schema v1 模块化拆分（`schema.go`、`store.go`、`types.go`、`cohort.go`、`faculty.go`、`students.go`、`exams.go`、`assessments.go`、`archive.go`、`profiles.go`、`imports.go`、`imports_apply.go`、`analysis.go`、`workspace.go`、`saved_views.go`、`appearance.go`、`sync_settings.go`、`backup.go`）；`internal/school`、`internal/assessment`、`internal/formula`、`internal/calc`、`internal/importer`（含结果归档导入 `archive.go`）、`internal/excel`、`internal/pipeline`、`internal/exporter`（含师生档案与五维分析导出）、`internal/sync` 保持单向依赖与计算引擎红线。当前实现细节见 `docs/system-design.md`。
+- 阶段 1 与阶段 2 已落地能力：
   - **全新 Schema v1 单一真理源**：首次启动检测到旧库或包含 `batches` 等旧表时直接返回 `ErrIncompatibleDatabase` 提示新建干净库，不做旧库迁移；初始化预置 10 个学科（含日语）、2 个选科类别（物理类、历史类）与内置默认考核方案。
-  - **年级三年生命周期与升学流转**：`cohorts` 以 `enrollment_year` 唯一并持久化 `current_phase`（`g1 | g2 | g3 | graduated`）；`PromoteCohort` 原子支持模式 A「原班直升」（建立 `continued_from_class_id` 继承链并延续班主任、常规教学班与任课）与模式 B「选科重分班」（旧阶段归档、`continued_from_class_id = NULL`、等待重分班）；`PreviewGraduateCohort` 与 `GraduateCohort` 支持毕业封存并自动释放仅在该届任教的教师占用。
+  - **全校统一导航与年级档案 6 页签**：移除单级工作区锁定，左侧栏统一为「总览 / 年级档案 / 教师档案 / 考试与考核 / 考核方案」主导航与底部「导入记录 / 设置与同步 / 帮助」；年级详情提供概览与周期、班级与教学班（含走班编排弹窗）、学生档案、任课安排、入口成绩与历次考试六页签。
+  - **年级三年生命周期与升学/结届向导**：`cohorts` 以 `enrollment_year` 唯一并持久化 `current_phase`（`g1 | g2 | g3 | graduated`）；`PromoteCohort` 原子支持模式 A「原班直升」（建立 `continued_from_class_id` 继承链并延续班主任、常规教学班与任课）与模式 B「选科重分班」（旧阶段归档、`continued_from_class_id = NULL`、等待重分班）；`PreviewGraduateCohort` 与 `GraduateCohort` 及毕业封存弹窗支持结届归档并自动释放仅在该届任教的教师占用。
   - **全校师资实时占用与跨级兼任提示**：`ListTeachersWithOccupancy` 实时由 `teaching_assignments(status='active')` 与 `class_head_teachers(status='active')` 汇总教师占用状态（`idle | active_single | active_multi | inactive`）；`DetectCrossGradeWarnings`、`AssignTeacherToGroup` 与 `SetClassHeadTeacher` 在跨在读年级兼任时返回非阻断提示；`EndTeachingAssignment` 支持期中/手动释放任课。
-  - **行政班阶段实例与传承链**：`classes` 按 `(cohort_id, phase, name)` 唯一并支持 `continued_from_class_id` 递归串联；`QueryClassTrendChain` 沿继承链串联同一班集体走势，选科重分班后自动断开避免不同学生群体均分误连。
-  - **复读生前溯与多级标识匹配**：`students` 按 `(cohort_id, student_no)` 建档，支持 `previous_student_id` 前溯往届档案（`SetStudentPreviousLink`）、同届重名档案合并（`MergeStudents`）、`student_no > candidate_code > name+class_name` 多级匹配（`MatchStudent`）及 `student_entry_scores` / `cohort_baseline_overrides` / `student_events`。
-  - **考试快照与师生完整档案查询**：`exams` / `exam_cohorts` / `exam_participants` / `exam_scores` / `exam_cutoffs` 完整固化考时班级、类别、外语、教学班快照与各科/总分排名（`RecomputeExamRanks`）；`GetStudentProfile` 与 `GetTeacherProfile` 为阶段 2+「档案即分析」提供一站式三年学习轨迹与跨届执教履历数据。
-  - **结果归档历史数据导入模式**：支持从历史结果工作簿（`量化计算`、`排名赋分`、`个人得分`）按表头识别并展开多行表头与合并单元格，预览校验并事务写入 `result_runs(is_official=1, input_summary_json={"mode":"archived"})`、`result_rows`、`personal_scores` 与 `archived_assessments`，并在工作台与考试详情标记为只读（试算与重算由 `AssertAssessmentCalculable` 拒绝，免除误报待重算）。
+  - **行政班阶段实例与传承链**：`classes` 按 `(cohort_id, phase, name)` 唯一并支持 `continued_from_class_id` 递归串联；`QueryClassTrendChain` 与班级走势弹窗沿继承链串联同一班集体走势，选科重分班后自动断开避免不同学生群体均分误连。
+  - **师生三年完整档案与导出（档案即分析）**：`students` 按 `(cohort_id, student_no)` 建档并支持 `previous_student_id` 复读前溯一键跳转、`MergeStudents` 合并重复档案与 `student_events` 异动时间线；学生三年档案页与教师执教档案页均已上线（含趋势图、历次明细与 Excel 导出）。
+  - **结果归档历史数据导入模式**：支持从历史结果工作簿（`量化计算`、`排名赋分`、`个人得分`）按表头识别并展开多行表头与合并单元格，只读预检并单事务写入 `result_runs(is_official=1, input_summary_json={"mode":"archived","import_run_id":...})`、`result_rows`、`result_row_teachers`、`personal_scores` 与 `archived_assessments`，支持完整原子撤销回滚；工作台与考试详情标记为只读（试算与重算由 `AssertAssessmentCalculable` 拒绝，上游变更免误报待重算）。
 - 产品重构设计：`docs/product-redesign.md` 已同步三项核心业务决策（教师跨年级兼任与结届释放、行政班 `(cohort_id, phase)` 实例与继承链、复读生独立建档与前溯）、Schema v1 目标模型及全校统一导航与档案即分析规格。
-- 已经确认的口径：三项指标分值 40/40/20 且都不封顶、档位权重 50/40/30/20/10/8、三档赋分 70/67/64、个人得分取最高两个统计组、高考完成率 60/40、基数取中考、走班按教学班统计并按统计组合并；除第 16、17 项外的当前口径都已经确认。
-- 待确认的口径：第 16 项排名并列、第 17 项分档边界，详细说明见 `docs/requirements-analysis.md` 的「待确认项说明」。
+- 已经确认的口径：三项指标分值 40/40/20 且都不封顶、档位权重 50/40/30/20/10/8、三档赋分 70/67/64、排名并列跳过后续名次（`competition`，如 `1, 1, 3`）、分档边界采用默认比例参考 + 按科人工维护区间表（支持 `manual` 与考核级按科微调）、个人得分取最高两个统计组、高考完成率 60/40、基数取中考、走班历史按统计组合并且新口径支持走班单独成班统计；当前仅第 20 项零目标细则待学校核准（维持安全拦截、弹窗补齐与审计策略）。
+- 待确认项：第 20 项零目标具体细则（详见 `docs/requirements-analysis.md`）；导出模板最终样式（已确认后置，待核心功能打磨与数据复算无误后再确认）。
 - 外部依赖：`private-data/history/` 下已有历次期中、期末及高考专项量化材料（不入库，不在文档中出现真实名称）。开发环境已安装 LibreOffice，`soffice` 位于 `/opt/homebrew/bin/soffice`；旧版 `.xls` 已实际转换并读取。
-- 下一步：推进阶段 2+ 界面重构（全校统一导航、年级档案 6 页签、教师档案与跨级占用徽章、学生三年档案与复读前溯跳转、升学与结届向导）及高二、高三、高考历史数据复算验收。
-- 阻塞项：导出模板的最终样式；第 16、17 项的学校确认。
-- 当前打包体积：macOS 应用包低于 40 MB 上限（内嵌 Allo 与 zstd 压缩的霞鹜文楷屏幕阅读版字体）。
+- 下一步：推进阶段 3 收口（本次考核分档边界按科微调交互、高二/高三/高考历史数据复算验收、WebDAV 多端实测与自动触发核算评估）。
+- 阻塞项：第 20 项零目标细则待学校确认；导出模板最终样式后置至功能打磨与复算完成后确认。
+- 当前打包体积：macOS 应用包为 34.8 MB，低于 40 MB 上限（内嵌 Allo 与 zstd 压缩的霞鹜文楷屏幕阅读版字体）。
 - 真实材料验收：高一期中工作簿黄金样例导入 965 名有效考生、135 个统计组，核算 135 条结果和 73 条个人得分，导出的工作簿可以被 excelize 重新打开；年级语文总均分、实考缺考标记、走班合并归属及各科均分提升率、单科达线率、班级完成率全部对齐，697 个计算核对点差异为 0。
 
 ## 当前风险
@@ -68,7 +68,7 @@
 - 未确认项按“当前口径”实现，不得在代码里固定另一套默认值。
 - 修改默认值时，只改口径确认表，并且同步更新 `docs/assessment-plan.md` 和 `docs/design-roadmap.md` 的默认值。
 - 考核方案是一组可版本化的配置。系统初始只有内置默认方案，所有年级统一使用；方案配置页展示并允许修改全部规则和公式；方案可以保存为新的方案或者更新当前方案，版本记录只供已有核算结果引用。
-- 第 16 项排名并列和第 23 项合并组算法属于方案配置项。第 23 项已经确认，第 16 项仍待确认。
+- 第 16 项排名并列（`competition`）、第 17 项分档边界（默认比例参考 + 人工维护区间表）与第 23 项合并组算法均已确认并纳入方案配置项。
 - 走班学生按学科计入实际授课的教学班，行政班不重复计人；三项指标折算为 40/40/20 分后相加；完成率默认不封顶。
 - 单科达线率、均分提升率、完成率都不封顶，40、40、20 是该项满分，得分可以超过满分。
 - 单科达线率按统计组计算；走班合并时分子相加，分母取统计组目标，结果只写一条并归到承担统计职责的班级行。
@@ -173,7 +173,7 @@
 - 行政班用于学生日常管理，教学班按学科划分。
 - 批次可以有多条计算结果，每条结果引用一个方案版本。
 - 计算规则、公式、分值、档位、并列规则、分档边界、合并组算法和零目标处理都从方案版本读取，计算代码不写另一套默认值。
-- 第 16、17 项仍待学校确认；未确认前按当前默认值试算，不在界面或者导出文件里宣称最终口径。
+- 第 16 项排名并列（跳过后续名次）与第 17 项分档边界（默认比例参考 + 人工维护区间表）已确认；第 20 项零目标在学校细则答复前维持安全拦截、弹窗补齐与审计策略。
 - 计算和存储默认在本地完成；WebDAV 是可选同步，只上传加密数据包。
 - 同步数据包和原始文件的加密参数写入 `latest.json` 和 `manifest.json`。
 - 备份关闭 SQLite 连接后复制文件，不使用 `VACUUM INTO`。

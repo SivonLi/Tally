@@ -6,23 +6,23 @@
 
 系统是一个单机桌面应用，运行在 Windows 与 macOS，界面由 MyGo 原生控件绘制。数据保存在本机 SQLite，不依赖网络（WebDAV 加密云端同步为可选协同能力）。
 
-当前已经完成重构**阶段 1（Schema v1 单一真理源与存储引擎重构）**：彻底移除了旧版 `batches` / `terms` / `cohort_stages` / `class_stage_info` / `legacy_*` 等表及旧库迁移代码，在 `internal/store/schema.go` 建立全新 `SchemaVersion = 1` 单一真理源结构，保留 `internal/assessment`、`internal/formula`、`internal/calc`、`internal/sync`、`internal/exporter` 核心能力与高一期中 697 个核对点 0 差异基准，并通过阶段 1 界面兼容层（`EncodeStageID` / `DecodeStageID`、`CohortStage` 衍生视图与 `BatchData` 类型别名）无缝承接现有全部界面页面与交互测试。
+当前已经完成重构**阶段 1（Schema v1 单一真理源与存储引擎重构）与阶段 2（全校统一导航、年级档案 6 页签、升学与毕业封存向导、师生三年完整档案、走班教学班编排与结果归档导入模式）**：彻底移除了旧版 `batches` / `terms` / `cohort_stages` / `class_stage_info` / `legacy_*` 等表及旧库迁移代码，在 `internal/store/schema.go` 建立全新 `SchemaVersion = 1` 单一真理源结构，保留 `internal/assessment`、`internal/formula`、`internal/calc`、`internal/sync`、`internal/exporter` 核心能力与高一期中 697 个核对点 0 差异基准，并已全面切换为全校统一导航与「档案即分析」界面架构。
 
 当前已经实现：
 
 - **Schema v1 单一真理源初始化**：`store.Open` 检查 `schema_migrations`；遇到任何旧版核心表或非 `v1` 版本直接返回 `ErrIncompatibleDatabase`，提示新建或重置干净数据库；新库一次写入全套 `schemaV1Statements()`、预置 10 个学科（含日语）、2 个选科类别（物理类、历史类）与内置默认考核方案。
-- **年级三年生命周期与升学/结届引擎**（`internal/store/cohort.go`）：`cohorts` 持久化 `enrollment_year`、`graduation_year`、`current_phase`（`g1 | g2 | g3 | graduated`）与 `current_academic_year_start`；`PromoteCohort` 原子支持 `PromoteDirect`（原班直升，自动延续班级并写入 `continued_from_class_id` 继承链、班主任、常规教学班与任课关系）和 `PromoteReclassify`（选科重分班，归档旧阶段班级与任课、清空学生当前班级等待重分班）；`PreviewGraduateCohort` 与 `GraduateCohort` 支持毕业封存并自动结束该届活跃任课与班主任、释放仅在该届任教的教师占用。
-- **全校师资实时占用与跨级兼任提示**（`internal/store/faculty.go`）：`ListTeachersWithOccupancy` 实时聚合未毕业年级的活跃任课（`teaching_assignments.status='active'`）与活跃班主任（`class_head_teachers.status='active'`），计算 `inactive` / `idle` / `active_single` / `active_multi`；`DetectCrossGradeWarnings`、`AssignTeacherToGroup` 与 `SetClassHeadTeacher` 在跨在读年级兼任时返回非阻断 `CrossGradeWarning`；`EndTeachingAssignment` 支持结束任课释放占用。
+- **年级三年生命周期与升学/结届引擎**（`internal/store/cohort.go`、`cohort_pages.go`）：`cohorts` 持久化 `enrollment_year`、`graduation_year`、`current_phase`（`g1 | g2 | g3 | graduated`）与 `current_academic_year_start`；`PromoteCohort` 原子支持 `PromoteDirect`（原班直升，自动延续班级并写入 `continued_from_class_id` 继承链、班主任、常规教学班与任课关系）和 `PromoteReclassify`（选科重分班，归档旧阶段班级与任课、清空学生当前班级等待重分班）；`PreviewGraduateCohort` 与 `GraduateCohort` 支持毕业封存并自动结束该届活跃任课与班主任、释放仅在该届任教的教师占用；界面已提供升学向导与毕业封存预览弹窗。
+- **全校师资实时占用与跨级兼任提示**（`internal/store/faculty.go`、`profile_pages.go`）：`ListTeachersWithOccupancy` 实时聚合未毕业年级的活跃任课（`teaching_assignments.status='active'`）与活跃班主任（`class_head_teachers.status='active'`），计算 `inactive` / `idle` / `active_single` / `active_multi`；`DetectCrossGradeWarnings`、`AssignTeacherToGroup` 与 `SetClassHeadTeacher` 在跨在读年级兼任时返回非阻断 `CrossGradeWarning`；`EndTeachingAssignment` 支持结束任课释放占用。
 - **学生建档、多级匹配、复读前溯与重复合并**（`internal/store/students.go`）：`students` 在级内按 `(cohort_id, student_no)` 建档并支持 `previous_student_id` 关联往届复读/留级前档（`SetStudentPreviousLink`）；`MatchStudent` 按 `student_no > candidate_code > name+class_name` 匹配并拦截同班重名歧义（`ErrAmbiguousStudentMatch`）；`MergeStudents` 在同届内原子合并重复档案并记录 `student_events`；`ListBaselines` 结合 `student_entry_scores` 与 `cohort_baseline_overrides` 输出班级与年级入口基数。
-- **考试快照、成绩排名与考核引擎**（`internal/store/exams.go`、`assessments.go`、`exam_import.go`）：`exams` / `exam_cohorts` / `exam_participants` / `exam_scores` / `exam_cutoffs` 完整固化参考快照与各级排名（`RecomputeExamRanks`）；`assessments` / `assessment_class_targets`（含 `actual_count`） / `assessment_stat_groups` / `assessment_stat_group_members` / `assessment_target_adjustments` 承接本次考核；`result_runs` / `result_rows`（含 `participants_json` 与 `indicator_values_json`） / `result_row_teachers` / `personal_scores` / `export_records` 持久化结果与教师关联。
-- **师生三年完整档案与班级传承链查询**（`internal/store/profiles.go`、`analysis.go`）：`GetStudentProfile`（含入口成绩、`student_events` 时间线、复读前档与历次考试表现）、`GetTeacherProfile`（含实时全校占用、跨届得分轨迹与按届历史带班）及 `QueryClassTrendChain`（沿 `classes.continued_from_class_id` 串联三年走势，重分班后自动断开），支撑阶段 2+ 全校统一导航与「档案即分析」界面。
-- **现有界面外壳与功能页面**：Sunbeam 设计系统界面（Allo + 霞鹜文楷屏幕阅读版 GB 内嵌字体）、左侧导航、顶栏、总览、数据页面（班级、学生、教师、教学班、入口成绩、导入记录）、六步引导式导入与撤销、考试列表与六页签详情、数据质量、本次考核工作台（试算、正式计算、重新计算标记、零目标补齐、结果详情、版本对比与导出）、多维分析工作台与保存视图（`saved_views`）、方案配置页（公式选项表单）、WebDAV 加密同步与目录备份恢复。
+- **考试快照、成绩排名、考核引擎与结果归档**（`internal/store/exams.go`、`assessments.go`、`exam_import.go`、`archive.go`）：`exams` / `exam_cohorts` / `exam_participants` / `exam_scores` / `exam_cutoffs` 完整固化参考快照与各级排名（`RecomputeExamRanks`）；`assessments` / `assessment_class_targets`（含 `actual_count`） / `assessment_stat_groups` / `assessment_stat_group_members` / `assessment_target_adjustments` 承接本次考核；`result_runs` / `result_rows`（含 `participants_json` 与 `indicator_values_json`） / `result_row_teachers` / `personal_scores` / `archived_assessments` / `export_records` 持久化正式/试算与归档只读结果。
+- **全校统一导航与师生三年完整档案**（`shell.go`、`cohort_pages.go`、`profile_pages.go`、`internal/store/profiles.go`、`internal/exporter/analysis.go`）：左侧栏统一为「总览 / 年级档案 / 教师档案 / 考试与考核 / 考核方案」主导航与底部工具栏；年级详情 6 页签含走班教学班与学生编排弹窗、班级走势传承链弹窗；学生三年档案（含复读前溯一键跳转、异动时间线与导出）和教师执教档案（含实时占用徽章、跨届得分趋势与 Excel 导出）均已上线。
+- **其余功能页面**：六步引导式导入与撤销（含结果归档导入向导）、考试列表与六页签详情、数据质量、本次考核工作台（试算、正式计算、重新计算标记、零目标补齐、结果详情、版本对比抽屉与导出）、多维分析工作台与保存视图（`saved_views`）、方案配置页（公式选项表单）、WebDAV 加密同步与目录备份恢复。
 
-当前尚未在界面层完全切换（计划在阶段 2+ 落地）：
+当前后续计划（阶段 3 收口及远期）：
 
-- 全校统一导航重构（移除顶栏单级工作区锁定，切换为「总览 / 年级档案 / 教师档案 / 考试与考核 / 考核方案」）。
-- 独立的「学生三年完整档案」「教师执教档案」可视化详情页，以及界面上的年级升学流转向导与毕业封存操作弹窗（底层 `internal/store` 接口已全部就绪）。
-- 跨行政班走班在界面上的可视编排、方案对比界面、结果归档模式与自动触发核算。
+- 本次考核分档边界按科微调入口（默认按方案比例预填，支持针对某次考试因请假或参评人数变动手工微调单个学科区间并随本次考核快照保存）。
+- 高二、高三及高考专项真实历史工作簿的复算验收，以及导出模板最终样式确认（后置至功能打磨与复算验收之后）。
+- 自动触发核算（当前保持手动点击触发）；远期规划包含智能分班与智能分考场模块。
 
 ## 总体组成
 
@@ -372,7 +372,7 @@ sequenceDiagram
 
 | 取值 | 名次写法 |
 |---|---|
-| `competition` | 1、1、3，默认值，仍待学校确认 |
+| `competition` | 1、1、3，默认值（已确认） |
 | `dense` | 1、1、2 |
 | `ordinal` | 1、2、3 |
 
@@ -584,27 +584,21 @@ erDiagram
 
 视觉方向遵循 AstraFoundry Sunbeam 设计系统（规范见仓库根目录 `DESIGN.md` 与 `.agents/skills/sunbeam/SKILL.md`）：浅色以暖纸 `#FAF8F5`、深色以暖墨黑 `#090706` 为画布，中性色全部取自暖墨色阶，单屏唯一明黄 `#FFCC00` 仅用于核心主操作与键盘焦点环；窗口壳体、侧栏与文档流卡片采用 Flat 材质（无毛玻璃与阴影），模态弹窗、下拉菜单与 Toast 浮层采用 Raised 材质（`sunbeam.PanelSurface` + `sunbeam.Layer(sunbeam.Raised)` + 同心圆角）。颜色与材质集中在 `ui_theme.go` 与 `ui_components.go`，组件内不写物理色值或深浅分支；字体通过 `internal/fonts` 内嵌 Allo（西文/数字）与霞鹜文楷屏幕阅读版 GB（简体中文），以逗号回退链 `"Allo, LXGW WenKai Screen"` 注册到 MyGo；不再依赖 `lobe-mygo`。
 
-主窗口由 `app.view` 构建。顶栏显示当前级、阶段、届、学年与语言切换；左侧栏顶部是总览，下面是数据、考核、分析三个分组和底部的帮助与设置。数据组包含年级与班级、学生、教师与任课、教学班与合并组、入口成绩与目标、成绩与分数线、数据质量和导入记录；考核组包含本次考核与结果；分析组包含分析与考核方案。
+主窗口由 `app.view` 构建，采用全校统一导航（移除单级工作区锁定）。左侧栏主栏包含 5 项：总览、年级档案、教师档案、考试与考核、考核方案；底部固定 3 项：导入记录、设置与同步、帮助。
 
-- 总览：准备情况、继续准备入口、当前阶段统计与最近导入。
-- 年级准备清单：五项基础数据的完成状态、查看入口、导入入口和下一步。
-- 引导式导入：数据项、文件、工作表、列名映射、校验和结果六个步骤；映射页显示示例值，校验页显示问题清单和提醒确认。
-- 阶段核对：总览提示、复制变化窗口、确认核对与稍后核对。
-- 年级与班级：级摘要、阶段历史和当前阶段行政班。
-- 学生：按学号与姓名搜索，按班级、选科类别和状态筛选，表格选择后打开来源详情。
-- 教师与任课：教师列表与任课关系两个视图，支持关键词搜索并显示来源。
-- 教学班与合并组：教学班按学科筛选，显示成员班级、任课教师、学生人数和来源；合并组在考试详情的合并组页签内维护。
-- 入口成绩与目标：按班级筛选，显示均分、人数、比值和来源。
-- 导入记录：按文件、路径或工作表搜索，显示文件、时间、工作表、行数、提醒和来源；详情侧栏显示问题清单并支持撤销。
-- 成绩与分数线：按学年、学期、类型、名称和日期列出考试，最近的在最前；考试详情顶部显示当前级与考试当时的阶段，多个级参加的考试可以切换级。
-- 考试详情：报名名单、成绩、分数线、目标、合并组和数据质量六个页签。成绩页显示科目汇总、十等分分布和班级均分；分数线页显示单科线、档位线和达线人数；目标页按班级和方案档位编辑；合并组页新建、编辑和删除合并组，删除前二次确认。
+- 总览：全校高一/高二/高三在读态势卡、教师占用统计、近期考试、当前阶段准备情况与继续准备入口。
+- 年级档案与详情 6 页签：在读年级与已毕业历史届列表；进入年级详情后提供概览与周期（含升学流转向导与毕业封存预览弹窗）、班级与教学班（含班主任指定、班级传承链走势弹窗、新建走班教学班与走班学生编排弹窗）、学生档案、任课安排、入口成绩与历次考试六页签。
+- 学生三年完整档案与教师执教档案：学生档案展示名片（含复读/留级前溯 `previous_student_id` 一键跳转）、三年趋势图、历次考试明细、学籍异动时间线与 Excel 导出；教师档案展示实时占用徽章（空闲 / 单届在任 / 跨届兼任 / 已停用）、跨届个人得分趋势图、按届带班历史与 Excel 导出。
+- 引导式导入与结果归档导入：数据项、文件、工作表、列名映射、校验和结果六个步骤；映射页显示示例值，校验页显示问题清单和提醒确认；结果归档模式支持只读预检、导入历史结果工作簿并支持完整撤销。
+- 导入记录：按文件、路径或工作表搜索，显示文件、时间、工作表、行数、提醒和来源；详情侧栏显示问题清单并支持二次确认撤销。
+- 考试与考核中心：按学年、学期、类型、名称和日期列出考试，最近的在最前；考试详情顶部显示当前级与考试当时的阶段，多个级参加的考试可以切换级。
+- 考试详情：报名名单、成绩、分数线、目标、合并组和数据质量六个页签。成绩页显示科目汇总、十等分分布和班级均分；分数线页显示单科线、档位线和达线人数；目标页按班级和方案档位编辑；合并组页新建、编辑和删除合并组，删除前二次确认。归档考试显示「结果归档（只读）」提示。
 - 考试准备清单：显示报名名单、成绩、分数线和目标的数量与完成状态，已完成的项可以跳转到对应页签。
 - 数据质量：按阻断和提醒筛选，按数据项筛选；导入记录筛选只列被质量问题引用的记录，没有引用时隐藏；问题按数据项分组，点击问题跳到对应考试页签，学生问题同时带上学生查询。
-- 设置：当前学年、学科名称与满分、选科类别、立即备份、备份列表、恢复确认和语言。
+- 设置：当前学年、学科名称与满分、选科类别、立即备份、备份列表、恢复确认、WebDAV 加密同步、外观和语言。
 - 考核方案：顶部方案下拉框和类型标签，下方是分节的可视化配置表单，底部固定一个保存按钮；保存时选择更新当前方案或保存为新的方案。指标公式、比例模式分档边界和完成率覆盖用公式选项表单修改：下拉框选择形状、数字框填写份数或权重、句子预览公式含义，选择编译成原公式文本写回配置。
-- 本次考核：左侧考核列表，右侧是详情：数据、计算、导出三步流程、准备清单、方案版本选择、「开始试算」「正式计算」与「导出」动作、输入变化后的「需要重新计算」标记（列出变化数据项）、结果版本下拉（正式与试算运行）和结果表；点击结果行打开结果详情弹窗，显示各指标的公式、操作数、封顶前与得分值、计算依据、合并组、承担班级、任课教师和参与学生。
-- 结果：选择考核查看结果行，页头提供导出；没有结果时提供进入本次考核的入口。
-- 分析：选择考核后按班级、教师和学科三个维度汇总统计组数、均分、达线与人数，附偏差标记。
+- 本次考核：左侧考核列表，右侧是详情：数据、计算、导出三步流程、准备清单、方案版本选择、「开始试算」「正式计算」与「导出」动作、输入变化后的「需要重新计算」标记（列出变化数据项）、结果版本下拉（正式与试算运行）、版本对比抽屉和结果表；点击结果行打开结果详情弹窗，显示各指标的公式、操作数、封顶前与得分值、计算依据、合并组、承担班级、任课教师和参与学生。归档考核隐藏试算、重算与方案切换入口，保留结果查阅与导出。
+- 结果与多维分析：支持按教师、班级、学科、学生和考核五大维度汇总对比、保存视图与报表导出。
 
 空状态使用图标、一句说明和完成该页目标的按钮。导入、核算、导出和错误结果以带图标的提示块显示在操作附近。状态使用徽标区分草稿、已导入、已核算、已发布和已停用。
 
@@ -642,7 +636,7 @@ erDiagram
 
 导入、核算和导出都在后台执行。核算一次读取本次考核数据到内存，计算复杂度主要随学生数、统计组数和学科数增长。真实高一期中工作簿的黄金样例规模是 965 名有效考生、135 个统计组、135 条结果和 73 条个人得分（697 个核对点 0 差异）。
 
-当前 macOS 应用包为 33.9 MB（DMG 安装包 18.1 MB），质量上限为 40 MB。主要体积来源是 MyGo、SQLite 插件、excelize 以及内嵌字体（Allo OTF 约 0.4 MB，zstd 压缩的霞鹜文楷屏幕阅读版 GB 约 11.0 MB）。
+当前 macOS 应用包为 34.8 MB，质量上限为 40 MB。主要体积来源是 MyGo、SQLite 插件、excelize 以及内嵌字体（Allo OTF 约 0.4 MB，zstd 压缩的霞鹜文楷屏幕阅读版 GB 约 11.0 MB）。
 
 ## 测试设计
 
@@ -651,10 +645,10 @@ erDiagram
 | 配置 | `internal/assessment/*_test.go` | 默认配置、严格 JSON、枚举、指标分值、公式依赖 |
 | 公式 | `internal/formula/formula_test.go` | 词法、语法、求值、错误输入 |
 | 计算 | `internal/calc/calc_test.go` | 三项指标、排名、并列、边界、零目标、合并组、高考专项、个人得分 |
-| 存储 | `internal/store/store_test.go`、`cohort_test.go`、`school_data_test.go`、`guided_import_test.go`、`exam_store_test.go`、`assessment_data_test.go`、`analysis_test.go`、`saved_views_test.go`、`workspace_l1_test.go`、`stage1_redesign_test.go`、`system_plan_test.go` | Schema v1 初始化与旧库拒绝、级生命周期（升学流转、原班直升/重分班、毕业封存）、全校教师实时占用与跨级提示、学生建档/匹配/复读前溯/合并、考试快照与排名重算、本次考核数据读取与结果保存、师生三年档案与班级传承链查询、引导式导入校验阻断与撤销、保存视图和方案版本 |
-| 导入 | `internal/importer/importer_test.go`、`guided_test.go` | 合并说明、班级别名、单科 0 分、工作表识别、列名映射、模板和教师身份校验 |
+| 存储 | `internal/store/store_test.go`、`cohort_test.go`、`school_data_test.go`、`guided_import_test.go`、`exam_store_test.go`、`assessment_data_test.go`、`archive_test.go`、`analysis_test.go`、`saved_views_test.go`、`workspace_l1_test.go`、`stage1_redesign_test.go`、`system_plan_test.go` | Schema v1 初始化与旧库拒绝、级生命周期（升学流转、原班直升/重分班、毕业封存）、全校教师实时占用与跨级提示、学生建档/匹配/复读前溯/合并、考试快照与排名重算、本次考核数据读取与结果保存、结果归档写入与原子撤销、师生三年档案与班级传承链查询、引导式导入校验阻断与撤销、保存视图和方案版本 |
+| 导入 | `internal/importer/importer_test.go`、`guided_test.go`、`archive_test.go` | 合并说明、班级别名、单科 0 分、工作表识别、列名映射、结果归档长宽表与合并单元格解析、模板和教师身份校验 |
 | Excel | `internal/excel/*_test.go` | 工作簿读取、工作表检查、合并区域、LibreOffice 往返 |
-| 界面 | `main_test.go`、`shell_test.go`、`data_pages_test.go`、`import_wizard_test.go`、`exam_pages_test.go`、`plan_page_test.go`、`workbench_test.go`、`workbench_flow_test.go` | 外壳、语言切换、数据页面搜索与筛选、下拉框读屏名称与当前值、来源、最小窗口、备份恢复、六步导入、提醒确认、同工作簿继续导入、考试列表与详情、成绩分布、目标保存、合并组删除确认、数据质量筛选与跳转、考试准备清单、阶段核对、历史阶段只读、新建考试、方案公式选项表单、本次考核试算与正式计算、重新计算标记、结果版本切换、结果详情、零目标补齐、结果表 |
+| 界面 | `main_test.go`、`shell_test.go`、`cohort_pages_test.go`、`profile_pages_test.go`、`data_pages_test.go`、`import_wizard_test.go`、`exam_pages_test.go`、`archive_ui_test.go`、`plan_page_test.go`、`workbench_test.go`、`workbench_flow_test.go` | 全校统一导航、语言切换、年级档案 6 页签与升学/结届/走班弹窗、师生三年档案与导出、数据页面搜索与筛选、下拉框读屏名称与当前值、来源、最小窗口、备份恢复、六步导入与结果归档导入、提醒确认、同工作簿继续导入、考试列表与详情、成绩分布、目标保存、合并组删除确认、数据质量筛选与跳转、考试准备清单、阶段核对、历史阶段只读、新建考试、方案公式选项表单、本次考核试算与正式计算、重新计算标记、结果版本切换与对比、结果详情、零目标补齐、结果表与双态双色快照 |
 
 界面测试使用 `ui.NewTester` 驱动真实视图函数，语言通过 `i18n.SetLocaleFunc` 与 `tt.SetLocale` 固定。质量要求见 `CONSTRAINTS.md`。LibreOffice 集成测试使用 `-tags integration`，验证旧版文件转换后可以被 excelize 打开。
 
@@ -675,24 +669,24 @@ erDiagram
 
 ## 已知限制
 
-- 阶段 1 已完成 Schema v1 与 `internal/store` 重构，但阶段 2+ 全校统一导航（移除单级工作区锁定）、独立学生/教师档案详情页及界面升学/毕业向导弹窗尚未上线，当前界面通过兼容层继续运行。
+- 考核级分档边界按科微调入口尚未在工作台独立上线；当前可在方案配置页维护 `ratio + overrides` 或 `manual` 区间表。
 - 方案页提供覆盖全部配置项的分节表单、方案下拉切换和保存后询问更新当前方案或保存为新的方案；公式使用选项表单修改，超出既有形状的规则只能以自定义表达式只读回显；版本记录只在数据库里供已有核算结果引用。
-- 引导式导入支持班级、学生、教师、任课关系、入口成绩、报名名单、成绩、分数线和班级目标；合并组通过考试页面的合并组编辑器维护。
+- 引导式导入支持班级、学生、教师、任课关系、入口成绩、报名名单、成绩、分数线、班级目标与结果归档；合并组通过考试页面的合并组编辑器维护。
 - 工作簿版本标记（新、旧、修改）尚未写入；工作表角色由名称、表头和用户选择确定。
 - 撤销以导入范围为单位检查更新的导入：同一范围存在任何更新导入时阻止撤销，避免删除后续导入仍在引用的数据。
-- 跨行政班的走班教学班在界面上的交互编排尚未独立上线；底层 `teaching_group_students` 与 `AssignWalkingStudent` 已就绪，合并组页面支持手动建立成员与目标。
 - 单科 0 分按导入规则固定处理，尚未做成方案开关。
-- 导出工作簿的表头、列宽、合并单元格、打印区域和样式仍待学校确认。
-- 第 16 项排名并列和第 17 项分档边界仍待学校确认。
-- 分班、分考场和教务统计属于后续阶段。
+- 导出工作簿的表头、列宽、合并单元格、打印区域和样式后置至功能打磨与历史数据复算完成后确认。
+- 第 20 项零目标具体细则待学校确认（当前维持安全拦截、弹窗补齐与审计策略）。
+- 分班、分考场和自动触发核算属于后续阶段。
 
 ## 代码索引
 
 | 文件 | 内容 |
 |---|---|
-| `main.go` | 应用入口、应用状态、语言切换、窗口标题 |
-| `shell.go`、`overview.go` | 左侧导航、顶栏、总览、设置与帮助 |
-| `cohort_state.go` | 级与阶段状态、学年切换、准备情况 |
+| `main.go`、`error_localization.go` | 应用入口、应用状态、语言切换、窗口标题与错误文案本地化 |
+| `shell.go`、`overview.go` | 全校统一导航左侧栏、总览态势卡、设置与帮助 |
+| `cohort_state.go`、`cohort_pages.go` | 级与阶段状态、年级档案列表与详情 6 页签、升学流转与毕业封存弹窗、走班教学班与学生编排弹窗、班级走势弹窗 |
+| `profile_state.go`、`profile_pages.go` | 学生三年完整档案页（含复读前溯跳转与异动时间线）、教师执教档案页（含实时占用徽章与跨届趋势导出） |
 | `data_state.go`、`data_pages.go` | 数据页面状态、搜索筛选、学生详情、来源显示 |
 | `import_wizard.go`、`import_center.go`、`prep_wizard.go` | 六步引导式导入、导入中心、列名映射、校验、提醒确认、名单外考生处理、问题清单导出、导入结果、年级准备清单 |
 | `exam_state.go`、`exam_pages.go` | 考试列表、当前考试与级、考试数据读取、新建考试、报名名单生成、目标保存、合并组编辑、考试详情六个页签 |

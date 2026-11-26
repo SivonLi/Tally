@@ -1,6 +1,6 @@
 # 后续功能与数据层设计
 
-本文档记录数据层目标模型和后续能力。阶段一至四的系统结构、真实表结构、界面状态与限制见 `docs/system-design.md`，两者冲突时以当前实现文档为准。阶段划分以 `docs/product-redesign.md` 第 9 节为准，本文档下面的旧阶段名称只保留为早期方案记录。阶段五已完成本次考核工作台、方案配置页、核算与导出、试算、重新计算标记、结果行级详情与公式选项表单，并已落地「结果归档」历史数据导入模式（工作簿识别与解析、事务写入与只读保护）；阶段六、WebDAV 同步和自动触发核算尚未实现。
+本文档记录数据层目标模型和后续能力。当前已实现的系统结构、Schema v1 真实表结构、界面状态与限制见 `docs/system-design.md`，两者冲突时以当前实现文档为准。阶段划分以 `docs/product-redesign.md` 第 9 节与 v2 重构进度为准，本文档下面的旧阶段名称与早期目标表只保留为历史设计记录。目前产品 1～6 期基础功能（含本次考核工作台、方案配置页、多维分析与保存视图、WebDAV 加密同步）以及 Tally v2 阶段 1（Schema v1 存储引擎）、阶段 2（全校统一导航、年级档案 6 页签、升学与毕业封存向导、师生三年完整档案、走班教学班编排）与「结果归档」历史数据导入模式均已实现；后续待落地项为考核级分档边界按科微调入口、自动触发核算，以及远期的智能分班与智能分考场模块。
 
 ## 阶段划分
 
@@ -214,8 +214,8 @@ excelize 只支持 `.xlsx`。`.xls` 文件在导入时通过 LibreOffice 无界�
 
 | 配置项 | 默认 | 说明 |
 |---|---|---|
-| `ranking.tieMode` | `competition` | 同分同名次，下一名跳过；待学校确认 |
-| `ranking.boundary.mode` | `ratio` | 一档止 `floor(n/3)`，二档止 `round(2n/3)`，例外用 `overrides`；待学校确认 |
+| `ranking.tieMode` | `competition` | 同分同名次，下一名跳过（如 1、1、3）；已确认 |
+| `ranking.boundary.mode` | `ratio` | 默认按 `floor(n/3)` / `round(2n/3)` 提供参考，支持 `manual` / 考核级按科人工微调；已确认 |
 | `indicators.pass.merge.numerator` | `sum_members` | 合并组达线人数为成员教学班之和 |
 | `indicators.pass.merge.denominator` | `group_target` | 合并组分母为统计组目标，成员目标之和可以与它不同 |
 | `indicators.pass.merge.resultRow` | `lead_class` | 结果写在承担统计职责的班级行 |
@@ -270,7 +270,7 @@ excelize 只支持 `.xlsx`。`.xls` 文件在导入时通过 LibreOffice 无界�
 
 ### 主要数据表
 
-当前真实表结构以 `docs/system-design.md` 为准。数据库版本 6 已经建立 `cohorts`、`cohort_stages`、`subjects`、`tracks`、`grade_levels`、`classes`、`class_stage_info`、`student_cohorts`、`student_stage_memberships`、`student_teaching_groups`、`teachers`、`teaching_groups`、`assignments`、`baseline_sets`、`baseline_subjects`、`baseline_scores`、`baseline_aggregates`、`import_runs`、`import_sheets`、`import_columns`、`import_issues`、`import_changes`、`data_revisions`、`audit_log`、`app_settings`、`exams`、`exam_cohorts`、`exam_subjects`、`exam_rosters`、`exam_scores`、`exam_subject_cutoffs`、`exam_tier_cutoffs`、`assessments`、`assessment_class_targets`、`assessment_stat_groups`、`assessment_stat_group_members`、`assessment_stat_group_targets` 和 `assessment_target_adjustments`。下面这些表尚未建立：`sync_state`、`saved_views`。
+当前真实表结构已重构为洁净 **Schema v1（`SchemaVersion = 1`）**，完整表清单与约束以 `docs/system-design.md` 和 `internal/store/schema.go` 为准（旧版 `batches`、`terms`、`cohort_stages`、`class_stage_info` 等表已移除，`sync_state` 与 `saved_views` 均已建立）。下表仅保留为早期数据层规划记录，供历史对照。
 
 | 表 | 内容 |
 |---|---|
@@ -518,7 +518,7 @@ excelize 只支持 `.xlsx`。`.xls` 文件在导入时通过 LibreOffice 无界�
 
 ### 数据库升级
 
-数据库带版本号。应用启动时检查版本，低于当前版本时先备份数据库与原始文件，再按顺序执行迁移。迁移失败时恢复迁移前备份。当前版本为 7：版本 4 迁移组织数据，版本 6 迁移考试、报名名单、成绩、分数线、班级目标、合并组、合并组目标与结果关联，版本 7 迁移核算运行的逐项输入摘要、结果行封顶前数值与参与学生名单。
+数据库带版本号。当前实现已切为洁净 **Schema v1（`SchemaVersion = 1`）**，首次启动遇到旧版不兼容数据库直接返回 `ErrIncompatibleDatabase` 提示新建干净库，不再保留历史版本的旧库迁移脚本；后续从 v1 起的版本演进沿用「先自动备份、再按顺序向前迁移、失败回滚备份」机制。
 
 迁移脚本随应用发布，只做向前迁移。降级安装旧版本时，应用检测到数据库版本高于自身支持的版本，拒绝打开并提示，避免写坏数据。
 
