@@ -19,18 +19,25 @@
 
 ## 当前状态
 
-- 阶段：产品重构设计已确认，第一至第六阶段已完成；界面已全量按 AstraFoundry Sunbeam 设计系统重构并彻底移除 `lobe-mygo`，接入 `github.com/AstraFoundry/design/packages/mygo/sunbeam` 与内嵌字体（Allo + 霞鹜文楷屏幕阅读版 GB）；高一期中计算口径黄金样例端到端复算验收已通过（697 个计算核对点 0 差异，73 位教师个人得分全量对齐）；教学数据多维分析（教师趋势、班级趋势、学科对比、学生跟踪、考核对比）与保存视图已上线；WebDAV 加密云端同步与跨设备协同已完成实现与全量验证；结果归档与自动触发核算尚未实现。
-- 代码状态：`shell.go`、`overview.go` 和 `cohort_state.go` 提供左侧导航、顶栏、级与阶段切换、总览和设置；`ui_theme.go`、`ui_components.go`、`ui_icons.go` 与 `internal/fonts` 提供 Sunbeam 主题映射、Flat/Raised 材质组件、内联 Lucide 图标与内嵌字体注册；`data_state.go` 与 `data_pages.go` 提供学生、教师、教学班、入口成绩和导入记录页面；`exam_state.go` 与 `exam_pages.go` 提供考试列表、考试详情六个页签和考试准备清单；`quality_page.go` 提供数据质量页面；`import_wizard.go` 与 `prep_wizard.go` 提供六步引导式导入和年级准备清单；`plan_page.go` 提供方案配置页；`main.go` 和 `workbench.go` 提供方案库、本次考核工作台、结果页；`analysis_page.go` 与 `analysis_state.go` 提供多维分析工作台、保存视图与导出；`internal/assessment` 保存方案结构、内置默认方案、语义校验与公式选项；`internal/formula` 是受限表达式语言；`internal/school` 推导学年、级、届和阶段；`internal/store` 保存组织数据、入口成绩、导入记录与撤销、阶段复制、备份、考试与本次考核、批次、方案版本、核算结果、导出记录、多维分析查询与保存视图（数据库版本 8）；`internal/importer` 读取真实工作簿并生成模板；`internal/pipeline` 把批次或本次考核数据转换为核算输入并保存结果；`internal/calc` 计算三项指标、排名、赋分和个人得分；`internal/exporter` 写出结果工作簿与多维分析 Excel 报表。当前实现的完整结构见 `docs/system-design.md`。
-- 第一至第六实施阶段已完成：应用外壳、左侧导航、顶栏、级与阶段切换、当前学年、设计变量、总览、新建年级，数据库版本 4 的组织数据迁移与数据页面，引导式导入、模板、列名映射、校验、问题清单、导入记录撤销、年级准备清单、阶段复制与待核对、历史阶段只读，数据库版本 6 的考试与本次考核、报名名单、成绩、分数线、目标、合并组、数据质量和考试准备清单，本次考核工作台、准备清单、方案配置页、公式选项表单、试算、正式计算、重新计算标记与结果详情，以及多维教学分析工作台、保存视图、五大维度分析报表导出、万行导入（305ms ≤ 3s）与万行计算（88ms ≤ 1s）性能验证通过；窗口默认 1280 × 800，最小 1024 × 640。
-- 已经完成：需求分析、考核方案配置设计、当前系统设计、后续路线、历史数据清单、excelize 能力与技能、旧版 `.xls` 的 LibreOffice 转换验证、默认方案与派生方案数据模型、方案版本记录、内置方案更新与启动恢复、批次新建与导入、零目标补齐与不参与、核算与导出界面、试算与正式结果分开保存、输入变化后的重新计算标记、结果行级详情。方案页已经提供覆盖全部配置项的分节表单、方案下拉切换和保存后询问更新当前方案或保存为新的方案；指标公式、比例模式分档边界与完成率覆盖用公式选项表单修改，选择编译为原公式文本写回配置。
-- 产品重构设计：`docs/product-redesign.md` 已确认，第 11 节全部采用建议方案。文档提出以级为长期容器、按学年推导高一到高三阶段、保留历史阶段、基础数据持久化、每类数据引导式导入、数据查询与可视化、方案配置页、新的应用外壳与视觉规范，同时补齐首次使用主链路、主要卡点、文案规范、数字规则、确认策略、多语言尺寸测试和设计评审流程。
+- 阶段：产品与数据架构重构**阶段 1（Schema v1 单一真理源与存储引擎重构）已完成**。彻底移除旧版 `batches` / `terms` / `cohort_stages` / `class_stage_info` / `legacy_*` 表及旧库迁移代码，建立全新 `SchemaVersion = 1` SQLite 模型（见 `internal/store/schema.go`），并通过阶段 1 界面兼容层保障现有全量 UI 与 697 个计算核对点 0 差异回归通过；后续阶段将基于已落地的全校师资占用、升学流转与师生三年档案接口推进阶段 2+ 全校统一导航与「档案即分析」界面重构。
+- 代码状态：
+  - 根包界面：`shell.go`、`overview.go`、`cohort_state.go`、`ui_theme.go`、`ui_components.go`、`ui_icons.go`、`data_state.go`、`data_pages.go`、`exam_state.go`、`exam_pages.go`、`quality_page.go`、`import_wizard.go`、`import_center.go`、`prep_wizard.go`、`plan_page.go`、`main.go`、`workbench.go`、`analysis_page.go`、`analysis_state.go`、`settings_school.go`、`settings_sync.go`、`settings_window.go`；字体与 Sunbeam 主题由 `internal/fonts` 与 `github.com/AstraFoundry/design/packages/mygo/sunbeam` 提供。
+  - 核心存储与业务引擎：`internal/store` 已完成 Schema v1 模块化拆分（`schema.go`、`store.go`、`types.go`、`cohort.go`、`faculty.go`、`students.go`、`exams.go`、`assessments.go`、`profiles.go`、`imports.go`、`imports_apply.go`、`analysis.go`、`workspace.go`、`saved_views.go`、`appearance.go`、`sync_settings.go`、`backup.go`）；`internal/school`、`internal/assessment`、`internal/formula`、`internal/calc`、`internal/importer`、`internal/excel`、`internal/pipeline`、`internal/exporter`、`internal/sync` 保持单向依赖与计算引擎红线。当前实现细节见 `docs/system-design.md`。
+- 阶段 1 已落地能力：
+  - **全新 Schema v1 单一真理源**：首次启动检测到旧库或包含 `batches` 等旧表时直接返回 `ErrIncompatibleDatabase` 提示新建干净库，不做旧库迁移；初始化预置 10 个学科（含日语）、2 个选科类别（物理类、历史类）与内置默认考核方案。
+  - **年级三年生命周期与升学流转**：`cohorts` 以 `enrollment_year` 唯一并持久化 `current_phase`（`g1 | g2 | g3 | graduated`）；`PromoteCohort` 原子支持模式 A「原班直升」（建立 `continued_from_class_id` 继承链并延续班主任、常规教学班与任课）与模式 B「选科重分班」（旧阶段归档、`continued_from_class_id = NULL`、等待重分班）；`PreviewGraduateCohort` 与 `GraduateCohort` 支持毕业封存并自动释放仅在该届任教的教师占用。
+  - **全校师资实时占用与跨级兼任提示**：`ListTeachersWithOccupancy` 实时由 `teaching_assignments(status='active')` 与 `class_head_teachers(status='active')` 汇总教师占用状态（`idle | active_single | active_multi | inactive`）；`DetectCrossGradeWarnings`、`AssignTeacherToGroup` 与 `SetClassHeadTeacher` 在跨在读年级兼任时返回非阻断提示；`EndTeachingAssignment` 支持期中/手动释放任课。
+  - **行政班阶段实例与传承链**：`classes` 按 `(cohort_id, phase, name)` 唯一并支持 `continued_from_class_id` 递归串联；`QueryClassTrendChain` 沿继承链串联同一班集体走势，选科重分班后自动断开避免不同学生群体均分误连。
+  - **复读生前溯与多级标识匹配**：`students` 按 `(cohort_id, student_no)` 建档，支持 `previous_student_id` 前溯往届档案（`SetStudentPreviousLink`）、同届重名档案合并（`MergeStudents`）、`student_no > candidate_code > name+class_name` 多级匹配（`MatchStudent`）及 `student_entry_scores` / `cohort_baseline_overrides` / `student_events`。
+  - **考试快照与师生完整档案查询**：`exams` / `exam_cohorts` / `exam_participants` / `exam_scores` / `exam_cutoffs` 完整固化考时班级、类别、外语、教学班快照与各科/总分排名（`RecomputeExamRanks`）；`GetStudentProfile` 与 `GetTeacherProfile` 为阶段 2+「档案即分析」提供一站式三年学习轨迹与跨届执教履历数据。
+- 产品重构设计：`docs/product-redesign.md` 已同步三项核心业务决策（教师跨年级兼任与结届释放、行政班 `(cohort_id, phase)` 实例与继承链、复读生独立建档与前溯）、Schema v1 目标模型及全校统一导航与档案即分析规格。
 - 已经确认的口径：三项指标分值 40/40/20 且都不封顶、档位权重 50/40/30/20/10/8、三档赋分 70/67/64、个人得分取最高两个统计组、高考完成率 60/40、基数取中考、走班按教学班统计并按统计组合并；除第 16、17 项外的当前口径都已经确认。
 - 待确认的口径：第 16 项排名并列、第 17 项分档边界，详细说明见 `docs/requirements-analysis.md` 的「待确认项说明」。
-- 外部依赖：`private-data/history/` 下已有 2026 年春季学期高一、高二、高三的期中与期末量化材料，以及 2026 年高考专项材料。开发环境已安装 LibreOffice 26.8.3.1，`soffice` 位于 `/opt/homebrew/bin/soffice`；旧版 `.xls` 已实际转换并读取。
-- 下一步：高二、高三及高考历史数据复算验收；验收后按 `docs/design-roadmap.md` 的阶段划分开始后续阶段。
+- 外部依赖：`private-data/history/` 下已有历次期中、期末及高考专项量化材料（不入库，不在文档中出现真实名称）。开发环境已安装 LibreOffice，`soffice` 位于 `/opt/homebrew/bin/soffice`；旧版 `.xls` 已实际转换并读取。
+- 下一步：推进阶段 2+ 界面重构（全校统一导航、年级档案 6 页签、教师档案与跨级占用徽章、学生三年档案与复读前溯跳转、升学与结届向导）及高二、高三、高考历史数据复算验收。
 - 阻塞项：导出模板的最终样式；第 16、17 项的学校确认。
-- 当前打包体积：macOS 应用包 33.5 MB（含内嵌 Allo 与 zstd 压缩的霞鹜文楷屏幕阅读版字体，DMG 安装包 17.9 MB），低于 40 MB 上限。
-- 真实材料验收：高一期中工作簿导入 965 名有效考生、135 个统计组，核算 135 条结果和 73 条个人得分，导出的工作簿可以被 excelize 重新打开。年级语文总均分（86.015560）、实考人数缺考标记、走班职责归属（卓越与 546 走班挂靠鹭宁，539-542-555 走班挂靠 538）以及各科均分提升率、单科达线率、班级完成率全部对齐，697 个计算核对点差异为 0。
+- 当前打包体积：macOS 应用包低于 40 MB 上限（内嵌 Allo 与 zstd 压缩的霞鹜文楷屏幕阅读版字体）。
+- 真实材料验收：高一期中工作簿黄金样例导入 965 名有效考生、135 个统计组，核算 135 条结果和 73 条个人得分，导出的工作簿可以被 excelize 重新打开；年级语文总均分、实考缺考标记、走班合并归属及各科均分提升率、单科达线率、班级完成率全部对齐，697 个计算核对点差异为 0。
 
 ## 当前风险
 
@@ -72,21 +79,18 @@
 
 ## 数据模型规则
 
-以下是当前实现的数据模型规则。产品重构设计已经确认，目标模型按 `docs/product-redesign.md` 第 7 节逐步替换。
+以下为已落地的 Schema v1（`SchemaVersion = 1`，见 `internal/store/schema.go`）核心数据模型规则：
 
-- 行政班用于学生日常管理，教学班按学科划分。
-- 一个学生在一个级的一个阶段属于一个行政班。
-- 当前实现按行政班建立同学科同名教学班；学生通过班级归属进入教学班。跨行政班的走班教学班归属尚未实现，合并组页面已经支持手动建立成员与目标。
-- 单科达线率的统计单位是统计组。没有合并时一个教学班对应一个统计组，走班合并时一个统计组包含多个教学班。
-- 统计组保存承担统计职责的班级 `lead_class_id`；统计组目标单独保存，成员教学班目标之和可以与它不同。
-- 单科目标任务和统计组基数挂在统计组；班级基数和完成率的分档目标挂在行政班。
-- 批次可以有多条计算结果，每条结果引用一个方案版本。
-- 方案有内置默认方案和派生方案；方案版本有草稿、已发布、已停用三种状态，旧版本保留。内置方案不能停用，始终至少保留一个已发布版本；旧数据库缺少已发布版本时，启动自动恢复。
-- 每个结果行保存 `indicator_values_json`，记录每个指标的分子、分母、基数和封顶前后的值。
-- 零目标补录和本班不参与的选择记录在 `target_adjustments`，不改写原始导入数据。
-- 当前班级基数保存在 `class_baselines`，年级基数保存在 `grade_baselines`，统计组可以从成员班级基数加权得到。
-- 参数目标保存在 `class_targets`，统计组目标保存在 `stat_groups.target`。
-- 修改数据模型时，同时更新 `docs/system-design.md` 的 ER 图与表结构、`docs/design-roadmap.md` 的目标模型和数据库迁移。
+- **单一真理源与不兼容旧库拒绝**：数据库版本固定为 `1`；`store.Open` 检测到旧版 `batches` / `terms` / `cohort_stages` / `legacy_*` 等表或非 `v1` 版本号时直接返回 `ErrIncompatibleDatabase` 提示新建干净数据库，不做旧库迁移。
+- **级（`cohorts`）与三年生命周期**：`cohorts` 以 `enrollment_year` 唯一，默认 `graduation_year = enrollment_year + 3`，持久化 `current_phase`（`g1 | g2 | g3 | graduated`）与 `current_academic_year_start`；界面展示名称由入学年份格式化为 `2026级`。阶段 1 界面通过 `EncodeStageID` / `DecodeStageID` 保持对 `(cohort_id, phase)` 的兼容视图映射。
+- **行政班（`classes`）按阶段建实例与继承链**：`classes` 以 `(cohort_id, phase, name)` 唯一，并包含可选自引用外键 `continued_from_class_id`。升级模式为「原班直升」（`PromoteDirect`）时，自动在新阶段生成对应班级并填充 `continued_from_class_id`；升级模式为「选科重分班」（`PromoteReclassify`）时，旧阶段班级归档，新阶段班级 `continued_from_class_id = NULL`，防止不同学生群体均分被误连成一条趋势线。
+- **教师（`teachers`）与跨级实时占用**：`teachers` 为全校级师资库（有工号按 `teacher_no` 唯一，无工号按 `(name, primary_subject)` 辅助识别）；占用状态（`idle | active_single | active_multi | inactive`）不存冗余锁布尔列，而由未毕业年级的活跃任课（`teaching_assignments.status = 'active'`）与活跃班主任（`class_head_teachers.status = 'active'`）实时聚合计算。跨在读年级分配任课或班主任时返回非阻断提示（`CrossGradeWarning`）；年级执行毕业封存（`GraduateCohort`）时，该届活跃任课与班主任自动闭合为 `ended`（`end_reason = 'graduated'`），仅在该届任教的教师即时释放为空闲。
+- **教学班（`teaching_groups`）与走班映射（`teaching_group_students`）**：常规教学班（`kind = 'admin'`）关联 `admin_class_id`，学生通过 `students.current_class_id` 自动进入；仅跨行政班走班（`kind = 'walking'`）在 `teaching_group_students` 中维护显式学生映射，并通过部分唯一索引保证同学生同阶段同科至多存在一条活跃（`ended_at IS NULL`）走班记录。
+- **学生（`students`）、入口基数与异动事件**：`students` 在级内按 `(cohort_id, student_no)` 建档（允许同批复读/留级生在新届独立建档以保持各届人数与基数统计纯净），通过可选外键 `previous_student_id` 前溯关联往届档案；学生单科入学成绩保存在 `student_entry_scores`，手工或导入的班级/年级汇总基数覆盖保存在 `cohort_baseline_overrides`；学籍、分班、升学、合并、毕业异动记入 `student_events`。
+- **考试与不可变快照（`exams` / `exam_cohorts` / `exam_participants` / `exam_scores` / `exam_cutoffs`）**：一场考试通过 `exam_cohorts` 覆盖一个或多个级并固化 `phase_at_exam` 与 `subjects_json`；`exam_participants` 固化参考时的 `class_id`、`class_name_snapshot`、`track_snapshot`、`elective_snapshot`、`foreign_lang_snapshot`、`status_snapshot` 与各级排名；`exam_scores` 固化 `teaching_group_id_snapshot` 与单科排名；后续升学或转班不改变历史考试快照。
+- **考核与结果（`assessments` / `result_runs` / `result_rows` / `result_row_teachers` / `personal_scores`）**：每个 `exam_cohort_id` 至多对应一条 `assessments` 记录；班级六档目标保存在 `assessment_class_targets`（含 `actual_count`），补录与不参与保存在 `assessment_target_adjustments`，统计组保存在 `assessment_stat_groups` 与 `assessment_stat_group_members`。每次核算写入一条 `result_runs`（`is_official` 区分正式与试算，保存 `input_hash` 与 `input_summary_json`），结果行保存 `participants_json` 与 `indicator_values_json`，并通过 `result_row_teachers` 与 `personal_scores` 绑定 `teacher_id` 与快照姓名，导出路径与哈希记入 `export_records`。
+- **考核方案与版本**：`plans` 与 `plan_versions` 保存内置默认方案与派生方案，版本状态为 `draft | published | retired`；内置方案不能停用，始终保留至少一个已发布版本，旧结果继续引用历史方案版本。
+- **文档同步规则**：修改数据模型时，必须同步更新 `docs/system-design.md` 的 ER 图与表结构、`docs/product-redesign.md` 的目标模型说明与 `docs/README.md`。
 
 ## 术语
 
@@ -94,11 +98,15 @@
 |---|---|---|
 | 级 | cohort | 入学年份相同的一批学生，例如 2026级 |
 | 届 | graduating class | 毕业年份相同的一批学生，例如 2029届 |
-| 年级阶段 | grade level | 高一、高二、高三，由级和当前学年推导 |
+| 年级阶段 | grade level / phase | 高一（`g1`）、高二（`g2`）、高三（`g3`）及已毕业（`graduated`） |
+| 升学流转 | cohort promotion | 年级跨阶段推进，分原班直升（`direct`）与选科重分班（`reclassify`） |
+| 毕业封存 | cohort graduation | 将届满高三的年级归档为已毕业，同步闭合活跃任课并释放教师占用 |
 | 学年 | academic year | 例如 2026-2027 学年，从 9 月到次年 8 月 |
-| 行政班 | admin class | 学生日常管理班级 |
-| 教学班 | teaching group | 按学科组织的授课单位 |
-| 考核批次 | assessment batch | 一次考核的组织单位，包含学期、考试、年级 |
+| 行政班 | admin class | 按 `(cohort_id, phase, name)` 建实例的日常管理班级，可带 `continued_from_class_id` 继承链 |
+| 教学班 | teaching group | 按学科组织的授课单位，分常规（`admin`）与走班（`walking`） |
+| 教师占用状态 | teacher occupancy | 实时计算的在任状态：空闲（`idle`）、单届在任（`active_single`）、跨届兼任（`active_multi`）、已停用（`inactive`） |
+| 复读前溯 | previous student link | 新届学生通过 `previous_student_id` 指向往届独立档案以查看历史成绩 |
+| 考核批次 / 本次考核 | assessment | 一场考试中一个级的一次量化考核计算单位 |
 | 考核方案 | assessment plan | 全部计算规则的集合 |
 | 方案版本 | plan version | 某一时刻的完整配置快照 |
 | 内置默认方案 | built-in default plan | 首次启动写入的方案，所有年级统一使用 |
