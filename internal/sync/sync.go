@@ -144,7 +144,11 @@ func CreatePackage(
 
 	// 2. 处理 files/ 目录下的原始文件
 	if filesDir != "" {
-		entries, _ := os.ReadDir(filesDir)
+		entries, err := os.ReadDir(filesDir)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, "", baseManifest, nil, fmt.Errorf("读取原始文件目录失败: %w", err)
+		}
+		seenHashes := make(map[string]bool)
 		for _, e := range entries {
 			if e.IsDir() {
 				continue
@@ -152,9 +156,13 @@ func CreatePackage(
 			fpath := filepath.Join(filesDir, e.Name())
 			rawPlaintext, err := os.ReadFile(fpath)
 			if err != nil {
-				continue
+				return nil, "", baseManifest, nil, fmt.Errorf("读取原始文件 %s 失败: %w", e.Name(), err)
 			}
 			rawHash := SHA256String(rawPlaintext)
+			if seenHashes[rawHash] {
+				continue
+			}
+			seenHashes[rawHash] = true
 			relPath := "files/" + rawHash + ".xlsx"
 
 			if encrypt {
@@ -269,14 +277,17 @@ func ExtractAndVerifyPackage(pkgBytes []byte, manifest SyncManifest, password st
 	// 校验数据包内 manifest
 	if manifestFile != nil {
 		rc, err := manifestFile.Open()
-		if err == nil {
-			defer rc.Close()
-			var internalManifest SyncManifest
-			if err := json.NewDecoder(rc).Decode(&internalManifest); err == nil {
-				if internalManifest.FormatVersion != 1 {
-					return errors.New("不支持的数据包格式版本")
-				}
-			}
+		if err != nil {
+			return fmt.Errorf("打开数据包内 manifest.json 失败: %w", err)
+		}
+		var internalManifest SyncManifest
+		decErr := json.NewDecoder(rc).Decode(&internalManifest)
+		_ = rc.Close()
+		if decErr != nil {
+			return fmt.Errorf("解析数据包内 manifest.json 失败: %w", decErr)
+		}
+		if internalManifest.FormatVersion != 1 {
+			return errors.New("不支持的数据包格式版本")
 		}
 	}
 
@@ -388,9 +399,13 @@ func CheckRemote(
 		}
 	}
 
-	// 规则 2: 远端修订号大于本地修订号，且远端的来源修订号等于本地修订号或上次同步修订号
+	// 规则 2: 远端修订号大于本地修订号，且满足以下任一条件可直接拉取：
+	// - 远端直接基于本地当前修订号修改 (BaseRevision == localRev)
+	// - 本地自上次同步后未修改 (localRev == lastSyncRev)
+	// - 本地为首次连接远端的空库 (从未同步且无业务批次数据)
+	isFreshEmptyLocal := lastSyncRev == 0 && lastSyncHash == "" && len(localBatches) == 0
 	if remoteManifest.Revision > localRev {
-		if remoteManifest.BaseRevision == localRev || remoteManifest.BaseRevision == lastSyncRev || localRev == lastSyncRev {
+		if remoteManifest.BaseRevision == localRev || localRev == lastSyncRev || isFreshEmptyLocal {
 			status.Kind = StatusCanPull
 			status.Message = fmt.Sprintf("远端有新版本 (修订号 r%d)，来自 %s，可直接拉取",
 				remoteManifest.Revision, remoteManifest.DeviceName)
@@ -495,9 +510,11 @@ func UploadSync(
 	finalLatest := remoteDir + "/latest.json"
 
 	if err := client.Put(ctx, tmpLatest, latestBytes); err != nil {
+		_ = client.Delete(ctx, tmpLatest)
 		return nil, fmt.Errorf("上传临时指针文件失败: %w", err)
 	}
 	if err := client.Move(ctx, tmpLatest, finalLatest); err != nil {
+		_ = client.Delete(ctx, tmpLatest)
 		return nil, fmt.Errorf("远端原子更新指针文件失败: %w", err)
 	}
 

@@ -116,17 +116,35 @@ func (c *Client) do(ctx context.Context, method, relPath string, body []byte, he
 func (c *Client) Ping(ctx context.Context) error {
 	resp, err := c.do(ctx, "PROPFIND", "", nil, map[string]string{"Depth": "0"})
 	if err != nil {
+		// 认证、权限、路径或空间错误直接返回，不通过 OPTIONS 掩盖
+		if errors.Is(err, ErrUnauthorized) || errors.Is(err, ErrForbidden) ||
+			errors.Is(err, ErrNotFound) || errors.Is(err, ErrInsufficientStorage) {
+			return err
+		}
 		// 某些兼容性服务器若不支持根目录 PROPFIND，尝试 OPTIONS
 		optResp, optErr := c.do(ctx, "OPTIONS", "", nil, nil)
-		if optErr == nil && (optResp.StatusCode >= 200 && optResp.StatusCode < 300) {
+		if optErr == nil {
 			_ = optResp.Body.Close()
-			return nil
+			if optResp.StatusCode >= 200 && optResp.StatusCode < 300 {
+				return nil
+			}
 		}
 		return err
 	}
 	_ = resp.Body.Close()
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 || resp.StatusCode == 207 {
+	if (resp.StatusCode >= 200 && resp.StatusCode < 300) || resp.StatusCode == http.StatusMultiStatus {
 		return nil
+	}
+	if resp.StatusCode == http.StatusMethodNotAllowed || resp.StatusCode == http.StatusNotImplemented {
+		optResp, optErr := c.do(ctx, "OPTIONS", "", nil, nil)
+		if optErr != nil {
+			return optErr
+		}
+		_ = optResp.Body.Close()
+		if optResp.StatusCode >= 200 && optResp.StatusCode < 300 {
+			return nil
+		}
+		return fmt.Errorf("连接测试返回非成功状态码: %d", optResp.StatusCode)
 	}
 	return fmt.Errorf("连接测试返回非成功状态码: %d", resp.StatusCode)
 }
@@ -150,17 +168,15 @@ func (c *Client) EnsureDir(ctx context.Context, relPath string) error {
 		}
 		resp, err := c.do(ctx, "MKCOL", current+"/", nil, nil)
 		if err != nil {
-			// 如果已存在或没有权限则检查状态
-			if errors.Is(err, ErrForbidden) || errors.Is(err, ErrUnauthorized) {
-				return err
-			}
-			// 其他错误暂记
-		} else {
-			_ = resp.Body.Close()
-			if resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusOK || resp.StatusCode == 405 {
-				// 405 Method Not Allowed 通常表示目录已存在
-				continue
-			}
+			return err
+		}
+		_ = resp.Body.Close()
+		switch resp.StatusCode {
+		case http.StatusCreated, http.StatusOK, http.StatusNoContent, http.StatusMethodNotAllowed:
+			// 405 Method Not Allowed 在 RFC 4918 中表示集合已存在
+			continue
+		default:
+			return fmt.Errorf("创建远端目录 %s 失败，状态码: %d", current, resp.StatusCode)
 		}
 	}
 	return nil
