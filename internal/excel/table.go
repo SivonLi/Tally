@@ -32,6 +32,16 @@ func ReadTable(path, sheet string) (Table, error) {
 	return ReadTableFromWorkbook(workbook, sheet)
 }
 
+// ReadMergedRows 读取工作表的全部行，展开合并单元格并保留原始行序与空行。
+// 合并区域内的每个单元格都取合并区域左上角的值。
+func ReadMergedRows(workbook *excelize.File, sheet string) ([][]string, error) {
+	rows, err := workbook.GetRows(sheet)
+	if err != nil {
+		return nil, err
+	}
+	return expandMerges(workbook, sheet, rows)
+}
+
 // ReadTableFromWorkbook 从已打开的工作簿读取工作表。
 func ReadTableFromWorkbook(workbook *excelize.File, sheet string) (Table, error) {
 	rows, err := workbook.GetRows(sheet)
