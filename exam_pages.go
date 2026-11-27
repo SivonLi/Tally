@@ -33,6 +33,7 @@ func (a *app) examsPage(c *ui.Context, p uiPalette) {
 	}
 	t := p.theme
 	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
+		a.examHubSubnav(c, p, 0)
 		pageHeading(c, p, locales.NavExams(), locales.ExamsPageSubtitle(), func() {
 			if labelledButton(c, locales.ExamNew(), iconPlus, len(a.exams) == 0).Clicked() {
 				a.openNewExam()
@@ -106,12 +107,26 @@ func (a *app) examDetailPage(c *ui.Context, p uiPalette) {
 						SingleLine().MinWidth(0).Shrink(1).Tooltip(a.exam.Name).
 						Role(ui.RoleHeading).Level(1)
 					badge(c, p, a.examTypeName(a.exam.ExamType), toneAccent)
+					if a.examAssessment.Archived {
+						badge(c, p, locales.ExamArchivedBadge(), toneWarning)
+					}
 				})
 				ui.Textf(c, locales.ExamDetailMeta(), a.examAcademicYearLabel(),
 					a.examTermName(a.exam.Term), a.exam.ExamDate).
 					FontSize(captionSize(t)).TextColor(p.muted).FontFeatures("tnum").SingleLine()
 			})
 			ui.Row(c).Wrap().Shrink(0).Gap(t.Space(2)).Children(func() {
+				if a.examAssessment.ID != 0 {
+					if labelledButton(c, locales.ExamImportArchivedAction(), iconImport, false).Clicked() {
+						a.openDataImport(importer.KindArchivedResults, a.exam.ID, a.examCohort.CohortID)
+					}
+				}
+				if a.examAssessment.Archived && a.examAssessment.ID != 0 {
+					if labelledButton(c, locales.ExamArchivedViewResults(), iconCalculate, true).Clicked() {
+						a.selectAssessment(a.examAssessment.ID)
+						a.navigateTo(pageAssessments)
+					}
+				}
 				if labelledButton(c, locales.ExamPrepOpen(), iconQuality, false).Clicked() {
 					a.examPrepOpen = true
 				}
@@ -142,6 +157,9 @@ func (a *app) examDetailPage(c *ui.Context, p uiPalette) {
 					}
 				}
 			}
+		}
+		if a.examAssessment.Archived {
+			notice(c, p, noticeInfo, locales.ExamArchivedNotice())
 		}
 		if a.examError != "" {
 			notice(c, p, noticeDanger, a.examError)
@@ -249,7 +267,7 @@ func (a *app) examRosterTab(c *ui.Context, p uiPalette) {
 			if labelledButton(c, locales.ExamGenerateRoster(), iconStudents, false).Clicked() {
 				a.generateExamRoster()
 			}
-			if labelledButton(c, locales.ExamImportRoster(), iconImports, true).Clicked() {
+			if labelledButton(c, locales.ExamImportRoster(), iconImports, !a.examAssessment.Archived).Clicked() {
 				a.openDataImport(importer.KindRoster, a.exam.ID, a.examCohort.CohortID)
 			}
 		})
@@ -354,7 +372,7 @@ func (a *app) examScoresTab(c *ui.Context, p uiPalette) {
 				}
 			}
 			ui.Spacer(c)
-			if labelledButton(c, locales.ExamImportScores(), iconImports, true).Clicked() {
+			if labelledButton(c, locales.ExamImportScores(), iconImports, !a.examAssessment.Archived).Clicked() {
 				a.openDataImport(importer.KindScores, a.exam.ID, a.examCohort.CohortID)
 			}
 		})
@@ -539,7 +557,7 @@ func (a *app) examCutoffsTab(c *ui.Context, p uiPalette) {
 	ui.Column(c).Grow(1).Shrink(1).MinHeight(0).Gap(t.Space(3)).Children(func() {
 		ui.Row(c).Children(func() {
 			ui.Spacer(c)
-			if labelledButton(c, locales.ExamImportCutoffs(), iconImports, true).Clicked() {
+			if labelledButton(c, locales.ExamImportCutoffs(), iconImports, !a.examAssessment.Archived).Clicked() {
 				a.openDataImport(importer.KindCutoffs, a.exam.ID, a.examCohort.CohortID)
 			}
 		})
@@ -616,7 +634,7 @@ func (a *app) examTargetsTab(c *ui.Context, p uiPalette) {
 			if labelledButton(c, locales.ExamImportTargets(), iconImports, false).Clicked() {
 				a.openDataImport(importer.KindTargets, a.exam.ID, a.examCohort.CohortID)
 			}
-			if labelledButton(c, locales.ExamSaveTargets(), iconCheck, true).Clicked() {
+			if labelledButton(c, locales.ExamSaveTargets(), iconCheck, !a.examAssessment.Archived).Clicked() {
 				a.saveExamTargets()
 			}
 		})
@@ -652,7 +670,7 @@ func (a *app) examStatGroupsTab(c *ui.Context, p uiPalette) {
 	ui.Column(c).Grow(1).Shrink(1).MinHeight(0).Gap(t.Space(2)).Children(func() {
 		ui.Row(c).Children(func() {
 			ui.Spacer(c)
-			if labelledButton(c, locales.ExamNewStatGroup(), iconPlus, true).Clicked() {
+			if labelledButton(c, locales.ExamNewStatGroup(), iconPlus, !a.examAssessment.Archived).Clicked() {
 				a.openStatGroupEditor(nil)
 			}
 		})

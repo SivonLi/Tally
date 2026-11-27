@@ -273,8 +273,14 @@ func TestStageReviewBannerShowsChanges(t *testing.T) {
 	a := newTestApp(t)
 	addCohort(t, a, 2026)
 	seedStageData(t, a)
-	a.setAcademicYear(2027)
-	a.page = pageOverview
+	cohortID := a.selectedCohort().ID
+	if _, err := a.store.CopyStageFromPrevious(context.Background(), cohortID, store.EncodeStageID(cohortID, store.PhaseG2)); err != nil {
+		t.Fatal(err)
+	}
+	a.selectedStageID = 0
+	a.reloadCohorts(context.Background())
+	a.openCohortDetail(cohortID)
+	a.page = pageCohorts
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
@@ -297,6 +303,8 @@ func TestStageReviewBannerShowsChanges(t *testing.T) {
 	if !a.prepOpen || a.stageReviewOpen {
 		t.Fatalf("prepOpen = %v, stageReviewOpen = %v", a.prepOpen, a.stageReviewOpen)
 	}
+	a.page = pageOverview
+	tt.Frame()
 	if !tt.HasText("Prepare cohort data") {
 		t.Fatalf("prep texts = %q", tt.Texts())
 	}
@@ -306,8 +314,14 @@ func TestStageReviewBannerConfirmsStage(t *testing.T) {
 	a := newTestApp(t)
 	addCohort(t, a, 2026)
 	seedStageData(t, a)
-	a.setAcademicYear(2027)
-	a.page = pageOverview
+	cohortID := a.selectedCohort().ID
+	if _, err := a.store.CopyStageFromPrevious(context.Background(), cohortID, store.EncodeStageID(cohortID, store.PhaseG2)); err != nil {
+		t.Fatal(err)
+	}
+	a.selectedStageID = 0
+	a.reloadCohorts(context.Background())
+	a.openCohortDetail(cohortID)
+	a.page = pageCohorts
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
@@ -328,8 +342,14 @@ func TestStageReviewLaterDismissesBanner(t *testing.T) {
 	a := newTestApp(t)
 	addCohort(t, a, 2026)
 	seedStageData(t, a)
-	a.setAcademicYear(2027)
-	a.page = pageOverview
+	cohortID := a.selectedCohort().ID
+	if _, err := a.store.CopyStageFromPrevious(context.Background(), cohortID, store.EncodeStageID(cohortID, store.PhaseG2)); err != nil {
+		t.Fatal(err)
+	}
+	a.selectedStageID = 0
+	a.reloadCohorts(context.Background())
+	a.openCohortDetail(cohortID)
+	a.page = pageCohorts
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
@@ -432,7 +452,15 @@ func TestHistoricalStageIsReadOnly(t *testing.T) {
 	a := newTestApp(t)
 	addCohort(t, a, 2026)
 	seedStageData(t, a)
-	a.setAcademicYear(2027)
+	cohortID := a.selectedCohort().ID
+	if _, err := a.store.PromoteCohort(context.Background(), cohortID, store.PromoteInput{
+		ToPhase:             store.PhaseG2,
+		ToAcademicYearStart: 2027,
+		Mode:                store.PromoteDirect,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	a.reloadCohorts(context.Background())
 	for _, stage := range a.cohortStages {
 		if stage.GradeLevel == "g1" {
 			a.selectedStageID = stage.ID
@@ -472,12 +500,18 @@ func TestHistoricalStageIsReadOnly(t *testing.T) {
 func TestCohortStageHistoryShowsReviewState(t *testing.T) {
 	a := newTestApp(t)
 	addCohort(t, a, 2026)
-	a.setAcademicYear(2027)
+	cohortID := a.selectedCohort().ID
+	if _, err := a.store.CopyStageFromPrevious(context.Background(), cohortID, store.EncodeStageID(cohortID, store.PhaseG2)); err != nil {
+		t.Fatal(err)
+	}
+	a.selectedStageID = 0
+	a.reloadCohorts(context.Background())
+	a.openCohortDetail(cohortID)
 	a.page = pageCohorts
 	tt := ui.NewTester(a.view, 1280, 800)
 	tt.SetLocale("en")
 	tt.Frame()
-	if !tt.HasText("Needs review") || !tt.HasText("Confirmed") {
+	if !tt.HasText("Grade 11 · 2027-2028") || !tt.HasText("Confirm review") {
 		t.Fatalf("stage badges = %q", tt.Texts())
 	}
 }

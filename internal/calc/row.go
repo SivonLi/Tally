@@ -147,6 +147,11 @@ func calculateRow(input Input, group StatGroup, classes map[string]AdminClass, t
 		env["indicator"] = formula.Object(numberObject(values))
 		value, err := expressions[key].Eval(env)
 		if err != nil {
+			if key == "pass" && group.Target == 0 {
+				values[key] = 0
+				rawValues[key] = 0
+				continue
+			}
 			return Row{}, fmt.Errorf("统计组 %s 的指标 %s 计算失败: %w", group.ID, key, err)
 		}
 		number, ok := value.Number()
@@ -187,7 +192,7 @@ func calculateRow(input Input, group StatGroup, classes map[string]AdminClass, t
 		row.CompletionScore = 0
 		row.IndicatorValues["completion"] = 0
 	}
-	row.TeacherNames = teacherNames(input.Assignments, group)
+	row.TeacherIDs, row.TeacherNames = teacherRefs(input.Assignments, group)
 	row.Total = row.ImprovementScore + row.PassScore
 	if row.CompletionParticipating {
 		row.Total += row.CompletionScore
@@ -293,23 +298,28 @@ func numberObject(values map[string]float64) map[string]formula.Value {
 	return result
 }
 
-func teacherNames(assignments []Assignment, group StatGroup) []string {
+func teacherRefs(assignments []Assignment, group StatGroup) ([]string, []string) {
 	memberSet := make(map[string]bool, len(group.MemberTeachingGroupIDs))
 	for _, memberID := range group.MemberTeachingGroupIDs {
 		memberSet[memberID] = true
 	}
-	seen := map[string]bool{}
-	var names []string
+	seenIDs := map[string]bool{}
+	seenNames := map[string]bool{}
+	var ids, names []string
 	for _, assignment := range assignments {
 		if !memberSet[assignment.TeachingGroupID] {
 			continue
 		}
-		if assignment.TeacherName == "" || seen[assignment.TeacherName] {
-			continue
+		if assignment.TeacherID != "" && !seenIDs[assignment.TeacherID] {
+			seenIDs[assignment.TeacherID] = true
+			ids = append(ids, assignment.TeacherID)
 		}
-		seen[assignment.TeacherName] = true
-		names = append(names, assignment.TeacherName)
+		if assignment.TeacherName != "" && !seenNames[assignment.TeacherName] {
+			seenNames[assignment.TeacherName] = true
+			names = append(names, assignment.TeacherName)
+		}
 	}
+	sort.Strings(ids)
 	sort.Strings(names)
-	return names
+	return ids, names
 }

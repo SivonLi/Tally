@@ -200,7 +200,7 @@ func statusBadge(c *ui.Context, p uiPalette, status string, label string) {
 	switch status {
 	case "published", "calculated", "ready":
 		badge(c, p, label, toneSuccess)
-	case "imported":
+	case "imported", "applied", "scored", "assessed":
 		badge(c, p, label, toneAccent)
 	case "draft", "pending", "stale":
 		badge(c, p, label, toneWarning)

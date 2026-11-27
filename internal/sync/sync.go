@@ -144,7 +144,11 @@ func CreatePackage(
 
 	// 2. 处理 files/ 目录下的原始文件
 	if filesDir != "" {
-		entries, _ := os.ReadDir(filesDir)
+		entries, err := os.ReadDir(filesDir)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, "", baseManifest, nil, fmt.Errorf("读取原始文件目录失败: %w", err)
+		}
+		seenHashes := make(map[string]bool)
 		for _, e := range entries {
 			if e.IsDir() {
 				continue
@@ -152,9 +156,13 @@ func CreatePackage(
 			fpath := filepath.Join(filesDir, e.Name())
 			rawPlaintext, err := os.ReadFile(fpath)
 			if err != nil {
-				continue
+				return nil, "", baseManifest, nil, fmt.Errorf("读取原始文件 %s 失败: %w", e.Name(), err)
 			}
 			rawHash := SHA256String(rawPlaintext)
+			if seenHashes[rawHash] {
+				continue
+			}
+			seenHashes[rawHash] = true
 			relPath := "files/" + rawHash + ".xlsx"
 
 			if encrypt {
@@ -269,14 +277,19 @@ func ExtractAndVerifyPackage(pkgBytes []byte, manifest SyncManifest, password st
 	// 校验数据包内 manifest
 	if manifestFile != nil {
 		rc, err := manifestFile.Open()
-		if err == nil {
-			defer rc.Close()
-			var internalManifest SyncManifest
-			if err := json.NewDecoder(rc).Decode(&internalManifest); err == nil {
-				if internalManifest.FormatVersion != 1 {
-					return errors.New("不支持的数据包格式版本")
-				}
-			}
+		if err != nil {
+			return fmt.Errorf("打开数据包内 manifest.json 失败: %w", err)
+		}
+		var internalManifest SyncManifest
+		decErr := json.NewDecoder(rc).Decode(&internalManifest)
+		if closeErr := rc.Close(); closeErr != nil && decErr == nil {
+			return fmt.Errorf("关闭数据包内 manifest.json 失败: %w", closeErr)
+		}
+		if decErr != nil {
+			return fmt.Errorf("解析数据包内 manifest.json 失败: %w", decErr)
+		}
+		if internalManifest.FormatVersion != 1 {
+			return errors.New("不支持的数据包格式版本")
 		}
 	}
 
@@ -378,6 +391,23 @@ func CheckRemote(
 		LastSyncRevision: lastSyncRev,
 	}
 
+	// 未同步且未产生本地业务/方案修改的全新空库（初始默认方案计入 localRev <= 2）
+	isFreshEmptyLocal := lastSyncRev == 0 && lastSyncHash == "" && len(localBatches) == 0 && localRev <= 2
+
+	// 跨库保护：DatabaseID 不一致时，仅允许全新空库直接拉取，其余一律判定为冲突
+	if localDBID != "" && remoteManifest.DatabaseID != "" && localDBID != remoteManifest.DatabaseID {
+		if isFreshEmptyLocal {
+			status.Kind = StatusCanPull
+			status.Message = fmt.Sprintf("远端有新版本 (修订号 r%d)，来自 %s，可直接拉取",
+				remoteManifest.Revision, remoteManifest.DeviceName)
+			return status, nil
+		}
+		status.Kind = StatusConflict
+		status.Message = "检测到远端数据库标识与本地不一致，请确认是否覆盖本地数据"
+		status.ConflictedBatches = collectConflictedBatches(remoteManifest.BatchRevisions, localBatches)
+		return status, nil
+	}
+
 	// 规则 1: 远端修订号等于本地修订号且哈希相同（或本地自上次同步未做修改）
 	if remoteManifest.Revision == localRev {
 		if localRev == lastSyncRev || (lastSyncHash != "" && remoteManifest.PackageHash == lastSyncHash) {
@@ -388,9 +418,12 @@ func CheckRemote(
 		}
 	}
 
-	// 规则 2: 远端修订号大于本地修订号，且远端的来源修订号等于本地修订号或上次同步修订号
+	// 规则 2: 远端修订号大于本地修订号，且满足以下任一条件可直接拉取：
+	// - 远端直接基于本地当前修订号修改 (BaseRevision == localRev)
+	// - 本地自上次同步后未修改 (localRev == lastSyncRev)
+	// - 本地为首次连接远端的全新空库
 	if remoteManifest.Revision > localRev {
-		if remoteManifest.BaseRevision == localRev || remoteManifest.BaseRevision == lastSyncRev || localRev == lastSyncRev {
+		if remoteManifest.BaseRevision == localRev || localRev == lastSyncRev || isFreshEmptyLocal {
 			status.Kind = StatusCanPull
 			status.Message = fmt.Sprintf("远端有新版本 (修订号 r%d)，来自 %s，可直接拉取",
 				remoteManifest.Revision, remoteManifest.DeviceName)
@@ -411,18 +444,18 @@ func CheckRemote(
 	// 规则 4: 修订号不一致且两端均有修改，判定为冲突
 	status.Kind = StatusConflict
 	status.Message = "检测到并发修改冲突：远端与本地在上次同步后均有改动"
+	status.ConflictedBatches = collectConflictedBatches(remoteManifest.BatchRevisions, localBatches)
+	return status, nil
+}
 
-	// 分析冲突的批次
+func collectConflictedBatches(remoteBatches, localBatches map[string]int64) []string {
 	var conflicts []string
-	for k, rRev := range remoteManifest.BatchRevisions {
-		if lRev, ok := localBatches[k]; ok {
-			if lRev != rRev {
-				conflicts = append(conflicts, k)
-			}
+	for k, rRev := range remoteBatches {
+		if lRev, ok := localBatches[k]; ok && lRev != rRev {
+			conflicts = append(conflicts, k)
 		}
 	}
-	status.ConflictedBatches = conflicts
-	return status, nil
+	return conflicts
 }
 
 // UploadSync 执行完整的 7 步上传流程。
@@ -457,12 +490,17 @@ func UploadSync(
 		return nil, fmt.Errorf("创建数据包失败: %w", err)
 	}
 
-	// 3. 上传本地新增的原始文件
+	// 3. 上传原始文件（未加密模式按内容哈希去重跳过；加密模式每次使用新 salt/nonce 需保持密文与 latest.json 一致）
 	for relName, data := range rawFiles {
 		remoteFilePath := remoteDir + "/files/" + relName
-		exists, err := client.Stat(ctx, remoteFilePath)
-		if err == nil && exists {
-			continue // 远端已存在，无需重复上传
+		if !encrypt {
+			exists, err := client.Stat(ctx, remoteFilePath)
+			if err != nil {
+				return nil, fmt.Errorf("检查远端原始文件 %s 失败: %w", relName, err)
+			}
+			if exists {
+				continue // 远端已存在明文内容，无需重复上传
+			}
 		}
 		if err := client.Put(ctx, remoteFilePath, data); err != nil {
 			return nil, fmt.Errorf("上传原始文件 %s 失败: %w", relName, err)
@@ -478,11 +516,15 @@ func UploadSync(
 	// 5. 回读数据包并校验哈希
 	verifyBytes, err := client.Get(ctx, pkgRemotePath)
 	if err != nil {
-		_ = client.Delete(ctx, pkgRemotePath)
+		if delErr := client.Delete(ctx, pkgRemotePath); delErr != nil {
+			return nil, fmt.Errorf("校验远端数据包下载失败: %w（回滚删除失败: %v）", err, delErr)
+		}
 		return nil, fmt.Errorf("校验远端数据包下载失败: %w", err)
 	}
 	if SHA256String(verifyBytes) != finalManifest.PackageHash {
-		_ = client.Delete(ctx, pkgRemotePath)
+		if delErr := client.Delete(ctx, pkgRemotePath); delErr != nil {
+			return nil, fmt.Errorf("远端数据包校验哈希不匹配（回滚删除失败: %v）", delErr)
+		}
 		return nil, errors.New("远端数据包校验哈希不匹配，已自动回滚删除")
 	}
 
@@ -495,9 +537,15 @@ func UploadSync(
 	finalLatest := remoteDir + "/latest.json"
 
 	if err := client.Put(ctx, tmpLatest, latestBytes); err != nil {
+		if delErr := client.Delete(ctx, tmpLatest); delErr != nil {
+			return nil, fmt.Errorf("上传临时指针文件失败: %w（清理临时文件失败: %v）", err, delErr)
+		}
 		return nil, fmt.Errorf("上传临时指针文件失败: %w", err)
 	}
 	if err := client.Move(ctx, tmpLatest, finalLatest); err != nil {
+		if delErr := client.Delete(ctx, tmpLatest); delErr != nil {
+			return nil, fmt.Errorf("远端原子更新指针文件失败: %w（清理临时文件失败: %v）", err, delErr)
+		}
 		return nil, fmt.Errorf("远端原子更新指针文件失败: %w", err)
 	}
 
@@ -551,8 +599,14 @@ func DownloadSync(
 
 		var key []byte
 		if manifest.Encrypted {
-			salt, _ := hex.DecodeString(manifest.KDF.SaltHex)
-			key, _ = DeriveKey(password, salt)
+			salt, err := hex.DecodeString(manifest.KDF.SaltHex)
+			if err != nil || len(salt) == 0 {
+				return nil, errors.New("无效的原始文件加密盐值")
+			}
+			key, err = DeriveKey(password, salt)
+			if err != nil {
+				return nil, fmt.Errorf("派生原始文件解密密钥失败: %w", err)
+			}
 		}
 
 		for _, fe := range manifest.Files {
@@ -575,30 +629,32 @@ func DownloadSync(
 			}
 			remoteData, err := client.Get(ctx, remoteFilePath)
 			if err != nil {
-				continue // 缺失的个别历史文件不阻断数据库主流程
+				if errors.Is(err, ErrNotFound) {
+					continue // 缺失的个别历史文件不阻断数据库主流程
+				}
+				return nil, fmt.Errorf("下载原始文件 %s 失败: %w", fe.Path, err)
 			}
 
 			var plain []byte
 			if fe.Encrypted {
-				if len(key) == 0 {
-					continue
-				}
 				nonce, err := hex.DecodeString(fe.NonceHex)
-				if err != nil {
-					continue
+				if err != nil || len(nonce) == 0 {
+					return nil, fmt.Errorf("原始文件 %s 缺少有效的 nonce 记录", fe.Path)
 				}
 				plain, err = DecryptBlock(remoteData, key, nonce, fe.PlaintextHash)
 				if err != nil {
-					continue
+					return nil, fmt.Errorf("解密或校验原始文件 %s 失败: %w", fe.Path, err)
 				}
 			} else {
 				plain = remoteData
 				if SHA256String(plain) != fe.PlaintextHash {
-					continue
+					return nil, fmt.Errorf("原始文件 %s 校验失败: %w", fe.Path, ErrHashMismatch)
 				}
 			}
 
-			_ = os.WriteFile(localTarget, plain, 0o644)
+			if err := os.WriteFile(localTarget, plain, 0o644); err != nil {
+				return nil, fmt.Errorf("写入本地原始文件 %s 失败: %w", fe.Path, err)
+			}
 		}
 	}
 

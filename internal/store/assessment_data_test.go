@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -305,7 +306,7 @@ func TestInputSummaryAndChangedItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(summary) != 10 {
+	if len(summary) != 11 {
 		t.Fatalf("summary = %+v", summary)
 	}
 	encoded, err := json.Marshal(summary)
@@ -389,5 +390,222 @@ func TestEnsureAssessmentStatGroupsFromTeachingGroups(t *testing.T) {
 		if group.Target == nil {
 			t.Fatalf("missing target for %s", group.Name)
 		}
+	}
+}
+
+func TestSaveAssessmentRunOfficialOverwriteAndAtomicity(t *testing.T) {
+	fixture := openAssessmentFixture(t)
+	ctx := context.Background()
+
+	result1 := calc.Result{
+		Rows: []calc.Row{{
+			StatGroupID: "1", StatGroupName: "1班", Subject: "chinese", LeadClassID: "1",
+			LeadClassName: "1班", ClassCount: 2, ClassAverage: 95, Total: 88, Rank: 1,
+		}},
+		Personal: []calc.PersonalScore{{
+			TeacherID: "1", TeacherName: "张老师", Grade: "g1", Subject: "chinese", Score: 70,
+		}},
+	}
+	run1, err := fixture.Store.SaveAssessmentRun(ctx, fixture.AssessmentID, fixture.VersionID, "h1", nil, result1, true)
+	if err != nil {
+		t.Fatalf("SaveAssessmentRun 1: %v", err)
+	}
+	run2, err := fixture.Store.SaveAssessmentRun(ctx, fixture.AssessmentID, fixture.VersionID, "h2", nil, result1, true)
+	if err != nil {
+		t.Fatalf("SaveAssessmentRun 2: %v", err)
+	}
+
+	runs, err := fixture.Store.ListAssessmentRuns(ctx, fixture.AssessmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(runs) != 2 {
+		t.Fatalf("expected 2 runs, got %+v", runs)
+	}
+	officialCount := 0
+	for _, r := range runs {
+		if r.IsOfficial {
+			officialCount++
+		}
+	}
+	if officialCount != 1 || runs[0].ID != run2 || !runs[0].IsOfficial || runs[1].ID != run1 || runs[1].IsOfficial {
+		t.Fatalf("expected only latest run2=%d official, got officialCount=%d runs=%+v", run2, officialCount, runs)
+	}
+
+	// 验证单事务原子性：中途触发 FK 错误（不存在的 teacher_id）时整次写入必须回滚，不得残留脏 run/rows 或清除旧官方标记。
+	badResult := calc.Result{
+		Rows: result1.Rows,
+		Personal: []calc.PersonalScore{{
+			TeacherID: "999999", TeacherName: "不存在教师", Grade: "g1", Subject: "chinese", Score: 70,
+		}},
+	}
+	if _, err := fixture.Store.SaveAssessmentRun(ctx, fixture.AssessmentID, fixture.VersionID, "h3", nil, badResult, true); err == nil {
+		t.Fatal("expected FK failure on non-existent teacher_id")
+	}
+	runsAfterFail, err := fixture.Store.ListAssessmentRuns(ctx, fixture.AssessmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(runsAfterFail) != 2 || !runsAfterFail[0].IsOfficial || runsAfterFail[0].ID != run2 {
+		t.Fatalf("atomicity violated after failed SaveAssessmentRun: %+v", runsAfterFail)
+	}
+}
+
+func TestApplyExamImportSingleSubjectTarget(t *testing.T) {
+	fixture := openAssessmentFixture(t)
+	ctx := context.Background()
+
+	_, err := fixture.Store.ApplyExamImport(ctx, ExamImportRequest{
+		ExamID: fixture.ExamID, CohortID: fixture.CohortID, Kind: ExamImportTargets,
+		Report: ImportReport{FileHash: "single-subject-targets", Path: "targets_ss.xlsx", RowCount: 2},
+		Data: ImportData{ClassTargets: []ImportClassTarget{
+			{ClassName: "1班", Counts: map[string]*float64{
+				"undergraduate":  floatPointer(2),
+				"single_subject": floatPointer(5),
+			}},
+			{ClassName: "2班", Counts: map[string]*float64{
+				"undergraduate":  floatPointer(0),
+				"single_subject": floatPointer(0),
+			}},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("ApplyExamImport with single_subject failed: %v", err)
+	}
+	targets, err := fixture.Store.ListClassTargets(ctx, fixture.AssessmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundSingle := false
+	for _, tgt := range targets {
+		if tgt.TierKey == "single_subject" && tgt.Target == 5 {
+			foundSingle = true
+		}
+	}
+	if !foundSingle {
+		t.Fatalf("expected single_subject=5 persisted, got %+v", targets)
+	}
+}
+
+func TestAssessmentBoundaryOverridesLifecycle(t *testing.T) {
+	fixture := openAssessmentFixture(t)
+	ctx := context.Background()
+
+	// 验证无效边界被拒绝
+	if err := fixture.Store.SaveAssessmentBoundaryOverrides(ctx, fixture.AssessmentID, []AssessmentBoundaryOverride{
+		{Subject: "chinese", GroupCount: 3, FirstRank: 3, SecondRank: 2},
+	}); err == nil {
+		t.Fatal("expected invalid boundary (first > second) to be rejected")
+	}
+
+	// 保存微调
+	if err := fixture.Store.SaveAssessmentBoundaryOverrides(ctx, fixture.AssessmentID, []AssessmentBoundaryOverride{
+		{Subject: "chinese", GroupCount: 3, FirstRank: 2, SecondRank: 3, Reason: "语文组微调"},
+		{Subject: "math", GroupCount: 3, FirstRank: 1, SecondRank: 3, Reason: "数学组微调"},
+	}); err != nil {
+		t.Fatalf("SaveAssessmentBoundaryOverrides: %v", err)
+	}
+
+	list, err := fixture.Store.ListAssessmentBoundaryOverrides(ctx, fixture.AssessmentID)
+	if err != nil {
+		t.Fatalf("ListAssessmentBoundaryOverrides: %v", err)
+	}
+	if len(list) != 2 || list[0].Subject != "chinese" || list[0].FirstRank != 2 || list[1].Subject != "math" {
+		t.Fatalf("unexpected overrides list: %+v", list)
+	}
+
+	data, err := fixture.Store.LoadAssessmentData(ctx, fixture.AssessmentID)
+	if err != nil {
+		t.Fatalf("LoadAssessmentData: %v", err)
+	}
+	if len(data.BoundaryOverrides) != 2 {
+		t.Fatalf("expected 2 overrides in BatchData, got %d", len(data.BoundaryOverrides))
+	}
+
+	// 校验 InputHash 与 InputSummary 联动
+	plan := assessment.DefaultConfig()
+	hash1, err := InputHash(plan, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	summary1, err := InputSummary(plan, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	summaryJSON, err := json.Marshal(summary1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 单科重置
+	if err := fixture.Store.ResetAssessmentBoundaryOverride(ctx, fixture.AssessmentID, "math"); err != nil {
+		t.Fatalf("ResetAssessmentBoundaryOverride: %v", err)
+	}
+	dataAfterReset, err := fixture.Store.LoadAssessmentData(ctx, fixture.AssessmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dataAfterReset.BoundaryOverrides) != 1 || dataAfterReset.BoundaryOverrides[0].Subject != "chinese" {
+		t.Fatalf("expected only chinese override left, got %+v", dataAfterReset.BoundaryOverrides)
+	}
+	hash2, err := InputHash(plan, dataAfterReset)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hash1 == hash2 {
+		t.Fatal("expected InputHash to change after boundary reset")
+	}
+	summary2, err := InputSummary(plan, dataAfterReset)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed, err := ChangedInputItems(string(summaryJSON), summary2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(changed) != 1 || changed[0] != "boundaries" {
+		t.Fatalf("expected changed item [boundaries], got %v", changed)
+	}
+
+	// 全部重置
+	if err := fixture.Store.ResetAllAssessmentBoundaryOverrides(ctx, fixture.AssessmentID); err != nil {
+		t.Fatalf("ResetAllAssessmentBoundaryOverrides: %v", err)
+	}
+	listAfterAll, err := fixture.Store.ListAssessmentBoundaryOverrides(ctx, fixture.AssessmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listAfterAll) != 0 {
+		t.Fatalf("expected 0 overrides after ResetAll, got %+v", listAfterAll)
+	}
+
+	// 验证事务内写入 audit_logs 并递增 data_revisions
+	auditRows, err := fixture.Store.db.Query(ctx, `SELECT action FROM audit_logs WHERE target_type = 'assessment' AND target_id = ? ORDER BY id`, fixture.AssessmentID)
+	if err != nil {
+		t.Fatalf("query audit_logs: %v", err)
+	}
+	var actions []string
+	for _, r := range auditRows.Values {
+		actions = append(actions, stringValue(r[0]))
+	}
+	expectedActions := []string{"save_boundary_overrides", "reset_boundary_override", "reset_all_boundary_overrides"}
+	for _, want := range expectedActions {
+		found := false
+		for _, got := range actions {
+			if got == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected audit action %q in %v", want, actions)
+		}
+	}
+	revRows, err := fixture.Store.db.Query(ctx, `SELECT revision FROM data_revisions WHERE scope_key = ?`, fmt.Sprintf("assessment:%d", fixture.AssessmentID))
+	if err != nil {
+		t.Fatalf("query data_revisions: %v", err)
+	}
+	if len(revRows.Values) == 0 || intValue(revRows.Values[0][0]) < 3 {
+		t.Fatalf("expected assessment revision >= 3 after save+reset+resetAll, got %+v", revRows.Values)
 	}
 }

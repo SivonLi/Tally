@@ -64,18 +64,20 @@ func TestThirdBatchTableRowHeights(t *testing.T) {
 		return tt
 	}
 
+	a.openCohortDetail(a.cohorts[0].ID)
+	a.cohortDetailTab = 2
 	render(pageCohorts)
-	assertTableRowHeight(t, &a.classTable, "总览班级表")
+	assertTableRowHeight(t, &a.studentTable, "年级学生表")
+
+	a.cohortDetailTab = 4
+	render(pageCohorts)
+	assertTableRowHeight(t, &a.baselineTable, "年级基线表")
 
 	render(pageStudents)
 	assertTableRowHeight(t, &a.studentTable, "学生表")
 
-	a.facultyTab = 0
 	render(pageFaculty)
-	assertTableRowHeight(t, &a.teacherTable, "教师表")
-	a.facultyTab = 1
-	render(pageFaculty)
-	assertTableRowHeight(t, &a.groupTable, "教学组表")
+	assertTableRowHeight(t, &a.teacherDirectoryTable, "教师档案表")
 
 	render(pageBaseline)
 	assertTableRowHeight(t, &a.baselineTable, "基线表")

@@ -340,8 +340,7 @@ func TestExamCohortSwitchAndQualityImportFilter(t *testing.T) {
 	if f.App.examCohort.CohortID != exam.Cohorts[1].CohortID {
 		t.Fatalf("cohort = %+v", f.App.examCohort)
 	}
-	f.App.page = pageQuality
-	f.App.qualityLoaded = false
+	f.App.navigateTo(pageQuality)
 	f.App.qualityImportRun = 0
 	tt.Frame()
 	if len(f.App.qualityImportOptions) == 0 {

@@ -8,18 +8,72 @@ import (
 	"tally/internal/assessment"
 )
 
-func applyRanking(rows []Row, ranking assessment.RankingConfig) error {
+func applyRanking(rows []Row, ranking assessment.RankingConfig, overrides map[string]BoundaryOverride) ([]EffectiveBoundary, error) {
 	groups := map[string][]int{}
 	for i := range rows {
 		key := rankGroupKey(rows[i], ranking.GroupBy)
 		groups[key] = append(groups[key], i)
 	}
-	for _, indexes := range groups {
+	groupKeys := make([]string, 0, len(groups))
+	for key := range groups {
+		groupKeys = append(groupKeys, key)
+	}
+	sort.Strings(groupKeys)
+
+	var staleIssues []BoundaryStaleIssue
+	effective := make([]EffectiveBoundary, 0, len(groupKeys))
+	groupBounds := make(map[string][2]int, len(groupKeys))
+
+	for _, key := range groupKeys {
+		indexes := groups[key]
 		subject := rows[indexes[0]].Subject
-		first, second, err := rankBoundaries(ranking.Boundary, subject, len(indexes))
-		if err != nil {
-			return err
+		n := len(indexes)
+		if override, ok := overrides[subject]; ok {
+			if n != override.GroupCount || override.First < 1 || override.Second < override.First || override.Second > n {
+				staleIssues = append(staleIssues, BoundaryStaleIssue{
+					Subject:          subject,
+					SavedGroupCount:  override.GroupCount,
+					ActualGroupCount: n,
+					First:            override.First,
+					Second:           override.Second,
+				})
+				continue
+			}
+			groupBounds[key] = [2]int{override.First, override.Second}
+			effective = append(effective, EffectiveBoundary{
+				Subject:    subject,
+				GroupCount: n,
+				First:      override.First,
+				Second:     override.Second,
+				Source:     "override",
+				Reason:     override.Reason,
+			})
+			continue
 		}
+		first, second, err := DefaultRankBoundaries(ranking.Boundary, subject, n)
+		if err != nil {
+			return nil, err
+		}
+		groupBounds[key] = [2]int{first, second}
+		effective = append(effective, EffectiveBoundary{
+			Subject:    subject,
+			GroupCount: n,
+			First:      first,
+			Second:     second,
+			Source:     "default",
+		})
+	}
+	if len(staleIssues) > 0 {
+		sort.Slice(staleIssues, func(i, j int) bool {
+			return staleIssues[i].Subject < staleIssues[j].Subject
+		})
+		return nil, &BoundaryStaleError{Issues: staleIssues}
+	}
+
+	for _, key := range groupKeys {
+		indexes := groups[key]
+		bounds := groupBounds[key]
+		first, second := bounds[0], bounds[1]
 		sort.SliceStable(indexes, func(left, right int) bool {
 			a := rows[indexes[left]]
 			b := rows[indexes[right]]
@@ -40,13 +94,13 @@ func applyRanking(rows []Row, ranking assessment.RankingConfig) error {
 				tier = 2
 			}
 			if tier >= len(ranking.Points) {
-				return fmt.Errorf("统计组 %s 的档次超出赋分范围", rows[index].StatGroupID)
+				return nil, fmt.Errorf("统计组 %s 的档次超出赋分范围", rows[index].StatGroupID)
 			}
 			rows[index].TierIndex = tier
 			rows[index].Points = ranking.Points[tier]
 		}
 	}
-	return nil
+	return effective, nil
 }
 
 func rankGroupKey(row Row, groupBy []string) string {
@@ -60,6 +114,11 @@ func rankGroupKey(row Row, groupBy []string) string {
 	default:
 		return row.Subject
 	}
+}
+
+// DefaultRankBoundaries 按方案配置计算某学科在参评统计组数为 n 时的默认一档、二档截止名次。
+func DefaultRankBoundaries(boundary assessment.BoundaryConfig, subject string, n int) (int, int, error) {
+	return rankBoundaries(boundary, subject, n)
 }
 
 func rankBoundaries(boundary assessment.BoundaryConfig, subject string, n int) (int, int, error) {

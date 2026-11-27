@@ -34,13 +34,7 @@ func (a *app) reloadQuality(ctx context.Context) {
 		runs      []store.ImportRun
 		err       error
 	)
-	cohort := a.selectedCohort()
-	stage := a.selectedStage()
-	if cohort != nil {
-		summaries, err = a.store.ListExamQualitySummariesByCohort(ctx, cohort.ID)
-	} else {
-		summaries = nil
-	}
+	summaries, err = a.store.ListExamQualitySummaries(ctx)
 	if err != nil {
 		a.qualityError = err.Error()
 		return
@@ -52,11 +46,7 @@ func (a *app) reloadQuality(ctx context.Context) {
 			CohortName: summary.CohortName, GradeLevel: summary.GradeLevel, Issues: summary.Issues,
 		})
 	}
-	if cohort != nil && stage != nil {
-		runs, err = a.store.ListWorkspaceImportRuns(ctx, cohort.ID, stage.ID)
-	} else {
-		runs, err = a.store.ListAllImportRuns(ctx)
-	}
+	runs, err = a.store.ListAllImportRuns(ctx)
 	if err != nil {
 		a.qualityError = err.Error()
 		return
@@ -179,6 +169,7 @@ func (a *app) qualityPage(c *ui.Context, p uiPalette) {
 		}
 	}
 	ui.Column(c).Fill().Gap(t.Space(4)).Children(func() {
+		a.examHubSubnav(c, p, 2)
 		pageHeading(c, p, locales.NavQuality(), locales.QualityPageSubtitle(), func() {
 			if plainButton(c, locales.ExamRevalidate()).Clicked() {
 				a.reloadQuality(context.Background())
@@ -683,10 +674,10 @@ func (a *app) openQualityExam(overview qualityExamOverview) {
 	if a.store == nil {
 		return
 	}
-	a.page = pageExams
-	a.selectExam(overview.ExamID)
-	a.examCohortID = overview.CohortID
+	a.setExamSelectionState(overview.ExamID, overview.CohortID)
 	a.examTab = 5
+	a.page = pageExams
+	a.lastPage = pageExams
 	a.reloadExamData(context.Background())
 }
 
@@ -694,14 +685,14 @@ func (a *app) openQualityIssue(overview qualityExamOverview, issue store.ExamQua
 	if a.store == nil {
 		return
 	}
-	a.page = pageExams
-	a.selectExam(overview.ExamID)
-	a.examCohortID = overview.CohortID
+	a.setExamSelectionState(overview.ExamID, overview.CohortID)
 	a.examTab = qualityIssueTab(issue.Code)
 	if issue.StudentNo != "" {
 		a.examRosterQuery = issue.StudentNo
 		a.examScoreQuery = issue.StudentNo
 	}
+	a.page = pageExams
+	a.lastPage = pageExams
 	a.reloadExamData(context.Background())
 }
 

@@ -38,6 +38,7 @@ func (a *app) reloadDataPages(ctx context.Context) {
 		a.dataError = err.Error()
 		return
 	}
+	a.refreshImportUndoStates(ctx)
 	if cohort == nil || stage == nil {
 		return
 	}
@@ -342,17 +343,60 @@ func (a *app) importBaselineFile(path string) {
 	}()
 }
 
+func (a *app) refreshImportUndoStates(ctx context.Context) {
+	if a.store == nil {
+		return
+	}
+	if a.importCanUndo == nil {
+		a.importCanUndo = map[int64]bool{}
+	}
+	if a.importUndoReason == nil {
+		a.importUndoReason = map[int64]string{}
+	}
+	clear(a.importCanUndo)
+	clear(a.importUndoReason)
+	for _, run := range a.importRuns {
+		canUndo, why, err := a.store.CanUndoImport(ctx, run.ID)
+		if err == nil {
+			a.importCanUndo[run.ID] = canUndo
+			a.importUndoReason[run.ID] = why
+		}
+	}
+	if a.importDetail != nil {
+		id := a.importDetail.Run.ID
+		if _, seen := a.importCanUndo[id]; !seen {
+			canUndo, why, err := a.store.CanUndoImport(ctx, id)
+			if err == nil {
+				a.importCanUndo[id] = canUndo
+				a.importUndoReason[id] = why
+			}
+		}
+	}
+}
+
 func (a *app) selectImportRun(id int64) {
 	if a.store == nil {
 		return
 	}
-	detail, err := a.store.GetImportRun(context.Background(), id)
+	ctx := context.Background()
+	detail, err := a.store.GetImportRun(ctx, id)
 	if err != nil {
 		a.dataError = err.Error()
 		return
 	}
 	a.importRunID = id
 	a.importDetail = &detail
+	if a.importCanUndo == nil {
+		a.importCanUndo = map[int64]bool{}
+	}
+	if a.importUndoReason == nil {
+		a.importUndoReason = map[int64]string{}
+	}
+	canUndo, why, uErr := a.store.CanUndoImport(ctx, id)
+	if uErr == nil {
+		a.importCanUndo[id] = canUndo
+		a.importUndoReason[id] = why
+	}
 	a.dataError = ""
 }
 
@@ -434,6 +478,8 @@ func (a *app) statusName(status string) string {
 		return locales.StudentStatusBorrowed()
 	case "left_school":
 		return locales.StudentStatusLeft()
+	case "graduated":
+		return locales.StudentStatusGraduated()
 	default:
 		return locales.StudentStatusActive()
 	}

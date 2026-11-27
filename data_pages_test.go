@@ -141,20 +141,20 @@ func TestStageDataPagesShowSources(t *testing.T) {
 	tt.SetLocale("en")
 	a.page = pageFaculty
 	tt.Frame()
-	for _, text := range []string{"张老师", "李老师", "任课教师"} {
+	for _, text := range []string{"张老师", "李老师", "Single cohort", "2026 cohort 1班"} {
 		if !tt.HasText(text) {
 			t.Fatalf("missing %q in %q", text, tt.Texts())
 		}
 	}
-	if err := tt.Click("Teaching assignments"); err != nil {
+	if err := tt.Click("张老师"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	for _, text := range []string{"数学", "李老师"} {
-		if !tt.HasText(text) {
-			t.Fatalf("missing %q in %q", text, tt.Texts())
-		}
+	if !a.teacherProfileOpen || !tt.HasText(locales.TeacherProfileOccupancyTitle()) {
+		t.Fatalf("teacher profile did not open: open=%v texts=%q", a.teacherProfileOpen, tt.Texts())
 	}
+	a.teacherProfileOpen = false
+	tt.Frame()
 	a.page = pageGroups
 	tt.Frame()
 	if !tt.HasText("数学") || !tt.HasText("李老师") {

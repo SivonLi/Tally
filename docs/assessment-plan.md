@@ -15,6 +15,7 @@
 | 方案配置页 | 已实现 | 全部配置项以分节表单呈现，顶部下拉切换方案，底部一个保存按钮；保存前执行完整校验 |
 | 版本记录 | 已实现 | 只供存储层和已有核算结果引用，界面不展示 |
 | 核算时选择版本 | 已实现 | 本次考核详情操作区的方案版本下拉框 |
+| 考核级按科分档边界微调 | 已实现 | 工作台「调整分档边界」弹窗按方案默认预填，支持行内编辑与重置、参评组数变化阻断（`BoundaryStaleError`）、结果快照留痕（`result_run_boundaries`）与「计算依据」导出 |
 | 核算摘要与范围提示 | 未实现 | 计划在版本选择区域补充 |
 
 ## 目的与范围
@@ -368,16 +369,16 @@
 
 并列处理：
 
-- `competition`：同分同名次，下一名跳过，例如 1、1、3。当前默认，状态仍为待确认。
+- `competition`：同分同名次，下一名跳过，例如 1、1、3。当前默认，已由学校确认。
 - `dense`：同分同名次，下一名不跳过，例如 1、1、2。
 - `ordinal`：按排序顺序给唯一名次，同分时按班级标识稳定排序。
 
 分档模式：
 
-- `ratio`：按参评统计组数量计算边界，适合所有年级共用一个方案。`overrides` 记录个别学科或者参评数量的例外，例如 `{"subject":"chinese","n":17,"first":6,"second":11}`。
-- `manual`：每个学科维护一张名次区间表，贴近现有工作簿的人工填写方式。
+- `ratio`：按参评统计组数量计算边界，适合作为各年级各科的默认初始参考。`overrides` 记录个别学科或者参评数量的例外，例如 `{"subject":"chinese","n":17,"first":6,"second":11}`。
+- `manual`：每个学科维护一张名次区间表，贴近学校按学期、按科人工调整的实际做法；工作台后续支持基于默认比例自动预填后，仅对有请假或人数变动的学科做本次考核级微调。
 
-两种模式都按名次判定档次，并列的统计组进入同一档。并列跨越边界时，整个并列组进入较高的档次，下一档从并列组最后一个名次之后开始。保存时校验边界连续、覆盖 1 到参评数量、赋分覆盖全部档次。并列跨越边界的具体处理仍属于第 16、17 项待确认内容。
+两种模式都按名次判定档次，并列的统计组进入同一档。并列跨越边界时，整个并列组进入较高的档次，下一档从并列组最后一个名次之后开始。保存时校验边界连续、覆盖 1 到参评数量、赋分覆盖全部档次。第 16 项排名并列与第 17 项分档边界均已由学校确认。
 
 ### 合并统计组
 
@@ -558,37 +559,34 @@
 
 ## 数据模型
 
-现有 `plans`、`plan_versions`、`batches.current_plan_version_id` 和 `result_runs.plan_version_id` 继续使用，补充以下字段：
+Schema v1（见 `docs/system-design.md` 与 `internal/store/schema.go`）已移除旧版 `batches` 与 `target_adjustments`，方案与核算使用 `plans`、`plan_versions`、`assessments.plan_version_id`、`assessment_stat_groups`、`assessment_target_adjustments` 与 `result_runs.plan_version_id`：
 
 | 表 | 字段 | 说明 |
 |---|---|---|
-| `plans` | `kind` | `system` 或者 `user` |
-| `plans` | `base_plan_version_id` | 派生方案的来源版本，内置默认方案为空 |
-| `plans` | `description` | 方案说明 |
+| `plans` | `is_system` | `1` 为内置默认方案，`0` 为派生方案 |
+| `plans` | `scope` | 方案适用范围说明 |
 | `plans` | `created_at` | 创建时间 |
-| `stat_groups` | `lead_class_id` | 承担统计职责的班级，未合并时等于唯一成员班级 |
-| `plan_versions` | `schema_version` | 写入时的配置结构版本 |
+| `assessment_stat_groups` | `lead_class_id` | 承担统计职责的班级，未合并时等于唯一成员班级 |
 | `plan_versions` | `config_hash` | 配置内容的哈希 |
 | `plan_versions` | `status` | `draft`、`published`、`retired` |
 | `plan_versions` | `parent_version_id` | 编辑前的版本 |
-| `plan_versions` | `notes` | 版本说明 |
+| `plan_versions` | `note` / `change_summary` | 版本说明与变更摘要 |
 | `plan_versions` | `created_at` | 创建时间 |
 | `plan_versions` | `created_by` | 创建人 |
 | `plan_versions` | `published_at` | 发布时间 |
-| `plan_versions` | `published_by` | 发布人 |
 | `result_rows` | `indicator_values_json` | 每个指标的分子、分母、基数、原值和封顶后的值 |
 
-`batches.current_plan_version_id` 记录当前选用的版本。核算时如果用户选了另一个版本，先更新这个字段，再生成新的 `result_runs` 记录。同一批次只能有一个正式结果，由 `result_runs.is_official` 约束。
+`assessments.plan_version_id` 记录本次考核当前选用的版本。核算时如果用户选了另一个版本，先更新该字段，再生成新的 `result_runs` 记录。同一考核只能有一个正式结果，由 `result_runs.is_official` 约束。
 
 内置方案的数据不变量：
 
-- `plans.kind = 'system'` 的方案在 `plan_versions` 中始终至少有一条 `status = 'published'` 的记录。
+- `plans.is_system = 1` 的方案在 `plan_versions` 中始终至少有一条 `status = 'published'` 的记录。
 - `Retire` 先读取方案类型，内置方案返回错误，不执行更新。
 - 更新内置方案时，读取最新已发布版本作为 `parent_version_id`，追加版本号最大的新记录，状态直接写入 `published`。
 - 启动时调用 `EnsureDefaultPlan`。没有内置方案时从 `assessment.DefaultConfig()` 建立；有内置方案但没有已发布版本时，读取最新版本的配置并追加一条已发布版本；没有任何版本时从出厂配置追加版本。
 - 恢复失败返回具体错误，不写入空配置，不把错误转换成默认值。
 
-新增 `target_adjustments` 表：`id`、`batch_id`、`class_id`、`tier_key`、`old_value`、`new_value`、`reason`、`created_by`、`created_at`。只记录零目标补录和本班不参与的选择，不改写原始导入数据。
+`assessment_target_adjustments` 表（`id`、`assessment_id`、`class_id`、`tier_key`、`adjusted_target`、`excluded`、`reason`、`updated_at`）只记录零目标补录和本班不参与的选择，不改写原始导入数据。
 
 ## 实施顺序
 
@@ -598,19 +596,19 @@
 
 第一阶段完成后，系统可以按内置默认方案算出正确结果；第二阶段完成后，教务处可以保存新的方案、更新本方案并在核算时选择；第三阶段完成后，可以在界面里修改全部规则和公式。
 
-## 待确认项与配置位置
+## 关键口径与配置位置
 
 | 项 | 配置键 | 当前默认 | 状态 |
 |---|---|---|---|
-| 16 排名并列 | `ranking.tieMode` | `competition`，同名次并跳过后续名次，例如 1、1、3 | 待确认 |
-| 17 分档边界 | `ranking.boundary.mode` | `ratio`，一档止 `floor(n/3)`，二档止 `round(2n/3)`，例外用 `overrides` | 待确认 |
-| 18 小语种 | `data.walking.japanese` | 英语剔除、总分保留、随教学班排名 | 已确认 |
-| 19 艺体生 | `data.walking.artSports` | 随教学班排名 | 已确认 |
-| 20 零目标 | `validation.zeroTarget` | 计算前暂停、弹窗补齐、允许不参与、重算、审计、导出前复检 | 已确认 |
+| 16 排名并列 | `ranking.tieMode` | `competition`，同名次并跳过后续名次，例如 1、1、3 | 已确认 |
+| 17 分档边界 | `ranking.boundary.mode` | 默认按 `ratio`（一档止 `floor(n/3)`，二档止 `round(2n/3)`）提供参考，支持 `manual` / 考核级按科人工微调 | 已确认 |
+| 18 小语种 | `data.walking.japanese` | 小语种不参与常规计算与量化排名 | 已确认 |
+| 19 艺体生 | `data.walking.artSports` | 平时不参与统计，仅高考专项参与 | 已确认 |
+| 20 零目标 | `validation.zeroTarget` | 计算前暂停、弹窗补齐、允许不参与、重算、审计、导出前复检 | 待细则答复 |
 | 21 跨年级教师 | `personal.scope` | 按年级分别记录 | 已确认 |
 | 22 年级均分分母 | `data.gradeAverage` | 年级总计行 | 已确认 |
 | 23 合并组分子分母 | `indicators.pass.merge.denominator` | 分子相加，分母取统计组目标 | 已确认 |
 | 24 合并组归属行 | `indicators.pass.merge.resultRow` | 承担统计职责的班级行 | 已确认 |
 | 26 单科成绩为 0 | 导入规则 | 按未参加该科考试处理，不计入该科人数、均分和达线人数 | 已确认 |
 
-只有第 16、17 项仍待学校确认，其余项目已经确认。第 16、17 项的详细说明见 `docs/requirements-analysis.md` 的「待确认项说明」。
+第 16、17 项已由学校确认；目前仅第 20 项零目标具体细则待学校答复（维持安全拦截与补齐策略），详细说明见 `docs/requirements-analysis.md` 的「已确认与待确认项说明」。

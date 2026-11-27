@@ -4,12 +4,10 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/AstraFoundry/design/packages/mygo/sunbeam"
 	"github.com/egoist/mygo/ui"
 
-	"tally/internal/school"
 	"tally/locales"
 )
 
@@ -68,7 +66,7 @@ func (a *app) pageDisplayLabel(page pageID) string {
 	case pageStudents:
 		return locales.NavStudents()
 	case pageFaculty:
-		return locales.NavFaculty()
+		return locales.NavTeachers()
 	case pageGroups:
 		return locales.NavGroups()
 	case pageBaseline:
@@ -120,6 +118,7 @@ func (a *app) navigateTo(page pageID) {
 			a.importReturn = nil
 		}
 		a.page = page
+		a.lastPage = page
 		ctx := context.Background()
 		switch page {
 		case pageAnalysis:
@@ -127,14 +126,22 @@ func (a *app) navigateTo(page pageID) {
 		case pageQuality:
 			a.reloadQuality(ctx)
 		case pageOverview:
-			a.reloadWorkspaceSummary(ctx)
+			a.reloadSchoolOverview(ctx)
+		case pageCohorts:
+			a.reloadCohorts(ctx)
+		case pageFaculty:
+			a.reloadTeacherDirectory(ctx)
+		case pageExams:
+			a.reloadExams(ctx)
+		case pageAssessments:
+			a.reloadAssessments(ctx)
 		}
 	})
 }
 
 // openDataImport 记录当前来源上下文并跳转到独立「数据导入」页，按需预选导入类型与考试。
 func (a *app) openDataImport(kind string, examID, cohortID int64) {
-	if examID == 0 && kind != "" && !a.stageEditable() {
+	if examID == 0 && kind != "" && a.selectedCohort() != nil && !a.stageEditable() {
 		a.dataError = locales.StageReadOnly()
 		return
 	}
@@ -143,7 +150,7 @@ func (a *app) openDataImport(kind string, examID, cohortID int64) {
 		if origin != pageImports {
 			a.importReturn = &importReturnContext{
 				Page:        origin,
-				BaseDataTab: a.baseDataTab,
+				BaseDataTab: a.cohortDetailTab,
 				ExamID:      a.selectedExamID,
 				ExamTab:     a.examTab,
 				Label:       a.pageDisplayLabel(origin),
@@ -159,6 +166,21 @@ func (a *app) openDataImport(kind string, examID, cohortID int64) {
 			return
 		}
 		a.importCenterScope = 0
+		if cohortID != 0 {
+			a.selectedCohortID = strconv.FormatInt(cohortID, 10)
+			a.reloadSelectedCohort(context.Background())
+		} else if a.selectedCohort() == nil && len(a.cohorts) > 0 {
+			for _, co := range a.cohorts {
+				if co.CurrentPhase != "graduated" {
+					a.selectedCohortID = strconv.FormatInt(co.ID, 10)
+					break
+				}
+			}
+			if a.selectedCohortID == "" {
+				a.selectedCohortID = strconv.FormatInt(a.cohorts[0].ID, 10)
+			}
+			a.reloadSelectedCohort(context.Background())
+		}
 		if kind != "" {
 			a.openImportWizard(kind)
 		}
@@ -171,12 +193,15 @@ func (a *app) returnFromImport() {
 	a.importWizard = nil
 	a.importReturn = nil
 	ctx := context.Background()
-	a.reloadSelectedCohort(ctx)
+	a.reloadSchoolOverview(ctx)
+	if a.selectedCohort() != nil {
+		a.reloadSelectedCohort(ctx)
+	}
 	if ret == nil {
 		return
 	}
 	a.page = ret.Page
-	a.baseDataTab = ret.BaseDataTab
+	a.cohortDetailTab = ret.BaseDataTab
 	if ret.ExamID != 0 {
 		a.selectedExamID = ret.ExamID
 		a.examTab = ret.ExamTab
@@ -222,6 +247,19 @@ func (a *app) view(c *ui.Context) {
 	})
 	a.newCohortModal(c, p)
 	a.stageReviewModal(c, p)
+	a.promoteCohortModal(c, p)
+	a.graduateCohortModal(c, p)
+	a.newClassModal(c, p)
+	a.headTeacherModal(c, p)
+	a.classTrendModal(c, p)
+	a.newWalkingGroupModal(c, p)
+	a.walkingStudentsModal(c, p)
+	a.assignTeacherModal(c, p)
+	a.newStudentModal(c, p)
+	a.studentEventModal(c, p)
+	a.editTeacherModal(c, p)
+	a.baselineEditModal(c, p)
+	a.newTeacherModal(c, p)
 	a.newExamModal(c, p)
 	a.statGroupModal(c, p)
 	a.statGroupDeleteDialog(c, p)
@@ -278,8 +316,8 @@ func (a *app) renderUnsavedGuard(c *ui.Context, p uiPalette) {
 	}
 }
 
-// sidebar 是 Sunbeam Flat 材质的暖纸左侧栏，顶部为工作区切换（空态直接显示新建按钮），
-// 中部为精简后的工作区核心菜单与工具分区，底部固定帮助与设置。
+// sidebar 是 Sunbeam Flat 材质的暖纸左侧栏，采用全校统一导航（无单级工作区锁定）：
+// 主栏 5 项：总览、年级档案、教师档案、考试与考核、考核方案；底部固定 3 项：导入记录、设置与同步、帮助。
 func (a *app) sidebar(c *ui.Context, p uiPalette) {
 	t := p.theme
 	top := t.Space(3)
@@ -291,223 +329,46 @@ func (a *app) sidebar(c *ui.Context, p uiPalette) {
 		Padding(top, t.Space(3), t.Space(2), t.Space(3)).
 		Gap(t.Space(2)).DragWindow()
 	side.Children(func() {
-		a.workspaceSwitcher(c, p)
+		ui.Row(c).Padding(t.Space(1), 10, t.Space(2), 10).AlignItems(ui.Center).Gap(8).Children(func() {
+			ui.Icon(c, iconMark).Size(20, 20).TextColor(p.ink).Shrink(0)
+			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(0).Children(func() {
+				ui.Text(c, locales.AppTitle()).FontSize(sectionSize(t)).FontWeight(600).
+					TextColor(p.ink).SingleLine()
+				ui.Text(c, locales.AppTagline()).FontSize(captionSize(t)).
+					TextColor(p.muted).SingleLine()
+			})
+		})
 		ui.Scroll(c.Key("nav")).Grow(1).Shrink(1).MinHeight(0).
 			Margin(0, -t.Space(2)).Padding(0, t.Space(2)).
 			Gap(0).Children(func() {
-			a.navSection(c, p, locales.NavGroupWorkspace())
+			a.navSection(c, p, locales.NavGroupMain())
 			a.navItem(c, p, pageOverview, iconHome, locales.NavOverview(), 0)
-			a.navItem(c, p, pageImports, iconImport, locales.NavDataImport(), 0)
-			a.navItem(c, p, pageBaseData, iconCohort, locales.NavBaseData(), 0)
-			a.navItem(c, p, pageAssessments, iconBatches, locales.NavExamHub(), 0)
-			a.navItem(c, p, pageQuality, iconQuality, locales.NavQuality(), a.workspaceSummary.BlockingIssues)
-			a.navItem(c, p, pageAnalysis, iconAnalysis, locales.NavAnalysis(), 0)
-
-			ui.Box(c).Height(t.Space(2))
-			a.navSection(c, p, locales.NavGroupTools())
+			a.navItem(c, p, pageCohorts, iconCohort, locales.NavCohorts(), 0)
+			a.navItem(c, p, pageFaculty, iconFaculty, locales.NavTeachers(), 0)
+			a.navItem(c, p, pageAssessments, iconBatches, locales.NavExamHub(), a.schoolBlockingAlertCount())
 			a.navItem(c, p, pagePlans, iconPlans, locales.NavPlans(), 0)
 		})
 		rule(c)
 		ui.Column(c).Gap(0).Padding(t.Space(0.5), 0, 0, 0).Children(func() {
-			a.sidebarAction(c, p, "help", iconHelp, locales.NavHelp(), func() {
-				a.navigateTo(pageHelp)
-			})
-			a.sidebarAction(c, p, "settings", iconSettings, locales.NavSettings(), func() {
+			a.navItem(c, p, pageImports, iconImports, locales.NavImports(), 0)
+			a.sidebarAction(c, p, "settings", iconSettings, locales.NavSettingsSync(), func() {
 				a.openSettings()
 			})
+			a.navItem(c, p, pageHelp, iconHelp, locales.NavHelp(), 0)
 		})
 	})
 }
 
-// workspaceSwitcher 是侧栏顶部的工作区（年级）选择器：
-// 无工作区时直接展示「新建工作区」按钮；有工作区时显示当前年级与阶段，下拉列表采用单对勾结构并在底部提供「新建工作区」。
-func (a *app) workspaceSwitcher(c *ui.Context, p uiPalette) {
-	t := p.theme
-	if len(a.cohorts) == 0 {
-		btn := ui.ButtonBase(c.Key("workspace-create")).FillWidth().Height(40).
-			PaddingX(12).Gap(8).Radius(sunbeam.RadiusXL).
-			Background(p.panel).Border(1, p.borderStrong).
-			AlignItems(ui.Center).Justify(ui.Center).
-			Cursor(ui.CursorPointer).FocusRing(false).
-			Label(locales.WorkspaceCreate()).TextColor(p.ink)
-		switch {
-		case btn.Pressed():
-			btn.Background(p.sb.FlatFacePressed)
-		case btn.Hovered():
-			btn.Background(p.hover)
-		}
-		btn.Children(func() {
-			ui.Icon(c, iconPlus).Size(16, 16).TextColor(p.ink).Shrink(0)
-			ui.Text(c, locales.WorkspaceCreate()).FontSize(bodySize(t)).FontWeight(500).SingleLine()
-		})
-		if btn.Clicked() {
-			a.openNewCohort()
-		}
-		return
+// schoolBlockingAlertCount 汇总全校在读年级最新考试的阻断问题数量，供侧栏「考试与考核」角标展示。
+func (a *app) schoolBlockingAlertCount() int {
+	total := 0
+	for _, card := range a.schoolOverview.ActiveCohorts {
+		total += card.BlockingIssues
 	}
-
-	selectedCohort := a.selectedCohort()
-	displayStage := a.displayStage()
-	chosen := ""
-	if selectedCohort != nil {
-		chosen = "cohort-" + strconv.FormatInt(selectedCohort.ID, 10)
+	if total == 0 {
+		total = a.workspaceSummary.BlockingIssues
 	}
-	sel := ui.SelectBase(c.Key("workspace"), &chosen)
-	trigger := sel.Trigger.FillWidth().MinHeight(48).Padding(6, 10).Gap(8).
-		Radius(sunbeam.RadiusXL).AlignItems(ui.Center).
-		Background(p.panel).Border(1, p.border).
-		Cursor(ui.CursorPointer).FocusRing(false).Label(locales.WorkspaceSwitchLabel())
-	switch {
-	case sel.Open():
-		trigger.Border(1, p.sb.Ring)
-	case trigger.Hovered():
-		trigger.Background(p.panelHover).Border(1, p.borderStrong)
-	}
-	trigger.Children(func() {
-		name := locales.WorkspaceEmpty()
-		sub := ""
-		if selectedCohort != nil {
-			name = a.cohortName(selectedCohort.EnrollmentYear)
-			stageText := a.stageName(displayStage.GradeLevel)
-			yearText := school.AcademicYearLabel(displayStage.AcademicYearStart)
-			if stageText != "" && yearText != "" {
-				sub = fmt.Sprintf("%s · %s", stageText, yearText)
-			}
-		}
-		ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(1).Children(func() {
-			ui.Text(c, name).FontSize(bodySize(t)).FontWeight(600).TextColor(p.ink).
-				SingleLine().Tooltip(name)
-			if sub != "" {
-				ui.Text(c, sub).FontSize(captionSize(t)).TextColor(p.muted).
-					SingleLine().Tooltip(sub)
-			}
-		})
-		ui.Icon(c, iconUpDown).Size(14, 14).TextColor(p.muted).Shrink(0)
-	})
-
-	sel.Popup(func(popup ui.Element) {
-		popup.Key("workspace-switcher-popup")
-		sunbeam.PanelSurface(c, popup)
-		popup.Margin(6, 0, 0, 0).Padding(6).Gap(4).
-			MinWidth(sidebarWidth - 16).MaxWidth(sidebarWidth + 60).
-			Radius(sunbeam.RadiusXL).Transition(popupTransition).AttachedOrigin()
-		sunbeam.Layer(sunbeam.Raised, func() {
-			ui.Scroll(c).MaxHeight(360).Children(func() {
-				ui.Column(c).FillWidth().Gap(2).Children(func() {
-					ui.Text(c, locales.WorkspaceLabel()).FontSize(captionSize(t)).FontWeight(500).
-						TextColor(p.muted).Padding(4, 8, 2, 8).SingleLine()
-					for _, cohort := range a.cohorts {
-						cohort := cohort
-						name := a.cohortName(cohort.EnrollmentYear)
-						gradeHint := a.stageIndexName(school.StageIndex(cohort.EnrollmentYear, a.academicYearStart))
-						selected := selectedCohort != nil && cohort.ID == selectedCohort.ID
-						item := sel.Item("cohort-" + strconv.FormatInt(cohort.ID, 10)).Label(name).
-							Height(36).PaddingX(10).Gap(8).
-							Radius(sunbeam.RadiusLG).AlignItems(ui.Center).
-							TextColor(p.ink)
-						if item.Highlighted() {
-							item.Background(p.hover)
-						}
-						item.Children(func() {
-							ui.Text(c, name).FontSize(bodySize(t)).FontWeight(500).TextColor(p.ink).
-								SingleLine().Grow(1).Shrink(1).MinWidth(0)
-							ui.Text(c, gradeHint).FontSize(captionSize(t)).TextColor(p.muted).
-								SingleLine().Shrink(0)
-							if selected {
-								ui.Icon(c, iconCheck).Size(14, 14).TextColor(p.ink).Shrink(0)
-							}
-						})
-					}
-					if len(a.cohortStages) > 1 {
-						ui.Box(c).Height(2)
-						rule(c)
-						ui.Text(c, locales.StageSelectLabel()).FontSize(captionSize(t)).FontWeight(500).
-							TextColor(p.muted).Padding(4, 8, 2, 8).SingleLine()
-						labels, ids := a.stageOptions()
-						for index, label := range labels {
-							label, id := label, ids[index]
-							selected := id == a.selectedStageID
-							item := sel.Item("stage-" + strconv.FormatInt(id, 10)).Label(label).
-								Height(34).PaddingX(10).Gap(8).
-								Radius(sunbeam.RadiusLG).AlignItems(ui.Center).
-								TextColor(p.inkSecondary)
-							if item.Highlighted() {
-								item.Background(p.hover)
-							}
-							item.Children(func() {
-								ui.Text(c, label).FontSize(captionSize(t)).TextColor(p.inkSecondary).
-									Grow(1).Shrink(1).MinWidth(0).SingleLine()
-								if selected {
-									ui.Icon(c, iconCheck).Size(14, 14).TextColor(p.ink).Shrink(0)
-								}
-							})
-						}
-					}
-					ui.Box(c).Height(2)
-					rule(c)
-					createItem := sel.Item("workspace-create-new").Label(locales.WorkspaceCreate()).
-						Height(36).PaddingX(10).Gap(8).
-						Radius(sunbeam.RadiusLG).AlignItems(ui.Center).
-						TextColor(p.ink)
-					if createItem.Highlighted() {
-						createItem.Background(p.hover)
-					}
-					createItem.Children(func() {
-						ui.Icon(c, iconPlus).Size(14, 14).TextColor(p.ink).Shrink(0)
-						ui.Text(c, locales.WorkspaceCreate()).FontSize(bodySize(t)).FontWeight(500).
-							TextColor(p.ink).SingleLine()
-					})
-				})
-			})
-		})
-	})
-
-	if !trigger.Changed() {
-		return
-	}
-	switch {
-	case chosen == "workspace-create-new":
-		a.openNewCohort()
-	case strings.HasPrefix(chosen, "cohort-"):
-		targetID, err := strconv.ParseInt(strings.TrimPrefix(chosen, "cohort-"), 10, 64)
-		if err != nil {
-			return
-		}
-		if selectedCohort != nil && selectedCohort.ID == targetID {
-			return
-		}
-		for _, cohort := range a.cohorts {
-			if cohort.ID != targetID {
-				continue
-			}
-			cohort := cohort
-			a.guardNavigation(func() {
-				a.switchWorkspaceCohort(cohort.ID)
-				a.notifyMain(fmt.Sprintf(locales.WorkspaceSwitchedToast(), a.cohortName(cohort.EnrollmentYear)))
-			})
-			return
-		}
-	case strings.HasPrefix(chosen, "stage-"):
-		stageID := strings.TrimPrefix(chosen, "stage-")
-		a.guardNavigation(func() {
-			a.selectStageByID(stageID)
-		})
-	}
-}
-
-// selectStageByID 按标识切换当前工作区的学年阶段。
-func (a *app) selectStageByID(id string) {
-	for _, stage := range a.cohortStages {
-		if strconv.FormatInt(stage.ID, 10) != id {
-			continue
-		}
-		if stage.ID == a.selectedStageID {
-			return
-		}
-		a.selectedStageID = stage.ID
-		a.reloadSelectedCohort(context.Background())
-		return
-	}
+	return total
 }
 
 // navActiveFor 判断指定侧栏顶层入口在当前路由下是否处于激活状态。
@@ -517,15 +378,15 @@ func (a *app) navActiveFor(item pageID) bool {
 	}
 	current := a.normalizedPage()
 	switch item {
-	case pageBaseData:
+	case pageCohorts:
 		switch current {
-		case pageBaseData, pageCohorts, pageStudents, pageFaculty, pageGroups, pageBaseline:
+		case pageCohorts, pageBaseData, pageStudents, pageGroups, pageBaseline:
 			return true
 		}
 		return false
 	case pageAssessments:
 		switch current {
-		case pageAssessments, pageExams, pageResults:
+		case pageAssessments, pageExams, pageResults, pageQuality, pageAnalysis:
 			return true
 		}
 		return false
@@ -582,6 +443,17 @@ func (a *app) navItem(c *ui.Context, p uiPalette, page pageID, icon *ui.SVG, lab
 		}
 	})
 	if b.Clicked() {
+		if page == pageCohorts {
+			a.cohortDetailOpen = false
+			a.studentProfileOpen = false
+			a.studentProfileStack = nil
+			a.selectedStudentID = 0
+		}
+		if page == pageFaculty {
+			a.teacherProfileOpen = false
+			a.teacherProfileReturnCohort = 0
+			a.selectedTeacherID = 0
+		}
 		a.navigateTo(page)
 	}
 }
@@ -607,51 +479,35 @@ func (a *app) sidebarAction(c *ui.Context, p uiPalette, key string, icon *ui.SVG
 	}
 }
 
-// baseDataPage 聚合「基础数据」的 5 个子页签（班级与阶段 / 学生 / 教师与任课 / 教学班 / 入口基数），
-// 替代原先分散在左侧栏的 5 个独立菜单。
-func (a *app) baseDataPage(c *ui.Context, p uiPalette) {
-	t := p.theme
+// examHubSubnav 在「考试与考核」一级导航下的子视图（考试列表 / 量化考核 / 数据质量 / 多维分析）顶部提供统一切换条。
+func (a *app) examHubSubnav(c *ui.Context, p uiPalette, active int) {
 	labels := []string{
-		locales.BaseDataTabClasses(),
-		locales.BaseDataTabStudents(),
-		locales.BaseDataTabFaculty(),
-		locales.BaseDataTabGroups(),
-		locales.BaseDataTabBaselines(),
+		locales.ExamHubTabExams(),
+		locales.ExamHubTabWorkbench(),
+		locales.ExamHubTabQuality(),
+		locales.ExamHubTabAnalysis(),
 	}
-	if a.baseDataTab < 0 || a.baseDataTab >= len(labels) {
-		a.baseDataTab = 0
-	}
-	ui.Column(c).Fill().Gap(t.Space(3)).Children(func() {
-		ui.Row(c).Children(func() {
-			segmentedField(c, &a.baseDataTab, labels, locales.NavBaseData())
-		})
-		ui.Column(c).Grow(1).Shrink(1).MinHeight(0).FillWidth().Children(func() {
-			switch a.baseDataTab {
-			case 1:
-				a.studentsPage(c, p)
-			case 2:
-				a.facultyPage(c, p)
-			case 3:
-				a.groupsPage(c, p)
-			case 4:
-				a.baselinePage(c, p)
-			default:
-				a.cohortPage(c, p)
-			}
-		})
+	chosen := active
+	next := chosen
+	ui.Row(c).FillWidth().Children(func() {
+		segmentedField(c, &next, labels, locales.NavExamHub())
 	})
+	if next != chosen {
+		switch next {
+		case 0:
+			a.navigateTo(pageExams)
+		case 1:
+			a.navigateTo(pageAssessments)
+		case 2:
+			a.navigateTo(pageQuality)
+		case 3:
+			a.navigateTo(pageAnalysis)
+		}
+	}
 }
 
 func (a *app) pageContent(c *ui.Context, p uiPalette) {
 	page := a.normalizedPage()
-	if page != a.lastPage {
-		if page == pageQuality {
-			a.reloadQuality(context.Background())
-		} else if page == pageOverview {
-			a.reloadWorkspaceSummary(context.Background())
-		}
-		a.lastPage = page
-	}
 	if a.importWizardActive() {
 		if a.importReturn != nil {
 			t := p.theme
@@ -672,14 +528,12 @@ func (a *app) pageContent(c *ui.Context, p uiPalette) {
 		return
 	}
 	switch page {
-	case pageBaseData:
-		a.baseDataPage(c, p)
-	case pageCohorts:
-		a.cohortPage(c, p)
+	case pageBaseData, pageCohorts:
+		a.cohortsHubPage(c, p)
 	case pageStudents:
 		a.studentsPage(c, p)
 	case pageFaculty:
-		a.facultyPage(c, p)
+		a.teachersDirectoryPage(c, p)
 	case pageGroups:
 		a.groupsPage(c, p)
 	case pageBaseline:

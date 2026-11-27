@@ -130,6 +130,7 @@ type app struct {
 	stageCounts          store.StageCounts
 	stageClasses         []string
 	cohortSidebarWidth   float32
+	prevPhaseClasses     map[int64]string
 	newCohortOpen        bool
 	newCohortYear        float64
 	newCohortError       string
@@ -202,14 +203,19 @@ type app struct {
 	exam                 store.Exam
 	examCohort           store.ExamCohort
 	examAssessment       store.Assessment
+	examAssessmentFound  bool
 	examTierKeys         []string
 	examClasses          []store.SchoolClass
 	examTeachingGroups   []store.DataTeachingGroup
 	examTab              int
+	examAssessSubTab     int
+	examCompareMode      int
+	examListTypeFilter   int
 	examRoster           []store.ExamRosterEntry
 	examRosterTotal      int
 	examRosterPage       int
 	examRosterPageSize   int
+	examRosterDrift      []store.ExamRosterDriftItem
 	examScores           []store.ExamScoreRow
 	examScoresTotal      int
 	examScorePage        int
@@ -284,12 +290,130 @@ type app struct {
 	importCenterReading    bool
 	importCenterError      string
 	importUndoConfirmOpen  bool
+	importCanUndo          map[int64]bool
+	importUndoReason       map[int64]string
 	unsavedGuardOpen       bool
 	pendingNavAction       func()
 	sofficePath            string
 	sofficeDraft           string
 	sofficeStatus          excel.SofficeStatus
 	sofficeChecked         bool
+
+	// Wave A: 全校统一导航、总览驾驶舱与年级档案生命周期状态
+	schoolOverview             store.SchoolOverview
+	schoolOverviewLoaded       bool
+	teacherOccupancy           []store.TeacherOccupancy
+	teacherOccupancyFilter     string
+	teacherSubjectFilter       string
+	teacherDirectoryTable      ui.ListState
+	selectedTeacherID          int64
+	teacherProfile             store.TeacherProfile
+	teacherProfileOpen         bool
+	teacherProfileLoading      bool
+	teacherProfileReqID        int64
+	teacherProfileError        string
+	teacherProfileReturnCohort int64
+	teacherProfileCache        map[int64]store.TeacherProfile
+	teacherChartHover          int
+	teacherCohortExpanded      map[int64]bool
+	editTeacherOpen            bool
+	editTeacherNo              string
+	editTeacherName            string
+	editTeacherSubject         string
+	editTeacherNote            string
+	editTeacherError           string
+	newTeacherOpen             bool
+	newTeacherNo               string
+	newTeacherName             string
+	newTeacherSubject          string
+	newTeacherError            string
+	cohortArchiveFilter        int
+	cohortDetailOpen           bool
+	cohortDetailTab            int
+	cohortAssignments          []store.TeachingAssignmentRow
+	cohortExams                []store.Exam
+	cohortAssessments          []store.AssessmentOverview
+	cohortAssignmentTable      ui.ListState
+	cohortWalkingGroupTable    ui.ListState
+	cohortExamTable            ui.ListState
+	promoteOpen                bool
+	promoteToPhase             string
+	promoteYear                float64
+	promoteMode                string
+	promoteError               string
+	graduateOpen               bool
+	graduatePreview            store.GraduatePreview
+	graduateError              string
+	newClassOpen               bool
+	newClassName               string
+	newClassTrack              string
+	newClassRoom               string
+	newClassError              string
+	headTeacherOpen            bool
+	headTeacherClassID         int64
+	headTeacherClassName       string
+	headTeacherID              int64
+	headTeacherChoice          string
+	headTeacherWarning         *store.CrossGradeWarning
+	headTeacherError           string
+	classTrendOpen             bool
+	classTrendNodes            []store.ClassChainNode
+	classTrendResult           store.ClassTrendResult
+	classTrendError            string
+	classTrendTable            ui.ListState
+	newWalkingGroupOpen        bool
+	newWalkingSubject          string
+	newWalkingName             string
+	newWalkingError            string
+	walkingStudentsOpen        bool
+	walkingGroupID             int64
+	walkingGroupName           string
+	walkingStudents            []store.DataStudent
+	walkingCandidateStudents   []store.DataStudent
+	walkingAddStudentChoice    string
+	walkingStudentsError       string
+	assignTeacherOpen          bool
+	assignGroupID              int64
+	assignGroupChoice          string
+	assignTeacherChoice        string
+	assignWarning              *store.CrossGradeWarning
+	assignError                string
+	newStudentOpen             bool
+	newStudentNo               string
+	newStudentName             string
+	newStudentClassChoice      string
+	newStudentTrackChoice      string
+	newStudentEntryTotal       float64
+	newStudentError            string
+	studentProfile             store.StudentProfile
+	studentProfileOpen         bool
+	studentProfileLoading      bool
+	studentProfileReqID        int64
+	studentProfileError        string
+	studentProfileCache        map[int64]store.StudentProfile
+	studentProfileStack        []studentProfileNavEntry
+	studentSelectedExamIdx     int
+	studentChartMetric         int
+	studentChartSubjects       []string
+	studentChartHover          int
+	studentProfileExamTable    ui.ListState
+	studentEventModalOpen      bool
+	studentEventClasses        []store.SchoolClass
+	studentEventType           string
+	studentEventClassChoice    string
+	studentEventTrackChoice    string
+	studentEventElective       string
+	studentEventForeignLang    string
+	studentEventStatusChoice   string
+	studentEventNote           string
+	studentEventError          string
+	baselineEditOpen           bool
+	baselineEditScope          string
+	baselineEditClassChoice    string
+	baselineEditSubjectChoice  string
+	baselineEditAverage        float64
+	baselineEditRatio          float64
+	baselineEditError          string
 }
 
 func (a *app) notifyMain(message string) {
@@ -310,7 +434,27 @@ func (a *app) notifySettings(message string) {
 	a.invalidateSettings()
 }
 
+func (a *app) initProfileState() {
+	if a.studentProfileCache == nil {
+		a.studentProfileCache = map[int64]store.StudentProfile{}
+	}
+	if a.teacherProfileCache == nil {
+		a.teacherProfileCache = map[int64]store.TeacherProfile{}
+	}
+	if a.teacherCohortExpanded == nil {
+		a.teacherCohortExpanded = map[int64]bool{}
+	}
+	if !a.studentProfileOpen {
+		a.studentSelectedExamIdx = -1
+		a.studentChartHover = -1
+	}
+	if !a.teacherProfileOpen {
+		a.teacherChartHover = -1
+	}
+}
+
 func (a *app) load() {
+	a.initProfileState()
 	ctx := context.Background()
 	dir := a.dataDir
 	if dir == "" {
@@ -342,6 +486,7 @@ func (a *app) load() {
 	a.reloadCohorts(ctx)
 	a.reloadExams(ctx)
 	a.reloadAssessments(ctx)
+	a.reloadQuality(ctx)
 	a.reloadSchoolSettings(ctx)
 	if syncSet, err := opened.GetSyncSettings(ctx); err == nil {
 		a.syncSettings = syncSet
@@ -365,6 +510,7 @@ func (a *app) load() {
 	if a.page == "" {
 		a.page = pageOverview
 	}
+	a.lastPage = a.page
 }
 
 func (a *app) reloadPlans(ctx context.Context) {
@@ -457,7 +603,12 @@ func formatTime(value time.Time) string {
 }
 
 func main() {
-	a := &app{}
+	a := &app{
+		studentSelectedExamIdx: -1,
+		studentChartHover:      -1,
+		teacherChartHover:      -1,
+	}
+	a.initProfileState()
 	mygo.App.WhenReady(func() {
 		a.language = mygo.App.Locale()
 		a.load()

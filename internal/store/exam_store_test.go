@@ -474,3 +474,137 @@ func (f examFixture) assessmentOther(t *testing.T) (store.Assessment, int64, int
 	}
 	return assessment, cohort.ID, stage.ID
 }
+
+func TestStage3MonthlyOnDemandAssessmentAndRosterSync(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+
+	cohort, err := s.CreateCohort(ctx, 2026, 2026)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stage, err := s.GetCohortStage(ctx, cohort.ID, 2026)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.MergeStageRoster(ctx, cohort.ID, stage.ID, store.ImportData{
+		Students: []store.ImportStudent{
+			{StudentNo: "2026001", Name: "张三", ClassName: "1班", Track: "physics", Elective: "物化生", CandidateCode: "C001", Status: "active", SourceSheet: "学生名单", SourceRow: 2},
+			{StudentNo: "2026002", Name: "李四", ClassName: "1班", Track: "physics", Elective: "物化生", CandidateCode: "C002", Status: "active", SourceSheet: "学生名单", SourceRow: 3},
+		},
+	}, store.ImportReport{FileHash: "s3-roster-sync-1", Path: "students.xlsx"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// 新建月考（默认不创建考核记录，且只读查找应返回 false）。
+	monthly, err := s.CreateExam(ctx, store.CreateExamInput{
+		AcademicYearStart: 2026, Term: store.ExamTermFirst, ExamType: store.ExamMonthly,
+		Name: "10月月考", ExamDate: "2026-10-18", CohortIDs: []int64{cohort.ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if monthly.Status != "draft" {
+		t.Fatalf("monthly initial status = %q, want draft", monthly.Status)
+	}
+	ec, err := s.GetExamCohort(ctx, monthly.ID, cohort.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, err := s.FindAssessmentForExamCohort(ctx, ec.ID); err != nil || ok {
+		t.Fatalf("FindAssessmentForExamCohort = (%v, %v), want (false, nil)", ok, err)
+	}
+
+	// 导入带有班级与选科异动的参考名单，并导入纯记分成绩。
+	if _, err := s.ApplyExamImport(ctx, store.ExamImportRequest{
+		ExamID: monthly.ID, CohortID: cohort.ID, Kind: store.ExamImportRoster,
+		Data: store.ImportData{Roster: []store.ImportRoster{
+			{StudentNo: "2026001", Name: "张三", ClassName: "2班", Track: "history", Elective: "历政地", CandidateNo: "260101", SourceRow: 2},
+			{StudentNo: "2026002", Name: "李四", ClassName: "1班", Track: "physics", Elective: "物化生", CandidateNo: "260102", SourceRow: 3},
+		}},
+		Report: store.ImportReport{FileHash: "s3-monthly-roster", Path: "monthly_roster.xlsx"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ApplyExamImport(ctx, store.ExamImportRequest{
+		ExamID: monthly.ID, CohortID: cohort.ID, Kind: store.ExamImportScores,
+		Data: store.ImportData{Students: []store.ImportStudent{
+			{StudentNo: "2026001", Name: "张三", ClassName: "2班", Scores: map[string]float64{"chinese": 115, "math": 122}, SourceRow: 2},
+			{StudentNo: "2026002", Name: "李四", ClassName: "1班", Scores: map[string]float64{"chinese": 108, "math": 110}, SourceRow: 3},
+		}},
+		Report: store.ImportReport{FileHash: "s3-monthly-scores", Path: "monthly_scores.xlsx"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RecomputeExamRanks(ctx, monthly.ID, cohort.ID); err != nil {
+		t.Fatal(err)
+	}
+	gotMonthly, err := s.GetExam(ctx, monthly.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotMonthly.Status != "scored" {
+		t.Fatalf("monthly status after scores = %q, want scored", gotMonthly.Status)
+	}
+	if _, ok, err := s.FindAssessmentForExamCohort(ctx, ec.ID); err != nil || ok {
+		t.Fatalf("FindAssessmentForExamCohort after scores = (%v, %v), want false", ok, err)
+	}
+
+	// 验证成绩无需开启考核即已自动进入学生三年成长档案。
+	track, err := s.QueryStudentTracking(ctx, cohort.ID, 0, "2026001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(track.Points) != 1 || track.Points[0].ExamName != "10月月考" || track.Points[0].GradeRank != 1 {
+		t.Fatalf("unexpected student tracking points: %+v", track.Points)
+	}
+
+	// 验证名单异动检测与一键同步到学生主档 + 异动时间线。
+	drifts, err := s.ListExamRosterDrift(ctx, monthly.ID, cohort.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(drifts) != 1 || drifts[0].StudentNo != "2026001" || !drifts[0].ClassChanged || !drifts[0].TrackChanged {
+		t.Fatalf("unexpected drifts: %+v", drifts)
+	}
+	synced, err := s.SyncExamRosterToStudents(ctx, monthly.ID, cohort.ID)
+	if err != nil || synced != 1 {
+		t.Fatalf("SyncExamRosterToStudents = (%d, %v), want (1, nil)", synced, err)
+	}
+	driftsAfter, err := s.ListExamRosterDrift(ctx, monthly.ID, cohort.ID)
+	if err != nil || len(driftsAfter) != 0 {
+		t.Fatalf("expected 0 drifts after sync, got %d (%v)", len(driftsAfter), err)
+	}
+	prof, err := s.GetStudentProfile(ctx, track.StudentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if prof.Student.ClassName != "2班" || prof.Student.Track != "history" {
+		t.Fatalf("student master not updated: %+v", prof.Student)
+	}
+	var classEv, trackEv bool
+	for _, ev := range prof.Events {
+		if ev.EventType == "class_changed" {
+			classEv = true
+		}
+		if ev.EventType == "track_changed" {
+			trackEv = true
+		}
+	}
+	if !classEv || !trackEv {
+		t.Fatalf("expected class_changed and track_changed events, got %+v", prof.Events)
+	}
+
+	// 按需开启量化考核 + 归档状态。
+	enabledAssess, err := s.EnableAssessmentForExamCohort(ctx, ec.ID)
+	if err != nil || enabledAssess.ID <= 0 {
+		t.Fatalf("EnableAssessmentForExamCohort = (%+v, %v)", enabledAssess, err)
+	}
+	if err := s.ArchiveExam(ctx, monthly.ID); err != nil {
+		t.Fatal(err)
+	}
+	archivedExam, err := s.GetExam(ctx, monthly.ID)
+	if err != nil || archivedExam.Status != "archived" {
+		t.Fatalf("archived status = %q, err=%v", archivedExam.Status, err)
+	}
+}

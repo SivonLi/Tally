@@ -1,6 +1,6 @@
 # 后续功能与数据层设计
 
-本文档记录数据层目标模型和后续能力。阶段一至四的系统结构、真实表结构、界面状态与限制见 `docs/system-design.md`，两者冲突时以当前实现文档为准。阶段划分以 `docs/product-redesign.md` 第 9 节为准，本文档下面的旧阶段名称只保留为早期方案记录。阶段五已完成本次考核工作台、方案配置页、核算与导出、试算、重新计算标记、结果行级详情与公式选项表单；阶段六、WebDAV 同步、结果归档和自动触发核算尚未实现。
+本文档记录数据层目标模型和后续能力。当前已实现的系统结构、Schema v1 真实表结构、界面状态与限制见 `docs/system-design.md`，两者冲突时以当前实现文档为准。阶段划分以 `docs/product-redesign.md` 第 9 节与 v2 重构进度为准，本文档下面的旧阶段名称与早期目标表只保留为历史设计记录。目前产品 1～6 期基础功能（含本次考核工作台、方案配置页、多维分析与保存视图、WebDAV 加密同步）以及 Tally v2 阶段 1（Schema v1 存储引擎）、阶段 2（全校统一导航、年级档案 6 页签、升学与毕业封存向导、师生三年完整档案、走班教学班编排）与「结果归档」历史数据导入模式均已实现；后续待落地项为考核级分档边界按科微调入口、自动触发核算，以及远期的智能分班与智能分考场模块。
 
 ## 阶段划分
 
@@ -214,8 +214,8 @@ excelize 只支持 `.xlsx`。`.xls` 文件在导入时通过 LibreOffice 无界�
 
 | 配置项 | 默认 | 说明 |
 |---|---|---|
-| `ranking.tieMode` | `competition` | 同分同名次，下一名跳过；待学校确认 |
-| `ranking.boundary.mode` | `ratio` | 一档止 `floor(n/3)`，二档止 `round(2n/3)`，例外用 `overrides`；待学校确认 |
+| `ranking.tieMode` | `competition` | 同分同名次，下一名跳过（如 1、1、3）；已确认 |
+| `ranking.boundary.mode` | `ratio` | 默认按 `floor(n/3)` / `round(2n/3)` 提供参考，支持 `manual` / 考核级按科人工微调；已确认 |
 | `indicators.pass.merge.numerator` | `sum_members` | 合并组达线人数为成员教学班之和 |
 | `indicators.pass.merge.denominator` | `group_target` | 合并组分母为统计组目标，成员目标之和可以与它不同 |
 | `indicators.pass.merge.resultRow` | `lead_class` | 结果写在承担统计职责的班级行 |
@@ -268,134 +268,9 @@ excelize 只支持 `.xlsx`。`.xls` 文件在导入时通过 LibreOffice 无界�
 
 原始文件按内容哈希保存，同一个文件重复导入只占一份空间，并且可以随时追溯某次计算用的是哪个文件。
 
-### 主要数据表
+### 数据表与一致性
 
-当前真实表结构以 `docs/system-design.md` 为准。数据库版本 6 已经建立 `cohorts`、`cohort_stages`、`subjects`、`tracks`、`grade_levels`、`classes`、`class_stage_info`、`student_cohorts`、`student_stage_memberships`、`student_teaching_groups`、`teachers`、`teaching_groups`、`assignments`、`baseline_sets`、`baseline_subjects`、`baseline_scores`、`baseline_aggregates`、`import_runs`、`import_sheets`、`import_columns`、`import_issues`、`import_changes`、`data_revisions`、`audit_log`、`app_settings`、`exams`、`exam_cohorts`、`exam_subjects`、`exam_rosters`、`exam_scores`、`exam_subject_cutoffs`、`exam_tier_cutoffs`、`assessments`、`assessment_class_targets`、`assessment_stat_groups`、`assessment_stat_group_members`、`assessment_stat_group_targets` 和 `assessment_target_adjustments`。下面这些表尚未建立：`sync_state`、`saved_views`。
-
-| 表 | 内容 |
-|---|---|
-| `schema_migrations` | 数据库版本与迁移记录 |
-| `app_settings` | 应用设置：当前学年起点、学科与选科类别 |
-| `terms` | 学年学期 |
-| `cohorts` | 入学年级，例如 2024 级 |
-| `grades` | 年级：高一、高二、高三 |
-| `cohort_stages` | 级在每个学年的阶段与核对状态 |
-| `class_stage_info` | 行政班在某个阶段的信息 |
-| `student_cohorts` | 学生的级与届归属 |
-| `student_stage_memberships` | 学生在某个阶段的行政班归属 |
-| `tracks` | 选科类别 |
-| `grade_levels` | 阶段名称与排序 |
-| `batches` | 考核批次：学年学期、考试、年级、状态、修订号 |
-| `imports` | 每次导入：文件哈希、原文件路径、转换文件路径、格式、行数、转换校验结果 |
-| `import_sheets` | 工作簿内每个被识别的工作表：名称、角色、表头行、数据范围、版本标记 |
-| `import_columns` | 每个工作表的列映射：原始列名、标准字段、用户改选记录 |
-| `import_runs` | 导入记录：范围、数据类型、文件哈希、路径、状态与问题数量 |
-| `import_issues` | 导入问题：严重程度、行号、列名、代码与消息 |
-| `import_changes` | 导入变更：新增、更新和跳过的数据项 |
-| `data_revisions` | 级、阶段、考试与本次考核的数据修订号 |
-| `students` | 学生基本信息 |
-| `teachers` | 教师基本信息 |
-| `classes` | 行政班 |
-| `subjects` | 学科代码、名称与满分 |
-| `teaching_groups` | 教学班：学期、学科、名称 |
-| `stat_groups` | 统计组：批次、学科、名称、承担统计职责的班级 |
-| `stat_group_members` | 统计组包含的教学班 |
-| `exams` | 考试：学年、学期、类型、名称与日期 |
-| `exam_cohorts` | 参加考试的级与考试当时的阶段 |
-| `exam_subjects` | 考试科目与满分 |
-| `exam_rosters` | 报名名单 |
-| `exam_scores` | 考试成绩 |
-| `exam_subject_cutoffs` | 单科本科线 |
-| `exam_tier_cutoffs` | 档位总分线 |
-| `assessments` | 本次考核：考试、级、方案版本与状态 |
-| `assessment_class_targets` | 班级档位目标 |
-| `assessment_stat_groups` | 合并组 |
-| `assessment_stat_group_members` | 合并组成员教学班 |
-| `assessment_stat_group_targets` | 合并组目标 |
-| `assessment_target_adjustments` | 零目标补齐与不参与记录 |
-| `student_classes` | 学生在某学期的行政班归属 |
-| `student_teaching_groups` | 学生在某学期加入的教学班 |
-| `student_status` | 学生状态：在籍、转学、休学、借读 |
-| `assignments` | 教师与教学班的任课关系 |
-| `baseline_sets` | 同一级的入口成绩数据集 |
-| `baseline_subjects` | 入口考试的科目与满分 |
-| `baseline_scores` | 学生入口成绩 |
-| `baseline_aggregates` | 班级与阶段入口成绩汇总 |
-| `scores` | 旧批次成绩：批次、学生、科目、分数、标记 |
-| `cutoffs` | 分数线 |
-| `baselines` | 单科基数，按统计组保存，带版本 |
-| `targets` | 目标：班级完成率目标按行政班保存，单科目标任务按统计组保存 |
-| `plans` | 考核方案：名称、类型、来源版本、说明 |
-| `plan_versions` | 方案的每个版本：状态、配置、来源版本、哈希、发布信息 |
-| `result_runs` | 每次计算：输入哈希、方案版本、时间、是否正式版本、本次考核关联 |
-| `result_rows` | 每个教师、每个统计组、每个学科的指标、得分和计算明细，属于某次计算 |
-| `exports` | 导出记录：文件路径、哈希、时间、对应的计算版本 |
-| `target_adjustments` | 旧批次的零目标补录和本班不参与的选择 |
-| `sync_state` | WebDAV 同步状态：远端修订号、上次同步时间、设备 |
-| `saved_views` | 保存的筛选、列与排序配置 |
-| `audit_log` | 导入、修改、计算、导出、删除的操作记录 |
-
-`schema_migrations` 由迁移工具维护，字段不在下面的核心表清单中。
-
-### 核心表字段
-
-下表列出完整目标模型的字段，其中部分字段尚未实现。当前已经建立的字段、约束和索引见 `docs/system-design.md`。字段类型由迁移脚本固定；时间字段统一存 UTC，界面按本地时区显示。JSON 字段保存前先校验结构，不把界面文字作为字段名。
-
-| 表 | 主键 | 关键字段 | 约束与索引 |
-|---|---|---|---|
-| `terms` | `id` | `academic_year`、`semester`、`start_date`、`end_date` | 唯一索引 `(academic_year, semester)` |
-| `cohorts` | `id` | `entry_year` | 唯一索引 `(entry_year)` |
-| `grades` | `id` | `name` | 唯一索引 `(name)` |
-| `batches` | `id` | `term_id`、`exam_type`、`grade_id`、`cohort_id`、`status`、`current_plan_version_id`、`revision` | 唯一索引 `(term_id, exam_type, grade_id)` |
-| `imports` | `id` | `batch_id`、`file_hash`、`relative_path`、`converted_path`、`file_format`、`conversion_tool`、`conversion_report_json`、`row_count`、`status` | 唯一索引 `(batch_id, file_hash)` |
-| `import_sheets` | `id` | `import_id`、`sheet_name`、`role`、`header_row`、`data_range`、`version_tag`、`is_current` | 唯一索引 `(import_id, sheet_name)`；索引 `(import_id, role, is_current)` |
-| `import_columns` | `id` | `import_sheet_id`、`source_column`、`standard_field`、`merged_header`、`is_user_selected` | 唯一索引 `(import_sheet_id, source_column)` |
-| `students` | `id` | `student_no`、`name`、`cohort_id` | 唯一索引 `(student_no)` |
-| `teachers` | `id` | `teacher_no`、`name` | 唯一索引 `(teacher_no)`，`teacher_no` 可以为空 |
-| `classes` | `id` | `term_id`、`grade_id`、`name` | 唯一索引 `(term_id, grade_id, name)` |
-| `teaching_groups` | `id` | `term_id`、`subject_id`、`name` | 唯一索引 `(term_id, subject_id, name)` |
-| `stat_groups` | `id` | `batch_id`、`subject_id`、`name`、`lead_class_id`、`version` | 唯一索引 `(batch_id, subject_id, name, version)`；索引 `(batch_id, lead_class_id)` |
-| `stat_group_members` | `id` | `stat_group_id`、`teaching_group_id` | 唯一索引 `(stat_group_id, teaching_group_id)`；索引 `(teaching_group_id)` |
-| `student_classes` | `id` | `student_id`、`class_id`、`term_id` | 唯一索引 `(student_id, term_id)` |
-| `student_teaching_groups` | `id` | `student_id`、`teaching_group_id`、`subject_id`、`term_id` | 唯一索引 `(student_id, term_id, subject_id)`；索引 `(teaching_group_id)` |
-| `student_status` | `id` | `student_id`、`term_id`、`status`、`note` | 唯一索引 `(student_id, term_id)` |
-| `assignments` | `id` | `teacher_id`、`teaching_group_id`、`term_id` | 唯一索引 `(teacher_id, teaching_group_id, term_id)` |
-| `exams` | `id` | `batch_id`、`name`、`exam_date` | 唯一索引 `(batch_id, name)` |
-| `subjects` | `id` | `code`、`name`、`full_score` | 唯一索引 `(code)` 与 `(name)` |
-| `scores` | `id` | `exam_id`、`student_id`、`subject_id`、`score`、`flag` | 唯一索引 `(exam_id, student_id, subject_id)` |
-| `cutoffs` | `id` | `exam_id`、`name`、`line_type`、`subject_id`、`score` | 唯一索引 `(exam_id, name, subject_id)`，`subject_id` 可以为空 |
-| `baselines` | `id` | `batch_id`、`stat_group_id`、`source_exam`、`average`、`count`、`version` | 唯一索引 `(batch_id, stat_group_id, version)` |
-| `targets` | `id` | `batch_id`、`class_id`、`stat_group_id`、`subject_id`、`target_count`、`version` | 唯一索引 `(batch_id, class_id, subject_id, version)` 与 `(batch_id, stat_group_id, version)`；`class_id` 与 `stat_group_id` 恰有一个为空；`subject_id` 只在 `class_id` 非空时使用 |
-| `plans` | `id` | `name`、`kind`、`base_plan_version_id`、`description`、`created_at` | 唯一索引 `(name)`；部分唯一索引 `(kind) WHERE kind = 'system'` |
-| `plan_versions` | `id` | `plan_id`、`version`、`schema_version`、`config_json`、`config_hash`、`status`、`parent_version_id`、`notes`、`created_at`、`created_by`、`published_at`、`published_by` | 唯一索引 `(plan_id, version)`；索引 `(plan_id, status)` |
-| `result_runs` | `id` | `batch_id`、`plan_version_id`、`input_hash`、`is_official`、`created_at` | 部分唯一索引 `(batch_id) WHERE is_official = 1`；查询索引 `(batch_id, is_official)` |
-| `result_rows` | `id` | `run_id`、`teacher_id`、`stat_group_id`、`subject_id`、`indicator_values_json`、`score`、`rank`、`tier`、`points` | 唯一索引 `(run_id, teacher_id, stat_group_id, subject_id)` |
-| `exports` | `id` | `run_id`、`path`、`file_hash`、`created_at` | 索引 `(run_id)` |
-| `target_adjustments` | `id` | `batch_id`、`class_id`、`tier_key`、`old_value`、`new_value`、`reason`、`created_by`、`created_at` | 索引 `(batch_id, class_id)` |
-| `sync_state` | `id` | `device_id`、`remote_revision`、`base_revision`、`last_sync_at`、`package_hash` | 唯一索引 `(device_id)` |
-| `audit_log` | `id` | `action`、`entity`、`entity_id`、`detail_json`、`created_at` | 索引 `(created_at)` |
-
-当前批次状态为 `draft`、`imported`、`calculated`。完整目标模型增加已导出和已归档；学生状态为在籍、转学、休学、借读；成绩标记为正常、缺考、违纪、作弊、无效；方案版本为草稿、已发布、已停用。
-
-`cutoffs.subject_id` 为空表示总分线。`targets.subject_id` 为空表示班级总分目标，非空表示学科目标；按统计组保存的目标从统计组取得学科，不再重复记录 `subject_id`。统计组目标和成员教学班目标是两组数据，统计组目标可以大于、等于或者小于成员目标之和，计算时以统计组目标为准。SQLite 的唯一索引把 NULL 当作不同值，空值使用部分唯一索引。
-
-统计组是单科达线率的计算单位。没有走班合并时，每个教学班建立一个同名统计组；有走班合并时，一个统计组包含多个教学班，学生仍按 `student_teaching_groups` 归属教学班。合并组的达线人数由成员教学班相加，分母取统计组目标。排名、档次和赋分按统计组计算一次，写入该统计组的每个教师行时保持一致；教师个人得分明细引用同一组值，不按成员班级重复计算。导出时结果放在 `stat_groups.lead_class_id` 指向的班级行，其他成员班级只保留任课教师。
-
-目标模型把结果行按教师分开保存；当前实现按统计组保存一条结果，任课教师以姓名列表保存在同一行，个人得分单独写入 `personal_scores`。两种结构表达同一次核算，当前结构更贴近导出表。
-
-### 事务与索引
-
-当前实现中，一个文件的导入主体是一个事务，事务提交后重建默认统计组和写入工作表记录。一次核算分为两次事务：运行记录与旧记录状态一次，结果行、个人得分与批次状态一次。完整目标模型要求导入、核算和导出记录各自在单一事务内完成。
-
-成绩表按批次、学生和学科建立唯一索引，重复导入同一条成绩时覆盖原记录。当前查询主要按批次读取全部数据，排名在内存中完成；目标模型再增加按考试、科目和统计组建立的查询索引。
-
-### 数据一致性
-
-当前批次状态是 `draft`、`imported`、`calculated`。目标模型增加已导出和已归档，状态只能向前推进，回退需要显式操作并记入审计日志。
-
-方案版本有草稿、已发布、已停用三种状态。发布后的版本只读，编辑已发布版本时生成新的草稿版本；已经引用旧版本的结果继续保留。
-
-删除批次进入回收站，保留三十天，期间可以恢复。真正删除需要二次确认，并且要求先导出备份。
+真实数据表、索引、事务与一致性规则已统一重构为 **Schema v1（`SchemaVersion = 1`）**，不再维护旧版 `batches`、`terms`、`cohort_stages` 等早期规划表；完整 ER 图、表结构与一致性约束以 `docs/system-design.md` 及 `internal/store/schema.go` 为准。
 
 ### 计算快照
 
@@ -518,7 +393,7 @@ excelize 只支持 `.xlsx`。`.xls` 文件在导入时通过 LibreOffice 无界�
 
 ### 数据库升级
 
-数据库带版本号。应用启动时检查版本，低于当前版本时先备份数据库与原始文件，再按顺序执行迁移。迁移失败时恢复迁移前备份。当前版本为 7：版本 4 迁移组织数据，版本 6 迁移考试、报名名单、成绩、分数线、班级目标、合并组、合并组目标与结果关联，版本 7 迁移核算运行的逐项输入摘要、结果行封顶前数值与参与学生名单。
+数据库带版本号。当前实现已切为洁净 **Schema v1（`SchemaVersion = 1`）**，首次启动遇到旧版不兼容数据库直接返回 `ErrIncompatibleDatabase` 提示新建干净库，不再保留历史版本的旧库迁移脚本；后续从 v1 起的版本演进沿用「先自动备份、再按顺序向前迁移、失败回滚备份」机制。
 
 迁移脚本随应用发布，只做向前迁移。降级安装旧版本时，应用检测到数据库版本高于自身支持的版本，拒绝打开并提示，避免写坏数据。
 

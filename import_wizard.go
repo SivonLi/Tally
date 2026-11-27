@@ -45,6 +45,8 @@ type importWizardState struct {
 	Busy              bool
 	Reading           bool
 	Summary           *store.ImportSummary
+	ArchiveInspect    *importer.ArchiveInspectResult
+	ArchiveSummary    *store.ArchivedImportSummary
 	RosterSkipped     int
 }
 
@@ -145,21 +147,53 @@ func (a *app) wizardContinueKind(kind string) {
 	wizard.Mapping = importer.AutoMappingFor(kind, table, a.subjects, a.wizardTierKeys())
 }
 
+var errArchiveMissingStage = errors.New("archive missing stage")
+
+func inspectAndValidateArchive(ctx context.Context, st *store.Store, opts importer.Options, subjects []store.Subject, examID, examCohortID int64, path string) (*importer.ArchiveInspectResult, store.ImportPreview, error) {
+	inspectRes, err := importer.InspectArchiveWorkbook(path, opts, subjects)
+	if err != nil {
+		return nil, store.ImportPreview{}, err
+	}
+	if st == nil || examID == 0 || examCohortID == 0 {
+		return inspectRes, store.ImportPreview{}, errArchiveMissingStage
+	}
+	preview, valErr := st.ValidateArchivedResultImportForExamCohort(ctx, examID, examCohortID, store.ArchivedResultImportRequest{
+		Data:   inspectRes.Data,
+		Report: inspectRes.Report,
+		Issues: inspectRes.Issues,
+	})
+	if valErr != nil {
+		return inspectRes, store.ImportPreview{}, valErr
+	}
+	return inspectRes, preview, nil
+}
+
 func (a *app) wizardChooseFile() {
 	wizard := a.importWizard
 	if wizard == nil || wizard.Reading {
 		return
 	}
+	win := a.win
+	st := a.store
+	kind := wizard.Kind
+	examID := wizard.ExamID
+	examCohortID := wizard.ExamCohortID
+	subjects := append([]store.Subject(nil), a.subjects...)
+	opts := importer.Options{
+		ConversionDir: filepath.Join(a.dataDir, "converted"),
+		SofficePath:   a.sofficePath,
+	}
+	dialogTitle := locales.ImportWizardChooseFile()
 	go func() {
 		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
-			Title:   locales.ImportWizardChooseFile(),
+			Title:   dialogTitle,
 			Filters: []mygo.FileFilter{{Name: "Excel", Extensions: []string{"xlsx", "xls"}}},
 		})
-		if err != nil || len(paths) == 0 || a.win == nil {
+		if err != nil || len(paths) == 0 || win == nil {
 			return
 		}
 		path := paths[0]
-		a.win.Update(func() {
+		win.Update(func() {
 			if a.importWizard != wizard {
 				return
 			}
@@ -168,11 +202,19 @@ func (a *app) wizardChooseFile() {
 			wizard.FilePath = path
 			wizard.FileName = filepath.Base(path)
 		})
-		workbook, inspectErr := importer.InspectWorkbook(path, importer.Options{
-			ConversionDir: filepath.Join(a.dataDir, "converted"),
-			SofficePath:   a.sofficePath,
-		})
-		a.win.Update(func() {
+		if kind == importer.KindArchivedResults {
+			inspectRes, preview, inspectErr := inspectAndValidateArchive(context.Background(), st, opts, subjects, examID, examCohortID, path)
+			win.Update(func() {
+				if a.importWizard != wizard {
+					return
+				}
+				wizard.Reading = false
+				a.applyWizardArchiveInspectResult(wizard, path, inspectRes, preview, inspectErr)
+			})
+			return
+		}
+		workbook, inspectErr := importer.InspectWorkbook(path, opts)
+		win.Update(func() {
 			if a.importWizard != wizard {
 				return
 			}
@@ -183,15 +225,87 @@ func (a *app) wizardChooseFile() {
 }
 
 func (a *app) loadWizardFile(wizard *importWizardState, path string) {
+	if wizard == nil || wizard.Reading {
+		return
+	}
+	win := a.win
+	st := a.store
+	kind := wizard.Kind
+	examID := wizard.ExamID
+	examCohortID := wizard.ExamCohortID
+	subjects := append([]store.Subject(nil), a.subjects...)
+	opts := importer.Options{
+		ConversionDir: filepath.Join(a.dataDir, "converted"),
+		SofficePath:   a.sofficePath,
+	}
+	if win == nil {
+		wizard.Error = ""
+		if kind == importer.KindArchivedResults {
+			inspectRes, preview, err := inspectAndValidateArchive(context.Background(), st, opts, subjects, examID, examCohortID, path)
+			a.applyWizardArchiveInspectResult(wizard, path, inspectRes, preview, err)
+			return
+		}
+		workbook, err := importer.InspectWorkbook(path, opts)
+		a.applyWizardWorkbook(wizard, path, workbook, err)
+		return
+	}
+	wizard.Reading = true
+	wizard.Error = ""
+	wizard.FilePath = path
+	wizard.FileName = filepath.Base(path)
+	go func() {
+		if kind == importer.KindArchivedResults {
+			inspectRes, preview, inspectErr := inspectAndValidateArchive(context.Background(), st, opts, subjects, examID, examCohortID, path)
+			win.Update(func() {
+				if a.importWizard != wizard {
+					return
+				}
+				wizard.Reading = false
+				a.applyWizardArchiveInspectResult(wizard, path, inspectRes, preview, inspectErr)
+			})
+			return
+		}
+		workbook, inspectErr := importer.InspectWorkbook(path, opts)
+		win.Update(func() {
+			if a.importWizard != wizard {
+				return
+			}
+			wizard.Reading = false
+			a.applyWizardWorkbook(wizard, path, workbook, inspectErr)
+		})
+	}()
+}
+
+func (a *app) applyWizardArchiveInspectResult(wizard *importWizardState, path string, inspectRes *importer.ArchiveInspectResult, preview store.ImportPreview, err error) {
 	if wizard == nil {
 		return
 	}
+	if err != nil && !errors.Is(err, errArchiveMissingStage) {
+		wizard.Error = localizeErrorMessage(err.Error())
+		return
+	}
+	wizard.Workbook = nil
+	wizard.Sheet = ""
+	wizard.Mapping = nil
+	wizard.Data = store.ImportData{}
+	wizard.Summary = nil
+	wizard.ArchiveSummary = nil
+	wizard.ConfirmedWarnings = false
+	wizard.FilePath = path
+	wizard.FileName = filepath.Base(path)
+	wizard.ArchiveInspect = inspectRes
+	if inspectRes != nil {
+		wizard.Report = inspectRes.Report
+		wizard.Issues = inspectRes.Issues
+	}
+	if errors.Is(err, errArchiveMissingStage) {
+		wizard.Error = locales.ImportNoStage()
+		return
+	}
 	wizard.Error = ""
-	workbook, err := importer.InspectWorkbook(path, importer.Options{
-		ConversionDir: filepath.Join(a.dataDir, "converted"),
-		SofficePath:   a.sofficePath,
-	})
-	a.applyWizardWorkbook(wizard, path, workbook, err)
+	wizard.Preview = preview
+	wizard.Issues = preview.Issues
+	wizard.Step = wizardStepValidate
 }
 
 func (a *app) applyWizardWorkbook(wizard *importWizardState, path string, workbook *importer.Workbook, err error) {
@@ -396,20 +510,25 @@ func (a *app) wizardExportIssues(wizard *importWizardState) {
 	if len(wizard.Issues) == 0 {
 		return
 	}
+	win := a.win
+	title := locales.ImportWizardExportIssues()
 	go func() {
 		path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{
-			Title:       locales.ImportWizardExportIssues(),
+			Title:       title,
 			DefaultPath: "tally-import-issues.xlsx",
 			Filters:     []mygo.FileFilter{{Name: "Excel", Extensions: []string{"xlsx"}}},
 		})
 		if err != nil || path == "" {
 			return
 		}
-		if a.win == nil {
+		if win == nil {
 			a.writeWizardIssues(wizard, path)
 			return
 		}
-		a.win.Update(func() {
+		win.Update(func() {
+			if a.importWizard != wizard {
+				return
+			}
 			a.writeWizardIssues(wizard, path)
 		})
 	}()
@@ -449,31 +568,53 @@ func (a *app) wizardApply() {
 		return
 	}
 	wizard.Busy = true
-	work := func() (store.ImportSummary, error) {
-		stored, err := a.store.StoreImportFile(wizard.FilePath, wizard.Report.FileHash)
-		if err != nil {
-			return store.ImportSummary{}, err
-		}
-		wizard.Report.StoredPath = stored
-		if wizard.ExamID != 0 {
-			return a.store.ApplyExamImport(context.Background(), store.ExamImportRequest{
-				ExamID: wizard.ExamID, CohortID: wizard.ExamCohortID, Kind: examImportKind(wizard.Kind),
-				Data: wizard.Data, Report: wizard.Report, Mapping: wizard.Mapping, Issues: wizard.Issues,
-			})
-		}
-		cohort := a.selectedCohort()
-		stage := a.selectedStage()
-		if cohort == nil || stage == nil {
-			return store.ImportSummary{}, errors.New(locales.ImportNoStage())
-		}
-		return a.store.ApplyStageImport(context.Background(), cohort.ID, stage.ID,
-			store.StageImportRequest{
-				Kind: wizard.Kind, Data: wizard.Data, Report: wizard.Report,
-				Mapping: wizard.Mapping, Issues: wizard.Issues,
-			})
+	if wizard.Kind == importer.KindArchivedResults {
+		a.wizardApplyArchive(wizard)
+		return
 	}
-	finish := func(summary store.ImportSummary, err error) {
+	win := a.win
+	st := a.store
+	filePath := wizard.FilePath
+	report := wizard.Report
+	examID := wizard.ExamID
+	examCohortID := wizard.ExamCohortID
+	kind := wizard.Kind
+	data := wizard.Data
+	mapping := wizard.Mapping
+	issues := wizard.Issues
+	cohort := a.selectedCohort()
+	stage := a.selectedStage()
+	noStageMsg := locales.ImportNoStage()
+
+	work := func() (store.ImportSummary, string, error) {
+		stored, err := st.StoreImportFile(filePath, report.FileHash)
+		if err != nil {
+			return store.ImportSummary{}, "", err
+		}
+		reqReport := report
+		reqReport.StoredPath = stored
+		if examID != 0 {
+			sum, applyErr := st.ApplyExamImport(context.Background(), store.ExamImportRequest{
+				ExamID: examID, CohortID: examCohortID, Kind: examImportKind(kind),
+				Data: data, Report: reqReport, Mapping: mapping, Issues: issues,
+			})
+			return sum, stored, applyErr
+		}
+		if cohort == nil || stage == nil {
+			return store.ImportSummary{}, stored, errors.New(noStageMsg)
+		}
+		sum, applyErr := st.ApplyStageImport(context.Background(), cohort.ID, stage.ID,
+			store.StageImportRequest{
+				Kind: kind, Data: data, Report: reqReport,
+				Mapping: mapping, Issues: issues,
+			})
+		return sum, stored, applyErr
+	}
+	finish := func(summary store.ImportSummary, stored string, err error) {
 		wizard.Busy = false
+		if stored != "" {
+			wizard.Report.StoredPath = stored
+		}
 		if errors.Is(err, store.ErrDuplicateImport) {
 			wizard.Error = locales.ImportWizardAlreadyImported()
 			return
@@ -487,7 +628,7 @@ func (a *app) wizardApply() {
 		wizard.Step = wizardStepResult
 		ctx := context.Background()
 		a.reloadCohorts(ctx)
-		if wizard.ExamID != 0 {
+		if examID != 0 {
 			a.reloadExamData(ctx)
 		} else {
 			a.reloadDataPages(ctx)
@@ -496,14 +637,90 @@ func (a *app) wizardApply() {
 		a.reloadAssessments(ctx)
 		a.reloadWorkspaceSummary(ctx)
 	}
-	if a.win == nil {
+	if win == nil {
+		summary, stored, err := work()
+		finish(summary, stored, err)
+		return
+	}
+	go func() {
+		summary, stored, err := work()
+		win.Update(func() {
+			if a.importWizard != wizard {
+				return
+			}
+			finish(summary, stored, err)
+		})
+	}()
+}
+
+func (a *app) wizardApplyArchive(wizard *importWizardState) {
+	win := a.win
+	st := a.store
+	inspect := wizard.ArchiveInspect
+	filePath := wizard.FilePath
+	examID := wizard.ExamID
+	examCohortID := wizard.ExamCohortID
+	noStageMsg := locales.ImportNoStage()
+
+	work := func() (store.ArchivedImportSummary, error) {
+		if inspect == nil || st == nil {
+			return store.ArchivedImportSummary{}, errors.New(noStageMsg)
+		}
+		report := inspect.Report
+		stored, err := st.StoreImportFile(filePath, report.FileHash)
+		if err != nil {
+			return store.ArchivedImportSummary{}, err
+		}
+		report.StoredPath = stored
+		ctx := context.Background()
+		ec, err := st.GetExamCohort(ctx, examID, examCohortID)
+		if err != nil {
+			return store.ArchivedImportSummary{}, err
+		}
+		assess, err := st.AssessmentForExamCohort(ctx, ec.ID)
+		if err != nil {
+			return store.ArchivedImportSummary{}, err
+		}
+		return st.ApplyArchivedResultImport(ctx, store.ArchivedResultImportRequest{
+			AssessmentID: assess.ID,
+			Data:         inspect.Data,
+			Report:       report,
+			Issues:       inspect.Issues,
+		})
+	}
+	finish := func(summary store.ArchivedImportSummary, err error) {
+		wizard.Busy = false
+		if errors.Is(err, store.ErrDuplicateImport) {
+			wizard.Error = locales.ImportWizardAlreadyImported()
+			return
+		}
+		if err != nil {
+			wizard.Error = localizeErrorMessage(err.Error())
+			return
+		}
+		wizard.ArchiveSummary = &summary
+		wizard.Error = ""
+		wizard.Step = wizardStepResult
+		ctx := context.Background()
+		a.reloadCohorts(ctx)
+		if examID != 0 {
+			a.reloadExamData(ctx)
+		}
+		a.reloadExams(ctx)
+		a.reloadAssessments(ctx)
+		a.reloadWorkspaceSummary(ctx)
+	}
+	if win == nil {
 		summary, err := work()
 		finish(summary, err)
 		return
 	}
 	go func() {
 		summary, err := work()
-		a.win.Update(func() {
+		win.Update(func() {
+			if a.importWizard != wizard {
+				return
+			}
 			finish(summary, err)
 		})
 	}()
@@ -514,20 +731,26 @@ func (a *app) wizardDownloadTemplate() {
 	if wizard == nil {
 		return
 	}
+	win := a.win
+	title := locales.ImportWizardDownloadTemplate()
+	defaultPath := "tally-" + wizard.Kind + ".xlsx"
 	go func() {
 		path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{
-			Title:       locales.ImportWizardDownloadTemplate(),
-			DefaultPath: "tally-" + wizard.Kind + ".xlsx",
+			Title:       title,
+			DefaultPath: defaultPath,
 			Filters:     []mygo.FileFilter{{Name: "Excel", Extensions: []string{"xlsx"}}},
 		})
 		if err != nil || path == "" {
 			return
 		}
-		if a.win == nil {
+		if win == nil {
 			a.writeWizardTemplate(wizard, path)
 			return
 		}
-		a.win.Update(func() {
+		win.Update(func() {
+			if a.importWizard != wizard {
+				return
+			}
 			a.writeWizardTemplate(wizard, path)
 		})
 	}()
@@ -602,6 +825,21 @@ func (a *app) importWizardPage(c *ui.Context, p uiPalette) {
 }
 
 func (a *app) wizardSteps(c *ui.Context, p uiPalette, step int) {
+	if a.importWizard != nil && a.importWizard.Kind == importer.KindArchivedResults {
+		labels := []string{
+			locales.ImportStepItem(), locales.ImportStepFile(),
+			locales.ImportStepValidate(), locales.ImportStepResult(),
+		}
+		mapped := step
+		switch step {
+		case wizardStepValidate:
+			mapped = 2
+		case wizardStepResult:
+			mapped = 3
+		}
+		stepsBar(c, p, labels, mapped)
+		return
+	}
 	labels := []string{
 		locales.ImportStepItem(), locales.ImportStepFile(), locales.ImportStepSheet(),
 		locales.ImportStepMapping(), locales.ImportStepValidate(), locales.ImportStepResult(),
@@ -617,7 +855,7 @@ func (a *app) wizardItemStep(c *ui.Context, p uiPalette) {
 	}
 	if a.wizardExam() {
 		kinds = []string{importer.KindRoster, importer.KindScores,
-			importer.KindCutoffs, importer.KindTargets}
+			importer.KindCutoffs, importer.KindTargets, importer.KindArchivedResults}
 	}
 	ui.Scroll(c).Fill().Children(func() {
 		ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
@@ -663,8 +901,10 @@ func (a *app) wizardFileStep(c *ui.Context, p uiPalette, wizard *importWizardSta
 	panel(c, p).FillWidth().Padding(t.Space(4)).Gap(t.Space(3)).Children(func() {
 		ui.Text(c, importKindPurpose(wizard.Kind)).FontSize(bodySize(t)).
 			TextColor(p.inkSecondary).Pretty()
-		ui.Text(c, a.importKindColumns(wizard.Kind)).FontSize(captionSize(t)).
-			TextColor(p.muted).Pretty()
+		if cols := a.importKindColumns(wizard.Kind); cols != "" {
+			ui.Text(c, cols).FontSize(captionSize(t)).
+				TextColor(p.muted).Pretty()
+		}
 		clicked, dropped := fileDropZone(c, p, fileDropZoneProps{
 			Key:         "wizard-file-drop",
 			Title:       locales.ImportCenterDropTitle(),
@@ -683,8 +923,10 @@ func (a *app) wizardFileStep(c *ui.Context, p uiPalette, wizard *importWizardSta
 			if choose.Clicked() {
 				a.wizardChooseFile()
 			}
-			if plainButton(c, locales.ImportWizardDownloadTemplate()).Clicked() {
-				a.wizardDownloadTemplate()
+			if wizard.Kind != importer.KindArchivedResults {
+				if plainButton(c, locales.ImportWizardDownloadTemplate()).Clicked() {
+					a.wizardDownloadTemplate()
+				}
 			}
 		})
 		if wizard.FileName != "" {
@@ -802,6 +1044,9 @@ func (a *app) wizardMappingStep(c *ui.Context, p uiPalette, wizard *importWizard
 func (a *app) wizardValidateStep(c *ui.Context, p uiPalette, wizard *importWizardState) {
 	t := p.theme
 	panel(c, p).FillWidth().Grow(1).Shrink(1).MinHeight(0).Padding(t.Space(4)).Gap(t.Space(3)).Children(func() {
+		if wizard.Kind == importer.KindArchivedResults && wizard.ArchiveInspect != nil {
+			a.archivePreviewPanel(c, p, wizard.ArchiveInspect)
+		}
 		ui.Row(c).Gap(t.Space(2)).Wrap().Children(func() {
 			badge(c, p, fmt.Sprintf(locales.ImportWizardNew(), formatInt(wizard.Preview.New)), toneAccent)
 			badge(c, p, fmt.Sprintf(locales.ImportWizardUpdate(), formatInt(wizard.Preview.Update)), toneSuccess)
@@ -859,7 +1104,11 @@ func (a *app) wizardValidateStep(c *ui.Context, p uiPalette, wizard *importWizar
 			}
 		}
 		ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
-			if plainButton(c, locales.ImportWizardBackToMapping()).Clicked() {
+			if wizard.Kind == importer.KindArchivedResults {
+				if plainButton(c, locales.Back()).Clicked() {
+					wizard.Step = wizardStepFile
+				}
+			} else if plainButton(c, locales.ImportWizardBackToMapping()).Clicked() {
 				wizard.Step = wizardStepMapping
 			}
 			if len(wizard.Issues) > 0 {
@@ -871,8 +1120,9 @@ func (a *app) wizardValidateStep(c *ui.Context, p uiPalette, wizard *importWizar
 				checkboxField(c, &wizard.ConfirmedWarnings,
 					fmt.Sprintf(locales.ImportWizardConfirmWarnings(), formatInt(wizard.Preview.Warnings)))
 			}
+			importCount := wizard.Preview.New + wizard.Preview.Update
 			button := labelledButton(c,
-				fmt.Sprintf(locales.ImportWizardImportRows(), formatInt(wizard.Preview.New+wizard.Preview.Update)),
+				fmt.Sprintf(locales.ImportWizardImportRows(), formatInt(importCount)),
 				iconCheck, true)
 			button.Disabled(wizard.Preview.Blocking > 0 || wizard.Busy ||
 				(wizard.Preview.Warnings > 0 && !wizard.ConfirmedWarnings))
@@ -880,6 +1130,75 @@ func (a *app) wizardValidateStep(c *ui.Context, p uiPalette, wizard *importWizar
 				a.wizardApply()
 			}
 		})
+	})
+}
+
+func archiveSheetRoleLabel(role string) string {
+	switch role {
+	case importer.ArchiveRoleQuant:
+		return locales.ArchiveSheetRoleQuant()
+	case importer.ArchiveRoleRank:
+		return locales.ArchiveSheetRoleRank()
+	case importer.ArchiveRolePersonal:
+		return locales.ArchiveSheetRolePersonal()
+	default:
+		return locales.ArchiveSheetRoleOther()
+	}
+}
+
+func (a *app) archivePreviewPanel(c *ui.Context, p uiPalette, inspect *importer.ArchiveInspectResult) {
+	t := p.theme
+	matchedSheets := 0
+	for _, s := range inspect.Sheets {
+		if s.Role != "" && s.Recommended {
+			matchedSheets++
+		}
+	}
+	ui.Column(c).FillWidth().Gap(t.Space(2)).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Wrap().Gap(t.Space(2)).Children(func() {
+			ui.Text(c, locales.ArchivePreviewTitle()).FontSize(bodySize(t)).FontWeight(600)
+			badge(c, p, fmt.Sprintf(locales.ArchivePreviewSheetsBadge(), formatInt(matchedSheets)), toneAccent)
+			badge(c, p, fmt.Sprintf(locales.ArchivePreviewResultRowsBadge(), formatInt(len(inspect.Data.Rows))), toneNeutral)
+			badge(c, p, fmt.Sprintf(locales.ArchivePreviewPersonalBadge(), formatInt(len(inspect.Data.Personal))), toneNeutral)
+		})
+		for _, s := range inspect.Sheets {
+			if s.Role == "" || !s.Recommended {
+				continue
+			}
+			fmtLabel := locales.ArchiveFormatLong()
+			if s.Format == "wide" {
+				fmtLabel = locales.ArchiveFormatWide()
+			}
+			ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(2)).Children(func() {
+				badge(c, p, archiveSheetRoleLabel(s.Role), toneSuccess)
+				ui.Textf(c, locales.ArchivePreviewSheetMeta(), s.Name, fmtLabel, formatInt(s.RowCount)).
+					FontSize(captionSize(t)).TextColor(p.inkSecondary).FontFeatures("tnum")
+			})
+		}
+		if len(inspect.Data.Rows) > 0 {
+			ui.Text(c, locales.ArchivePreviewRowTitle()).FontSize(captionSize(t)).FontWeight(600).TextColor(p.muted)
+			limit := min(len(inspect.Data.Rows), 4)
+			for i := 0; i < limit; i++ {
+				r := inspect.Data.Rows[i]
+				tierText := "-"
+				if r.TierIndex != nil {
+					tierText = fmt.Sprintf("%d", *r.TierIndex+1)
+				}
+				line := fmt.Sprintf("%s · %s · %.2f · #%d · %s · %.2f",
+					r.ClassName, a.subjectName(r.Subject, r.Subject), r.Total, r.Rank, tierText, r.Points)
+				ui.Text(c, line).FontSize(captionSize(t)).TextColor(p.inkSecondary).FontFeatures("tnum").SingleLine()
+			}
+		}
+		if len(inspect.Data.Personal) > 0 {
+			ui.Text(c, locales.ArchivePreviewPersonalTitle()).FontSize(captionSize(t)).FontWeight(600).TextColor(p.muted)
+			limit := min(len(inspect.Data.Personal), 4)
+			for i := 0; i < limit; i++ {
+				ps := inspect.Data.Personal[i]
+				line := fmt.Sprintf("%s · %s · %.2f",
+					ps.TeacherName, a.subjectName(ps.Subject, ps.Subject), ps.Score)
+				ui.Text(c, line).FontSize(captionSize(t)).TextColor(p.inkSecondary).FontFeatures("tnum").SingleLine()
+			}
+		}
 	})
 }
 
@@ -893,7 +1212,12 @@ func (a *app) wizardResultStep(c *ui.Context, p uiPalette, wizard *importWizardS
 			})
 			ui.Text(c, locales.ImportWizardFinished()).FontSize(sectionSize(t)).FontWeight(600)
 		})
-		if summary != nil {
+		if wizard.ArchiveSummary != nil {
+			ui.Textf(c, locales.ImportResultArchived(),
+				formatInt(wizard.ArchiveSummary.ResultRows),
+				formatInt(wizard.ArchiveSummary.PersonalScores)).
+				FontSize(bodySize(t)).Pretty()
+		} else if summary != nil {
 			ui.Text(c, importResultText(wizard.Kind, summary)).FontSize(bodySize(t)).Pretty()
 		}
 		ui.Row(c).Wrap().Gap(t.Space(2)).Children(func() {
@@ -906,6 +1230,9 @@ func (a *app) wizardResultStep(c *ui.Context, p uiPalette, wizard *importWizardS
 			}
 			if plainButton(c, locales.ImportWizardViewData()).Clicked() {
 				a.importReturn = nil
+				if wizard.Kind == importer.KindArchivedResults && a.examAssessment.ID != 0 {
+					a.selectAssessment(a.examAssessment.ID)
+				}
 				a.page = importKindPage(wizard.Kind)
 				a.closeImportWizard()
 			}
@@ -946,6 +1273,8 @@ func importKindName(kind string) string {
 		return locales.ExamKindCutoffs()
 	case importer.KindTargets:
 		return locales.ExamKindTargets()
+	case importer.KindArchivedResults, store.ExamImportArchivedResults:
+		return locales.ExamKindArchivedResults()
 	case store.ExamImportRoster, store.ExamImportScores, store.ExamImportCutoffs, store.ExamImportTargets:
 		switch kind {
 		case store.ExamImportRoster:
@@ -982,6 +1311,20 @@ func (a *app) importKindCount(kind string) int {
 		return len(a.examSubjectCutoffs) + len(a.examTierCutoffs)
 	case importer.KindTargets:
 		return a.examCohort.ClassTargetCount
+	case importer.KindArchivedResults:
+		if a.examAssessment.ID != 0 && a.examAssessment.ExamCohortID == a.examCohort.ID && a.examAssessment.Archived {
+			return 1
+		}
+		if a.importCenterExamID != 0 {
+			if cohort := a.selectedCohort(); cohort != nil {
+				for _, ov := range a.assessments {
+					if ov.ExamID == a.importCenterExamID && ov.CohortID == cohort.ID && ov.Archived {
+						return 1
+					}
+				}
+			}
+		}
+		return 0
 	default:
 		return 0
 	}
@@ -1007,6 +1350,8 @@ func importKindPurpose(kind string) string {
 		return locales.ExamKindCutoffsPurpose()
 	case importer.KindTargets:
 		return locales.ExamKindTargetsPurpose()
+	case importer.KindArchivedResults:
+		return locales.ExamKindArchivedResultsPurpose()
 	default:
 		return ""
 	}
@@ -1024,6 +1369,8 @@ func importKindPage(kind string) pageID {
 		return pageBaseline
 	case importer.KindRoster, importer.KindScores, importer.KindCutoffs, importer.KindTargets:
 		return pageExams
+	case importer.KindArchivedResults:
+		return pageAssessments
 	default:
 		return pageImports
 	}
@@ -1060,6 +1407,8 @@ func examImportKind(kind string) string {
 		return store.ExamImportCutoffs
 	case importer.KindTargets:
 		return store.ExamImportTargets
+	case importer.KindArchivedResults:
+		return store.ExamImportArchivedResults
 	default:
 		return ""
 	}
@@ -1071,6 +1420,9 @@ func (a *app) importKindColumns(kind string) string {
 		if field.Required {
 			names = append(names, a.importFieldLabel(field.Key))
 		}
+	}
+	if len(names) == 0 {
+		return ""
 	}
 	return fmt.Sprintf(locales.ImportWizardRequiredColumns(), strings.Join(names, locales.ListSeparator()))
 }
@@ -1113,6 +1465,44 @@ func (a *app) importFieldLabel(key string) string {
 		return locales.ImportFieldCutoffTier()
 	case importer.FieldCutoffValue:
 		return locales.ImportFieldCutoffValue()
+	case "tier":
+		return locales.ImportFieldTier()
+	case "points":
+		return locales.ImportFieldPoints()
+	case "rank":
+		return locales.ImportFieldRank()
+	case "quant_total_score":
+		return locales.ImportFieldQuantTotalScore()
+	case "personal_score":
+		return locales.ImportFieldPersonalScore()
+	case "stat_group":
+		return locales.ImportFieldStatGroup()
+	case "class_count":
+		return locales.ImportFieldClassCount()
+	case "class_average":
+		return locales.ImportFieldClassAverage()
+	case "grade_average":
+		return locales.ImportFieldGradeAverage()
+	case "baseline_average":
+		return locales.ImportFieldBaselineAverage()
+	case "baseline_ratio":
+		return locales.ImportFieldBaselineRatio()
+	case "improvement_raw":
+		return locales.ImportFieldImprovementRaw()
+	case "improvement_score":
+		return locales.ImportFieldImprovementScore()
+	case "pass_count":
+		return locales.ImportFieldPassCount()
+	case "pass_target":
+		return locales.ImportFieldPassTarget()
+	case "pass_raw":
+		return locales.ImportFieldPassRaw()
+	case "pass_score":
+		return locales.ImportFieldPassScore()
+	case "completion_score":
+		return locales.ImportFieldCompletionScore()
+	case "group_points":
+		return locales.ImportFieldGroupPoints()
 	}
 	if strings.HasPrefix(key, "subject:") {
 		subject := strings.TrimPrefix(key, "subject:")
@@ -1244,6 +1634,20 @@ func (a *app) importIssueText(issue store.ImportIssue) string {
 		return fmt.Sprintf(locales.ImportIssueNegativeTarget(), arg(0), a.tierLabel(arg(1)))
 	case "duplicate_target":
 		return fmt.Sprintf(locales.ImportIssueDuplicateTarget(), arg(0))
+	case "archive_invalid_tier":
+		return fmt.Sprintf(locales.ImportIssueArchiveInvalidTier(), arg(0))
+	case "archive_missing_points":
+		return fmt.Sprintf(locales.ImportIssueArchiveMissingPoints(), arg(0), a.subjectName(arg(1), arg(1)))
+	case "archive_missing_total":
+		return fmt.Sprintf(locales.ImportIssueArchiveMissingTotal(), arg(0), a.subjectName(arg(1), arg(1)))
+	case "archive_missing_teacher":
+		return fmt.Sprintf(locales.ImportIssueArchiveMissingTeacher(), arg(0), a.subjectName(arg(1), arg(1)))
+	case "archive_missing_rank":
+		return fmt.Sprintf(locales.ImportIssueArchiveMissingRank(), arg(0), a.subjectName(arg(1), arg(1)))
+	case "archive_stat_group_duplicate":
+		return fmt.Sprintf(locales.ImportIssueArchiveStatGroupDup(), arg(0), a.subjectName(arg(1), arg(1)))
+	case "archive_personal_duplicate":
+		return fmt.Sprintf(locales.ImportIssueArchivePersonalDup(), arg(0), a.subjectName(arg(1), arg(1)))
 	default:
 		return issue.Code
 	}

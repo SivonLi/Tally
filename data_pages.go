@@ -316,6 +316,23 @@ func (a *app) detailRow(c *ui.Context, p uiPalette, label, value string) {
 	})
 }
 
+// summaryMetricRow 渲染左右对齐的弹性键值汇总行：左侧标签按剩余宽度自适应，右侧数值不收缩且等宽对齐，避免窄列截断长标签。
+func (a *app) summaryMetricRow(c *ui.Context, p uiPalette, label, value string) {
+	t := p.theme
+	shown := dashOr(value)
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(t.Space(3)).Children(func() {
+		ui.Text(c, label).FontSize(bodySize(t)).TextColor(p.inkSecondary).
+			Grow(1).Shrink(1).MinWidth(0).Pretty()
+		text := ui.Text(c, shown).FontSize(bodySize(t)).FontWeight(600).
+			FontFeatures("tnum").Shrink(0).SingleLine()
+		if strings.TrimSpace(value) == "" {
+			text.TextColor(p.muted)
+		} else {
+			text.TextColor(p.ink)
+		}
+	})
+}
+
 func (a *app) detailPathRow(c *ui.Context, p uiPalette, label, path string) {
 	t := p.theme
 	shown := dashOr(path)
